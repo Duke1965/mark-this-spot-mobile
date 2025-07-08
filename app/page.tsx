@@ -336,7 +336,7 @@ export default function LocationApp() {
         </div>
 
         <div className="flex-1 p-6">
-          <GoogleMap
+          <SimpleMapTest />
             spots={spots}
             center={userLocation || undefined}
             selectedMarker={selectedMarker}
