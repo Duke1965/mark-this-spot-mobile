@@ -42,7 +42,7 @@ export function GoogleMap({
   const [loadError, setLoadError] = useState<string | null>(null)
   const markersRef = useRef<any[]>([])
 
-  // Load Google Maps API
+  // Load Google Maps API with better error handling
   useEffect(() => {
     if (window.google) {
       setIsLoaded(true)
@@ -52,77 +52,94 @@ export function GoogleMap({
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      setLoadError("Google Maps API key not found. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file")
+      console.error("Google Maps API key missing")
+      setLoadError("Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to environment variables.")
+      return
+    }
+
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existingScript) {
+      setIsLoaded(true)
       return
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap&libraries=places`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap&libraries=places&v=3.55`
     script.async = true
     script.defer = true
 
     window.initGoogleMap = () => {
+      console.log("Google Maps loaded successfully")
       setIsLoaded(true)
     }
 
-    script.onerror = () => {
-      setLoadError("Failed to load Google Maps. Please check your API key and internet connection.")
+    script.onerror = (error) => {
+      console.error("Google Maps failed to load:", error)
+      setLoadError("Failed to load Google Maps. Check your API key and internet connection.")
     }
 
     document.head.appendChild(script)
 
     return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script)
-      }
+      // Cleanup
+      delete window.initGoogleMap
     }
   }, [])
 
-  // Initialize map
+  // Initialize map with better error handling
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || loadError) return
+    if (!isLoaded || !mapRef.current || loadError || !window.google) return
 
-    const defaultCenter = center || { lat: 37.7749, lng: -122.4194 }
+    try {
+      const defaultCenter = center || { lat: 37.7749, lng: -122.4194 }
 
-    const newMap = new window.google.maps.Map(mapRef.current, {
-      zoom,
-      center: defaultCenter,
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }],
-        },
-      ],
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
-    })
-
-    // Add click listener for adding new spots
-    if (onMapClick) {
-      newMap.addListener("click", (event: any) => {
-        const lat = event.latLng.lat()
-        const lng = event.latLng.lng()
-        onMapClick(lat, lng)
+      const newMap = new window.google.maps.Map(mapRef.current, {
+        zoom,
+        center: defaultCenter,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }],
+          },
+        ],
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        zoomControl: true,
       })
-    }
 
-    setMap(newMap)
+      // Add click listener for adding new spots
+      if (onMapClick) {
+        newMap.addListener("click", (event: any) => {
+          const lat = event.latLng.lat()
+          const lng = event.latLng.lng()
+          console.log("Map clicked:", lat, lng)
+          onMapClick(lat, lng)
+        })
+      }
+
+      console.log("Map initialized successfully")
+      setMap(newMap)
+    } catch (error) {
+      console.error("Map initialization failed:", error)
+      setLoadError("Failed to initialize Google Maps")
+    }
   }, [isLoaded, center, zoom, onMapClick, loadError])
 
-  // Get marker properties based on selected type
-  const getMarkerProperties = (markerType: string) => {
+  // Enhanced marker creation with proper 3D styles
+  const createCustomMarker = (markerType: string, color: string) => {
     switch (markerType) {
       case "diamond":
         return {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 15,
+          path: "M 0,-20 L 15,-5 L 0,20 L -15,-5 Z",
+          scale: 1.2,
           fillColor: "#8B5CF6",
           fillOpacity: 1,
           strokeColor: "#FFFFFF",
           strokeWeight: 3,
-          labelOrigin: new window.google.maps.Point(0, 0),
+          anchor: new window.google.maps.Point(0, 0),
         }
       case "star":
         return {
@@ -132,12 +149,12 @@ export function GoogleMap({
           fillOpacity: 1,
           strokeColor: "#FFFFFF",
           strokeWeight: 2,
-          labelOrigin: new window.google.maps.Point(0, 0),
+          anchor: new window.google.maps.Point(0, 0),
         }
       case "flag":
         return {
-          path: "M 0,0 L 0,-20 L 15,-15 L 15,-5 L 0,0 z",
-          scale: 1.5,
+          path: "M 0,0 L 0,-30 L 20,-25 L 20,-10 L 0,-5 Z",
+          scale: 1.2,
           fillColor: "#EF4444",
           fillOpacity: 1,
           strokeColor: "#FFFFFF",
@@ -147,12 +164,11 @@ export function GoogleMap({
       case "post":
         return {
           path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 12,
+          scale: 15,
           fillColor: "#10B981",
           fillOpacity: 1,
           strokeColor: "#FFFFFF",
           strokeWeight: 4,
-          labelOrigin: new window.google.maps.Point(0, 0),
         }
       default: // pin
         return {
@@ -162,108 +178,132 @@ export function GoogleMap({
           fillOpacity: 1,
           strokeColor: "#FFFFFF",
           strokeWeight: 3,
-          labelOrigin: new window.google.maps.Point(0, 0),
         }
     }
   }
 
-  // Add markers for spots
+  // Add markers with enhanced styling
   useEffect(() => {
     if (!map || !window.google || loadError) return
 
-    console.log("Adding markers with style:", selectedMarker) // Debug log
+    console.log(`Adding ${spots.length} markers with style: ${selectedMarker}`)
 
     // Clear existing markers
-    markersRef.current.forEach((marker) => marker.setMap(null))
+    markersRef.current.forEach((marker) => {
+      marker.setMap(null)
+    })
     markersRef.current = []
 
     // Add new markers with custom styling
     spots.forEach((spot, index) => {
-      const markerIcon = getMarkerProperties(selectedMarker)
+      try {
+        const markerIcon = createCustomMarker(selectedMarker, "#3B82F6")
 
-      const marker = new window.google.maps.Marker({
-        position: { lat: spot.latitude, lng: spot.longitude },
-        map,
-        title: spot.address,
-        icon: markerIcon,
-        animation: index === 0 ? window.google.maps.Animation.BOUNCE : null,
-      })
+        const marker = new window.google.maps.Marker({
+          position: { lat: spot.latitude, lng: spot.longitude },
+          map,
+          title: spot.address,
+          icon: markerIcon,
+          animation: index === 0 ? window.google.maps.Animation.BOUNCE : null,
+          optimized: false, // Better for custom icons
+        })
 
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding: 12px; max-width: 250px; font-family: system-ui;">
-            <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${spot.address}</h3>
-            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-              📅 ${new Date(spot.timestamp).toLocaleDateString()} at ${new Date(spot.timestamp).toLocaleTimeString()}
-            </p>
-            <p style="margin: 0 0 12px 0; color: #9ca3af; font-size: 12px; font-family: monospace;">
-              📍 ${spot.latitude.toFixed(6)}, ${spot.longitude.toFixed(6)}
-            </p>
-            <p style="margin: 0 0 8px 0; color: #8B5CF6; font-size: 12px;">
-              Marker Style: ${selectedMarker.toUpperCase()}
-            </p>
-            <button 
-              onclick="window.playSpotFart && window.playSpotFart('${spot.id}')"
-              style="
-                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: bold;
-                font-size: 12px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              "
-              onmouseover="this.style.transform='scale(1.05)'"
-              onmouseout="this.style.transform='scale(1)'"
-            >
-              💨 REPLAY FART!
-            </button>
-          </div>
-        `,
-      })
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 16px; max-width: 280px; font-family: system-ui; line-height: 1.4;">
+              <h3 style="margin: 0 0 12px 0; color: #1f2937; font-size: 18px; font-weight: bold;">${spot.address}</h3>
+              <div style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">📅</span>
+                ${new Date(spot.timestamp).toLocaleDateString()} at ${new Date(spot.timestamp).toLocaleTimeString()}
+              </div>
+              <div style="margin: 0 0 12px 0; color: #9ca3af; font-size: 12px; font-family: monospace; background: #f3f4f6; padding: 8px; border-radius: 4px;">
+                📍 ${spot.latitude.toFixed(6)}, ${spot.longitude.toFixed(6)}
+              </div>
+              <div style="margin: 0 0 12px 0; color: #8B5CF6; font-size: 12px; font-weight: bold;">
+                🎯 Marker Style: ${selectedMarker.toUpperCase()}
+              </div>
+              <button 
+                onclick="window.playSpotFart && window.playSpotFart('${spot.id}')"
+                style="
+                  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                  color: white;
+                  border: none;
+                  padding: 12px 20px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  font-weight: bold;
+                  font-size: 14px;
+                  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                  transition: all 0.2s;
+                  width: 100%;
+                "
+                onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.3)'"
+                onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2)'"
+              >
+                💨 REPLAY EPIC FART!
+              </button>
+            </div>
+          `,
+        })
 
-      marker.addListener("click", () => {
-        // Close other info windows
-        markersRef.current.forEach((m) => m.infoWindow?.close())
+        marker.addListener("click", () => {
+          // Close other info windows
+          markersRef.current.forEach((m) => {
+            if (m.infoWindow) {
+              m.infoWindow.close()
+            }
+          })
 
-        infoWindow.open(map, marker)
-        marker.infoWindow = infoWindow
+          infoWindow.open(map, marker)
+          marker.infoWindow = infoWindow
 
-        if (onSpotClick) {
-          onSpotClick(spot)
-        }
-      })
+          console.log("Marker clicked:", spot.address)
 
-      markersRef.current.push(marker)
+          if (onSpotClick) {
+            onSpotClick(spot)
+          }
+        })
+
+        markersRef.current.push(marker)
+        console.log(`Added marker ${index + 1}: ${spot.address}`)
+      } catch (error) {
+        console.error(`Failed to create marker for spot ${index}:`, error)
+      }
     })
 
     // Auto-fit map to show all markers
     if (spots.length > 1) {
-      const bounds = new window.google.maps.LatLngBounds()
-      spots.forEach((spot) => {
-        bounds.extend({ lat: spot.latitude, lng: spot.longitude })
-      })
-      map.fitBounds(bounds)
+      try {
+        const bounds = new window.google.maps.LatLngBounds()
+        spots.forEach((spot) => {
+          bounds.extend({ lat: spot.latitude, lng: spot.longitude })
+        })
+        map.fitBounds(bounds)
+        console.log("Map bounds adjusted for all markers")
+      } catch (error) {
+        console.error("Failed to fit bounds:", error)
+      }
+    } else if (spots.length === 1) {
+      map.setCenter({ lat: spots[0].latitude, lng: spots[0].longitude })
+      map.setZoom(15)
     }
   }, [map, spots, onSpotClick, loadError, selectedMarker])
 
   if (loadError) {
     return (
-      <div className="w-full h-64 bg-red-50 rounded-lg border-2 border-red-200 flex items-center justify-center">
-        <div className="text-center p-6">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Google Maps Error</h3>
-          <p className="text-red-600 text-sm mb-4">{loadError}</p>
-          <div className="bg-red-100 p-3 rounded text-xs text-left">
-            <strong>Setup Instructions:</strong>
-            <br />
-            1. Create .env.local file in your project root
-            <br />
-            2. Add: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
-            <br />
-            3. Restart your development server
+      <div className="w-full h-80 bg-red-50 rounded-xl border-2 border-red-200 flex items-center justify-center">
+        <div className="text-center p-6 max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h3 className="text-xl font-bold text-red-800 mb-3">Google Maps Error</h3>
+          <p className="text-red-600 text-sm mb-4 leading-relaxed">{loadError}</p>
+          <div className="bg-red-100 p-4 rounded-lg text-xs text-left">
+            <div className="font-bold mb-2">🔧 Setup Instructions:</div>
+            <div className="space-y-1">
+              <div>1. Go to Vercel Dashboard</div>
+              <div>2. Settings → Environment Variables</div>
+              <div>3. Add: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</div>
+              <div>4. Redeploy your app</div>
+            </div>
           </div>
         </div>
       </div>
@@ -272,18 +312,24 @@ export function GoogleMap({
 
   if (!isLoaded) {
     return (
-      <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="w-full h-80 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Google Maps...</p>
-          <p className="text-xs text-gray-500 mt-2">Connecting to Google Maps API</p>
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div
+              className="absolute inset-0 w-16 h-16 border-4 border-blue-300 border-b-transparent rounded-full animate-spin mx-auto opacity-30"
+              style={{ animationDirection: "reverse", animationDuration: "1.5s" }}
+            ></div>
+          </div>
+          <p className="text-gray-700 font-semibold">Loading Google Maps...</p>
+          <p className="text-sm text-gray-500 mt-2">Connecting to mapping services</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full h-64 rounded-lg border border-gray-200 overflow-hidden shadow-lg">
+    <div className="w-full h-80 rounded-xl border-2 border-gray-200 overflow-hidden shadow-xl bg-white">
       <div ref={mapRef} className="w-full h-full" />
     </div>
   )
