@@ -1,336 +1,172 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+// Enhanced audio system for mobile browsers
+export class FartSoundEngine {
+  private audioContext: AudioContext | null = null
+  private isInitialized = false
 
-interface Spot {
-  id: string
-  latitude: number
-  longitude: number
-  timestamp: string
-  address: string
-  notes: string
-  photos?: string[]
-}
-
-interface GoogleMapProps {
-  spots: Spot[]
-  onSpotClick?: (spot: Spot) => void
-  center?: { lat: number; lng: number }
-  zoom?: number
-  onMapClick?: (lat: number, lng: number) => void
-  selectedMarker?: string
-}
-
-declare global {
-  interface Window {
-    google: any
-    initGoogleMap: () => void
+  constructor() {
+    this.initializeAudio()
   }
-}
 
-export function GoogleMap({
-  spots,
-  onSpotClick,
-  center,
-  zoom = 13,
-  onMapClick,
-  selectedMarker = "pin",
-}: GoogleMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<any>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const markersRef = useRef<any[]>([])
-
-  // Load Google Maps API with better error handling
-  useEffect(() => {
-    if (window.google) {
-      setIsLoaded(true)
-      return
-    }
-
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-
-    if (!apiKey) {
-      console.error("Google Maps API key missing")
-      setLoadError("Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to environment variables.")
-      return
-    }
-
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-    if (existingScript) {
-      setIsLoaded(true)
-      return
-    }
-
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap&libraries=places&v=3.55`
-    script.async = true
-    script.defer = true
-
-    window.initGoogleMap = () => {
-      console.log("Google Maps loaded successfully")
-      setIsLoaded(true)
-    }
-
-    script.onerror = (error) => {
-      console.error("Google Maps failed to load:", error)
-      setLoadError("Failed to load Google Maps. Check your API key and internet connection.")
-    }
-
-    document.head.appendChild(script)
-
-    return () => {
-      // Cleanup
-      delete window.initGoogleMap
-    }
-  }, [])
-
-  // Initialize map with better error handling
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || loadError || !window.google) return
-
+  private async initializeAudio() {
     try {
-      const defaultCenter = center || { lat: 37.7749, lng: -122.4194 }
+      // Create audio context with better mobile support
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
 
-      const newMap = new window.google.maps.Map(mapRef.current, {
-        zoom,
-        center: defaultCenter,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }],
-          },
-        ],
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-        zoomControl: true,
-      })
-
-      // Add click listener for adding new spots
-      if (onMapClick) {
-        newMap.addListener("click", (event: any) => {
-          const lat = event.latLng.lat()
-          const lng = event.latLng.lng()
-          console.log("Map clicked:", lat, lng)
-          onMapClick(lat, lng)
-        })
+      if (!AudioContextClass) {
+        console.warn("Web Audio API not supported")
+        return
       }
 
-      console.log("Map initialized successfully")
-      setMap(newMap)
+      this.audioContext = new AudioContextClass()
+
+      // Handle mobile audio context suspension
+      if (this.audioContext.state === "suspended") {
+        console.log("Audio context suspended, will resume on user interaction")
+      }
+
+      this.isInitialized = true
+      console.log("Fart Sound Engine initialized successfully")
     } catch (error) {
-      console.error("Map initialization failed:", error)
-      setLoadError("Failed to initialize Google Maps")
-    }
-  }, [isLoaded, center, zoom, onMapClick, loadError])
-
-  // Enhanced marker creation with proper 3D styles
-  const createCustomMarker = (markerType: string, color: string) => {
-    switch (markerType) {
-      case "diamond":
-        return {
-          path: "M 0,-20 L 15,-5 L 0,20 L -15,-5 Z",
-          scale: 1.2,
-          fillColor: "#8B5CF6",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 3,
-          anchor: new window.google.maps.Point(0, 0),
-        }
-      case "star":
-        return {
-          path: "M 0,-24 6,-7 24,-7 10,3 15,21 0,11 -15,21 -10,3 -24,-7 -6,-7 z",
-          scale: 1,
-          fillColor: "#F59E0B",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 2,
-          anchor: new window.google.maps.Point(0, 0),
-        }
-      case "flag":
-        return {
-          path: "M 0,0 L 0,-30 L 20,-25 L 20,-10 L 0,-5 Z",
-          scale: 1.2,
-          fillColor: "#EF4444",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 2,
-          anchor: new window.google.maps.Point(0, 0),
-        }
-      case "post":
-        return {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 15,
-          fillColor: "#10B981",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 4,
-        }
-      default: // pin
-        return {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: "#3B82F6",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 3,
-        }
+      console.error("Failed to initialize audio:", error)
     }
   }
 
-  // Add markers with enhanced styling
-  useEffect(() => {
-    if (!map || !window.google || loadError) return
+  private async ensureAudioContext() {
+    if (!this.audioContext) {
+      await this.initializeAudio()
+    }
 
-    console.log(`Adding ${spots.length} markers with style: ${selectedMarker}`)
-
-    // Clear existing markers
-    markersRef.current.forEach((marker) => {
-      marker.setMap(null)
-    })
-    markersRef.current = []
-
-    // Add new markers with custom styling
-    spots.forEach((spot, index) => {
+    if (this.audioContext && this.audioContext.state === "suspended") {
       try {
-        const markerIcon = createCustomMarker(selectedMarker, "#3B82F6")
-
-        const marker = new window.google.maps.Marker({
-          position: { lat: spot.latitude, lng: spot.longitude },
-          map,
-          title: spot.address,
-          icon: markerIcon,
-          animation: index === 0 ? window.google.maps.Animation.BOUNCE : null,
-          optimized: false, // Better for custom icons
-        })
-
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 16px; max-width: 280px; font-family: system-ui; line-height: 1.4;">
-              <h3 style="margin: 0 0 12px 0; color: #1f2937; font-size: 18px; font-weight: bold;">${spot.address}</h3>
-              <div style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; display: flex; align-items: center;">
-                <span style="margin-right: 8px;">📅</span>
-                ${new Date(spot.timestamp).toLocaleDateString()} at ${new Date(spot.timestamp).toLocaleTimeString()}
-              </div>
-              <div style="margin: 0 0 12px 0; color: #9ca3af; font-size: 12px; font-family: monospace; background: #f3f4f6; padding: 8px; border-radius: 4px;">
-                📍 ${spot.latitude.toFixed(6)}, ${spot.longitude.toFixed(6)}
-              </div>
-              <div style="margin: 0 0 12px 0; color: #8B5CF6; font-size: 12px; font-weight: bold;">
-                🎯 Marker Style: ${selectedMarker.toUpperCase()}
-              </div>
-              <button 
-                onclick="window.playSpotFart && window.playSpotFart('${spot.id}')"
-                style="
-                  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-                  color: white;
-                  border: none;
-                  padding: 12px 20px;
-                  border-radius: 8px;
-                  cursor: pointer;
-                  font-weight: bold;
-                  font-size: 14px;
-                  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                  transition: all 0.2s;
-                  width: 100%;
-                "
-                onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.3)'"
-                onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2)'"
-              >
-                💨 REPLAY EPIC FART!
-              </button>
-            </div>
-          `,
-        })
-
-        marker.addListener("click", () => {
-          // Close other info windows
-          markersRef.current.forEach((m) => {
-            if (m.infoWindow) {
-              m.infoWindow.close()
-            }
-          })
-
-          infoWindow.open(map, marker)
-          marker.infoWindow = infoWindow
-
-          console.log("Marker clicked:", spot.address)
-
-          if (onSpotClick) {
-            onSpotClick(spot)
-          }
-        })
-
-        markersRef.current.push(marker)
-        console.log(`Added marker ${index + 1}: ${spot.address}`)
+        await this.audioContext.resume()
+        console.log("Audio context resumed")
       } catch (error) {
-        console.error(`Failed to create marker for spot ${index}:`, error)
+        console.error("Failed to resume audio context:", error)
       }
-    })
-
-    // Auto-fit map to show all markers
-    if (spots.length > 1) {
-      try {
-        const bounds = new window.google.maps.LatLngBounds()
-        spots.forEach((spot) => {
-          bounds.extend({ lat: spot.latitude, lng: spot.longitude })
-        })
-        map.fitBounds(bounds)
-        console.log("Map bounds adjusted for all markers")
-      } catch (error) {
-        console.error("Failed to fit bounds:", error)
-      }
-    } else if (spots.length === 1) {
-      map.setCenter({ lat: spots[0].latitude, lng: spots[0].longitude })
-      map.setZoom(15)
     }
-  }, [map, spots, onSpotClick, loadError, selectedMarker])
-
-  if (loadError) {
-    return (
-      <div className="w-full h-80 bg-red-50 rounded-xl border-2 border-red-200 flex items-center justify-center">
-        <div className="text-center p-6 max-w-md">
-          <div className="text-6xl mb-4">⚠️</div>
-          <h3 className="text-xl font-bold text-red-800 mb-3">Google Maps Error</h3>
-          <p className="text-red-600 text-sm mb-4 leading-relaxed">{loadError}</p>
-          <div className="bg-red-100 p-4 rounded-lg text-xs text-left">
-            <div className="font-bold mb-2">🔧 Setup Instructions:</div>
-            <div className="space-y-1">
-              <div>1. Go to Vercel Dashboard</div>
-              <div>2. Settings → Environment Variables</div>
-              <div>3. Add: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</div>
-              <div>4. Redeploy your app</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
   }
 
-  if (!isLoaded) {
-    return (
-      <div className="w-full h-80 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <div
-              className="absolute inset-0 w-16 h-16 border-4 border-blue-300 border-b-transparent rounded-full animate-spin mx-auto opacity-30"
-              style={{ animationDirection: "reverse", animationDuration: "1.5s" }}
-            ></div>
-          </div>
-          <p className="text-gray-700 font-semibold">Loading Google Maps...</p>
-          <p className="text-sm text-gray-500 mt-2">Connecting to mapping services</p>
-        </div>
-      </div>
-    )
+  async playFartSound(type: "classic" | "quick" | "squeaky" = "classic") {
+    try {
+      await this.ensureAudioContext()
+
+      if (!this.audioContext) {
+        console.warn("Audio context not available, using fallback")
+        this.playFallbackSound(type)
+        return
+      }
+
+      console.log(`Playing fart sound: ${type}`)
+
+      const oscillator = this.audioContext.createOscillator()
+      const gainNode = this.audioContext.createGain()
+      const filterNode = this.audioContext.createBiquadFilter()
+
+      // Connect audio nodes
+      oscillator.connect(filterNode)
+      filterNode.connect(gainNode)
+      gainNode.connect(this.audioContext.destination)
+
+      // Configure filter for more realistic sound
+      filterNode.type = "lowpass"
+      filterNode.frequency.setValueAtTime(200, this.audioContext.currentTime)
+
+      const currentTime = this.audioContext.currentTime
+
+      switch (type) {
+        case "classic":
+          // Deep, rumbling fart
+          oscillator.type = "sawtooth"
+          oscillator.frequency.setValueAtTime(80, currentTime)
+          oscillator.frequency.exponentialRampToValueAtTime(40, currentTime + 0.4)
+          gainNode.gain.setValueAtTime(0.8, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.4)
+          filterNode.frequency.exponentialRampToValueAtTime(100, currentTime + 0.4)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.4)
+          break
+
+        case "quick":
+          // Short, sharp pop
+          oscillator.type = "square"
+          oscillator.frequency.setValueAtTime(150, currentTime)
+          oscillator.frequency.exponentialRampToValueAtTime(80, currentTime + 0.15)
+          gainNode.gain.setValueAtTime(0.8, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.15)
+          filterNode.frequency.setValueAtTime(300, currentTime)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.15)
+          break
+
+        case "squeaky":
+          // High-pitched, squeaky sound
+          oscillator.type = "sine"
+          oscillator.frequency.setValueAtTime(250, currentTime)
+          oscillator.frequency.linearRampToValueAtTime(180, currentTime + 0.25)
+          gainNode.gain.setValueAtTime(0.8, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.25)
+          filterNode.frequency.setValueAtTime(400, currentTime)
+          filterNode.frequency.linearRampToValueAtTime(200, currentTime + 0.25)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.25)
+          break
+      }
+
+      console.log(`Fart sound ${type} played successfully`)
+    } catch (error) {
+      console.error("Failed to play fart sound:", error)
+      this.playFallbackSound(type)
+    }
   }
 
-  return (
-    <div className="w-full h-80 rounded-xl border-2 border-gray-200 overflow-hidden shadow-xl bg-white">
-      <div ref={mapRef} className="w-full h-full" />
-    </div>
-  )
+  private playFallbackSound(type: string) {
+    // Fallback for when Web Audio API fails
+    console.log(`🔊 FART SOUND: ${type.toUpperCase()} 💨`)
+
+    // Try to use HTML5 audio as fallback
+    try {
+      const audio = new Audio()
+      audio.volume = 0.5
+
+      // Generate a simple beep as fallback
+      const context = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+
+      oscillator.connect(gain)
+      gain.connect(context.destination)
+
+      oscillator.frequency.value = type === "squeaky" ? 800 : type === "quick" ? 400 : 200
+      gain.gain.setValueAtTime(0.1, context.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.2)
+
+      oscillator.start()
+      oscillator.stop(context.currentTime + 0.2)
+    } catch (fallbackError) {
+      console.log("Even fallback audio failed, but fart sound was attempted! 💨")
+    }
+  }
+
+  // Test audio system
+  async testAudio() {
+    console.log("Testing fart sound system...")
+    await this.playFartSound("classic")
+  }
+}
+
+// Global fart sound engine instance
+let fartEngine: FartSoundEngine | null = null
+
+export function getFartSoundEngine(): FartSoundEngine {
+  if (!fartEngine) {
+    fartEngine = new FartSoundEngine()
+  }
+  return fartEngine
+}
+
+export async function playFartSound(type: "classic" | "quick" | "squeaky" = "classic") {
+  const engine = getFartSoundEngine()
+  await engine.playFartSound(type)
 }
