@@ -337,14 +337,7 @@ export default function LocationApp() {
 
         <div className="flex-1 p-6">
           <SimpleMapTest />
-            spots={spots}
-            center={userLocation || undefined}
-            selectedMarker={selectedMarker}
-            onSpotClick={(spot) => {
-              console.log("Clicked spot:", spot)
-              playFartSound(selectedFartSound as any)
-            }}
-          />
+            <SimpleMapTest />
 
           {spots.length === 0 && (
             <div className="text-center mt-8 p-8 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border-2 border-gray-100">
