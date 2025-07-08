@@ -65,7 +65,7 @@ export function GoogleMap({
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap&libraries=places&v=3.58&loading=async`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap&libraries=places&v=weekly&loading=async`
     script.async = true
     script.defer = true
 
