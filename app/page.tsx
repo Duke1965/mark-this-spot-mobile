@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { GoogleMap } from "./components/google-map"
+import { SimpleMapTest } from "./components/simple-map-test"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { MarkerSelector } from "./components/marker-icons"
