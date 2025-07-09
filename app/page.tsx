@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
-import { playFartSound } from "./utils/audio"
-import { Volume2, VolumeX, Library, Settings } from "lucide-react"
+import { playSound } from "./utils/audio"
+import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play } from "lucide-react"
 
 interface Spot {
   id: string
@@ -19,7 +19,7 @@ interface Spot {
 export default function LocationApp() {
   const [spots, setSpots] = useState<Spot[]>([])
   const [isMarking, setIsMarking] = useState(false)
-  const [selectedFartSound, setSelectedFartSound] = useState("classic")
+  const [selectedSound, setSelectedSound] = useState("success-chime")
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedMarker, setSelectedMarker] = useState("pin")
   const [isClient, setIsClient] = useState(false)
@@ -31,6 +31,25 @@ export default function LocationApp() {
   }, [])
 
   const { getCurrentLocation, isLoading: locationLoading, error: locationError } = useLocationServices()
+
+  // Sound categories and options
+  const soundCategories = {
+    "Achievement Sounds": {
+      "success-chime": { name: "Success Chime", emoji: "🔔", description: "Satisfying ding!" },
+      fanfare: { name: "Fanfare", emoji: "🎺", description: "Triumphant trumpet" },
+      "magic-sparkle": { name: "Magic Sparkle", emoji: "✨", description: "Whimsical chime" },
+    },
+    "Retro Game Sounds": {
+      "coin-collect": { name: "Coin Collect", emoji: "🪙", description: "Classic arcade" },
+      "power-up": { name: "Power-Up", emoji: "⭐", description: "Level complete" },
+      victory: { name: "Victory", emoji: "🎊", description: "Celebration sound" },
+    },
+    "Nature Sounds": {
+      "bird-chirp": { name: "Bird Chirp", emoji: "🐦", description: "Pleasant & universal" },
+      "water-drop": { name: "Water Drop", emoji: "💧", description: "Zen-like" },
+      "wind-chime": { name: "Wind Chime", emoji: "🎐", description: "Peaceful" },
+    },
+  }
 
   // Get user's current location for map centering
   useEffect(() => {
@@ -47,15 +66,15 @@ export default function LocationApp() {
     getInitialLocation()
   }, [getCurrentLocation])
 
-  // Global function for map info windows to play fart sounds
+  // Global function for map info windows to play sounds
   useEffect(() => {
-    ;(window as any).playSpotFart = async (spotId: string) => {
+    ;(window as any).playSpotSound = async (spotId: string) => {
       if (!isMuted) {
-        await playFartSound(selectedFartSound as any)
+        await playSound(selectedSound)
       }
-      console.log(`Playing fart for spot ${spotId}! 💨`)
+      console.log(`Playing sound for spot ${spotId}! 🎵`)
     }
-  }, [selectedFartSound, isMuted])
+  }, [selectedSound, isMuted])
 
   const markSpot = async () => {
     setIsMarking(true)
@@ -85,9 +104,9 @@ export default function LocationApp() {
       // Add spot immediately
       setSpots((prev) => [newSpot, ...prev])
 
-      // Play the fart sound (if not muted)!
+      // Play the selected sound (if not muted)!
       if (!isMuted) {
-        await playFartSound(selectedFartSound as any)
+        await playSound(selectedSound)
       }
 
       // Get real address in background
@@ -107,7 +126,12 @@ export default function LocationApp() {
 
       // Show success message
       setTimeout(() => {
-        const muteStatus = isMuted ? "🔇 MUTED" : "💨 EPIC FART DEPLOYED!"
+        const soundName =
+          Object.values(soundCategories)
+            .flatMap((category) => Object.entries(category))
+            .find(([key]) => key === selectedSound)?.[1]?.name || "Sound"
+
+        const muteStatus = isMuted ? "🔇 MUTED" : `🎵 ${soundName.toUpperCase()} PLAYED!`
         alert(`📍 LEGENDARY SPOT MARKED!
 
 ${muteStatus}
@@ -115,7 +139,7 @@ ${muteStatus}
 📍 Real GPS: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
 🎯 Accuracy: ±${location.accuracy?.toFixed(0)}m
 
-${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
+${isMuted ? "🔇 Sound is muted" : `🎵 ${soundName} activated!`}`)
       }, 100)
     } catch (error) {
       console.error("Error marking spot:", error)
@@ -206,7 +230,6 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
 
           {/* Big Pulsating Button */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Main button */}
             <button
               onClick={markSpot}
               disabled={isMarking || locationLoading}
@@ -243,7 +266,6 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                 }
               }}
             >
-              {/* Button content */}
               {isMarking || locationLoading ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div
@@ -261,7 +283,7 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                     {isMarking ? "MARKING..." : "GETTING GPS..."}
                   </div>
                   <div style={{ fontSize: "0.875rem", opacity: 0.8, marginTop: "0.75rem" }}>
-                    {isMuted ? "Preparing silent deployment!" : "Preparing epic fart deployment!"}
+                    {isMuted ? "Preparing silent deployment!" : "Preparing epic sound!"}
                   </div>
                 </div>
               ) : (
@@ -271,9 +293,9 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                     MARK SPOT
                   </div>
                   <div style={{ fontSize: "0.875rem", opacity: 0.9, textAlign: "center", marginBottom: "0.75rem" }}>
-                    {isMuted ? "Silent GPS Tracking" : "Real GPS + Epic Fart!"}
+                    {isMuted ? "Silent GPS Tracking" : "Real GPS + Epic Sound!"}
                   </div>
-                  <div style={{ fontSize: "1.5rem" }}>{isMuted ? "🔇" : "💨"}</div>
+                  <div style={{ fontSize: "1.5rem" }}>{isMuted ? "🔇" : "🎵"}</div>
                 </div>
               )}
             </button>
@@ -420,7 +442,7 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
     )
   }
 
-  // Libraries Screen (Placeholder)
+  // Libraries Screen - Enhanced with Sound Library
   if (currentScreen === "libraries") {
     return (
       <div
@@ -444,6 +466,9 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
             <button
               onClick={() => setCurrentScreen("main")}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
                 padding: "0.5rem 1rem",
                 background: "rgba(255,255,255,0.2)",
                 backdropFilter: "blur(10px)",
@@ -454,21 +479,185 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                 transition: "all 0.3s ease",
               }}
             >
-              ← Back
+              <ArrowLeft size={20} />
+              Back
             </button>
           </div>
         </div>
 
-        <div style={{ flex: 1, padding: "1.5rem", textAlign: "center" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "1.5rem" }}>📚</div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>Coming Soon!</h2>
-          <p style={{ color: "rgba(255,255,255,0.8)" }}>Fart sounds, pin icons, and postcard templates will be here.</p>
+        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+            {/* Sound Library */}
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                🎵 Sound Library
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
+                Choose your epic sound for marking spots!
+              </p>
+
+              {Object.entries(soundCategories).map(([categoryName, sounds]) => (
+                <div key={categoryName} style={{ marginBottom: "2rem" }}>
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                    {categoryName}
+                  </h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gap: "1rem",
+                    }}
+                  >
+                    {Object.entries(sounds).map(([soundKey, sound]) => (
+                      <button
+                        key={soundKey}
+                        onClick={() => setSelectedSound(soundKey)}
+                        style={{
+                          padding: "1rem",
+                          borderRadius: "0.75rem",
+                          border: selectedSound === soundKey ? "2px solid #3b82f6" : "2px solid transparent",
+                          background: selectedSound === soundKey ? "rgba(59, 130, 246, 0.2)" : "rgba(255,255,255,0.1)",
+                          backdropFilter: "blur(10px)",
+                          color: "white",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          textAlign: "left",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedSound !== soundKey) {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedSound !== soundKey) {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                          }
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "0.5rem",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ fontSize: "1.5rem" }}>{sound.emoji}</span>
+                            <span style={{ fontWeight: "bold" }}>{sound.name}</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!isMuted) playSound(soundKey)
+                            }}
+                            style={{
+                              padding: "0.25rem",
+                              borderRadius: "50%",
+                              border: "none",
+                              background: "rgba(255,255,255,0.2)",
+                              color: "white",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <Play size={16} />
+                          </button>
+                        </div>
+                        <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>{sound.description}</div>
+                        {selectedSound === soundKey && (
+                          <div
+                            style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#3b82f6", fontWeight: "bold" }}
+                          >
+                            ✓ Selected
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Maps & Spots - Coming Soon */}
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                🗺️ Maps & Spots
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1rem" }}>Coming in Phase 2!</p>
+              <div
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}
+              >
+                <div
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    background: "rgba(255,255,255,0.05)",
+                    textAlign: "center",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🗺️</div>
+                  <div style={{ fontSize: "0.875rem" }}>Maps View</div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    background: "rgba(255,255,255,0.05)",
+                    textAlign: "center",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📍</div>
+                  <div style={{ fontSize: "0.875rem" }}>My Spots</div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    background: "rgba(255,255,255,0.05)",
+                    textAlign: "center",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎯</div>
+                  <div style={{ fontSize: "0.875rem" }}>Pin Icons</div>
+                </div>
+                <div
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    background: "rgba(255,255,255,0.05)",
+                    textAlign: "center",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📮</div>
+                  <div style={{ fontSize: "0.875rem" }}>Postcards</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
-  // Settings Screen (Placeholder)
+  // Settings Screen
   if (currentScreen === "settings") {
     return (
       <div
@@ -492,6 +681,9 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
             <button
               onClick={() => setCurrentScreen("main")}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
                 padding: "0.5rem 1rem",
                 background: "rgba(255,255,255,0.2)",
                 backdropFilter: "blur(10px)",
@@ -502,7 +694,8 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                 transition: "all 0.3s ease",
               }}
             >
-              ← Back
+              <ArrowLeft size={20} />
+              Back
             </button>
           </div>
         </div>
@@ -538,6 +731,53 @@ ${isMuted ? "🔇 Sound is muted" : "💨 LEGENDARY FART SOUND ACTIVATED!"}`)
                   }}
                 >
                   {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Current Sound Setting */}
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                Current Sound
+              </h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <span style={{ fontSize: "2rem" }}>
+                  {Object.values(soundCategories)
+                    .flatMap((category) => Object.entries(category))
+                    .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
+                </span>
+                <div>
+                  <div style={{ color: "white", fontWeight: "bold" }}>
+                    {Object.values(soundCategories)
+                      .flatMap((category) => Object.entries(category))
+                      .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
+                    {Object.values(soundCategories)
+                      .flatMap((category) => Object.entries(category))
+                      .find(([key]) => key === selectedSound)?.[1]?.description || ""}
+                  </div>
+                </div>
+                <button
+                  onClick={() => !isMuted && playSound(selectedSound)}
+                  disabled={isMuted}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "50%",
+                    border: "none",
+                    background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
+                    color: isMuted ? "rgba(255,255,255,0.5)" : "white",
+                    cursor: isMuted ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Play size={20} />
                 </button>
               </div>
             </div>
