@@ -1,7 +1,7 @@
 "use client"
 
-// Enhanced audio system for mobile browsers
-export class FartSoundEngine {
+// Enhanced audio system with professional sounds
+export class SoundEngine {
   private audioContext: AudioContext | null = null
   private isInitialized = false
 
@@ -11,7 +11,6 @@ export class FartSoundEngine {
 
   private async initializeAudio() {
     try {
-      // Create audio context with better mobile support
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
 
       if (!AudioContextClass) {
@@ -21,13 +20,12 @@ export class FartSoundEngine {
 
       this.audioContext = new AudioContextClass()
 
-      // Handle mobile audio context suspension
       if (this.audioContext.state === "suspended") {
         console.log("Audio context suspended, will resume on user interaction")
       }
 
       this.isInitialized = true
-      console.log("Fart Sound Engine initialized successfully")
+      console.log("Sound Engine initialized successfully")
     } catch (error) {
       console.error("Failed to initialize audio:", error)
     }
@@ -48,7 +46,7 @@ export class FartSoundEngine {
     }
   }
 
-  async playFartSound(type: "classic" | "quick" | "squeaky" = "classic") {
+  async playSound(type = "success-chime") {
     try {
       await this.ensureAudioContext()
 
@@ -58,115 +56,168 @@ export class FartSoundEngine {
         return
       }
 
-      console.log(`Playing fart sound: ${type}`)
+      console.log(`Playing sound: ${type}`)
 
       const oscillator = this.audioContext.createOscillator()
       const gainNode = this.audioContext.createGain()
       const filterNode = this.audioContext.createBiquadFilter()
 
-      // Connect audio nodes
       oscillator.connect(filterNode)
       filterNode.connect(gainNode)
       gainNode.connect(this.audioContext.destination)
 
-      // Configure filter for more realistic sound
       filterNode.type = "lowpass"
-      filterNode.frequency.setValueAtTime(200, this.audioContext.currentTime)
-
       const currentTime = this.audioContext.currentTime
 
       switch (type) {
-        case "classic":
-          // Deep, rumbling fart
-          oscillator.type = "sawtooth"
-          oscillator.frequency.setValueAtTime(80, currentTime)
-          oscillator.frequency.exponentialRampToValueAtTime(40, currentTime + 0.4)
-          gainNode.gain.setValueAtTime(0.4, currentTime)
+        // ACHIEVEMENT SOUNDS
+        case "success-chime":
+          oscillator.type = "sine"
+          oscillator.frequency.setValueAtTime(523, currentTime) // C5
+          oscillator.frequency.setValueAtTime(659, currentTime + 0.1) // E5
+          oscillator.frequency.setValueAtTime(784, currentTime + 0.2) // G5
+          gainNode.gain.setValueAtTime(0.3, currentTime)
           gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.4)
-          filterNode.frequency.exponentialRampToValueAtTime(100, currentTime + 0.4)
+          filterNode.frequency.setValueAtTime(2000, currentTime)
           oscillator.start(currentTime)
           oscillator.stop(currentTime + 0.4)
           break
 
-        case "quick":
-          // Short, sharp pop
+        case "fanfare":
           oscillator.type = "square"
-          oscillator.frequency.setValueAtTime(150, currentTime)
-          oscillator.frequency.exponentialRampToValueAtTime(80, currentTime + 0.15)
-          gainNode.gain.setValueAtTime(0.3, currentTime)
-          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.15)
-          filterNode.frequency.setValueAtTime(300, currentTime)
+          oscillator.frequency.setValueAtTime(440, currentTime) // A4
+          oscillator.frequency.setValueAtTime(554, currentTime + 0.15) // C#5
+          oscillator.frequency.setValueAtTime(659, currentTime + 0.3) // E5
+          oscillator.frequency.setValueAtTime(880, currentTime + 0.45) // A5
+          gainNode.gain.setValueAtTime(0.4, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.6)
+          filterNode.frequency.setValueAtTime(1500, currentTime)
           oscillator.start(currentTime)
-          oscillator.stop(currentTime + 0.15)
+          oscillator.stop(currentTime + 0.6)
           break
 
-        case "squeaky":
-          // High-pitched, squeaky sound
+        case "magic-sparkle":
           oscillator.type = "sine"
-          oscillator.frequency.setValueAtTime(250, currentTime)
-          oscillator.frequency.linearRampToValueAtTime(180, currentTime + 0.25)
-          gainNode.gain.setValueAtTime(0.25, currentTime)
-          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.25)
-          filterNode.frequency.setValueAtTime(400, currentTime)
-          filterNode.frequency.linearRampToValueAtTime(200, currentTime + 0.25)
+          oscillator.frequency.setValueAtTime(1047, currentTime) // C6
+          oscillator.frequency.exponentialRampToValueAtTime(2093, currentTime + 0.1) // C7
+          oscillator.frequency.exponentialRampToValueAtTime(1568, currentTime + 0.2) // G6
+          gainNode.gain.setValueAtTime(0.2, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.3)
+          filterNode.frequency.setValueAtTime(3000, currentTime)
           oscillator.start(currentTime)
-          oscillator.stop(currentTime + 0.25)
+          oscillator.stop(currentTime + 0.3)
           break
+
+        // RETRO GAME SOUNDS
+        case "coin-collect":
+          oscillator.type = "square"
+          oscillator.frequency.setValueAtTime(988, currentTime) // B5
+          oscillator.frequency.setValueAtTime(1319, currentTime + 0.1) // E6
+          gainNode.gain.setValueAtTime(0.3, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.2)
+          filterNode.frequency.setValueAtTime(2000, currentTime)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.2)
+          break
+
+        case "power-up":
+          oscillator.type = "sawtooth"
+          oscillator.frequency.setValueAtTime(220, currentTime) // A3
+          oscillator.frequency.exponentialRampToValueAtTime(440, currentTime + 0.2) // A4
+          oscillator.frequency.exponentialRampToValueAtTime(880, currentTime + 0.4) // A5
+          gainNode.gain.setValueAtTime(0.3, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.5)
+          filterNode.frequency.setValueAtTime(1000, currentTime)
+          filterNode.frequency.exponentialRampToValueAtTime(2000, currentTime + 0.5)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.5)
+          break
+
+        case "victory":
+          oscillator.type = "triangle"
+          oscillator.frequency.setValueAtTime(523, currentTime) // C5
+          oscillator.frequency.setValueAtTime(659, currentTime + 0.15) // E5
+          oscillator.frequency.setValueAtTime(784, currentTime + 0.3) // G5
+          oscillator.frequency.setValueAtTime(1047, currentTime + 0.45) // C6
+          gainNode.gain.setValueAtTime(0.4, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.6)
+          filterNode.frequency.setValueAtTime(1500, currentTime)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.6)
+          break
+
+        // NATURE SOUNDS
+        case "bird-chirp":
+          oscillator.type = "sine"
+          oscillator.frequency.setValueAtTime(2000, currentTime)
+          oscillator.frequency.exponentialRampToValueAtTime(3000, currentTime + 0.05)
+          oscillator.frequency.exponentialRampToValueAtTime(2500, currentTime + 0.1)
+          oscillator.frequency.exponentialRampToValueAtTime(2800, currentTime + 0.15)
+          gainNode.gain.setValueAtTime(0.2, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.2)
+          filterNode.frequency.setValueAtTime(4000, currentTime)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.2)
+          break
+
+        case "water-drop":
+          oscillator.type = "sine"
+          oscillator.frequency.setValueAtTime(800, currentTime)
+          oscillator.frequency.exponentialRampToValueAtTime(200, currentTime + 0.3)
+          gainNode.gain.setValueAtTime(0.3, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.4)
+          filterNode.frequency.setValueAtTime(1000, currentTime)
+          filterNode.frequency.exponentialRampToValueAtTime(300, currentTime + 0.4)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.4)
+          break
+
+        case "wind-chime":
+          oscillator.type = "sine"
+          oscillator.frequency.setValueAtTime(1047, currentTime) // C6
+          oscillator.frequency.setValueAtTime(1319, currentTime + 0.2) // E6
+          oscillator.frequency.setValueAtTime(1568, currentTime + 0.4) // G6
+          gainNode.gain.setValueAtTime(0.15, currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.8)
+          filterNode.frequency.setValueAtTime(2000, currentTime)
+          oscillator.start(currentTime)
+          oscillator.stop(currentTime + 0.8)
+          break
+
+        default:
+          // Default to success chime
+          this.playSound("success-chime")
+          return
       }
 
-      console.log(`Fart sound ${type} played successfully`)
+      console.log(`Sound ${type} played successfully`)
     } catch (error) {
-      console.error("Failed to play fart sound:", error)
+      console.error("Failed to play sound:", error)
       this.playFallbackSound(type)
     }
   }
 
   private playFallbackSound(type: string) {
-    // Fallback for when Web Audio API fails
-    console.log(`🔊 FART SOUND: ${type.toUpperCase()} 💨`)
-
-    // Try to use HTML5 audio as fallback
-    try {
-      const audio = new Audio()
-      audio.volume = 0.5
-
-      // Generate a simple beep as fallback
-      const context = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-
-      oscillator.connect(gain)
-      gain.connect(context.destination)
-
-      oscillator.frequency.value = type === "squeaky" ? 800 : type === "quick" ? 400 : 200
-      gain.gain.setValueAtTime(0.1, context.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.2)
-
-      oscillator.start()
-      oscillator.stop(context.currentTime + 0.2)
-    } catch (fallbackError) {
-      console.log("Even fallback audio failed, but fart sound was attempted! 💨")
-    }
+    console.log(`🔊 SOUND: ${type.toUpperCase()} 🎵`)
   }
 
-  // Test audio system
   async testAudio() {
-    console.log("Testing fart sound system...")
-    await this.playFartSound("classic")
+    console.log("Testing sound system...")
+    await this.playSound("success-chime")
   }
 }
 
-// Global fart sound engine instance
-let fartEngine: FartSoundEngine | null = null
+// Global sound engine instance
+let soundEngine: SoundEngine | null = null
 
-export function getFartSoundEngine(): FartSoundEngine {
-  if (!fartEngine) {
-    fartEngine = new FartSoundEngine()
+export function getSoundEngine(): SoundEngine {
+  if (!soundEngine) {
+    soundEngine = new SoundEngine()
   }
-  return fartEngine
+  return soundEngine
 }
 
-export async function playFartSound(type: "classic" | "quick" | "squeaky" = "classic") {
-  const engine = getFartSoundEngine()
-  await engine.playFartSound(type)
+export async function playSound(type = "success-chime") {
+  const engine = getSoundEngine()
+  await engine.playSound(type)
 }
