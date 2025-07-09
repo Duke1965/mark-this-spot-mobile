@@ -1,13 +1,10 @@
-// Add a comment at the top to force update
-// Updated: 2024 - Latest version with hole effect and clean settings
-
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
-import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin } from "lucide-react"
+import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
 
 interface Spot {
   id: string
@@ -37,7 +34,6 @@ export default function LocationApp() {
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [isPhotoMode, setIsPhotoMode] = useState(false)
 
-  // Also, let me add a console log to verify the version
   useEffect(() => {
     setIsClient(true)
     console.log("🚀 Mark This Spot - Latest Version Loaded!")
@@ -45,7 +41,6 @@ export default function LocationApp() {
 
   const { getCurrentLocation, isLoading: locationLoading, error: locationError } = useLocationServices()
 
-  // Sound categories and options
   const soundCategories = {
     "Achievement Sounds": {
       "success-chime": { name: "Success Chime", emoji: "🔔", description: "Satisfying ding!" },
@@ -75,7 +70,6 @@ export default function LocationApp() {
     transport: { name: "Transport", emoji: "🚇", color: "#0EA5E9" },
   }
 
-  // Generate Google Maps Static API URL
   const generateMapImageUrl = (lat: number, lng: number) => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
@@ -83,7 +77,6 @@ export default function LocationApp() {
       return null
     }
 
-    // Google Maps Static API parameters
     const params = new URLSearchParams({
       center: `${lat},${lng}`,
       zoom: "16",
@@ -95,28 +88,20 @@ export default function LocationApp() {
     })
 
     const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+    console.log("🗺️ Generated map image URL:", imageUrl)
 
-    // ENHANCED DEBUG LOGGING
-    console.log("🗺️ STATIC MAP DEBUG:")
-    console.log("📍 Location:", lat, lng)
-    console.log("🔑 API Key (first 10 chars):", apiKey.substring(0, 10) + "...")
-    console.log("🌐 Full Static API URL:", imageUrl)
-
-    // TEST IF IMAGE LOADS
     const testImg = new Image()
     testImg.onload = () => {
       console.log("✅ Static Map image loaded successfully!")
     }
     testImg.onerror = (error) => {
       console.error("❌ Static Map image failed to load:", error)
-      console.error("🔍 Check if Static Maps API is enabled in Google Cloud Console")
     }
     testImg.src = imageUrl
 
     return imageUrl
   }
 
-  // Get user's current location and generate map image
   useEffect(() => {
     const getLocationAndMap = async () => {
       try {
@@ -129,18 +114,14 @@ export default function LocationApp() {
             lng: location.longitude,
           })
 
-          // Generate map image URL
           const imageUrl = generateMapImageUrl(location.latitude, location.longitude)
           if (imageUrl) {
             setMapImageUrl(imageUrl)
-            console.log("🗺️ Generated map image URL:", imageUrl)
           }
 
-          // Get address for display
           try {
             const address = await reverseGeocode(location.latitude, location.longitude)
             setLocationAddress(address)
-            console.log("🏠 Got address:", address)
           } catch (error) {
             setLocationAddress(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
           }
@@ -154,7 +135,6 @@ export default function LocationApp() {
     getLocationAndMap()
   }, [getCurrentLocation])
 
-  // Global function for map info windows to play sounds
   useEffect(() => {
     ;(window as any).playSpotSound = async (spotId: string) => {
       if (!isMuted) {
@@ -179,7 +159,6 @@ export default function LocationApp() {
         return
       }
 
-      // Create new spot with real coordinates, category, and photo
       const newSpot: Spot = {
         id: Date.now().toString(),
         latitude: location.latitude,
@@ -191,20 +170,16 @@ export default function LocationApp() {
         photo: capturedPhoto,
       }
 
-      // Play the selected sound immediately (if not muted)!
       if (!isMuted) {
         await playSound(selectedSound)
       }
 
-      // Add spot to storage
       setSpots((prev) => [newSpot, ...prev])
       setCurrentSpot(newSpot)
 
-      // Reset photo after marking
       setCapturedPhoto(null)
       setIsPhotoMode(false)
 
-      // Get real address in background
       try {
         const address = await reverseGeocode(location.latitude, location.longitude)
         const updatedSpot = { ...newSpot, address }
@@ -218,7 +193,6 @@ export default function LocationApp() {
         setCurrentSpot(updatedSpot)
       }
 
-      // Navigate to results page
       setCurrentScreen("results")
     } catch (error) {
       console.error("Error marking spot:", error)
@@ -228,7 +202,6 @@ export default function LocationApp() {
     }
   }
 
-  // Results Screen - Shazam Style with Live Google Maps
   if (currentScreen === "results" && currentSpot) {
     return (
       <div
@@ -239,7 +212,6 @@ export default function LocationApp() {
           flexDirection: "column",
         }}
       >
-        {/* Header */}
         <div
           style={{
             padding: "1rem 1.5rem",
@@ -296,7 +268,6 @@ export default function LocationApp() {
           </div>
         </div>
 
-        {/* Live Google Maps - Top Half */}
         <div style={{ flex: 1, position: "relative" }}>
           <LiveResultsMap
             spot={currentSpot}
@@ -308,7 +279,6 @@ export default function LocationApp() {
           />
         </div>
 
-        {/* Location Details - Bottom Section */}
         <div
           style={{
             background: "rgba(255,255,255,0.1)",
@@ -318,7 +288,6 @@ export default function LocationApp() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {/* Address */}
             <div>
               <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
                 📍 Location
@@ -326,7 +295,6 @@ export default function LocationApp() {
               <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "1rem", margin: 0 }}>{currentSpot.address}</p>
             </div>
 
-            {/* Coordinates & Time */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div>
                 <h4 style={{ fontSize: "0.875rem", fontWeight: "bold", color: "rgba(255,255,255,0.7)", margin: 0 }}>
@@ -353,7 +321,6 @@ export default function LocationApp() {
               </div>
             </div>
 
-            {/* Instructions */}
             <div
               style={{
                 background: "rgba(59, 130, 246, 0.2)",
@@ -373,7 +340,6 @@ export default function LocationApp() {
     )
   }
 
-  // Main Screen - Minimalist Shazam Style
   if (currentScreen === "main") {
     return (
       <div
@@ -387,7 +353,6 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
-        {/* Top Right - Mute Button - Pure Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -410,23 +375,12 @@ export default function LocationApp() {
               transition: "all 0.3s ease",
               color: "rgba(255,255,255,0.6)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-              e.currentTarget.style.transform = "translateY(-1px)"
-              e.currentTarget.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.6)"
-              e.currentTarget.style.transform = "translateY(0)"
-              e.currentTarget.style.filter = "none"
-            }}
           >
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>{isMuted ? "Muted" : "Sound"}</span>
           </button>
         </div>
 
-        {/* Main Content - Big Button */}
         <div
           style={{
             flex: 1,
@@ -439,7 +393,6 @@ export default function LocationApp() {
             zIndex: 10,
           }}
         >
-          {/* Location Error Display */}
           {locationError && (
             <div
               style={{
@@ -464,9 +417,7 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* HOLE EFFECT - Looking through wall to map behind */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Background Map Layer - Behind the wall */}
             <div
               style={{
                 position: "absolute",
@@ -474,7 +425,9 @@ export default function LocationApp() {
                 left: "-2rem",
                 right: "-2rem",
                 bottom: "-2rem",
-                backgroundImage: mapImageUrl ? `url(${mapImageUrl})` : "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
+                backgroundImage: mapImageUrl
+                  ? `url(${mapImageUrl})`
+                  : "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 borderRadius: "2rem",
@@ -483,7 +436,6 @@ export default function LocationApp() {
               }}
             />
 
-            {/* Wall Surface with Circular Hole */}
             <div
               style={{
                 position: "relative",
@@ -493,17 +445,13 @@ export default function LocationApp() {
                 background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
                 backdropFilter: "blur(20px)",
                 border: "2px solid rgba(255,255,255,0.1)",
-                boxShadow: `
-                  0 25px 50px rgba(0,0,0,0.4),
-                  inset 0 1px 0 rgba(255,255,255,0.1)
-                `,
+                boxShadow: "0 25px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 zIndex: 2,
               }}
             >
-              {/* The Hole - Circular cutout revealing map behind */}
               <div
                 style={{
                   width: "18rem",
@@ -511,15 +459,11 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   position: "relative",
                   overflow: "hidden",
-                  boxShadow: `
-                    inset 0 0 0 6px rgba(0,0,0,0.4),
-                    inset 0 8px 20px rgba(0,0,0,0.6),
-                    inset 0 0 60px rgba(0,0,0,0.3)
-                  `,
+                  boxShadow:
+                    "inset 0 0 0 6px rgba(0,0,0,0.4), inset 0 8px 20px rgba(0,0,0,0.6), inset 0 0 60px rgba(0,0,0,0.3)",
                   border: "4px solid #0f172a",
                 }}
               >
-                {/* Map visible through the hole */}
                 <div
                   style={{
                     position: "absolute",
@@ -527,14 +471,15 @@ export default function LocationApp() {
                     left: "-3rem",
                     right: "-3rem",
                     bottom: "-3rem",
-                    backgroundImage: mapImageUrl ? `url(${mapImageUrl})` : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                    backgroundImage: mapImageUrl
+                      ? `url(${mapImageUrl})`
+                      : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     transform: "scale(1.2)",
                   }}
                 />
 
-                {/* Interactive Button - Invisible overlay */}
                 <button
                   onClick={markSpot}
                   disabled={isMarking || locationLoading}
@@ -551,31 +496,8 @@ export default function LocationApp() {
                     zIndex: 10,
                     transition: "all 0.3s ease",
                   }}
-                  onMouseEnter={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"
-                      e.currentTarget.style.boxShadow = "inset 0 0 0 2px rgba(59, 130, 246, 0.3)"
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.background = "transparent"
-                      e.currentTarget.style.boxShadow = "none"
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.transform = "scale(0.98)"
-                    }
-                  }}
-                  onMouseUp={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.transform = "scale(1)"
-                    }
-                  }}
                 />
 
-                {/* Loading State Overlay */}
                 {(isMarking || locationLoading || !mapImageUrl) && (
                   <div
                     style={{
@@ -611,7 +533,6 @@ export default function LocationApp() {
                   </div>
                 )}
 
-                {/* Pulsing Center Dot (when map is loaded) */}
                 {mapImageUrl && !isMarking && !locationLoading && (
                   <div
                     style={{
@@ -631,7 +552,6 @@ export default function LocationApp() {
                   />
                 )}
 
-                {/* Hole rim highlight */}
                 <div
                   style={{
                     position: "absolute",
@@ -646,7 +566,6 @@ export default function LocationApp() {
                 />
               </div>
 
-              {/* Wall texture/pattern overlay */}
               <div
                 style={{
                   position: "absolute",
@@ -655,10 +574,8 @@ export default function LocationApp() {
                   right: 0,
                   bottom: 0,
                   borderRadius: "2rem",
-                  background: `
-                    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 1px, transparent 1px),
-                    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03) 1px, transparent 1px)
-                  `,
+                  background:
+                    "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 1px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03) 1px, transparent 1px)",
                   backgroundSize: "40px 40px, 60px 60px",
                   pointerEvents: "none",
                   zIndex: 3,
@@ -666,7 +583,6 @@ export default function LocationApp() {
               />
             </div>
 
-            {/* Instruction text below */}
             <div
               style={{
                 position: "absolute",
@@ -687,7 +603,6 @@ export default function LocationApp() {
             </div>
           </div>
 
-          {/* App Title */}
           <div style={{ textAlign: "center", maxWidth: "28rem" }}>
             <h1
               style={{
@@ -709,14 +624,12 @@ export default function LocationApp() {
             <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
               {spots.length} {spots.length === 1 ? "spot" : "spots"} marked • Real GPS tracking
             </p>
-            {/* Current Location Display */}
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontStyle: "italic" }}>
               📍 {locationAddress}
             </p>
           </div>
         </div>
 
-        {/* Bottom Left - Libraries Button - Pure Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -739,23 +652,12 @@ export default function LocationApp() {
               transition: "all 0.3s ease",
               color: "rgba(255,255,255,0.6)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-              e.currentTarget.style.transform = "translateY(-1px)"
-              e.currentTarget.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.6)"
-              e.currentTarget.style.transform = "translateY(0)"
-              e.currentTarget.style.filter = "none"
-            }}
           >
             <Library size={20} />
             <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Libraries</span>
           </button>
         </div>
 
-        {/* Bottom Right - Settings Button - Pure Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -778,23 +680,12 @@ export default function LocationApp() {
               transition: "all 0.3s ease",
               color: "rgba(255,255,255,0.6)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-              e.currentTarget.style.transform = "translateY(-1px)"
-              e.currentTarget.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "rgba(255,255,255,0.6)"
-              e.currentTarget.style.transform = "translateY(0)"
-              e.currentTarget.style.filter = "none"
-            }}
           >
             <Settings size={20} />
             <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Settings</span>
           </button>
         </div>
 
-        {/* Mute Status Indicator */}
         {isMuted && (
           <div
             style={{
@@ -817,7 +708,6 @@ export default function LocationApp() {
           </div>
         )}
 
-        {/* CSS Animations */}
         <style jsx>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -833,7 +723,6 @@ export default function LocationApp() {
     )
   }
 
-  // Settings Screen
   if (currentScreen === "settings") {
     return (
       <div
@@ -878,252 +767,216 @@ export default function LocationApp() {
 
         <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          
-          {/* Spot Customization Section */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "1rem",
-              padding: "1.5rem",
-            }}
-          >
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              🎯 Spot Customization
-            </h2>
-            <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
-              Customize how you mark and categorize your spots
-            </p>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                🎯 Spot Customization
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
+                Customize how you mark and categorize your spots
+              </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-              
-              {/* Category Selector */}
-              <button
-                onClick={() => setCurrentScreen("category-selector")}
-                style={{
-                  padding: "1.5rem",
-                  borderRadius: "1rem",
-                  border: "2px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(10px)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
+              <div
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}
               >
-                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>
-                  {spotCategories[selectedCategory].emoji}
-                </div>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                  Category
-                </h3>
-                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                  Current: {spotCategories[selectedCategory].name}
-                </p>
-                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  Tap to change →
-                </div>
-              </button>
+                <button
+                  onClick={() => setCurrentScreen("category-selector")}
+                  style={{
+                    padding: "1.5rem",
+                    borderRadius: "1rem",
+                    border: "2px solid rgba(255,255,255,0.2)",
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    color: "white",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>
+                    {spotCategories[selectedCategory].emoji}
+                  </div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Category</h3>
+                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                    Current: {spotCategories[selectedCategory].name}
+                  </p>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>Tap to change →</div>
+                </button>
 
-              {/* Photo Capture */}
-              <button
-                onClick={() => setIsPhotoMode(!isPhotoMode)}
-                style={{
-                  padding: "1.5rem",
-                  borderRadius: "1rem",
-                  border: isPhotoMode ? "2px solid rgba(16, 185, 129, 0.5)" : "2px solid rgba(255,255,255,0.2)",
-                  background: isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(10px)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.25)" : "rgba(255,255,255,0.15)"
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
-              >
-                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📸</div>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                  Photo Mode
-                </h3>
-                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                  {isPhotoMode ? "✓ Enabled" : "Disabled"}
-                </p>
-                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  {isPhotoMode ? "Photos will be captured" : "Tap to enable"}
-                </div>
-              </button>
+                <button
+                  onClick={() => setIsPhotoMode(!isPhotoMode)}
+                  style={{
+                    padding: "1.5rem",
+                    borderRadius: "1rem",
+                    border: isPhotoMode ? "2px solid rgba(16, 185, 129, 0.5)" : "2px solid rgba(255,255,255,0.2)",
+                    background: isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    color: "white",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📸</div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Photo Mode</h3>
+                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                    {isPhotoMode ? "✓ Enabled" : "Disabled"}
+                  </p>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                    {isPhotoMode ? "Photos will be captured" : "Tap to enable"}
+                  </div>
+                </button>
 
-              {/* Marker Style */}
-              <button
-                onClick={() => setCurrentScreen("marker-selector")}
-                style={{
-                  padding: "1.5rem",
-                  borderRadius: "1rem",
-                  border: "2px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(10px)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
-              >
-                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🎯</div>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                  Marker Style
-                </h3>
-                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                  Current: {selectedMarker.toUpperCase()}
-                </p>
-                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  Tap to change →
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Sound Settings */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "1rem",
-              padding: "1.5rem",
-            }}
-          >
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              🔊 Sound Settings
-            </h2>
-            
-            {/* Mute Toggle */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-              <div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
-                  Sound Effects
-                </h3>
-                <p style={{ color: "rgba(255,255,255,0.7)" }}>Enable or disable all app sounds</p>
+                <button
+                  onClick={() => setCurrentScreen("marker-selector")}
+                  style={{
+                    padding: "1.5rem",
+                    borderRadius: "1rem",
+                    border: "2px solid rgba(255,255,255,0.2)",
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    color: "white",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🎯</div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Marker Style</h3>
+                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                    Current: {selectedMarker.toUpperCase()}
+                  </p>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>Tap to change →</div>
+                </button>
               </div>
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "50%",
-                  transition: "all 0.3s ease",
-                  background: isMuted ? "#ef4444" : "#10b981",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-              </button>
             </div>
 
-            {/* Current Sound */}
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span style={{ fontSize: "2rem" }}>
-                {Object.values(soundCategories)
-                  .flatMap((category) => Object.entries(category))
-                  .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "white", fontWeight: "bold" }}>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                🔊 Sound Settings
+              </h2>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "1.5rem",
+                }}
+              >
+                <div>
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
+                    Sound Effects
+                  </h3>
+                  <p style={{ color: "rgba(255,255,255,0.7)" }}>Enable or disable all app sounds</p>
+                </div>
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  style={{
+                    padding: "0.75rem",
+                    borderRadius: "50%",
+                    transition: "all 0.3s ease",
+                    background: isMuted ? "#ef4444" : "#10b981",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                </button>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <span style={{ fontSize: "2rem" }}>
                   {Object.values(soundCategories)
                     .flatMap((category) => Object.entries(category))
-                    .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
+                    .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "white", fontWeight: "bold" }}>
+                    {Object.values(soundCategories)
+                      .flatMap((category) => Object.entries(category))
+                      .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
+                    {Object.values(soundCategories)
+                      .flatMap((category) => Object.entries(category))
+                      .find(([key]) => key === selectedSound)?.[1]?.description || ""}
+                  </div>
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
-                  {Object.values(soundCategories)
-                    .flatMap((category) => Object.entries(category))
-                    .find(([key]) => key === selectedSound)?.[1]?.description || ""}
-                </div>
+                <button
+                  onClick={() => !isMuted && playSound(selectedSound)}
+                  disabled={isMuted}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "50%",
+                    border: "none",
+                    background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
+                    color: isMuted ? "rgba(255,255,255,0.5)" : "white",
+                    cursor: isMuted ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Play size={20} />
+                </button>
+                <button
+                  onClick={() => setCurrentScreen("libraries")}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: "0.5rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  Change Sound
+                </button>
               </div>
-              <button
-                onClick={() => !isMuted && playSound(selectedSound)}
-                disabled={isMuted}
-                style={{
-                  padding: "0.5rem",
-                  borderRadius: "50%",
-                  border: "none",
-                  background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
-                  color: isMuted ? "rgba(255,255,255,0.5)" : "white",
-                  cursor: isMuted ? "not-allowed" : "pointer",
-                }}
-              >
-                <Play size={20} />
-              </button>
-              <button
-                onClick={() => setCurrentScreen("libraries")}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                Change Sound
-              </button>
             </div>
-          </div>
 
-          {/* App Info */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "1rem",
-              padding: "1.5rem",
-            }}
-          >
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              📱 App Info
-            </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
-              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>📍</div>
-                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{spots.length}</div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Spots Marked</div>
-              </div>
-              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🎵</div>
-                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>v1.0</div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>App Version</div>
-              </div>
-              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🗺️</div>
-                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>GPS</div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Location Mode</div>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1.5rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+                📱 App Info
+              </h2>
+              <div
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}
+              >
+                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>📍</div>
+                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{spots.length}</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Spots Marked</div>
+                </div>
+                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🎵</div>
+                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>v1.0</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>App Version</div>
+                </div>
+                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🗺️</div>
+                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>GPS</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Location Mode</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1132,41 +985,40 @@ export default function LocationApp() {
     )
   }
 
-  // Category Selector Screen
   if (currentScreen === "category-selector") {
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: \"linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #4f46e5 100%)",
-          display: "flex",\
+          background: "linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #4f46e5 100%)",
+          display: "flex",
           flexDirection: "column",
         }}
       >
-        <div\
-          style={{\
-            padding: "1.5rem",\
+        <div
+          style={{
+            padding: "1.5rem",
             background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",\
-            borderBottom: \"1px solid rgba(255,255,255,0.2)",
+            backdropFilter: "blur(10px)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
           }}
         >
-          <div style={{ display: "flex\", alignItems: \"center", justifyContent: \"space-between" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "white\", margin: 0 }}>🏷️ Choose Category</h1>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "white", margin: 0 }}>🏷️ Choose Category</h1>
             <button
-              onClick={() => setCurrentScreen(\"settings")}
+              onClick={() => setCurrentScreen("settings")}
               style={{
-                display: "flex",\
-                alignItems: \"center",
-                gap: "0.5rem",\
-                padding: \"0.5rem 1rem",\
-                background: \"rgba(255,255,255,0.2)",
-                backdropFilter: \"blur(10px)",\
-                color: "white",\
-                borderRadius: \"0.75rem",
-                border: \"none\",\
-                cursor: \"pointer",\
-                transition: \"all 0.3s ease\",\
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem 1rem",
+                background: "rgba(255,255,255,0.2)",
+                backdropFilter: "blur(10px)",
+                color: "white",
+                borderRadius: "0.75rem",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
               }}
             >
               <ArrowLeft size={20} />
@@ -1192,23 +1044,9 @@ export default function LocationApp() {
                   transition: "all 0.3s ease",
                   textAlign: "center",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.25)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    selectedCategory === key ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
               >
                 <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>{category.emoji}</div>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                  {category.name}
-                </h3>
-                <p style={{ fontSize: "0.875rem", opacity: 0.8 }}>{category.description}</p>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>{category.name}</h3>
               </button>
             ))}
           </div>
@@ -1217,7 +1055,6 @@ export default function LocationApp() {
     )
   }
 
-  // Marker Selector Screen
   if (currentScreen === "marker-selector") {
     return (
       <div
@@ -1277,23 +1114,11 @@ export default function LocationApp() {
                   transition: "all 0.3s ease",
                   textAlign: "center",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.25)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    selectedMarker === marker ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
               >
                 <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🎯</div>
                 <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
                   {marker.toUpperCase()}
                 </h3>
-                <p style={{ fontSize: "0.875rem", opacity: 0.8 }}>Select this marker style</p>
               </button>
             ))}
           </div>
@@ -1302,7 +1127,6 @@ export default function LocationApp() {
     )
   }
 
-  // Libraries Screen - Sound Selection
   if (currentScreen === "libraries") {
     return (
       <div
@@ -1360,7 +1184,9 @@ export default function LocationApp() {
                 <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
                   {categoryName}
                 </h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}
+                >
                   {Object.entries(sounds).map(([soundKey, sound]) => (
                     <button
                       key={soundKey}
@@ -1376,22 +1202,9 @@ export default function LocationApp() {
                         transition: "all 0.3s ease",
                         textAlign: "center",
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(255,255,255,0.25)"
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-                        e.currentTarget.style.transform = "translateY(-2px)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background =
-                          selectedSound === soundKey ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-                        e.currentTarget.style.transform = "translateY(0)"
-                      }}
                     >
                       <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>{sound.emoji}</div>
-                      <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                        {sound.name}
-                      </h3>
+                      <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>{sound.name}</h3>
                       <p style={{ fontSize: "0.875rem", opacity: 0.8 }}>{sound.description}</p>
                     </button>
                   ))}
@@ -1403,3 +1216,325 @@ export default function LocationApp() {
       </div>
     )
   }
+
+  return null
+}
+
+function LiveResultsMap({
+  spot,
+  onLocationUpdate,
+}: {
+  spot: Spot
+  onLocationUpdate: (lat: number, lng: number, address: string) => void
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const streetViewRef = useRef<HTMLDivElement>(null)
+  const [map, setMap] = useState<any>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [marker, setMarker] = useState<any>(null)
+  const [streetView, setStreetView] = useState<any>(null)
+  const [showStreetView, setShowStreetView] = useState(false)
+
+  useEffect(() => {
+    if ((window as any).google) {
+      setIsLoaded(true)
+      return
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+    if (!apiKey) {
+      setLoadError("Google Maps API key not configured")
+      return
+    }
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existingScript) {
+      setIsLoaded(true)
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
+    script.async = true
+    script.defer = true
+    ;(window as any).initResultsMap = () => {
+      console.log("🗺️ Google Maps loaded successfully")
+      setIsLoaded(true)
+    }
+
+    script.onerror = () => {
+      setLoadError("Failed to load Google Maps")
+    }
+
+    document.head.appendChild(script)
+
+    return () => {
+      delete (window as any).initResultsMap
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || loadError || !(window as any).google) return
+
+    try {
+      const newMap = new (window as any).google.maps.Map(mapRef.current, {
+        zoom: 18,
+        center: { lat: spot.latitude, lng: spot.longitude },
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        zoomControl: true,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }],
+          },
+        ],
+      })
+
+      setTimeout(() => {
+        ;(window as any).google.maps.event.trigger(newMap, "resize")
+        newMap.setCenter({ lat: spot.latitude, lng: spot.longitude })
+      }, 100)
+
+      const newMarker = new (window as any).google.maps.Marker({
+        position: { lat: spot.latitude, lng: spot.longitude },
+        map: newMap,
+        title: "Drag to refine location",
+        draggable: true,
+        icon: {
+          path: (window as any).google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#10B981",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+        },
+      })
+
+      newMarker.addListener("dragend", async (event: any) => {
+        const position = event.latLng
+        const lat = position.lat()
+        const lng = position.lng()
+
+        try {
+          const geocoder = new (window as any).google.maps.Geocoder()
+          geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
+            if (status === "OK" && results[0]) {
+              onLocationUpdate(lat, lng, results[0].formatted_address)
+            } else {
+              onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+            }
+          })
+        } catch (error) {
+          onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+        }
+      })
+
+      if (streetViewRef.current) {
+        const streetViewService = new (window as any).google.maps.StreetViewService()
+
+        streetViewService.getPanorama(
+          {
+            location: { lat: spot.latitude, lng: spot.longitude },
+            radius: 50,
+            source: (window as any).google.maps.StreetViewSource.OUTDOOR,
+          },
+          (data: any, status: string) => {
+            if (status === "OK") {
+              const streetViewPanorama = new (window as any).google.maps.StreetViewPanorama(streetViewRef.current, {
+                position: data.location.latLng,
+                pov: { heading: 0, pitch: 0 },
+                zoom: 1,
+                visible: false,
+                addressControl: true,
+                linksControl: true,
+                panControl: true,
+                enableCloseButton: false,
+              })
+
+              setStreetView(streetViewPanorama)
+            } else {
+              setStreetView(null)
+            }
+          },
+        )
+      }
+
+      setMap(newMap)
+      setMarker(newMarker)
+    } catch (error) {
+      console.error("Map initialization failed:", error)
+      setLoadError("Failed to initialize map")
+    }
+  }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
+
+  const toggleStreetView = () => {
+    if (!streetView) {
+      alert("❌ Street View not available at this location.\n\nTry dragging the marker to a nearby street!")
+      return
+    }
+
+    if (!showStreetView) {
+      if (marker) {
+        const position = marker.getPosition ? marker.getPosition() : marker.position
+        streetView.setPosition(position)
+      }
+      streetView.setVisible(true)
+      setShowStreetView(true)
+    } else {
+      streetView.setVisible(false)
+      setShowStreetView(false)
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(239, 68, 68, 0.1)",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+          <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Map Error</h3>
+          <p>{loadError}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isLoaded) {
+    return (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.1)",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "3rem",
+              height: "3rem",
+              border: "4px solid rgba(255,255,255,0.3)",
+              borderTop: "4px solid white",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginBottom: "1rem",
+              margin: "0 auto 1rem auto",
+            }}
+          ></div>
+          <p>Loading interactive map...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ height: "100%", position: "relative" }}>
+      <div
+        ref={mapRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "400px",
+          backgroundColor: "#f0f0f0",
+          display: showStreetView ? "none" : "block",
+        }}
+      />
+
+      <div
+        ref={streetViewRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "400px",
+          backgroundColor: "#f0f0f0",
+          display: showStreetView ? "block" : "none",
+        }}
+      />
+
+      <button
+        onClick={toggleStreetView}
+        style={{
+          position: "absolute",
+          top: "1rem",
+          right: "1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.75rem 1rem",
+          background: showStreetView ? "#10b981" : "rgba(255,255,255,0.9)",
+          backdropFilter: "blur(10px)",
+          color: showStreetView ? "white" : "#1f2937",
+          borderRadius: "0.75rem",
+          border: "none",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          fontWeight: 600,
+          fontSize: "0.875rem",
+          zIndex: 10,
+        }}
+      >
+        <Eye size={18} />
+        {showStreetView ? "Exit Street View" : "Street View"}
+      </button>
+
+      {!showStreetView && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.8)",
+            backdropFilter: "blur(10px)",
+            color: "white",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.75rem",
+            fontSize: "0.875rem",
+            textAlign: "center",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          🖱️ Drag the green marker to refine your location
+        </div>
+      )}
+
+      {showStreetView && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(16, 185, 129, 0.9)",
+            backdropFilter: "blur(10px)",
+            color: "white",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.75rem",
+            fontSize: "0.875rem",
+            textAlign: "center",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          🏠 Street View Active - Look around with mouse/touch
+        </div>
+      )}
+    </div>
+  )
+}
