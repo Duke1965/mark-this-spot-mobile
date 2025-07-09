@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
-import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play } from "lucide-react"
+import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
 
 interface Spot {
   id: string
@@ -25,6 +25,7 @@ export default function LocationApp() {
   const [isClient, setIsClient] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [currentScreen, setCurrentScreen] = useState("main")
+  const [currentSpot, setCurrentSpot] = useState<Spot | null>(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -101,52 +102,182 @@ export default function LocationApp() {
         notes: "",
       }
 
-      // Add spot immediately
-      setSpots((prev) => [newSpot, ...prev])
-
-      // Play the selected sound (if not muted)!
+      // Play the selected sound immediately (if not muted)!
       if (!isMuted) {
         await playSound(selectedSound)
       }
 
+      // Add spot to storage
+      setSpots((prev) => [newSpot, ...prev])
+      setCurrentSpot(newSpot)
+
       // Get real address in background
       try {
         const address = await reverseGeocode(location.latitude, location.longitude)
-        setSpots((prev) => prev.map((spot) => (spot.id === newSpot.id ? { ...spot, address } : spot)))
+        const updatedSpot = { ...newSpot, address }
+        setSpots((prev) => prev.map((spot) => (spot.id === newSpot.id ? updatedSpot : spot)))
+        setCurrentSpot(updatedSpot)
       } catch (error) {
         console.error("Address lookup failed:", error)
-        setSpots((prev) =>
-          prev.map((spot) =>
-            spot.id === newSpot.id
-              ? { ...spot, address: `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` }
-              : spot,
-          ),
-        )
+        const fallbackAddress = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+        const updatedSpot = { ...newSpot, address: fallbackAddress }
+        setSpots((prev) => prev.map((spot) => (spot.id === newSpot.id ? updatedSpot : spot)))
+        setCurrentSpot(updatedSpot)
       }
 
-      // Show success message
-      setTimeout(() => {
-        const soundName =
-          Object.values(soundCategories)
-            .flatMap((category) => Object.entries(category))
-            .find(([key]) => key === selectedSound)?.[1]?.name || "Sound"
-
-        const muteStatus = isMuted ? "🔇 MUTED" : `🎵 ${soundName.toUpperCase()} PLAYED!`
-        alert(`📍 LEGENDARY SPOT MARKED!
-
-${muteStatus}
-
-📍 Real GPS: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
-🎯 Accuracy: ±${location.accuracy?.toFixed(0)}m
-
-${isMuted ? "🔇 Sound is muted" : `🎵 ${soundName} activated!`}`)
-      }, 100)
+      // Navigate to results page
+      setCurrentScreen("results")
     } catch (error) {
       console.error("Error marking spot:", error)
       alert("❌ Failed to mark spot!\n\nPlease check your location permissions and try again.")
     } finally {
       setIsMarking(false)
     }
+  }
+
+  // Results Screen - Shazam Style with Live Google Maps
+  if (currentScreen === "results" && currentSpot) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "1rem 1.5rem",
+            background: "rgba(255,255,255,0.1)",
+            backdropFilter: "blur(10px)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div
+                style={{
+                  width: "3rem",
+                  height: "3rem",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 10px 25px rgba(16, 185, 129, 0.3)",
+                }}
+              >
+                <MapPin size={20} color="white" />
+              </div>
+              <div>
+                <h1 style={{ fontSize: "1.5rem", fontWeight: 900, color: "white", margin: 0 }}>Spot Marked!</h1>
+                <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", margin: 0 }}>
+                  Refine your location below
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentScreen("main")
+                setCurrentSpot(null)
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.75rem 1rem",
+                background: "rgba(255,255,255,0.2)",
+                backdropFilter: "blur(10px)",
+                color: "white",
+                borderRadius: "0.75rem",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                fontWeight: 600,
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+
+        {/* Live Google Maps - Top Half */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <LiveResultsMap
+            spot={currentSpot}
+            onLocationUpdate={(lat, lng, address) => {
+              const updatedSpot = { ...currentSpot, latitude: lat, longitude: lng, address }
+              setCurrentSpot(updatedSpot)
+              setSpots((prev) => prev.map((spot) => (spot.id === currentSpot.id ? updatedSpot : spot)))
+            }}
+          />
+        </div>
+
+        {/* Location Details - Bottom Section */}
+        <div
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            backdropFilter: "blur(10px)",
+            borderTop: "1px solid rgba(255,255,255,0.2)",
+            padding: "1.5rem",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {/* Address */}
+            <div>
+              <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
+                📍 Location
+              </h3>
+              <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "1rem", margin: 0 }}>{currentSpot.address}</p>
+            </div>
+
+            {/* Coordinates & Time */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div>
+                <h4 style={{ fontSize: "0.875rem", fontWeight: "bold", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                  COORDINATES
+                </h4>
+                <p
+                  style={{
+                    color: "white",
+                    fontSize: "0.875rem",
+                    fontFamily: "monospace",
+                    margin: "0.25rem 0 0 0",
+                  }}
+                >
+                  {currentSpot.latitude.toFixed(6)}, {currentSpot.longitude.toFixed(6)}
+                </p>
+              </div>
+              <div>
+                <h4 style={{ fontSize: "0.875rem", fontWeight: "bold", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                  MARKED AT
+                </h4>
+                <p style={{ color: "white", fontSize: "0.875rem", margin: "0.25rem 0 0 0" }}>
+                  {new Date(currentSpot.timestamp).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div
+              style={{
+                background: "rgba(59, 130, 246, 0.2)",
+                borderRadius: "0.75rem",
+                padding: "1rem",
+                border: "1px solid rgba(59, 130, 246, 0.3)",
+              }}
+            >
+              <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.875rem", margin: 0, textAlign: "center" }}>
+                💡 <strong>Tip:</strong> Drag the marker on the map above to refine your exact location. Use Street View
+                to explore the area!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Main Screen - Minimalist Shazam Style
@@ -804,4 +935,257 @@ ${isMuted ? "🔇 Sound is muted" : `🎵 ${soundName} activated!`}`)
 
   // Fallback
   return null
+}
+
+// Live Results Map Component
+function LiveResultsMap({
+  spot,
+  onLocationUpdate,
+}: {
+  spot: Spot
+  onLocationUpdate: (lat: number, lng: number, address: string) => void
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const [map, setMap] = useState<any>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [marker, setMarker] = useState<any>(null)
+  const [streetView, setStreetView] = useState<any>(null)
+  const [showStreetView, setShowStreetView] = useState(false)
+
+  // Load Google Maps API
+  useEffect(() => {
+    if (window.google) {
+      setIsLoaded(true)
+      return
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+    if (!apiKey) {
+      setLoadError("Google Maps API key not configured")
+      return
+    }
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existingScript) {
+      setIsLoaded(true)
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
+    script.async = true
+    script.defer = true
+
+    window.initResultsMap = () => {
+      console.log("Results Map loaded successfully")
+      setIsLoaded(true)
+    }
+
+    script.onerror = () => {
+      setLoadError("Failed to load Google Maps")
+    }
+
+    document.head.appendChild(script)
+
+    return () => {
+      delete window.initResultsMap
+    }
+  }, [])
+
+  // Initialize map
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || loadError || !window.google) return
+
+    try {
+      const newMap = new window.google.maps.Map(mapRef.current, {
+        zoom: 16,
+        center: { lat: spot.latitude, lng: spot.longitude },
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        zoomControl: true,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }],
+          },
+        ],
+      })
+
+      // Create draggable marker
+      const newMarker = new window.google.maps.Marker({
+        position: { lat: spot.latitude, lng: spot.longitude },
+        map: newMap,
+        title: "Drag to refine location",
+        draggable: true,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 15,
+          fillColor: "#10B981",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 4,
+        },
+      })
+
+      // Handle marker drag
+      newMarker.addListener("dragend", async (event: any) => {
+        const lat = event.latLng.lat()
+        const lng = event.latLng.lng()
+
+        try {
+          const geocoder = new window.google.maps.Geocoder()
+          geocoder.geocode({ location: { lat, lng } }, (results: any[], status: string) => {
+            if (status === "OK" && results[0]) {
+              onLocationUpdate(lat, lng, results[0].formatted_address)
+            } else {
+              onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+            }
+          })
+        } catch (error) {
+          onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+        }
+      })
+
+      // Initialize Street View
+      const streetViewService = new window.google.maps.StreetViewService()
+      const streetViewPanorama = new window.google.maps.StreetViewPanorama(document.createElement("div"), {
+        position: { lat: spot.latitude, lng: spot.longitude },
+        pov: { heading: 0, pitch: 0 },
+        zoom: 1,
+      })
+
+      setMap(newMap)
+      setMarker(newMarker)
+      setStreetView(streetViewPanorama)
+
+      console.log("Results map initialized successfully")
+    } catch (error) {
+      console.error("Results map initialization failed:", error)
+      setLoadError("Failed to initialize map")
+    }
+  }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
+
+  // Toggle Street View
+  const toggleStreetView = () => {
+    if (!map || !streetView) return
+
+    if (!showStreetView) {
+      // Show Street View
+      map.setStreetView(streetView)
+      setShowStreetView(true)
+    } else {
+      // Hide Street View
+      map.setStreetView(null)
+      setShowStreetView(false)
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(239, 68, 68, 0.1)",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+          <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Map Error</h3>
+          <p>{loadError}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isLoaded) {
+    return (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.1)",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "3rem",
+              height: "3rem",
+              border: "4px solid rgba(255,255,255,0.3)",
+              borderTop: "4px solid white",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginBottom: "1rem",
+              margin: "0 auto 1rem auto",
+            }}
+          ></div>
+          <p>Loading interactive map...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ height: "100%", position: "relative" }}>
+      <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+
+      {/* Street View Toggle Button */}
+      <button
+        onClick={toggleStreetView}
+        style={{
+          position: "absolute",
+          top: "1rem",
+          right: "1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.75rem 1rem",
+          background: showStreetView ? "#10b981" : "rgba(255,255,255,0.9)",
+          backdropFilter: "blur(10px)",
+          color: showStreetView ? "white" : "#1f2937",
+          borderRadius: "0.75rem",
+          border: "none",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          fontWeight: 600,
+          fontSize: "0.875rem",
+        }}
+      >
+        <Eye size={18} />
+        {showStreetView ? "Exit Street View" : "Street View"}
+      </button>
+
+      {/* Drag Instructions */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "1rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(0,0,0,0.8)",
+          backdropFilter: "blur(10px)",
+          color: "white",
+          padding: "0.75rem 1rem",
+          borderRadius: "0.75rem",
+          fontSize: "0.875rem",
+          textAlign: "center",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}
+      >
+        🖱️ Drag the green marker to refine your location
+      </div>
+    </div>
+  )
 }
