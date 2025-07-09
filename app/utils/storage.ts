@@ -6,6 +6,8 @@ interface Spot {
   address: string
   notes: string
   photos?: string[]
+  category?: string
+  photo?: string
 }
 
 // Simulate AsyncStorage for demo
