@@ -26,6 +26,8 @@ export default function LocationApp() {
   const [isMuted, setIsMuted] = useState(false)
   const [currentScreen, setCurrentScreen] = useState("main")
   const [currentSpot, setCurrentSpot] = useState<Spot | null>(null)
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
+  const [locationAddress, setLocationAddress] = useState<string>("Getting your location...")
 
   useEffect(() => {
     setIsClient(true)
@@ -52,19 +54,61 @@ export default function LocationApp() {
     },
   }
 
-  // Get user's current location for map centering
+  // Generate Google Maps Static API URL
+  const generateMapImageUrl = (lat: number, lng: number) => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) return null
+
+    // Google Maps Static API parameters
+    const params = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: "16", // Good zoom level for neighborhood view
+      size: "400x400", // Square image for circular button
+      maptype: "roadmap", // Can be: roadmap, satellite, hybrid, terrain
+      markers: `color:red|size:mid|${lat},${lng}`, // Red marker at user location
+      key: apiKey,
+      style: "feature:poi|visibility:off", // Hide points of interest for cleaner look
+    })
+
+    return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+  }
+
+  // Get user's current location and generate map image
   useEffect(() => {
-    const getInitialLocation = async () => {
-      const location = await getCurrentLocation()
-      if (location) {
-        setUserLocation({
-          lat: location.latitude,
-          lng: location.longitude,
-        })
+    const getLocationAndMap = async () => {
+      try {
+        const location = await getCurrentLocation()
+        if (location) {
+          console.log("📍 Got user location:", location.latitude, location.longitude)
+
+          setUserLocation({
+            lat: location.latitude,
+            lng: location.longitude,
+          })
+
+          // Generate map image URL
+          const imageUrl = generateMapImageUrl(location.latitude, location.longitude)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+            console.log("🗺️ Generated map image URL:", imageUrl)
+          }
+
+          // Get address for display
+          try {
+            const address = await reverseGeocode(location.latitude, location.longitude)
+            setLocationAddress(address)
+            console.log("🏠 Got address:", address)
+          } catch (error) {
+            setLocationAddress(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to get location:", error)
+        setLocationAddress("Location unavailable")
       }
     }
 
-    getInitialLocation()
+    getLocationAndMap()
   }, [getCurrentLocation])
 
   // Global function for map info windows to play sounds
@@ -359,7 +403,7 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* Enhanced 3D Pavement-Embedded Button */}
+          {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
             {/* Pavement Base */}
             <div
@@ -369,21 +413,21 @@ export default function LocationApp() {
                 height: "24rem",
                 borderRadius: "50%",
                 background: `
-        radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
-        linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
-        linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
-        linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
-      `,
+                  radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
+                  linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
+                  linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
+                  linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
+                  linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
+                `,
                 backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
                 backgroundPosition: "0 0, 0 0, 0 4px, 4px -4px, -4px 0px",
                 boxShadow: `
-        inset 0 0 0 8px #5A5A5A,
-        inset 0 0 0 12px #6B6B6B,
-        inset 0 0 0 16px #4A4A4A,
-        0 8px 16px rgba(0,0,0,0.4),
-        0 4px 8px rgba(0,0,0,0.3)
-      `,
+                  inset 0 0 0 8px #5A5A5A,
+                  inset 0 0 0 12px #6B6B6B,
+                  inset 0 0 0 16px #4A4A4A,
+                  0 8px 16px rgba(0,0,0,0.4),
+                  0 4px 8px rgba(0,0,0,0.3)
+                `,
                 top: "50%",
                 left: "50%",
                 transform: "translate(-50%, -50%)",
@@ -426,7 +470,7 @@ export default function LocationApp() {
               />
             </div>
 
-            {/* Main Button with Street Map Background */}
+            {/* Main Button with REAL Google Maps Background */}
             <button
               onClick={markSpot}
               disabled={isMarking || locationLoading}
@@ -446,34 +490,41 @@ export default function LocationApp() {
                 zIndex: 2,
                 overflow: "hidden",
                 background:
-                  isMarking || locationLoading ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)" : "#F8F9FA",
+                  isMarking || locationLoading
+                    ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
+                    : mapImageUrl
+                      ? `linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%), url(${mapImageUrl})`
+                      : "#F8F9FA",
+                backgroundSize: mapImageUrl ? "cover, cover" : "auto",
+                backgroundPosition: "center, center",
+                backgroundRepeat: "no-repeat",
                 boxShadow: `
-        inset 0 0 0 4px rgba(255,255,255,0.3),
-        inset 0 0 0 8px rgba(0,0,0,0.1),
-        0 4px 8px rgba(0,0,0,0.2),
-        0 8px 16px rgba(59, 130, 246, 0.3)
-      `,
+                  inset 0 0 0 4px rgba(255,255,255,0.3),
+                  inset 0 0 0 8px rgba(0,0,0,0.1),
+                  0 4px 8px rgba(0,0,0,0.2),
+                  0 8px 16px rgba(59, 130, 246, 0.3)
+                `,
               }}
               onMouseEnter={(e) => {
                 if (!isMarking && !locationLoading) {
                   e.currentTarget.style.transform = "scale(1.02)"
                   e.currentTarget.style.boxShadow = `
-          inset 0 0 0 4px rgba(255,255,255,0.4),
-          inset 0 0 0 8px rgba(0,0,0,0.1),
-          0 6px 12px rgba(0,0,0,0.3),
-          0 12px 24px rgba(59, 130, 246, 0.4)
-        `
+                    inset 0 0 0 4px rgba(255,255,255,0.4),
+                    inset 0 0 0 8px rgba(0,0,0,0.1),
+                    0 6px 12px rgba(0,0,0,0.3),
+                    0 12px 24px rgba(59, 130, 246, 0.4)
+                  `
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isMarking && !locationLoading) {
                   e.currentTarget.style.transform = "scale(1)"
                   e.currentTarget.style.boxShadow = `
-          inset 0 0 0 4px rgba(255,255,255,0.3),
-          inset 0 0 0 8px rgba(0,0,0,0.1),
-          0 4px 8px rgba(0,0,0,0.2),
-          0 8px 16px rgba(59, 130, 246, 0.3)
-        `
+                    inset 0 0 0 4px rgba(255,255,255,0.3),
+                    inset 0 0 0 8px rgba(0,0,0,0.1),
+                    0 4px 8px rgba(0,0,0,0.2),
+                    0 8px 16px rgba(59, 130, 246, 0.3)
+                  `
                 }
               }}
               onMouseDown={(e) => {
@@ -487,286 +538,8 @@ export default function LocationApp() {
                 }
               }}
             >
-              {/* Street Map Background */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: "50%",
-                  background: `
-          linear-gradient(135deg, rgba(248, 249, 250, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%),
-          repeating-linear-gradient(0deg, #E5E7EB 0px, #E5E7EB 1px, transparent 1px, transparent 40px),
-          repeating-linear-gradient(90deg, #E5E7EB 0px, #E5E7EB 1px, transparent 1px, transparent 40px)
-        `,
-                  backgroundSize: "100% 100%, 40px 40px, 40px 40px",
-                  zIndex: 1,
-                }}
-              >
-                {/* Streets */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "30%",
-                    left: 0,
-                    right: 0,
-                    height: "8%",
-                    background: "#D1D5DB",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "65%",
-                    left: 0,
-                    right: 0,
-                    height: "8%",
-                    background: "#D1D5DB",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: "30%",
-                    width: "8%",
-                    background: "#D1D5DB",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: "65%",
-                    width: "8%",
-                    background: "#D1D5DB",
-                    zIndex: 2,
-                  }}
-                />
-
-                {/* Street Names */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "32%",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    fontSize: "8px",
-                    fontWeight: "bold",
-                    color: "#374151",
-                    zIndex: 3,
-                  }}
-                >
-                  Maple Ave
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "67%",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    fontSize: "8px",
-                    fontWeight: "bold",
-                    color: "#374151",
-                    zIndex: 3,
-                  }}
-                >
-                  Garden St
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "15%",
-                    left: "32%",
-                    transform: "rotate(-90deg)",
-                    fontSize: "8px",
-                    fontWeight: "bold",
-                    color: "#374151",
-                    zIndex: 3,
-                  }}
-                >
-                  Central Dr
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "15%",
-                    left: "67%",
-                    transform: "rotate(-90deg)",
-                    fontSize: "8px",
-                    fontWeight: "bold",
-                    color: "#374151",
-                    zIndex: 3,
-                  }}
-                >
-                  Park Ln
-                </div>
-
-                {/* Houses */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "8%",
-                    left: "8%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#FEF3C7",
-                    border: "2px solid #D97706",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "8%",
-                    left: "40%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#DBEAFE",
-                    border: "2px solid #2563EB",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "8%",
-                    left: "72%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#DCFCE7",
-                    border: "2px solid #059669",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "40%",
-                    left: "8%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#FDE2E8",
-                    border: "2px solid #DC2626",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "40%",
-                    left: "40%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#F3E8FF",
-                    border: "2px solid #7C3AED",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "40%",
-                    left: "72%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#FEF3C7",
-                    border: "2px solid #D97706",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "72%",
-                    left: "8%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#DCFCE7",
-                    border: "2px solid #059669",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "72%",
-                    left: "40%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#DBEAFE",
-                    border: "2px solid #2563EB",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "72%",
-                    left: "72%",
-                    width: "20%",
-                    height: "20%",
-                    background: "#FDE2E8",
-                    border: "2px solid #DC2626",
-                    borderRadius: "4px",
-                    zIndex: 2,
-                  }}
-                />
-              </div>
-
-              {/* 3D Marker Pin on Property */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "45%",
-                  right: "25%",
-                  width: "32px",
-                  height: "40px",
-                  zIndex: 4,
-                }}
-              >
-                <svg width="32" height="40" viewBox="0 0 32 40">
-                  {/* Pin Shadow */}
-                  <ellipse cx="17" cy="38" rx="4" ry="2" fill="rgba(0,0,0,0.3)" />
-
-                  {/* Pin Body */}
-                  <path
-                    d="M16 6C12.1 6 9 9.1 9 13c0 6 7 19 7 19s7-13 7-19c0-3.9-3.1-7-7-7z"
-                    fill="url(#pinGradient)"
-                    stroke="rgba(0,0,0,0.2)"
-                    strokeWidth="1"
-                  />
-
-                  {/* Pin Center */}
-                  <circle cx="16" cy="13" r="4" fill="rgba(255,255,255,0.9)" />
-                  <circle cx="16" cy="13" r="3" fill="#10B981" />
-
-                  <defs>
-                    <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#10B981" />
-                      <stop offset="100%" stopColor="#059669" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-
               {/* Loading State Overlay */}
-              {(isMarking || locationLoading) && (
+              {(isMarking || locationLoading || !mapImageUrl) && (
                 <div
                   style={{
                     position: "absolute",
@@ -774,7 +547,7 @@ export default function LocationApp() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: "rgba(0,0,0,0.7)",
+                    background: isMarking || locationLoading ? "rgba(0,0,0,0.7)" : "rgba(59, 130, 246, 0.1)",
                     borderRadius: "50%",
                     display: "flex",
                     flexDirection: "column",
@@ -796,9 +569,29 @@ export default function LocationApp() {
                     }}
                   />
                   <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
-                    {isMarking ? "MARKING..." : "GETTING GPS..."}
+                    {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
                   </div>
                 </div>
+              )}
+
+              {/* Pulsing Center Dot (when map is loaded) */}
+              {mapImageUrl && !isMarking && !locationLoading && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    background: "rgba(239, 68, 68, 0.9)",
+                    border: "3px solid white",
+                    boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
+                    zIndex: 4,
+                    animation: "pulse 2s infinite",
+                  }}
+                />
               )}
             </button>
           </div>
@@ -822,8 +615,12 @@ export default function LocationApp() {
             <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "1.125rem", marginBottom: "0.5rem" }}>
               <span style={{ fontWeight: "bold" }}>Like Shazam, but for places!</span>
             </p>
-            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem" }}>
+            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
               {spots.length} {spots.length === 1 ? "spot" : "spots"} marked • Real GPS tracking
+            </p>
+            {/* Current Location Display */}
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontStyle: "italic" }}>
+              📍 {locationAddress}
             </p>
           </div>
         </div>
@@ -929,15 +726,16 @@ export default function LocationApp() {
           </div>
         )}
 
-        {/* CSS Animation */}
+        {/* CSS Animations */}
         <style jsx>{`
           @keyframes spin {
-            0% {
-              transform: rotate(0deg);
-            }
-            100% {
-              transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
           }
         `}</style>
       </div>
