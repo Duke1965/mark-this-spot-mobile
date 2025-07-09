@@ -417,198 +417,137 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* ELEGANT PORTHOLE EFFECT - Looking through circular opening */}
+          {/* CLEAN HOLE EFFECT - Simple circular cutout in wall */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* The Porthole Container */}
+            {/* The Wall */}
             <div
               style={{
                 position: "relative",
                 width: "20rem",
                 height: "20rem",
-                borderRadius: "50%",
-                background: "radial-gradient(circle, #0f172a 0%, #1e293b 70%, #334155 100%)",
-                padding: "1rem",
-                boxShadow: `
-        0 0 0 8px rgba(15, 23, 42, 0.8),
-        0 0 0 12px rgba(30, 41, 59, 0.6),
-        0 0 0 16px rgba(51, 65, 85, 0.4),
-        inset 0 0 40px rgba(0,0,0,0.8),
-        0 25px 50px rgba(0,0,0,0.4)
-      `,
+                borderRadius: "1rem",
+                background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
+                backdropFilter: "blur(20px)",
+                border: "2px solid rgba(255,255,255,0.1)",
+                boxShadow: "0 25px 50px rgba(0,0,0,0.4)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              {/* Inner Porthole Ring */}
+              {/* The Clean Circular Hole */}
               <div
                 style={{
-                  width: "18rem",
-                  height: "18rem",
+                  width: "16rem",
+                  height: "16rem",
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #374151 0%, #1f2937 100%)",
-                  padding: "0.5rem",
+                  overflow: "hidden",
+                  position: "relative",
                   boxShadow: "inset 0 0 20px rgba(0,0,0,0.6)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
                 }}
               >
-                {/* The Actual Hole - Map Viewport */}
+                {/* Map visible through the hole */}
                 <div
                   style={{
-                    width: "17rem",
-                    height: "17rem",
-                    borderRadius: "50%",
-                    overflow: "hidden",
-                    position: "relative",
-                    boxShadow: `
-            inset 0 0 30px rgba(0,0,0,0.7),
-            inset 0 0 0 2px rgba(255,255,255,0.1)
-          `,
-                    border: "2px solid #111827",
+                    position: "absolute",
+                    top: "-2rem",
+                    left: "-2rem",
+                    right: "-2rem",
+                    bottom: "-2rem",
+                    backgroundImage: mapImageUrl
+                      ? `url(${mapImageUrl})`
+                      : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    transform: "scale(1.2)",
                   }}
-                >
-                  {/* Map Background */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-2rem",
-                      left: "-2rem",
-                      right: "-2rem",
-                      bottom: "-2rem",
-                      backgroundImage: mapImageUrl
-                        ? `url(${mapImageUrl})`
-                        : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      transform: "scale(1.3)",
-                    }}
-                  />
+                />
 
-                  {/* Interactive Button Overlay */}
-                  <button
-                    onClick={markSpot}
-                    disabled={isMarking || locationLoading}
+                {/* Interactive Button */}
+                <button
+                  onClick={markSpot}
+                  disabled={isMarking || locationLoading}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: "50%",
+                    cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
+                    zIndex: 10,
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.background = "transparent"
+                    }
+                  }}
+                />
+
+                {/* Loading State */}
+                {(isMarking || locationLoading || !mapImageUrl) && (
+                  <div
                     style={{
                       position: "absolute",
                       top: 0,
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      background: "transparent",
-                      border: "none",
+                      background: "rgba(0,0,0,0.8)",
                       borderRadius: "50%",
-                      cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
-                      zIndex: 10,
-                      transition: "all 0.3s ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 15,
+                      color: "white",
                     }}
-                    onMouseEnter={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"
-                        e.currentTarget.style.boxShadow = "inset 0 0 0 3px rgba(59, 130, 246, 0.3)"
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.background = "transparent"
-                        e.currentTarget.style.boxShadow = "none"
-                      }
-                    }}
-                  />
-
-                  {/* Loading State */}
-                  {(isMarking || locationLoading || !mapImageUrl) && (
+                  >
                     <div
                       style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: "rgba(0,0,0,0.8)",
+                        width: "3rem",
+                        height: "3rem",
+                        border: "4px solid rgba(255,255,255,0.3)",
+                        borderTop: "4px solid white",
                         borderRadius: "50%",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 15,
-                        color: "white",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "3rem",
-                          height: "3rem",
-                          border: "4px solid rgba(255,255,255,0.3)",
-                          borderTop: "4px solid white",
-                          borderRadius: "50%",
-                          animation: "spin 1s linear infinite",
-                          marginBottom: "1rem",
-                        }}
-                      />
-                      <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
-                        {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Center Location Dot */}
-                  {mapImageUrl && !isMarking && !locationLoading && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: "12px",
-                        height: "12px",
-                        borderRadius: "50%",
-                        background: "rgba(239, 68, 68, 0.9)",
-                        border: "2px solid white",
-                        boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
-                        zIndex: 12,
-                        animation: "pulse 2s infinite",
+                        animation: "spin 1s linear infinite",
+                        marginBottom: "1rem",
                       }}
                     />
-                  )}
+                    <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
+                      {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
+                    </div>
+                  </div>
+                )}
 
-                  {/* Subtle Inner Highlight */}
+                {/* Center Location Dot */}
+                {mapImageUrl && !isMarking && !locationLoading && (
                   <div
                     style={{
                       position: "absolute",
-                      top: "10%",
-                      left: "10%",
-                      right: "10%",
-                      bottom: "10%",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "12px",
+                      height: "12px",
                       borderRadius: "50%",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      pointerEvents: "none",
+                      background: "rgba(239, 68, 68, 0.9)",
+                      border: "2px solid white",
+                      boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
+                      zIndex: 12,
+                      animation: "pulse 2s infinite",
                     }}
                   />
-                </div>
+                )}
               </div>
-
-              {/* Porthole Bolts/Rivets for Realism */}
-              {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-                <div
-                  key={angle}
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #6b7280 0%, #374151 100%)",
-                    border: "2px solid #1f2937",
-                    boxShadow: "inset 0 1px 2px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3)",
-                    transform: `translate(-50%, -50%) translate(${Math.cos((angle * Math.PI) / 180) * 9.5}rem, ${
-                      Math.sin((angle * Math.PI) / 180) * 9.5
-                    }rem)`,
-                  }}
-                />
-              ))}
             </div>
 
             {/* Instruction Text */}
@@ -628,7 +567,7 @@ export default function LocationApp() {
                 border: "1px solid rgba(255,255,255,0.1)",
               }}
             >
-              👆 Tap through the porthole to mark this spot
+              👆 Tap through the hole to mark this spot
             </div>
           </div>
 
