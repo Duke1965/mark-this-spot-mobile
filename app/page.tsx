@@ -70,7 +70,13 @@ export default function LocationApp() {
       style: "feature:poi|visibility:off", // Hide points of interest for cleaner look
     })
 
-    return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+    const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+
+    // Debug: Log the generated URL
+    console.log("🗺️ Map Image URL:", imageUrl)
+    console.log("🔑 API Key exists:", !!apiKey)
+
+    return imageUrl
   }
 
   // Get user's current location and generate map image
@@ -493,9 +499,9 @@ export default function LocationApp() {
                   isMarking || locationLoading
                     ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
                     : mapImageUrl
-                      ? `linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%), url(${mapImageUrl})`
-                      : "#F8F9FA",
-                backgroundSize: mapImageUrl ? "cover, cover" : "auto",
+                      ? `url(${mapImageUrl})`
+                      : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                backgroundSize: mapImageUrl ? "cover" : "auto",
                 backgroundPosition: "center, center",
                 backgroundRepeat: "no-repeat",
                 boxShadow: `
