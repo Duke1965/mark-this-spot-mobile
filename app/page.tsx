@@ -1,3 +1,6 @@
+// Add a comment at the top to force update
+// Updated: 2024 - Latest version with hole effect and clean settings
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -34,8 +37,10 @@ export default function LocationApp() {
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [isPhotoMode, setIsPhotoMode] = useState(false)
 
+  // Also, let me add a console log to verify the version
   useEffect(() => {
     setIsClient(true)
+    console.log("🚀 Mark This Spot - Latest Version Loaded!")
   }, [])
 
   const { getCurrentLocation, isLoading: locationLoading, error: locationError } = useLocationServices()
@@ -459,166 +464,226 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
+          {/* HOLE EFFECT - Looking through wall to map behind */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Card with Circular Hole Effect */}
-            <div style={{ position: "relative", marginBottom: "3rem" }}>
-              {/* Main Card Surface */}
+            {/* Background Map Layer - Behind the wall */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-2rem",
+                left: "-2rem",
+                right: "-2rem",
+                bottom: "-2rem",
+                backgroundImage: mapImageUrl ? `url(${mapImageUrl})` : "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                borderRadius: "2rem",
+                filter: "blur(1px) brightness(0.8)",
+                zIndex: 1,
+              }}
+            />
+
+            {/* Wall Surface with Circular Hole */}
+            <div
+              style={{
+                position: "relative",
+                width: "24rem",
+                height: "24rem",
+                borderRadius: "2rem",
+                background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
+                backdropFilter: "blur(20px)",
+                border: "2px solid rgba(255,255,255,0.1)",
+                boxShadow: `
+                  0 25px 50px rgba(0,0,0,0.4),
+                  inset 0 1px 0 rgba(255,255,255,0.1)
+                `,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2,
+              }}
+            >
+              {/* The Hole - Circular cutout revealing map behind */}
               <div
                 style={{
+                  width: "18rem",
+                  height: "18rem",
+                  borderRadius: "50%",
                   position: "relative",
-                  width: "24rem",
-                  height: "24rem",
-                  borderRadius: "2rem",
-                  background: "rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  overflow: "hidden",
+                  boxShadow: `
+                    inset 0 0 0 6px rgba(0,0,0,0.4),
+                    inset 0 8px 20px rgba(0,0,0,0.6),
+                    inset 0 0 60px rgba(0,0,0,0.3)
+                  `,
+                  border: "4px solid #0f172a",
                 }}
               >
-                {/* Circular Hole */}
+                {/* Map visible through the hole */}
                 <div
                   style={{
-                    width: "20rem",
-                    height: "20rem",
-                    borderRadius: "50%",
-                    background: "transparent",
-                    boxShadow: `
-                      inset 0 0 0 4px rgba(0,0,0,0.3),
-                      inset 0 8px 16px rgba(0,0,0,0.4),
-                      inset 0 0 40px rgba(0,0,0,0.2)
-                    `,
-                    position: "relative",
-                    overflow: "hidden",
+                    position: "absolute",
+                    top: "-3rem",
+                    left: "-3rem",
+                    right: "-3rem",
+                    bottom: "-3rem",
+                    backgroundImage: mapImageUrl ? `url(${mapImageUrl})` : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    transform: "scale(1.2)",
                   }}
-                >
-                  {/* Map Button - Sits in the hole with depth */}
-                  <button
-                    onClick={markSpot}
-                    disabled={isMarking || locationLoading}
+                />
+
+                {/* Interactive Button - Invisible overlay */}
+                <button
+                  onClick={markSpot}
+                  disabled={isMarking || locationLoading}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: "50%",
+                    cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
+                    zIndex: 10,
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"
+                      e.currentTarget.style.boxShadow = "inset 0 0 0 2px rgba(59, 130, 246, 0.3)"
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.boxShadow = "none"
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.transform = "scale(0.98)"
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    if (!isMarking && !locationLoading) {
+                      e.currentTarget.style.transform = "scale(1)"
+                    }
+                  }}
+                />
+
+                {/* Loading State Overlay */}
+                {(isMarking || locationLoading || !mapImageUrl) && (
+                  <div
                     style={{
                       position: "absolute",
-                      top: "1rem",
-                      left: "1rem",
-                      right: "1rem",
-                      bottom: "1rem",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: "rgba(0,0,0,0.8)",
                       borderRadius: "50%",
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      transition: "all 0.3s ease",
-                      border: "none",
-                      cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
-                      transform: isMarking || locationLoading ? "scale(0.95)" : "scale(1)",
-                      overflow: "hidden",
-                      background:
-                        isMarking || locationLoading
-                          ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
-                          : mapImageUrl
-                            ? `linear-gradient(135deg, rgba(255,0,0,0.1) 0%, rgba(0,255,0,0.1) 100%), url(${mapImageUrl})`
-                            : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                      backgroundSize: mapImageUrl ? "cover" : "auto",
-                      backgroundPosition: "center, center",
-                      backgroundRepeat: "no-repeat",
-                      boxShadow: `
-                        0 8px 16px rgba(0,0,0,0.4),
-                        0 4px 8px rgba(0,0,0,0.2),
-                        inset 0 0 0 2px rgba(255,255,255,0.1)
-                      `,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.transform = "scale(1.02) translateY(-2px)"
-                        e.currentTarget.style.boxShadow = `
-                          0 12px 24px rgba(0,0,0,0.5),
-                          0 6px 12px rgba(0,0,0,0.3),
-                          inset 0 0 0 2px rgba(255,255,255,0.2)
-                        `
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.transform = "scale(1) translateY(0)"
-                        e.currentTarget.style.boxShadow = `
-                          0 8px 16px rgba(0,0,0,0.4),
-                          0 4px 8px rgba(0,0,0,0.2),
-                          inset 0 0 0 2px rgba(255,255,255,0.1)
-                        `
-                      }
-                    }}
-                    onMouseDown={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.transform = "scale(0.98) translateY(1px)"
-                      }
-                    }}
-                    onMouseUp={(e) => {
-                      if (!isMarking && !locationLoading) {
-                        e.currentTarget.style.transform = "scale(1.02) translateY(-2px)"
-                      }
+                      zIndex: 15,
+                      color: "white",
                     }}
                   >
-                    {/* Loading State Overlay */}
-                    {(isMarking || locationLoading || !mapImageUrl) && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          background: isMarking || locationLoading ? "rgba(0,0,0,0.7)" : "rgba(59, 130, 246, 0.1)",
-                          borderRadius: "50%",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          zIndex: 5,
-                          color: "white",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "3rem",
-                            height: "3rem",
-                            border: "4px solid white",
-                            borderTop: "4px solid transparent",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                            marginBottom: "1rem",
-                          }}
-                        />
-                        <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
-                          {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
-                        </div>
-                      </div>
-                    )}
+                    <div
+                      style={{
+                        width: "3rem",
+                        height: "3rem",
+                        border: "4px solid rgba(255,255,255,0.3)",
+                        borderTop: "4px solid white",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                        marginBottom: "1rem",
+                      }}
+                    />
+                    <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
+                      {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
+                    </div>
+                  </div>
+                )}
 
-                    {/* Pulsing Center Dot (when map is loaded) */}
-                    {mapImageUrl && !isMarking && !locationLoading && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          transform: "translate(-50%, -50%)",
-                          width: "20px",
-                          height: "20px",
-                          borderRadius: "50%",
-                          background: "rgba(239, 68, 68, 0.9)",
-                          border: "3px solid white",
-                          boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
-                          zIndex: 4,
-                          animation: "pulse 2s infinite",
-                        }}
-                      />
-                    )}
-                  </button>
-                </div>
+                {/* Pulsing Center Dot (when map is loaded) */}
+                {mapImageUrl && !isMarking && !locationLoading && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "50%",
+                      background: "rgba(239, 68, 68, 0.9)",
+                      border: "2px solid white",
+                      boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
+                      zIndex: 12,
+                      animation: "pulse 2s infinite",
+                    }}
+                  />
+                )}
+
+                {/* Hole rim highlight */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    left: "4px",
+                    right: "4px",
+                    bottom: "4px",
+                    borderRadius: "50%",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    pointerEvents: "none",
+                  }}
+                />
               </div>
+
+              {/* Wall texture/pattern overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: "2rem",
+                  background: `
+                    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 1px, transparent 1px),
+                    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03) 1px, transparent 1px)
+                  `,
+                  backgroundSize: "40px 40px, 60px 60px",
+                  pointerEvents: "none",
+                  zIndex: 3,
+                }}
+              />
+            </div>
+
+            {/* Instruction text below */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "-3rem",
+                left: "50%",
+                transform: "translateX(-50%)",
+                color: "rgba(255,255,255,0.7)",
+                fontSize: "0.875rem",
+                textAlign: "center",
+                background: "rgba(0,0,0,0.3)",
+                backdropFilter: "blur(10px)",
+                padding: "0.5rem 1rem",
+                borderRadius: "1rem",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              👆 Tap the map to mark this spot
             </div>
           </div>
 
@@ -1214,7 +1279,7 @@ function LiveResultsMap({
                 position: data.location.latLng,
                 pov: { heading: 0, pitch: 0 },
                 zoom: 1,\
-                visible: false,
+                visible: false,\
                 addressControl: true,\
                 linksControl: true,
                 panControl: true,
@@ -1239,7 +1304,7 @@ function LiveResultsMap({
       setLoadError("Failed to initialize map")
     }
   }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
-\
+
   // ENHANCED Street View Toggle with Error Handling
   const toggleStreetView = () => {
     if (!streetView) {
