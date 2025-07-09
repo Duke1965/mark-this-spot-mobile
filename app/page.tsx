@@ -14,6 +14,8 @@ interface Spot {
   address: string
   notes: string
   photos?: string[]
+  category?: string
+  photo?: string
 }
 
 export default function LocationApp() {
@@ -28,6 +30,9 @@ export default function LocationApp() {
   const [currentSpot, setCurrentSpot] = useState<Spot | null>(null)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [locationAddress, setLocationAddress] = useState<string>("Getting your location...")
+  const [selectedCategory, setSelectedCategory] = useState("general")
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [isPhotoMode, setIsPhotoMode] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -52,6 +57,17 @@ export default function LocationApp() {
       "water-drop": { name: "Water Drop", emoji: "💧", description: "Zen-like" },
       "wind-chime": { name: "Wind Chime", emoji: "🎐", description: "Peaceful" },
     },
+  }
+
+  const spotCategories = {
+    general: { name: "General", emoji: "📍", color: "#3B82F6" },
+    food: { name: "Food & Drink", emoji: "🍽️", color: "#EF4444" },
+    views: { name: "Great Views", emoji: "🌅", color: "#F59E0B" },
+    hidden: { name: "Hidden Gems", emoji: "💎", color: "#8B5CF6" },
+    nature: { name: "Nature", emoji: "🌿", color: "#10B981" },
+    culture: { name: "Culture", emoji: "🏛️", color: "#6B7280" },
+    shopping: { name: "Shopping", emoji: "🛍️", color: "#EC4899" },
+    transport: { name: "Transport", emoji: "🚇", color: "#0EA5E9" },
   }
 
   // Generate Google Maps Static API URL
@@ -158,7 +174,7 @@ export default function LocationApp() {
         return
       }
 
-      // Create new spot with real coordinates
+      // Create new spot with real coordinates, category, and photo
       const newSpot: Spot = {
         id: Date.now().toString(),
         latitude: location.latitude,
@@ -166,6 +182,8 @@ export default function LocationApp() {
         timestamp: new Date().toISOString(),
         address: "Getting address...",
         notes: "",
+        category: selectedCategory,
+        photo: capturedPhoto,
       }
 
       // Play the selected sound immediately (if not muted)!
@@ -176,6 +194,10 @@ export default function LocationApp() {
       // Add spot to storage
       setSpots((prev) => [newSpot, ...prev])
       setCurrentSpot(newSpot)
+
+      // Reset photo after marking
+      setCapturedPhoto(null)
+      setIsPhotoMode(false)
 
       // Get real address in background
       try {
@@ -424,6 +446,91 @@ export default function LocationApp() {
               </div>
             </div>
           )}
+
+          {/* Mobile Quick Actions Bar */}
+          <div
+            style={{
+              position: "fixed",
+              bottom: "2rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 30,
+              display: "flex",
+              gap: "1rem",
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(20px)",
+              borderRadius: "2rem",
+              padding: "1rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+            }}
+          >
+            {/* Category Selector */}
+            <button
+              onClick={() => setCurrentScreen("category-selector")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.75rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                minWidth: "4rem",
+              }}
+            >
+              <span style={{ fontSize: "1.5rem" }}>{spotCategories[selectedCategory].emoji}</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Category</span>
+            </button>
+
+            {/* Photo Capture */}
+            <button
+              onClick={() => setIsPhotoMode(!isPhotoMode)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.75rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: isPhotoMode ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                minWidth: "4rem",
+              }}
+            >
+              <span style={{ fontSize: "1.5rem" }}>📸</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Photo</span>
+            </button>
+
+            {/* Marker Style */}
+            <button
+              onClick={() => setCurrentScreen("marker-selector")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.75rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                minWidth: "4rem",
+              }}
+            >
+              <span style={{ fontSize: "1.5rem" }}>🎯</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Marker</span>
+            </button>
+          </div>
 
           {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
