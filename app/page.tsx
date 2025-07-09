@@ -382,7 +382,7 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
-        {/* Top Right - Mute Button */}
+        {/* Top Right - Mute Button - Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -394,18 +394,33 @@ export default function LocationApp() {
           <button
             onClick={() => setIsMuted(!isMuted)}
             style={{
-              padding: "1rem",
-              borderRadius: "50%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.75rem",
+              borderRadius: "0.75rem",
               border: "none",
               cursor: "pointer",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
               transition: "all 0.3s ease",
-              background: isMuted ? "#ef4444" : "rgba(255,255,255,0.2)",
-              color: "white",
-              backdropFilter: "blur(10px)",
+              background: "rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.7)",
+              backdropFilter: "blur(20px)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.12)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
+              e.currentTarget.style.transform = "translateY(-1px)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+              e.currentTarget.style.transform = "translateY(0)"
             }}
           >
-            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>{isMuted ? "Muted" : "Sound"}</span>
           </button>
         </div>
 
@@ -447,7 +462,7 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* Mobile Quick Actions Bar */}
+          {/* Mobile Quick Actions Bar - Shazam Style */}
           <div
             style={{
               position: "fixed",
@@ -456,13 +471,13 @@ export default function LocationApp() {
               transform: "translateX(-50%)",
               zIndex: 30,
               display: "flex",
-              gap: "1rem",
-              background: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(20px)",
+              gap: "2rem",
+              background: "rgba(255,255,255,0.06)",
+              backdropFilter: "blur(30px)",
               borderRadius: "2rem",
-              padding: "1rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+              padding: "1.5rem 2rem",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.05)",
             }}
           >
             {/* Category Selector */}
@@ -472,19 +487,29 @@ export default function LocationApp() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.25rem",
+                gap: "0.5rem",
                 padding: "0.75rem",
                 borderRadius: "1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
+                background: "transparent",
+                color: "rgba(255,255,255,0.7)",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
                 minWidth: "4rem",
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.95)"
+                e.currentTarget.style.transform = "translateY(-2px)"
+                e.currentTarget.style.background = "rgba(255,255,255,0.05)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                e.currentTarget.style.transform = "translateY(0)"
+                e.currentTarget.style.background = "transparent"
+              }}
             >
               <span style={{ fontSize: "1.5rem" }}>{spotCategories[selectedCategory].emoji}</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Category</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Category</span>
             </button>
 
             {/* Photo Capture */}
@@ -494,19 +519,29 @@ export default function LocationApp() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.25rem",
+                gap: "0.5rem",
                 padding: "0.75rem",
                 borderRadius: "1rem",
                 border: "none",
-                background: isPhotoMode ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
-                color: "white",
+                background: isPhotoMode ? "rgba(16, 185, 129, 0.15)" : "transparent",
+                color: isPhotoMode ? "rgba(16, 185, 129, 0.9)" : "rgba(255,255,255,0.7)",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
                 minWidth: "4rem",
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = isPhotoMode ? "rgba(16, 185, 129, 1)" : "rgba(255,255,255,0.95)"
+                e.currentTarget.style.transform = "translateY(-2px)"
+                e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.05)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = isPhotoMode ? "rgba(16, 185, 129, 0.9)" : "rgba(255,255,255,0.7)"
+                e.currentTarget.style.transform = "translateY(0)"
+                e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.15)" : "transparent"
+              }}
             >
               <span style={{ fontSize: "1.5rem" }}>📸</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Photo</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Photo</span>
             </button>
 
             {/* Marker Style */}
@@ -516,19 +551,29 @@ export default function LocationApp() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.25rem",
+                gap: "0.5rem",
                 padding: "0.75rem",
                 borderRadius: "1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
+                background: "transparent",
+                color: "rgba(255,255,255,0.7)",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
                 minWidth: "4rem",
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.95)"
+                e.currentTarget.style.transform = "translateY(-2px)"
+                e.currentTarget.style.background = "rgba(255,255,255,0.05)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                e.currentTarget.style.transform = "translateY(0)"
+                e.currentTarget.style.background = "transparent"
+              }}
             >
               <span style={{ fontSize: "1.5rem" }}>🎯</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Marker</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Marker</span>
             </button>
           </div>
 
@@ -744,7 +789,7 @@ export default function LocationApp() {
           </div>
         </div>
 
-        {/* Bottom Left - Libraries Button */}
+        {/* Bottom Left - Libraries Button - Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -757,33 +802,36 @@ export default function LocationApp() {
             onClick={() => setCurrentScreen("libraries")}
             style={{
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: "0.75rem",
-              padding: "1rem 1.5rem",
-              background: "rgba(255,255,255,0.2)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "1rem",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-              color: "white",
+              gap: "0.25rem",
+              padding: "0.75rem",
+              background: "rgba(255,255,255,0.08)",
+              backdropFilter: "blur(20px)",
+              borderRadius: "0.75rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.7)",
               border: "none",
               cursor: "pointer",
               transition: "all 0.3s ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.3)"
-              e.currentTarget.style.transform = "scale(1.05)"
+              e.currentTarget.style.background = "rgba(255,255,255,0.12)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
+              e.currentTarget.style.transform = "translateY(-1px)"
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.2)"
-              e.currentTarget.style.transform = "scale(1)"
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+              e.currentTarget.style.transform = "translateY(0)"
             }}
           >
-            <Library size={24} />
-            <span style={{ fontWeight: 600 }}>Libraries</span>
+            <Library size={20} />
+            <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Libraries</span>
           </button>
         </div>
 
-        {/* Bottom Right - Settings Button */}
+        {/* Bottom Right - Settings Button - Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -796,29 +844,32 @@ export default function LocationApp() {
             onClick={() => setCurrentScreen("settings")}
             style={{
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: "0.75rem",
-              padding: "1rem 1.5rem",
-              background: "rgba(255,255,255,0.2)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "1rem",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-              color: "white",
+              gap: "0.25rem",
+              padding: "0.75rem",
+              background: "rgba(255,255,255,0.08)",
+              backdropFilter: "blur(20px)",
+              borderRadius: "0.75rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.7)",
               border: "none",
               cursor: "pointer",
               transition: "all 0.3s ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.3)"
-              e.currentTarget.style.transform = "scale(1.05)"
+              e.currentTarget.style.background = "rgba(255,255,255,0.12)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
+              e.currentTarget.style.transform = "translateY(-1px)"
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.2)"
-              e.currentTarget.style.transform = "scale(1)"
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+              e.currentTarget.style.transform = "translateY(0)"
             }}
           >
-            <Settings size={24} />
-            <span style={{ fontWeight: 600 }}>Settings</span>
+            <Settings size={20} />
+            <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Settings</span>
           </button>
         </div>
 
