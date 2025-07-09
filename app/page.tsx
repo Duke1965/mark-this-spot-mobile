@@ -419,17 +419,12 @@ export default function LocationApp() {
 
           {/* CLEAN HOLE EFFECT - Simple circular cutout in wall */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* The Wall */}
+            {/* Just the hole - no visible container */}
             <div
               style={{
                 position: "relative",
-                width: "20rem",
-                height: "20rem",
-                borderRadius: "1rem",
-                background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
-                backdropFilter: "blur(20px)",
-                border: "2px solid rgba(255,255,255,0.1)",
-                boxShadow: "0 25px 50px rgba(0,0,0,0.4)",
+                width: "16rem",
+                height: "16rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -443,7 +438,7 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  boxShadow: "inset 0 0 20px rgba(0,0,0,0.6)",
+                  boxShadow: "inset 0 0 30px rgba(0,0,0,0.8), 0 0 0 3px rgba(30, 41, 59, 0.8)",
                 }}
               >
                 {/* Map visible through the hole */}
