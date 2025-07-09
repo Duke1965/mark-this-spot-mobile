@@ -1015,6 +1015,17 @@ function LiveResultsMap({
         ],
       })
 
+      // Force map to resize and center
+      setTimeout(() => {
+        window.google.maps.event.trigger(newMap, "resize")
+        newMap.setCenter({ lat: spot.latitude, lng: spot.longitude })
+        console.log("🗺️ Map forced resize and center")
+      }, 100)
+
+      // Also add this debug logging right after map creation:
+      console.log("🗺️ Map container dimensions:", mapRef.current.offsetWidth, "x", mapRef.current.offsetHeight)
+      console.log("🗺️ Map center:", spot.latitude, spot.longitude)
+
       // NEW (stable solution):
       const newMarker = new window.google.maps.Marker({
         position: { lat: spot.latitude, lng: spot.longitude },
@@ -1139,7 +1150,17 @@ function LiveResultsMap({
 
   return (
     <div style={{ height: "100%", position: "relative" }}>
-      <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+      <div
+        ref={mapRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "400px",
+          backgroundColor: "#f0f0f0",
+          border: "2px solid #10B981",
+          borderRadius: "8px",
+        }}
+      />
 
       {/* Street View Toggle Button */}
       <button
