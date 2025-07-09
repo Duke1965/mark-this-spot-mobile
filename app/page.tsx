@@ -57,24 +57,40 @@ export default function LocationApp() {
   // Generate Google Maps Static API URL
   const generateMapImageUrl = (lat: number, lng: number) => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    if (!apiKey) return null
+    if (!apiKey) {
+      console.error("❌ No Google Maps API key found!")
+      return null
+    }
 
     // Google Maps Static API parameters
     const params = new URLSearchParams({
       center: `${lat},${lng}`,
-      zoom: "16", // Good zoom level for neighborhood view
-      size: "400x400", // Square image for circular button
-      maptype: "roadmap", // Can be: roadmap, satellite, hybrid, terrain
-      markers: `color:red|size:mid|${lat},${lng}`, // Red marker at user location
+      zoom: "16",
+      size: "400x400",
+      maptype: "roadmap",
+      markers: `color:red|size:mid|${lat},${lng}`,
       key: apiKey,
-      style: "feature:poi|visibility:off", // Hide points of interest for cleaner look
+      style: "feature:poi|visibility:off",
     })
 
     const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
 
-    // Debug: Log the generated URL
-    console.log("🗺️ Map Image URL:", imageUrl)
-    console.log("🔑 API Key exists:", !!apiKey)
+    // ENHANCED DEBUG LOGGING
+    console.log("🗺️ STATIC MAP DEBUG:")
+    console.log("📍 Location:", lat, lng)
+    console.log("🔑 API Key (first 10 chars):", apiKey.substring(0, 10) + "...")
+    console.log("🌐 Full Static API URL:", imageUrl)
+
+    // TEST IF IMAGE LOADS
+    const testImg = new Image()
+    testImg.onload = () => {
+      console.log("✅ Static Map image loaded successfully!")
+    }
+    testImg.onerror = (error) => {
+      console.error("❌ Static Map image failed to load:", error)
+      console.error("🔍 Check if Static Maps API is enabled in Google Cloud Console")
+    }
+    testImg.src = imageUrl
 
     return imageUrl
   }
@@ -499,7 +515,7 @@ export default function LocationApp() {
                   isMarking || locationLoading
                     ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
                     : mapImageUrl
-                      ? `url(${mapImageUrl})`
+                      ? `linear-gradient(135deg, rgba(255,0,0,0.1) 0%, rgba(0,255,0,0.1) 100%), url(${mapImageUrl})`
                       : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
                 backgroundSize: mapImageUrl ? "cover" : "auto",
                 backgroundPosition: "center, center",
@@ -1183,7 +1199,6 @@ function LiveResultsMap({
         streetViewControl: true,
         fullscreenControl: true,
         zoomControl: true,
-        mapId: "DEMO_MAP_ID", // ENABLE LATEST FEATURES
         styles: [
           {
             featureType: "poi",
