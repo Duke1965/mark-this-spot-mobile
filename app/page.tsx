@@ -461,185 +461,165 @@ export default function LocationApp() {
 
           {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Wedding Ring Base */}
-            <div
-              style={{
-                position: "absolute",
-                width: "24rem",
-                height: "24rem",
-                borderRadius: "50%",
-                background: `
-                  radial-gradient(circle at center, transparent 7rem, #1e40af 7rem, #1d4ed8 8rem, #1e3a8a 9rem, transparent 9rem),
-                  radial-gradient(circle at center, transparent 8.5rem, rgba(30, 64, 175, 0.3) 8.5rem, rgba(30, 64, 175, 0.5) 9.5rem, transparent 9.5rem)
-                `,
-                boxShadow: `
-                  inset 0 0 0 2px rgba(30, 64, 175, 0.4),
-                  inset 0 0 20px rgba(30, 64, 175, 0.2),
-                  0 0 30px rgba(30, 64, 175, 0.3),
-                  0 8px 16px rgba(0,0,0,0.4)
-                `,
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 1,
-              }}
-            >
-              {/* Ring highlights for 3D effect */}
+            {/* Card with Circular Hole Effect */}
+            <div style={{ position: "relative", marginBottom: "3rem" }}>
+              {/* Main Card Surface */}
               <div
                 style={{
-                  position: "absolute",
-                  top: "2rem",
-                  left: "2rem",
-                  right: "2rem",
-                  bottom: "2rem",
-                  borderRadius: "50%",
-                  background: `
-                    radial-gradient(circle at 30% 30%, rgba(147, 197, 253, 0.4) 0%, transparent 50%),
-                    radial-gradient(circle at 70% 70%, rgba(30, 58, 138, 0.6) 0%, transparent 50%)
-                  `,
+                  position: "relative",
+                  width: "24rem",
+                  height: "24rem",
+                  borderRadius: "2rem",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
-              />
-
-              {/* Inner ring glow */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  width: "14rem",
-                  height: "14rem",
-                  borderRadius: "50%",
-                  background: "radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%)",
-                  animation: "pulse 3s infinite",
-                }}
-              />
-            </div>
-
-            {/* Main Button with REAL Google Maps Background */}
-            <button
-              onClick={markSpot}
-              disabled={isMarking || locationLoading}
-              style={{
-                position: "relative",
-                width: "20rem",
-                height: "20rem",
-                borderRadius: "50%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.3s ease",
-                border: "none",
-                cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
-                transform: isMarking || locationLoading ? "scale(0.95)" : "scale(1)",
-                zIndex: 2,
-                overflow: "hidden",
-                background:
-                  isMarking || locationLoading
-                    ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
-                    : mapImageUrl
-                      ? `linear-gradient(135deg, rgba(255,0,0,0.1) 0%, rgba(0,255,0,0.1) 100%), url(${mapImageUrl})`
-                      : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                backgroundSize: mapImageUrl ? "cover" : "auto",
-                backgroundPosition: "center, center",
-                backgroundRepeat: "no-repeat",
-                boxShadow: `
-                  inset 0 0 0 4px rgba(255,255,255,0.3),
-                  inset 0 0 0 8px rgba(0,0,0,0.1),
-                  0 4px 8px rgba(0,0,0,0.2),
-                  0 8px 16px rgba(59, 130, 246, 0.3)
-                `,
-              }}
-              onMouseEnter={(e) => {
-                if (!isMarking && !locationLoading) {
-                  e.currentTarget.style.transform = "scale(1.02)"
-                  e.currentTarget.style.boxShadow = `
-                    inset 0 0 0 4px rgba(255,255,255,0.4),
-                    inset 0 0 0 8px rgba(0,0,0,0.1),
-                    0 6px 12px rgba(0,0,0,0.3),
-                    0 12px 24px rgba(59, 130, 246, 0.4)
-                  `
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isMarking && !locationLoading) {
-                  e.currentTarget.style.transform = "scale(1)"
-                  e.currentTarget.style.boxShadow = `
-                    inset 0 0 0 4px rgba(255,255,255,0.3),
-                    inset 0 0 0 8px rgba(0,0,0,0.1),
-                    0 4px 8px rgba(0,0,0,0.2),
-                    0 8px 16px rgba(59, 130, 246, 0.3)
-                  `
-                }
-              }}
-              onMouseDown={(e) => {
-                if (!isMarking && !locationLoading) {
-                  e.currentTarget.style.transform = "scale(0.98)"
-                }
-              }}
-              onMouseUp={(e) => {
-                if (!isMarking && !locationLoading) {
-                  e.currentTarget.style.transform = "scale(1.02)"
-                }
-              }}
-            >
-              {/* Loading State Overlay */}
-              {(isMarking || locationLoading || !mapImageUrl) && (
+              >
+                {/* Circular Hole */}
                 <div
                   style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: isMarking || locationLoading ? "rgba(0,0,0,0.7)" : "rgba(59, 130, 246, 0.1)",
+                    width: "20rem",
+                    height: "20rem",
                     borderRadius: "50%",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 5,
-                    color: "white",
+                    background: "transparent",
+                    boxShadow: `
+                      inset 0 0 0 4px rgba(0,0,0,0.3),
+                      inset 0 8px 16px rgba(0,0,0,0.4),
+                      inset 0 0 40px rgba(0,0,0,0.2)
+                    `,
+                    position: "relative",
+                    overflow: "hidden",
                   }}
                 >
-                  <div
+                  {/* Map Button - Sits in the hole with depth */}
+                  <button
+                    onClick={markSpot}
+                    disabled={isMarking || locationLoading}
                     style={{
-                      width: "3rem",
-                      height: "3rem",
-                      border: "4px solid white",
-                      borderTop: "4px solid transparent",
+                      position: "absolute",
+                      top: "1rem",
+                      left: "1rem",
+                      right: "1rem",
+                      bottom: "1rem",
                       borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
-                      marginBottom: "1rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.3s ease",
+                      border: "none",
+                      cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
+                      transform: isMarking || locationLoading ? "scale(0.95)" : "scale(1)",
+                      overflow: "hidden",
+                      background:
+                        isMarking || locationLoading
+                          ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
+                          : mapImageUrl
+                            ? `linear-gradient(135deg, rgba(255,0,0,0.1) 0%, rgba(0,255,0,0.1) 100%), url(${mapImageUrl})`
+                            : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                      backgroundSize: mapImageUrl ? "cover" : "auto",
+                      backgroundPosition: "center, center",
+                      backgroundRepeat: "no-repeat",
+                      boxShadow: `
+                        0 8px 16px rgba(0,0,0,0.4),
+                        0 4px 8px rgba(0,0,0,0.2),
+                        inset 0 0 0 2px rgba(255,255,255,0.1)
+                      `,
                     }}
-                  />
-                  <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
-                    {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
-                  </div>
-                </div>
-              )}
+                    onMouseEnter={(e) => {
+                      if (!isMarking && !locationLoading) {
+                        e.currentTarget.style.transform = "scale(1.02) translateY(-2px)"
+                        e.currentTarget.style.boxShadow = `
+                          0 12px 24px rgba(0,0,0,0.5),
+                          0 6px 12px rgba(0,0,0,0.3),
+                          inset 0 0 0 2px rgba(255,255,255,0.2)
+                        `
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isMarking && !locationLoading) {
+                        e.currentTarget.style.transform = "scale(1) translateY(0)"
+                        e.currentTarget.style.boxShadow = `
+                          0 8px 16px rgba(0,0,0,0.4),
+                          0 4px 8px rgba(0,0,0,0.2),
+                          inset 0 0 0 2px rgba(255,255,255,0.1)
+                        `
+                      }
+                    }}
+                    onMouseDown={(e) => {
+                      if (!isMarking && !locationLoading) {
+                        e.currentTarget.style.transform = "scale(0.98) translateY(1px)"
+                      }
+                    }}
+                    onMouseUp={(e) => {
+                      if (!isMarking && !locationLoading) {
+                        e.currentTarget.style.transform = "scale(1.02) translateY(-2px)"
+                      }
+                    }}
+                  >
+                    {/* Loading State Overlay */}
+                    {(isMarking || locationLoading || !mapImageUrl) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: isMarking || locationLoading ? "rgba(0,0,0,0.7)" : "rgba(59, 130, 246, 0.1)",
+                          borderRadius: "50%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 5,
+                          color: "white",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "3rem",
+                            height: "3rem",
+                            border: "4px solid white",
+                            borderTop: "4px solid transparent",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite",
+                            marginBottom: "1rem",
+                          }}
+                        />
+                        <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
+                          {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
+                        </div>
+                      </div>
+                    )}
 
-              {/* Pulsing Center Dot (when map is loaded) */}
-              {mapImageUrl && !isMarking && !locationLoading && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    background: "rgba(239, 68, 68, 0.9)",
-                    border: "3px solid white",
-                    boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
-                    zIndex: 4,
-                    animation: "pulse 2s infinite",
-                  }}
-                />
-              )}
-            </button>
+                    {/* Pulsing Center Dot (when map is loaded) */}
+                    {mapImageUrl && !isMarking && !locationLoading && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          background: "rgba(239, 68, 68, 0.9)",
+                          border: "3px solid white",
+                          boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
+                          zIndex: 4,
+                          animation: "pulse 2s infinite",
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* App Title */}
@@ -1274,7 +1254,6 @@ function LiveResultsMap({
         streetView.setPosition(position)
       }
       streetView.setVisible(true)
-      setShowStreetView(true)
       console.log("🏠 Street View activated with availability check")
     } else {
       // Hide Street View
