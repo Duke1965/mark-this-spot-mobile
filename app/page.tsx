@@ -534,7 +534,7 @@ export default function LocationApp() {
 
           {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Pavement Base */}
+            {/* Wedding Ring Base */}
             <div
               style={{
                 position: "absolute",
@@ -542,20 +542,14 @@ export default function LocationApp() {
                 height: "24rem",
                 borderRadius: "50%",
                 background: `
-                  radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
-                  linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
-                  linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
-                  linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
-                  linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
+                  radial-gradient(circle at center, transparent 7rem, #1e40af 7rem, #1d4ed8 8rem, #1e3a8a 9rem, transparent 9rem),
+                  radial-gradient(circle at center, transparent 8.5rem, rgba(30, 64, 175, 0.3) 8.5rem, rgba(30, 64, 175, 0.5) 9.5rem, transparent 9.5rem)
                 `,
-                backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
-                backgroundPosition: "0 0, 0 0, 0 4px, 4px -4px, -4px 0px",
                 boxShadow: `
-                  inset 0 0 0 8px #5A5A5A,
-                  inset 0 0 0 12px #6B6B6B,
-                  inset 0 0 0 16px #4A4A4A,
-                  0 8px 16px rgba(0,0,0,0.4),
-                  0 4px 8px rgba(0,0,0,0.3)
+                  inset 0 0 0 2px rgba(30, 64, 175, 0.4),
+                  inset 0 0 20px rgba(30, 64, 175, 0.2),
+                  0 0 30px rgba(30, 64, 175, 0.3),
+                  0 8px 16px rgba(0,0,0,0.4)
                 `,
                 top: "50%",
                 left: "50%",
@@ -563,38 +557,34 @@ export default function LocationApp() {
                 zIndex: 1,
               }}
             >
-              {/* Expansion Joint Lines */}
+              {/* Ring highlights for 3D effect */}
               <div
                 style={{
                   position: "absolute",
-                  top: "10%",
-                  left: "20%",
-                  right: "20%",
-                  height: "2px",
-                  background: "linear-gradient(90deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
-                  transform: "rotate(15deg)",
+                  top: "2rem",
+                  left: "2rem",
+                  right: "2rem",
+                  bottom: "2rem",
+                  borderRadius: "50%",
+                  background: `
+                    radial-gradient(circle at 30% 30%, rgba(147, 197, 253, 0.4) 0%, transparent 50%),
+                    radial-gradient(circle at 70% 70%, rgba(30, 58, 138, 0.6) 0%, transparent 50%)
+                  `,
                 }}
               />
+
+              {/* Inner ring glow */}
               <div
                 style={{
                   position: "absolute",
-                  bottom: "15%",
-                  left: "15%",
-                  right: "25%",
-                  height: "2px",
-                  background: "linear-gradient(90deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
-                  transform: "rotate(-20deg)",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "30%",
-                  bottom: "30%",
-                  left: "15%",
-                  width: "2px",
-                  background: "linear-gradient(0deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
-                  transform: "rotate(10deg)",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "14rem",
+                  height: "14rem",
+                  borderRadius: "50%",
+                  background: "radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%)",
+                  animation: "pulse 3s infinite",
                 }}
               />
             </div>
