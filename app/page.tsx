@@ -369,21 +369,21 @@ export default function LocationApp() {
                 height: "24rem",
                 borderRadius: "50%",
                 background: `
-                  radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
-                  linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
-                  linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
-                  linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
-                  linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
-                `,
+        radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
+        linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
+        linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
+        linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
+      `,
                 backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
                 backgroundPosition: "0 0, 0 0, 0 4px, 4px -4px, -4px 0px",
                 boxShadow: `
-                  inset 0 0 0 8px #5A5A5A,
-                  inset 0 0 0 12px #6B6B6B,
-                  inset 0 0 0 16px #4A4A4A,
-                  0 8px 16px rgba(0,0,0,0.4),
-                  0 4px 8px rgba(0,0,0,0.3)
-                `,
+        inset 0 0 0 8px #5A5A5A,
+        inset 0 0 0 12px #6B6B6B,
+        inset 0 0 0 16px #4A4A4A,
+        0 8px 16px rgba(0,0,0,0.4),
+        0 4px 8px rgba(0,0,0,0.3)
+      `,
                 top: "50%",
                 left: "50%",
                 transform: "translate(-50%, -50%)",
@@ -426,7 +426,7 @@ export default function LocationApp() {
               />
             </div>
 
-            {/* Main Button with Suburban Map Background */}
+            {/* Main Button with Street Map Background */}
             <button
               onClick={markSpot}
               disabled={isMarking || locationLoading}
@@ -439,9 +439,6 @@ export default function LocationApp() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white",
-                fontWeight: "bold",
-                fontSize: "1.5rem",
                 transition: "all 0.3s ease",
                 border: "none",
                 cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
@@ -449,41 +446,34 @@ export default function LocationApp() {
                 zIndex: 2,
                 overflow: "hidden",
                 background:
-                  isMarking || locationLoading
-                    ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
-                    : `
-                    linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(79, 70, 229, 0.9) 50%, rgba(124, 58, 237, 0.9) 100%),
-                    url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='%23E5E7EB' strokeWidth='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='%23F3F4F6'/%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C!-- Streets --%3E%3Crect x='0' y='120' width='400' height='20' fill='%23D1D5DB'/%3E%3Crect x='0' y='260' width='400' height='20' fill='%23D1D5DB'/%3E%3Crect x='120' y='0' width='20' height='400' fill='%23D1D5DB'/%3E%3Crect x='260' y='0' width='20' height='400' fill='%23D1D5DB'/%3E%3C!-- Street Names --%3E%3Ctext x='200' y='135' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold'%3EMaple Avenue%3C/text%3E%3Ctext x='200' y='275' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold'%3EGarden Street%3C/text%3E%3Ctext x='135' y='50' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold' transform='rotate(-90 135 50)'%3ECentral Drive%3C/text%3E%3Ctext x='275' y='50' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold' transform='rotate(-90 275 50)'%3EPark Lane%3C/text%3E%3C!-- Houses --%3E%3Crect x='30' y='30' width='80' height='80' fill='%23FEF3C7' stroke='%23D97706' strokeWidth='2'/%3E%3Crect x='150' y='30' width='80' height='80' fill='%23DBEAFE' stroke='%232563EB' strokeWidth='2'/%3E%3Crect x='290' y='30' width='80' height='80' fill='%23DCFCE7' stroke='%23059669' strokeWidth='2'/%3E%3Crect x='30' y='150' width='80' height='80' fill='%23FDE2E8' stroke='%23DC2626' strokeWidth='2'/%3E%3Crect x='150' y='150' width='80' height='80' fill='%23F3E8FF' stroke='%237C3AED' strokeWidth='2'/%3E%3Crect x='290' y='150' width='80' height='80' fill='%23FEF3C7' stroke='%23D97706' strokeWidth='2'/%3E%3Crect x='30' y='290' width='80' height='80' fill='%23DCFCE7' stroke='%23059669' strokeWidth='2'/%3E%3Crect x='150' y='290' width='80' height='80' fill='%23DBEAFE' stroke='%232563EB' strokeWidth='2'/%3E%3Crect x='290' y='290' width='80' height='80' fill='%23FDE2E8' stroke='%23DC2626' strokeWidth='2'/%3E%3C/svg%3E")
-                  `,
-                backgroundSize: "cover, 100% 100%",
-                backgroundPosition: "center, center",
+                  isMarking || locationLoading ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)" : "#F8F9FA",
                 boxShadow: `
-                  inset 0 0 0 4px rgba(255,255,255,0.3),
-                  inset 0 0 0 8px rgba(0,0,0,0.1),
-                  0 4px 8px rgba(0,0,0,0.2),
-                  0 8px 16px rgba(59, 130, 246, 0.3)
-                `,
+        inset 0 0 0 4px rgba(255,255,255,0.3),
+        inset 0 0 0 8px rgba(0,0,0,0.1),
+        0 4px 8px rgba(0,0,0,0.2),
+        0 8px 16px rgba(59, 130, 246, 0.3)
+      `,
               }}
               onMouseEnter={(e) => {
                 if (!isMarking && !locationLoading) {
                   e.currentTarget.style.transform = "scale(1.02)"
                   e.currentTarget.style.boxShadow = `
-                    inset 0 0 0 4px rgba(255,255,255,0.4),
-                    inset 0 0 0 8px rgba(0,0,0,0.1),
-                    0 6px 12px rgba(0,0,0,0.3),
-                    0 12px 24px rgba(59, 130, 246, 0.4)
-                  `
+          inset 0 0 0 4px rgba(255,255,255,0.4),
+          inset 0 0 0 8px rgba(0,0,0,0.1),
+          0 6px 12px rgba(0,0,0,0.3),
+          0 12px 24px rgba(59, 130, 246, 0.4)
+        `
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isMarking && !locationLoading) {
                   e.currentTarget.style.transform = "scale(1)"
                   e.currentTarget.style.boxShadow = `
-                    inset 0 0 0 4px rgba(255,255,255,0.3),
-                    inset 0 0 0 8px rgba(0,0,0,0.1),
-                    0 4px 8px rgba(0,0,0,0.2),
-                    0 8px 16px rgba(59, 130, 246, 0.3)
-                  `
+          inset 0 0 0 4px rgba(255,255,255,0.3),
+          inset 0 0 0 8px rgba(0,0,0,0.1),
+          0 4px 8px rgba(0,0,0,0.2),
+          0 8px 16px rgba(59, 130, 246, 0.3)
+        `
                 }
               }}
               onMouseDown={(e) => {
@@ -497,32 +487,274 @@ export default function LocationApp() {
                 }
               }}
             >
+              {/* Street Map Background */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: "50%",
+                  background: `
+          linear-gradient(135deg, rgba(248, 249, 250, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%),
+          repeating-linear-gradient(0deg, #E5E7EB 0px, #E5E7EB 1px, transparent 1px, transparent 40px),
+          repeating-linear-gradient(90deg, #E5E7EB 0px, #E5E7EB 1px, transparent 1px, transparent 40px)
+        `,
+                  backgroundSize: "100% 100%, 40px 40px, 40px 40px",
+                  zIndex: 1,
+                }}
+              >
+                {/* Streets */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "30%",
+                    left: 0,
+                    right: 0,
+                    height: "8%",
+                    background: "#D1D5DB",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "65%",
+                    left: 0,
+                    right: 0,
+                    height: "8%",
+                    background: "#D1D5DB",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: "30%",
+                    width: "8%",
+                    background: "#D1D5DB",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: "65%",
+                    width: "8%",
+                    background: "#D1D5DB",
+                    zIndex: 2,
+                  }}
+                />
+
+                {/* Street Names */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "32%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    color: "#374151",
+                    zIndex: 3,
+                  }}
+                >
+                  Maple Ave
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "67%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    color: "#374151",
+                    zIndex: 3,
+                  }}
+                >
+                  Garden St
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "15%",
+                    left: "32%",
+                    transform: "rotate(-90deg)",
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    color: "#374151",
+                    zIndex: 3,
+                  }}
+                >
+                  Central Dr
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "15%",
+                    left: "67%",
+                    transform: "rotate(-90deg)",
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    color: "#374151",
+                    zIndex: 3,
+                  }}
+                >
+                  Park Ln
+                </div>
+
+                {/* Houses */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "8%",
+                    left: "8%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#FEF3C7",
+                    border: "2px solid #D97706",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "8%",
+                    left: "40%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#DBEAFE",
+                    border: "2px solid #2563EB",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "8%",
+                    left: "72%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#DCFCE7",
+                    border: "2px solid #059669",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "40%",
+                    left: "8%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#FDE2E8",
+                    border: "2px solid #DC2626",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "40%",
+                    left: "40%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#F3E8FF",
+                    border: "2px solid #7C3AED",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "40%",
+                    left: "72%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#FEF3C7",
+                    border: "2px solid #D97706",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "72%",
+                    left: "8%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#DCFCE7",
+                    border: "2px solid #059669",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "72%",
+                    left: "40%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#DBEAFE",
+                    border: "2px solid #2563EB",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "72%",
+                    left: "72%",
+                    width: "20%",
+                    height: "20%",
+                    background: "#FDE2E8",
+                    border: "2px solid #DC2626",
+                    borderRadius: "4px",
+                    zIndex: 2,
+                  }}
+                />
+              </div>
+
               {/* 3D Marker Pin on Property */}
               <div
                 style={{
                   position: "absolute",
-                  top: "25%",
-                  right: "30%",
-                  width: "24px",
-                  height: "32px",
-                  zIndex: 3,
+                  top: "45%",
+                  right: "25%",
+                  width: "32px",
+                  height: "40px",
+                  zIndex: 4,
                 }}
               >
-                <svg width="24" height="32" viewBox="0 0 24 32">
+                <svg width="32" height="40" viewBox="0 0 32 40">
                   {/* Pin Shadow */}
-                  <ellipse cx="13" cy="30" rx="3" ry="1.5" fill="rgba(0,0,0,0.3)" />
+                  <ellipse cx="17" cy="38" rx="4" ry="2" fill="rgba(0,0,0,0.3)" />
 
                   {/* Pin Body */}
                   <path
-                    d="M12 4C8.7 4 6 6.7 6 10c0 5 6 14 6 14s6-9 6-14c0-3.3-2.7-6-6-6z"
+                    d="M16 6C12.1 6 9 9.1 9 13c0 6 7 19 7 19s7-13 7-19c0-3.9-3.1-7-7-7z"
                     fill="url(#pinGradient)"
                     stroke="rgba(0,0,0,0.2)"
                     strokeWidth="1"
                   />
 
                   {/* Pin Center */}
-                  <circle cx="12" cy="10" r="3" fill="rgba(255,255,255,0.9)" />
-                  <circle cx="12" cy="10" r="2" fill="#10B981" />
+                  <circle cx="16" cy="13" r="4" fill="rgba(255,255,255,0.9)" />
+                  <circle cx="16" cy="13" r="3" fill="#10B981" />
 
                   <defs>
                     <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -533,58 +765,41 @@ export default function LocationApp() {
                 </svg>
               </div>
 
-              {/* Button Content Overlay */}
-              <div
-                style={{
-                  position: "relative",
-                  zIndex: 4,
-                  background: "rgba(0,0,0,0.4)",
-                  borderRadius: "50%",
-                  padding: "2rem",
-                  backdropFilter: "blur(2px)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "80%",
-                  height: "80%",
-                }}
-              >
-                {isMarking || locationLoading ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "4rem",
-                        height: "4rem",
-                        border: "4px solid white",
-                        borderTop: "4px solid transparent",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
-                        marginBottom: "1rem",
-                      }}
-                    ></div>
-                    <div style={{ fontSize: "1.25rem", fontWeight: 900, textAlign: "center" }}>
-                      {isMarking ? "MARKING..." : "GETTING GPS..."}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", opacity: 0.8, marginTop: "0.5rem", textAlign: "center" }}>
-                      {isMuted ? "Silent deployment!" : "Epic sound incoming!"}
-                    </div>
+              {/* Loading State Overlay */}
+              {(isMarking || locationLoading) && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(0,0,0,0.7)",
+                    borderRadius: "50%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 5,
+                    color: "white",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "3rem",
+                      height: "3rem",
+                      border: "4px solid white",
+                      borderTop: "4px solid transparent",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                      marginBottom: "1rem",
+                    }}
+                  />
+                  <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
+                    {isMarking ? "MARKING..." : "GETTING GPS..."}
                   </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-                    <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>📍</div>
-                    <div
-                      style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "0.1em", marginBottom: "0.25rem" }}
-                    >
-                      MARK SPOT
-                    </div>
-                    <div style={{ fontSize: "0.75rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-                      {isMuted ? "Silent GPS Tracking" : "Real GPS + Epic Sound!"}
-                    </div>
-                    <div style={{ fontSize: "1.25rem" }}>{isMuted ? "🔇" : "🎵"}</div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </button>
           </div>
 
