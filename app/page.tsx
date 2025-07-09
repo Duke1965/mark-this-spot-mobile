@@ -937,7 +937,7 @@ export default function LocationApp() {
   return null
 }
 
-// Live Results Map Component
+// Live Results Map Component - FIXED STREET VIEW
 function LiveResultsMap({
   spot,
   onLocationUpdate,
@@ -946,6 +946,7 @@ function LiveResultsMap({
   onLocationUpdate: (lat: number, lng: number, address: string) => void
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const streetViewRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<any>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -1022,11 +1023,7 @@ function LiveResultsMap({
         console.log("🗺️ Map forced resize and center")
       }, 100)
 
-      // Also add this debug logging right after map creation:
-      console.log("🗺️ Map container dimensions:", mapRef.current.offsetWidth, "x", mapRef.current.offsetHeight)
-      console.log("🗺️ Map center:", spot.latitude, spot.longitude)
-
-      // NEW (stable solution):
+      // Create draggable marker
       const newMarker = new window.google.maps.Marker({
         position: { lat: spot.latitude, lng: spot.longitude },
         map: newMap,
@@ -1042,7 +1039,7 @@ function LiveResultsMap({
         },
       })
 
-      // Also update the drag event listener:
+      // Handle marker drag
       newMarker.addListener("dragend", async (event) => {
         const position = event.latLng
         const lat = position.lat()
@@ -1062,17 +1059,20 @@ function LiveResultsMap({
         }
       })
 
-      // Initialize Street View
-      const streetViewService = new window.google.maps.StreetViewService()
-      const streetViewPanorama = new window.google.maps.StreetViewPanorama(document.createElement("div"), {
-        position: { lat: spot.latitude, lng: spot.longitude },
-        pov: { heading: 0, pitch: 0 },
-        zoom: 1,
-      })
+      // FIXED: Create Street View with proper container
+      if (streetViewRef.current) {
+        const streetViewPanorama = new window.google.maps.StreetViewPanorama(streetViewRef.current, {
+          position: { lat: spot.latitude, lng: spot.longitude },
+          pov: { heading: 0, pitch: 0 },
+          zoom: 1,
+          visible: false,
+        })
+
+        setStreetView(streetViewPanorama)
+      }
 
       setMap(newMap)
       setMarker(newMarker)
-      setStreetView(streetViewPanorama)
 
       console.log("Results map initialized successfully")
     } catch (error) {
@@ -1081,18 +1081,22 @@ function LiveResultsMap({
     }
   }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
 
-  // Toggle Street View
+  // FIXED: Toggle Street View properly
   const toggleStreetView = () => {
-    if (!map || !streetView) return
+    if (!streetView || !marker) return
 
     if (!showStreetView) {
       // Show Street View
-      map.setStreetView(streetView)
+      const position = marker.getPosition()
+      streetView.setPosition(position)
+      streetView.setVisible(true)
       setShowStreetView(true)
+      console.log("🏠 Street View activated")
     } else {
       // Hide Street View
-      map.setStreetView(null)
+      streetView.setVisible(false)
       setShowStreetView(false)
+      console.log("🗺️ Street View deactivated")
     }
   }
 
@@ -1150,6 +1154,7 @@ function LiveResultsMap({
 
   return (
     <div style={{ height: "100%", position: "relative" }}>
+      {/* Map Container */}
       <div
         ref={mapRef}
         style={{
@@ -1157,8 +1162,19 @@ function LiveResultsMap({
           height: "100%",
           minHeight: "400px",
           backgroundColor: "#f0f0f0",
-          border: "2px solid #10B981",
-          borderRadius: "8px",
+          display: showStreetView ? "none" : "block",
+        }}
+      />
+
+      {/* Street View Container */}
+      <div
+        ref={streetViewRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "400px",
+          backgroundColor: "#f0f0f0",
+          display: showStreetView ? "block" : "none",
         }}
       />
 
@@ -1183,6 +1199,7 @@ function LiveResultsMap({
           boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
           fontWeight: 600,
           fontSize: "0.875rem",
+          zIndex: 10,
         }}
       >
         <Eye size={18} />
@@ -1190,24 +1207,48 @@ function LiveResultsMap({
       </button>
 
       {/* Drag Instructions */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "1rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(0,0,0,0.8)",
-          backdropFilter: "blur(10px)",
-          color: "white",
-          padding: "0.75rem 1rem",
-          borderRadius: "0.75rem",
-          fontSize: "0.875rem",
-          textAlign: "center",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        }}
-      >
-        🖱️ Drag the green marker to refine your location
-      </div>
+      {!showStreetView && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.8)",
+            backdropFilter: "blur(10px)",
+            color: "white",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.75rem",
+            fontSize: "0.875rem",
+            textAlign: "center",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          🖱️ Drag the green marker to refine your location
+        </div>
+      )}
+
+      {/* Street View Instructions */}
+      {showStreetView && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(16, 185, 129, 0.9)",
+            backdropFilter: "blur(10px)",
+            color: "white",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.75rem",
+            fontSize: "0.875rem",
+            textAlign: "center",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          🏠 Street View Active - Look around with mouse/touch
+        </div>
+      )}
     </div>
   )
 }
