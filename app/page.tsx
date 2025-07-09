@@ -954,7 +954,7 @@ function LiveResultsMap({
   const [streetView, setStreetView] = useState<any>(null)
   const [showStreetView, setShowStreetView] = useState(false)
 
-  // Load Google Maps API
+  // Load Google Maps API - FORCE LATEST VERSION
   useEffect(() => {
     if (window.google) {
       setIsLoaded(true)
@@ -975,12 +975,13 @@ function LiveResultsMap({
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
+    // FORCE LATEST VERSION + ADD MARKER LIBRARY
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places,marker&v=beta&loading=async`
     script.async = true
     script.defer = true
 
     window.initResultsMap = () => {
-      console.log("Results Map loaded successfully")
+      console.log("🗺️ LATEST Google Maps loaded successfully")
       setIsLoaded(true)
     }
 
@@ -995,18 +996,19 @@ function LiveResultsMap({
     }
   }, [])
 
-  // Initialize map
+  // Initialize map - ENHANCED WITH STREET VIEW CHECKING
   useEffect(() => {
     if (!isLoaded || !mapRef.current || loadError || !window.google) return
 
     try {
       const newMap = new window.google.maps.Map(mapRef.current, {
-        zoom: 16,
+        zoom: 18, // HIGHER ZOOM FOR BETTER DETAIL
         center: { lat: spot.latitude, lng: spot.longitude },
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
         zoomControl: true,
+        mapId: "DEMO_MAP_ID", // ENABLE LATEST FEATURES
         styles: [
           {
             featureType: "poi",
@@ -1023,21 +1025,33 @@ function LiveResultsMap({
         console.log("🗺️ Map forced resize and center")
       }, 100)
 
-      // Create draggable marker
-      const newMarker = new window.google.maps.Marker({
-        position: { lat: spot.latitude, lng: spot.longitude },
-        map: newMap,
-        title: "Drag to refine location",
-        draggable: true,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: "#10B981",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 3,
-        },
-      })
+      // CREATE ADVANCED MARKER (NEW API)
+      let newMarker
+      if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+        console.log("🎯 Using NEW AdvancedMarkerElement")
+        newMarker = new window.google.maps.marker.AdvancedMarkerElement({
+          position: { lat: spot.latitude, lng: spot.longitude },
+          map: newMap,
+          title: "Drag to refine location",
+          gmpDraggable: true,
+        })
+      } else {
+        console.log("🎯 Fallback to classic Marker")
+        newMarker = new window.google.maps.Marker({
+          position: { lat: spot.latitude, lng: spot.longitude },
+          map: newMap,
+          title: "Drag to refine location",
+          draggable: true,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 12,
+            fillColor: "#10B981",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 3,
+          },
+        })
+      }
 
       // Handle marker drag
       newMarker.addListener("dragend", async (event) => {
@@ -1059,39 +1073,67 @@ function LiveResultsMap({
         }
       })
 
-      // FIXED: Create Street View with proper container
+      // ENHANCED STREET VIEW WITH AVAILABILITY CHECK
       if (streetViewRef.current) {
-        const streetViewPanorama = new window.google.maps.StreetViewPanorama(streetViewRef.current, {
-          position: { lat: spot.latitude, lng: spot.longitude },
-          pov: { heading: 0, pitch: 0 },
-          zoom: 1,
-          visible: false,
-        })
+        const streetViewService = new window.google.maps.StreetViewService()
 
-        setStreetView(streetViewPanorama)
+        // CHECK IF STREET VIEW IS AVAILABLE
+        streetViewService.getPanorama(
+          {
+            location: { lat: spot.latitude, lng: spot.longitude },
+            radius: 50,
+            source: window.google.maps.StreetViewSource.OUTDOOR,
+          },
+          (data, status) => {
+            if (status === "OK") {
+              console.log("🏠 Street View available at this location")
+
+              const streetViewPanorama = new window.google.maps.StreetViewPanorama(streetViewRef.current, {
+                position: data.location.latLng,
+                pov: { heading: 0, pitch: 0 },
+                zoom: 1,
+                visible: false,
+                addressControl: true,
+                linksControl: true,
+                panControl: true,
+                enableCloseButton: false,
+              })
+
+              setStreetView(streetViewPanorama)
+            } else {
+              console.log("❌ No Street View available at this location")
+              setStreetView(null)
+            }
+          },
+        )
       }
 
       setMap(newMap)
       setMarker(newMarker)
 
-      console.log("Results map initialized successfully")
+      console.log("🗺️ Enhanced Results map initialized successfully")
     } catch (error) {
       console.error("Results map initialization failed:", error)
       setLoadError("Failed to initialize map")
     }
   }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
 
-  // FIXED: Toggle Street View properly
+  // ENHANCED Street View Toggle with Error Handling
   const toggleStreetView = () => {
-    if (!streetView || !marker) return
+    if (!streetView) {
+      alert("❌ Street View not available at this location.\n\nTry dragging the marker to a nearby street!")
+      return
+    }
 
     if (!showStreetView) {
       // Show Street View
-      const position = marker.getPosition()
-      streetView.setPosition(position)
+      if (marker) {
+        const position = marker.getPosition ? marker.getPosition() : marker.position
+        streetView.setPosition(position)
+      }
       streetView.setVisible(true)
       setShowStreetView(true)
-      console.log("🏠 Street View activated")
+      console.log("🏠 Street View activated with availability check")
     } else {
       // Hide Street View
       streetView.setVisible(false)
