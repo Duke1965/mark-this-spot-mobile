@@ -974,7 +974,7 @@ function LiveResultsMap({
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places,marker&v=weekly&loading=async`
     script.async = true
     script.defer = true
 
@@ -1015,26 +1015,19 @@ function LiveResultsMap({
         ],
       })
 
-      // Create draggable marker
-      const newMarker = new window.google.maps.Marker({
+      // Create draggable marker using new AdvancedMarkerElement
+      const newMarker = new window.google.maps.marker.AdvancedMarkerElement({
         position: { lat: spot.latitude, lng: spot.longitude },
         map: newMap,
         title: "Drag to refine location",
-        draggable: true,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 15,
-          fillColor: "#10B981",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 4,
-        },
+        gmpDraggable: true,
       })
 
-      // Handle marker drag
+      // Handle marker drag with new API
       newMarker.addListener("dragend", async (event: any) => {
-        const lat = event.latLng.lat()
-        const lng = event.latLng.lng()
+        const position = newMarker.position
+        const lat = position.lat
+        const lng = position.lng
 
         try {
           const geocoder = new window.google.maps.Geocoder()
