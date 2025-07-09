@@ -974,7 +974,7 @@ function LiveResultsMap({
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places,marker&v=weekly&loading=async`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
     script.async = true
     script.defer = true
 
@@ -1015,23 +1015,31 @@ function LiveResultsMap({
         ],
       })
 
-      // Create draggable marker using new AdvancedMarkerElement
-      const newMarker = new window.google.maps.marker.AdvancedMarkerElement({
+      // NEW (stable solution):
+      const newMarker = new window.google.maps.Marker({
         position: { lat: spot.latitude, lng: spot.longitude },
         map: newMap,
         title: "Drag to refine location",
-        gmpDraggable: true,
+        draggable: true,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#10B981",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+        },
       })
 
-      // Handle marker drag with new API
-      newMarker.addListener("dragend", async (event: any) => {
-        const position = newMarker.position
-        const lat = position.lat
-        const lng = position.lng
+      // Also update the drag event listener:
+      newMarker.addListener("dragend", async (event) => {
+        const position = event.latLng
+        const lat = position.lat()
+        const lng = position.lng()
 
         try {
           const geocoder = new window.google.maps.Geocoder()
-          geocoder.geocode({ location: { lat, lng } }, (results: any[], status: string) => {
+          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
             if (status === "OK" && results[0]) {
               onLocationUpdate(lat, lng, results[0].formatted_address)
             } else {
