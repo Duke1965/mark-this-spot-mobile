@@ -359,8 +359,74 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* Big Pulsating Button */}
+          {/* Enhanced 3D Pavement-Embedded Button */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
+            {/* Pavement Base */}
+            <div
+              style={{
+                position: "absolute",
+                width: "24rem",
+                height: "24rem",
+                borderRadius: "50%",
+                background: `
+                  radial-gradient(circle at 30% 30%, #8B8B8B 0%, #6B6B6B 50%, #4A4A4A 100%),
+                  linear-gradient(45deg, #7A7A7A 25%, transparent 25%),
+                  linear-gradient(-45deg, #7A7A7A 25%, transparent 25%),
+                  linear-gradient(45deg, transparent 75%, #7A7A7A 75%),
+                  linear-gradient(-45deg, transparent 75%, #7A7A7A 75%)
+                `,
+                backgroundSize: "100% 100%, 8px 8px, 8px 8px, 8px 8px, 8px 8px",
+                backgroundPosition: "0 0, 0 0, 0 4px, 4px -4px, -4px 0px",
+                boxShadow: `
+                  inset 0 0 0 8px #5A5A5A,
+                  inset 0 0 0 12px #6B6B6B,
+                  inset 0 0 0 16px #4A4A4A,
+                  0 8px 16px rgba(0,0,0,0.4),
+                  0 4px 8px rgba(0,0,0,0.3)
+                `,
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 1,
+              }}
+            >
+              {/* Expansion Joint Lines */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "10%",
+                  left: "20%",
+                  right: "20%",
+                  height: "2px",
+                  background: "linear-gradient(90deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
+                  transform: "rotate(15deg)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "15%",
+                  left: "15%",
+                  right: "25%",
+                  height: "2px",
+                  background: "linear-gradient(90deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
+                  transform: "rotate(-20deg)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "30%",
+                  bottom: "30%",
+                  left: "15%",
+                  width: "2px",
+                  background: "linear-gradient(0deg, transparent 0%, #3A3A3A 50%, transparent 100%)",
+                  transform: "rotate(10deg)",
+                }}
+              />
+            </div>
+
+            {/* Main Button with Suburban Map Background */}
             <button
               onClick={markSpot}
               disabled={isMarking || locationLoading}
@@ -376,59 +442,149 @@ export default function LocationApp() {
                 color: "white",
                 fontWeight: "bold",
                 fontSize: "1.5rem",
-                boxShadow: "0 25px 80px rgba(59, 130, 246, 0.5)",
                 transition: "all 0.3s ease",
                 border: "none",
                 cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
+                transform: isMarking || locationLoading ? "scale(0.95)" : "scale(1)",
+                zIndex: 2,
+                overflow: "hidden",
                 background:
                   isMarking || locationLoading
                     ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
-                    : "linear-gradient(135deg, #3b82f6 0%, #4f46e5 50%, #7c3aed 100%)",
-                transform: isMarking || locationLoading ? "scale(0.95)" : "scale(1)",
+                    : `
+                    linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(79, 70, 229, 0.9) 50%, rgba(124, 58, 237, 0.9) 100%),
+                    url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='%23E5E7EB' strokeWidth='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='%23F3F4F6'/%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C!-- Streets --%3E%3Crect x='0' y='120' width='400' height='20' fill='%23D1D5DB'/%3E%3Crect x='0' y='260' width='400' height='20' fill='%23D1D5DB'/%3E%3Crect x='120' y='0' width='20' height='400' fill='%23D1D5DB'/%3E%3Crect x='260' y='0' width='20' height='400' fill='%23D1D5DB'/%3E%3C!-- Street Names --%3E%3Ctext x='200' y='135' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold'%3EMaple Avenue%3C/text%3E%3Ctext x='200' y='275' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold'%3EGarden Street%3C/text%3E%3Ctext x='135' y='50' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold' transform='rotate(-90 135 50)'%3ECentral Drive%3C/text%3E%3Ctext x='275' y='50' textAnchor='middle' fill='%23374151' fontFamily='Arial' fontSize='10' fontWeight='bold' transform='rotate(-90 275 50)'%3EPark Lane%3C/text%3E%3C!-- Houses --%3E%3Crect x='30' y='30' width='80' height='80' fill='%23FEF3C7' stroke='%23D97706' strokeWidth='2'/%3E%3Crect x='150' y='30' width='80' height='80' fill='%23DBEAFE' stroke='%232563EB' strokeWidth='2'/%3E%3Crect x='290' y='30' width='80' height='80' fill='%23DCFCE7' stroke='%23059669' strokeWidth='2'/%3E%3Crect x='30' y='150' width='80' height='80' fill='%23FDE2E8' stroke='%23DC2626' strokeWidth='2'/%3E%3Crect x='150' y='150' width='80' height='80' fill='%23F3E8FF' stroke='%237C3AED' strokeWidth='2'/%3E%3Crect x='290' y='150' width='80' height='80' fill='%23FEF3C7' stroke='%23D97706' strokeWidth='2'/%3E%3Crect x='30' y='290' width='80' height='80' fill='%23DCFCE7' stroke='%23059669' strokeWidth='2'/%3E%3Crect x='150' y='290' width='80' height='80' fill='%23DBEAFE' stroke='%232563EB' strokeWidth='2'/%3E%3Crect x='290' y='290' width='80' height='80' fill='%23FDE2E8' stroke='%23DC2626' strokeWidth='2'/%3E%3C/svg%3E")
+                  `,
+                backgroundSize: "cover, 100% 100%",
+                backgroundPosition: "center, center",
+                boxShadow: `
+                  inset 0 0 0 4px rgba(255,255,255,0.3),
+                  inset 0 0 0 8px rgba(0,0,0,0.1),
+                  0 4px 8px rgba(0,0,0,0.2),
+                  0 8px 16px rgba(59, 130, 246, 0.3)
+                `,
               }}
               onMouseEnter={(e) => {
                 if (!isMarking && !locationLoading) {
-                  e.currentTarget.style.transform = "scale(1.05)"
+                  e.currentTarget.style.transform = "scale(1.02)"
+                  e.currentTarget.style.boxShadow = `
+                    inset 0 0 0 4px rgba(255,255,255,0.4),
+                    inset 0 0 0 8px rgba(0,0,0,0.1),
+                    0 6px 12px rgba(0,0,0,0.3),
+                    0 12px 24px rgba(59, 130, 246, 0.4)
+                  `
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isMarking && !locationLoading) {
                   e.currentTarget.style.transform = "scale(1)"
+                  e.currentTarget.style.boxShadow = `
+                    inset 0 0 0 4px rgba(255,255,255,0.3),
+                    inset 0 0 0 8px rgba(0,0,0,0.1),
+                    0 4px 8px rgba(0,0,0,0.2),
+                    0 8px 16px rgba(59, 130, 246, 0.3)
+                  `
+                }
+              }}
+              onMouseDown={(e) => {
+                if (!isMarking && !locationLoading) {
+                  e.currentTarget.style.transform = "scale(0.98)"
+                }
+              }}
+              onMouseUp={(e) => {
+                if (!isMarking && !locationLoading) {
+                  e.currentTarget.style.transform = "scale(1.02)"
                 }
               }}
             >
-              {isMarking || locationLoading ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div
-                    style={{
-                      width: "5rem",
-                      height: "5rem",
-                      border: "4px solid white",
-                      borderTop: "4px solid transparent",
-                      borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
-                      marginBottom: "1.5rem",
-                    }}
-                  ></div>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 900 }}>
-                    {isMarking ? "MARKING..." : "GETTING GPS..."}
+              {/* 3D Marker Pin on Property */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "25%",
+                  right: "30%",
+                  width: "24px",
+                  height: "32px",
+                  zIndex: 3,
+                }}
+              >
+                <svg width="24" height="32" viewBox="0 0 24 32">
+                  {/* Pin Shadow */}
+                  <ellipse cx="13" cy="30" rx="3" ry="1.5" fill="rgba(0,0,0,0.3)" />
+
+                  {/* Pin Body */}
+                  <path
+                    d="M12 4C8.7 4 6 6.7 6 10c0 5 6 14 6 14s6-9 6-14c0-3.3-2.7-6-6-6z"
+                    fill="url(#pinGradient)"
+                    stroke="rgba(0,0,0,0.2)"
+                    strokeWidth="1"
+                  />
+
+                  {/* Pin Center */}
+                  <circle cx="12" cy="10" r="3" fill="rgba(255,255,255,0.9)" />
+                  <circle cx="12" cy="10" r="2" fill="#10B981" />
+
+                  <defs>
+                    <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10B981" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              {/* Button Content Overlay */}
+              <div
+                style={{
+                  position: "relative",
+                  zIndex: 4,
+                  background: "rgba(0,0,0,0.4)",
+                  borderRadius: "50%",
+                  padding: "2rem",
+                  backdropFilter: "blur(2px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "80%",
+                  height: "80%",
+                }}
+              >
+                {isMarking || locationLoading ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div
+                      style={{
+                        width: "4rem",
+                        height: "4rem",
+                        border: "4px solid white",
+                        borderTop: "4px solid transparent",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                        marginBottom: "1rem",
+                      }}
+                    ></div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 900, textAlign: "center" }}>
+                      {isMarking ? "MARKING..." : "GETTING GPS..."}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.8, marginTop: "0.5rem", textAlign: "center" }}>
+                      {isMuted ? "Silent deployment!" : "Epic sound incoming!"}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8, marginTop: "0.75rem" }}>
-                    {isMuted ? "Preparing silent deployment!" : "Preparing epic sound!"}
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+                    <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>📍</div>
+                    <div
+                      style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "0.1em", marginBottom: "0.25rem" }}
+                    >
+                      MARK SPOT
+                    </div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9, marginBottom: "0.5rem" }}>
+                      {isMuted ? "Silent GPS Tracking" : "Real GPS + Epic Sound!"}
+                    </div>
+                    <div style={{ fontSize: "1.25rem" }}>{isMuted ? "🔇" : "🎵"}</div>
                   </div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ fontSize: "5rem", marginBottom: "1.5rem" }}>📍</div>
-                  <div style={{ fontSize: "2rem", fontWeight: 900, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>
-                    MARK SPOT
-                  </div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.9, textAlign: "center", marginBottom: "0.75rem" }}>
-                    {isMuted ? "Silent GPS Tracking" : "Real GPS + Epic Sound!"}
-                  </div>
-                  <div style={{ fontSize: "1.5rem" }}>{isMuted ? "🔇" : "🎵"}</div>
-                </div>
-              )}
+                )}
+              </div>
             </button>
           </div>
 
