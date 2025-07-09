@@ -1166,8 +1166,8 @@ function LiveResultsMap({
     }
 
     const script = document.createElement("script")
-    // FORCE LATEST VERSION + ADD MARKER LIBRARY
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places,marker&v=beta&loading=async`
+    // REMOVE MARKER LIBRARY TO AVOID ADVANCED MARKERS
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
     script.async = true
     script.defer = true
 
@@ -1215,33 +1215,22 @@ function LiveResultsMap({
         console.log("🗺️ Map forced resize and center")
       }, 100)
 
-      // CREATE ADVANCED MARKER (NEW API)
-      let newMarker
-      if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
-        console.log("🎯 Using NEW AdvancedMarkerElement")
-        newMarker = new window.google.maps.marker.AdvancedMarkerElement({
-          position: { lat: spot.latitude, lng: spot.longitude },
-          map: newMap,
-          title: "Drag to refine location",
-          gmpDraggable: true,
-        })
-      } else {
-        console.log("🎯 Fallback to classic Marker")
-        newMarker = new window.google.maps.Marker({
-          position: { lat: spot.latitude, lng: spot.longitude },
-          map: newMap,
-          title: "Drag to refine location",
-          draggable: true,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 12,
-            fillColor: "#10B981",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 3,
-          },
-        })
-      }
+      // FORCE CLASSIC MARKERS ONLY - NO ADVANCED MARKERS
+      console.log("🎯 Using CLASSIC Marker only (no Advanced Markers)")
+      const newMarker = new window.google.maps.Marker({
+        position: { lat: spot.latitude, lng: spot.longitude },
+        map: newMap,
+        title: "Drag to refine location",
+        draggable: true,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#10B981",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+        },
+      })
 
       // Handle marker drag
       newMarker.addListener("dragend", async (event) => {
