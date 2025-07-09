@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
@@ -459,109 +459,6 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* Mobile Quick Actions Bar - Pure Shazam Style */}
-          <div
-            style={{
-              position: "fixed",
-              bottom: "2rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 30,
-              display: "flex",
-              gap: "3rem",
-            }}
-          >
-            {/* Category Selector */}
-            <button
-              onClick={() => setCurrentScreen("category-selector")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem",
-                border: "none",
-                background: "transparent",
-                color: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-                e.currentTarget.style.transform = "translateY(-2px)"
-                e.currentTarget.style.filter = "drop-shadow(0 4px 8px rgba(0,0,0,0.2))"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "rgba(255,255,255,0.6)"
-                e.currentTarget.style.transform = "translateY(0)"
-                e.currentTarget.style.filter = "none"
-              }}
-            >
-              <span style={{ fontSize: "1.5rem" }}>{spotCategories[selectedCategory].emoji}</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Category</span>
-            </button>
-
-            {/* Photo Capture */}
-            <button
-              onClick={() => setIsPhotoMode(!isPhotoMode)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem",
-                border: "none",
-                background: "transparent",
-                color: isPhotoMode ? "rgba(16, 185, 129, 0.8)" : "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = isPhotoMode ? "rgba(16, 185, 129, 1)" : "rgba(255,255,255,0.9)"
-                e.currentTarget.style.transform = "translateY(-2px)"
-                e.currentTarget.style.filter = "drop-shadow(0 4px 8px rgba(0,0,0,0.2))"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = isPhotoMode ? "rgba(16, 185, 129, 0.8)" : "rgba(255,255,255,0.6)"
-                e.currentTarget.style.transform = "translateY(0)"
-                e.currentTarget.style.filter = "none"
-              }}
-            >
-              <span style={{ fontSize: "1.5rem" }}>📸</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Photo</span>
-            </button>
-
-            {/* Marker Style */}
-            <button
-              onClick={() => setCurrentScreen("marker-selector")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem",
-                border: "none",
-                background: "transparent",
-                color: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-                e.currentTarget.style.transform = "translateY(-2px)"
-                e.currentTarget.style.filter = "drop-shadow(0 4px 8px rgba(0,0,0,0.2))"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "rgba(255,255,255,0.6)"
-                e.currentTarget.style.transform = "translateY(0)"
-                e.currentTarget.style.filter = "none"
-              }}
-            >
-              <span style={{ fontSize: "1.5rem" }}>🎯</span>
-              <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Marker</span>
-            </button>
-          </div>
-
           {/* Enhanced 3D Pavement-Embedded Button with REAL Google Maps */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
             {/* Wedding Ring Base */}
@@ -891,221 +788,6 @@ export default function LocationApp() {
     )
   }
 
-  // Libraries Screen - Enhanced with Sound Library
-  if (currentScreen === "libraries") {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #4f46e5 100%)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "1.5rem",
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "white" }}>Libraries</h1>
-            <button
-              onClick={() => setCurrentScreen("main")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem 1rem",
-                background: "rgba(255,255,255,0.2)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                borderRadius: "0.75rem",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-            >
-              <ArrowLeft size={20} />
-              Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-            {/* Sound Library */}
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                🎵 Sound Library
-              </h2>
-              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
-                Choose your epic sound for marking spots!
-              </p>
-
-              {Object.entries(soundCategories).map(([categoryName, sounds]) => (
-                <div key={categoryName} style={{ marginBottom: "2rem" }}>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                    {categoryName}
-                  </h3>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                      gap: "1rem",
-                    }}
-                  >
-                    {Object.entries(sounds).map(([soundKey, sound]) => (
-                      <button
-                        key={soundKey}
-                        onClick={() => setSelectedSound(soundKey)}
-                        style={{
-                          padding: "1rem",
-                          borderRadius: "0.75rem",
-                          border: selectedSound === soundKey ? "2px solid #3b82f6" : "2px solid transparent",
-                          background: selectedSound === soundKey ? "rgba(59, 130, 246, 0.2)" : "rgba(255,255,255,0.1)",
-                          backdropFilter: "blur(10px)",
-                          color: "white",
-                          cursor: "pointer",
-                          transition: "all 0.3s ease",
-                          textAlign: "left",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (selectedSound !== soundKey) {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedSound !== soundKey) {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                          }
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <span style={{ fontSize: "1.5rem" }}>{sound.emoji}</span>
-                            <span style={{ fontWeight: "bold" }}>{sound.name}</span>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (!isMuted) playSound(soundKey)
-                            }}
-                            style={{
-                              padding: "0.25rem",
-                              borderRadius: "50%",
-                              border: "none",
-                              background: "rgba(255,255,255,0.2)",
-                              color: "white",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Play size={16} />
-                          </button>
-                        </div>
-                        <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>{sound.description}</div>
-                        {selectedSound === soundKey && (
-                          <div
-                            style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#3b82f6", fontWeight: "bold" }}
-                          >
-                            ✓ Selected
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Maps & Spots - Coming Soon */}
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                🗺️ Maps & Spots
-              </h2>
-              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1rem" }}>Coming in Phase 2!</p>
-              <div
-                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}
-              >
-                <div
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.75rem",
-                    background: "rgba(255,255,255,0.05)",
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🗺️</div>
-                  <div style={{ fontSize: "0.875rem" }}>Maps View</div>
-                </div>
-                <div
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.75rem",
-                    background: "rgba(255,255,255,0.05)",
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📍</div>
-                  <div style={{ fontSize: "0.875rem" }}>My Spots</div>
-                </div>
-                <div
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.75rem",
-                    background: "rgba(255,255,255,0.05)",
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎯</div>
-                  <div style={{ fontSize: "0.875rem" }}>Pin Icons</div>
-                </div>
-                <div
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.75rem",
-                    background: "rgba(255,255,255,0.05)",
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📮</div>
-                  <div style={{ fontSize: "0.875rem" }}>Postcards</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // Settings Screen
   if (currentScreen === "settings") {
     return (
@@ -1149,101 +831,255 @@ export default function LocationApp() {
           </div>
         </div>
 
-        <div style={{ flex: 1, padding: "1.5rem" }}>
+        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            {/* Mute Setting */}
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
-                    Sound
-                  </h3>
-                  <p style={{ color: "rgba(255,255,255,0.7)" }}>Enable or disable all app sounds</p>
+          
+          {/* Spot Customization Section */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "1rem",
+              padding: "1.5rem",
+            }}
+          >
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+              🎯 Spot Customization
+            </h2>
+            <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
+              Customize how you mark and categorize your spots
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+              
+              {/* Category Selector */}
+              <button
+                onClick={() => setCurrentScreen("category-selector")}
+                style={{
+                  padding: "1.5rem",
+                  borderRadius: "1rem",
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  textAlign: "center",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
+                  e.currentTarget.style.transform = "translateY(-2px)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.transform = "translateY(0)"
+                }}
+              >
+                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>
+                  {spotCategories[selectedCategory].emoji}
                 </div>
-                <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  style={{
-                    padding: "0.75rem",
-                    borderRadius: "50%",
-                    transition: "all 0.3s ease",
-                    background: isMuted ? "#ef4444" : "#10b981",
-                    color: "white",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                </button>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                  Category
+                </h3>
+                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                  Current: {spotCategories[selectedCategory].name}
+                </p>
+                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                  Tap to change →
+                </div>
+              </button>
+
+              {/* Photo Capture */}
+              <button
+                onClick={() => setIsPhotoMode(!isPhotoMode)}
+                style={{
+                  padding: "1.5rem",
+                  borderRadius: "1rem",
+                  border: isPhotoMode ? "2px solid rgba(16, 185, 129, 0.5)" : "2px solid rgba(255,255,255,0.2)",
+                  background: isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  textAlign: "center",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.25)" : "rgba(255,255,255,0.15)"
+                  e.currentTarget.style.transform = "translateY(-2px)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.transform = "translateY(0)"
+                }}
+              >
+                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📸</div>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                  Photo Mode
+                </h3>
+                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                  {isPhotoMode ? "✓ Enabled" : "Disabled"}
+                </p>
+                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                  {isPhotoMode ? "Photos will be captured" : "Tap to enable"}
+                </div>
+              </button>
+
+              {/* Marker Style */}
+              <button
+                onClick={() => setCurrentScreen("marker-selector")}
+                style={{
+                  padding: "1.5rem",
+                  borderRadius: "1rem",
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  textAlign: "center",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
+                  e.currentTarget.style.transform = "translateY(-2px)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.transform = "translateY(0)"
+                }}
+              >
+                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🎯</div>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                  Marker Style
+                </h3>
+                <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                  Current: {selectedMarker.toUpperCase()}
+                </p>
+                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                  Tap to change →
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Sound Settings */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "1rem",
+              padding: "1.5rem",
+            }}
+          >
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+              🔊 Sound Settings
+            </h2>
+            
+            {/* Mute Toggle */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+              <div>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
+                  Sound Effects
+                </h3>
+                <p style={{ color: "rgba(255,255,255,0.7)" }}>Enable or disable all app sounds</p>
               </div>
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "50%",
+                  transition: "all 0.3s ease",
+                  background: isMuted ? "#ef4444" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+              </button>
             </div>
 
-            {/* Current Sound Setting */}
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                Current Sound
-              </h3>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                <span style={{ fontSize: "2rem" }}>
+            {/* Current Sound */}
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <span style={{ fontSize: "2rem" }}>
+                {Object.values(soundCategories)
+                  .flatMap((category) => Object.entries(category))
+                  .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "white", fontWeight: "bold" }}>
                   {Object.values(soundCategories)
                     .flatMap((category) => Object.entries(category))
-                    .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
-                </span>
-                <div>
-                  <div style={{ color: "white", fontWeight: "bold" }}>
-                    {Object.values(soundCategories)
-                      .flatMap((category) => Object.entries(category))
-                      .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
-                    {Object.values(soundCategories)
-                      .flatMap((category) => Object.entries(category))
-                      .find(([key]) => key === selectedSound)?.[1]?.description || ""}
-                  </div>
+                    .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
                 </div>
-                <button
-                  onClick={() => !isMuted && playSound(selectedSound)}
-                  disabled={isMuted}
-                  style={{
-                    padding: "0.5rem",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
-                    color: isMuted ? "rgba(255,255,255,0.5)" : "white",
-                    cursor: isMuted ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <Play size={20} />
-                </button>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
+                  {Object.values(soundCategories)
+                    .flatMap((category) => Object.entries(category))
+                    .find(([key]) => key === selectedSound)?.[1]?.description || ""}
+                </div>
               </div>
+              <button
+                onClick={() => !isMuted && playSound(selectedSound)}
+                disabled={isMuted}
+                style={{
+                  padding: "0.5rem",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
+                  color: isMuted ? "rgba(255,255,255,0.5)" : "white",
+                  cursor: isMuted ? "not-allowed" : "pointer",
+                }}
+              >
+                <Play size={20} />
+              </button>
+              <button
+                onClick={() => setCurrentScreen("libraries")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Change Sound
+              </button>
             </div>
+          </div>
 
-            {/* Placeholder for other settings */}
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                More Settings Coming Soon!
-              </h3>
-              <p style={{ color: "rgba(255,255,255,0.7)" }}>Background colors, volume control, brightness, and more.</p>
+          {/* App Info */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "1rem",
+              padding: "1.5rem",
+            }}
+          >
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
+              📱 App Info
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
+              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>📍</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{spots.length}</div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Spots Marked</div>
+              </div>
+              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🎵</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>v1.0</div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>App Version</div>
+              </div>
+              <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🗺️</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>GPS</div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Location Mode</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1262,13 +1098,13 @@ function LiveResultsMap({
 }: {
   spot: Spot
   onLocationUpdate: (lat: number, lng: number, address: string) => void
-}) {
+}) {\
   const mapRef = useRef<HTMLDivElement>(null)
-  const streetViewRef = useRef<HTMLDivElement>(null)
+  const streetViewRef = useRef<HTMLDivElement>(null)\
   const [map, setMap] = useState<any>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [marker, setMarker] = useState<any>(null)
+  const [marker, setMarker] = useState<any>(null)\
   const [streetView, setStreetView] = useState<any>(null)
   const [showStreetView, setShowStreetView] = useState(false)
 
@@ -1278,21 +1114,21 @@ function LiveResultsMap({
       setIsLoaded(true)
       return
     }
-
+\
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
-    if (!apiKey) {
+    if (!apiKey) {\
       setLoadError("Google Maps API key not configured")
       return
     }
-
+\
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
     if (existingScript) {
       setIsLoaded(true)
       return
     }
 
-    const script = document.createElement("script")
+    const script = document.createElement("script")\
     // REMOVE MARKER LIBRARY TO AVOID ADVANCED MARKERS
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
     script.async = true
@@ -1306,7 +1142,7 @@ function LiveResultsMap({
     script.onerror = () => {
       setLoadError("Failed to load Google Maps")
     }
-
+\
     document.head.appendChild(script)
 
     return () => {
@@ -1318,12 +1154,12 @@ function LiveResultsMap({
   useEffect(() => {
     if (!isLoaded || !mapRef.current || loadError || !window.google) return
 
-    try {
+    try {\
       const newMap = new window.google.maps.Map(mapRef.current, {
-        zoom: 18, // HIGHER ZOOM FOR BETTER DETAIL
-        center: { lat: spot.latitude, lng: spot.longitude },
+        zoom: 18, // HIGHER ZOOM FOR BETTER DETAIL\
+        center: { lat: spot.latitude, lng: spot.longitude },\
         mapTypeControl: true,
-        streetViewControl: true,
+        streetViewControl: true,\
         fullscreenControl: true,
         zoomControl: true,
         styles: [
@@ -1332,28 +1168,28 @@ function LiveResultsMap({
             elementType: "labels",
             stylers: [{ visibility: "off" }],
           },
-        ],
+        ],\
       })
 
       // Force map to resize and center
-      setTimeout(() => {
-        window.google.maps.event.trigger(newMap, "resize")
+      setTimeout(() => {\
+        window.google.maps.event.trigger(newMap, "resize")\
         newMap.setCenter({ lat: spot.latitude, lng: spot.longitude })
         console.log("🗺️ Map forced resize and center")
       }, 100)
-
+\
       // FORCE CLASSIC MARKERS ONLY - NO ADVANCED MARKERS
       console.log("🎯 Using CLASSIC Marker only (no Advanced Markers)")
       const newMarker = new window.google.maps.Marker({
         position: { lat: spot.latitude, lng: spot.longitude },
         map: newMap,
-        title: "Drag to refine location",
+        title: "Drag to refine location",\
         draggable: true,
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 12,
           fillColor: "#10B981",
-          fillOpacity: 1,
+          fillOpacity: 1,\
           strokeColor: "#FFFFFF",
           strokeWeight: 3,
         },
@@ -1365,13 +1201,13 @@ function LiveResultsMap({
         const lat = position.lat()
         const lng = position.lng()
 
-        try {
-          const geocoder = new window.google.maps.Geocoder()
+        try {\
+          const geocoder = new window.google.maps.Geocoder()\
           geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-            if (status === "OK" && results[0]) {
-              onLocationUpdate(lat, lng, results[0].formatted_address)
+            if (status === "OK" && results[0]) {\
+              onLocationUpdate(lat, lng, results[0].formatted_address)\
             } else {
-              onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+              onLocationUpdate(lat, lng, \`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
             }
           })
         } catch (error) {
@@ -1383,23 +1219,23 @@ function LiveResultsMap({
       if (streetViewRef.current) {
         const streetViewService = new window.google.maps.StreetViewService()
 
-        // CHECK IF STREET VIEW IS AVAILABLE
+        // CHECK IF STREET VIEW IS AVAILABLE\
         streetViewService.getPanorama(
           {
             location: { lat: spot.latitude, lng: spot.longitude },
-            radius: 50,
+            radius: 50,\
             source: window.google.maps.StreetViewSource.OUTDOOR,
           },
           (data, status) => {
             if (status === "OK") {
               console.log("🏠 Street View available at this location")
-
+\
               const streetViewPanorama = new window.google.maps.StreetViewPanorama(streetViewRef.current, {
                 position: data.location.latLng,
                 pov: { heading: 0, pitch: 0 },
-                zoom: 1,
+                zoom: 1,\
                 visible: false,
-                addressControl: true,
+                addressControl: true,\
                 linksControl: true,
                 panControl: true,
                 enableCloseButton: false,
@@ -1416,14 +1252,14 @@ function LiveResultsMap({
 
       setMap(newMap)
       setMarker(newMarker)
-
+\
       console.log("🗺️ Enhanced Results map initialized successfully")
     } catch (error) {
       console.error("Results map initialization failed:", error)
       setLoadError("Failed to initialize map")
     }
   }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
-
+\
   // ENHANCED Street View Toggle with Error Handling
   const toggleStreetView = () => {
     if (!streetView) {
