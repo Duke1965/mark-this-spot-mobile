@@ -8,6 +8,8 @@ export default function LocationApp() {
   const [currentLocation, setCurrentLocation] = useState<string>("Getting your location...")
   const [isMuted, setIsMuted] = useState(false)
   const [spots, setSpots] = useState<any[]>([])
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -15,7 +17,29 @@ export default function LocationApp() {
     console.log("🚀 Mark This Spot - App Loaded!")
   }, [])
 
-  // Get user location
+  // Generate Google Maps static image URL
+  const generateMapImageUrl = (lat: number, lng: number) => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) {
+      console.error("❌ No Google Maps API key found!")
+      return null
+    }
+
+    const params = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: "16",
+      size: "400x400",
+      maptype: "roadmap",
+      key: apiKey,
+      style: "feature:poi|visibility:off",
+    })
+
+    const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+    console.log("🗺️ Generated map image URL:", imageUrl)
+    return imageUrl
+  }
+
+  // Get user location and generate map
   useEffect(() => {
     if (!isClient) return
 
@@ -30,14 +54,19 @@ export default function LocationApp() {
           (position) => {
             const { latitude, longitude } = position.coords
             setCurrentLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
+            setUserLocation({ lat: latitude, lng: longitude })
+
+            // Generate map image
+            const imageUrl = generateMapImageUrl(latitude, longitude)
+            if (imageUrl) {
+              setMapImageUrl(imageUrl)
+            }
+
             console.log("📍 Location obtained:", latitude, longitude)
           },
           (error) => {
             console.error("Location error:", error)
             setCurrentLocation("Location access denied")
-          },
-          (positionOptions) => {
-            console.log("positionOptions", positionOptions)
           },
           {
             enableHighAccuracy: true,
@@ -167,38 +196,174 @@ export default function LocationApp() {
             <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>📍 {currentLocation}</p>
           </div>
 
-          {/* Main Action Button */}
-          <button
-            onClick={handleMarkSpot}
-            style={{
-              width: "200px",
-              height: "200px",
-              borderRadius: "50%",
-              border: "4px solid rgba(255,255,255,0.3)",
-              background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-              color: "white",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              boxShadow: "0 10px 30px rgba(59, 130, 246, 0.3)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.05)"
-              e.currentTarget.style.boxShadow = "0 15px 40px rgba(59, 130, 246, 0.4)"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = "0 10px 30px rgba(59, 130, 246, 0.3)"
-            }}
-          >
-            <MapPin size={48} />
-            <div style={{ fontSize: "1.25rem", fontWeight: "bold" }}>MARK SPOT</div>
-            <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Tap to save location</div>
-          </button>
+          {/* Interactive Circular Map Preview */}
+          {mapImageUrl ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: "1rem",
+              }}
+            >
+              <div
+                onClick={handleMarkSpot}
+                style={{
+                  width: "320px",
+                  height: "320px",
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  border: "4px solid rgba(255,255,255,0.3)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                  position: "relative",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)"
+                  e.currentTarget.style.boxShadow = "0 15px 40px rgba(0,0,0,0.4)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)"
+                  e.currentTarget.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)"
+                }}
+              >
+                <img
+                  src={mapImageUrl || "/placeholder.svg"}
+                  alt="Your current location - Click to mark this spot"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    pointerEvents: "none",
+                  }}
+                  onError={(e) => {
+                    console.error("Map image failed to load")
+                    e.currentTarget.style.display = "none"
+                  }}
+                />
+
+                {/* White Pointing Finger Icon */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    color: "white",
+                    textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+                    animation: "pointPulse 2s infinite",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <div style={{ fontSize: "3rem", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))" }}>👆</div>
+                  <div
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: "bold",
+                      background: "rgba(0,0,0,0.7)",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "1rem",
+                      backdropFilter: "blur(10px)",
+                    }}
+                  >
+                    Click Here
+                  </div>
+                </div>
+
+                {/* Subtle pulse ring */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "50%",
+                    border: "3px solid rgba(255,255,255,0.6)",
+                    animation: "ringPulse 2s infinite",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            </div>
+          ) : userLocation ? (
+            /* Loading state for map */
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: "1rem",
+              }}
+            >
+              <div
+                style={{
+                  width: "320px",
+                  height: "320px",
+                  borderRadius: "50%",
+                  border: "4px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: "2rem",
+                    height: "2rem",
+                    border: "3px solid rgba(255,255,255,0.3)",
+                    borderTop: "3px solid white",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+                <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
+              </div>
+            </div>
+          ) : (
+            /* Fallback button when no location */
+            <button
+              onClick={handleMarkSpot}
+              style={{
+                width: "320px",
+                height: "320px",
+                borderRadius: "50%",
+                border: "4px solid rgba(255,255,255,0.3)",
+                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: "0 10px 30px rgba(59, 130, 246, 0.3)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.05)"
+                e.currentTarget.style.boxShadow = "0 15px 40px rgba(59, 130, 246, 0.4)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)"
+                e.currentTarget.style.boxShadow = "0 10px 30px rgba(59, 130, 246, 0.3)"
+              }}
+            >
+              <MapPin size={64} />
+              <div style={{ fontSize: "1.25rem", fontWeight: "bold" }}>MARK SPOT</div>
+              <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Tap to save location</div>
+            </button>
+          )}
 
           {/* Spots Counter */}
           {spots.length > 0 && (
@@ -237,12 +402,10 @@ export default function LocationApp() {
                 gap: "0.5rem",
                 padding: "1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.1)",
-                borderRadius: "1rem",
+                background: "transparent",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                color: "white",
-                backdropFilter: "blur(10px)",
+                color: "rgba(255,255,255,0.8)",
               }}
             >
               <div style={{ fontSize: "2rem" }}>📸</div>
@@ -258,12 +421,10 @@ export default function LocationApp() {
                 gap: "0.5rem",
                 padding: "1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.1)",
-                borderRadius: "1rem",
+                background: "transparent",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                color: "white",
-                backdropFilter: "blur(10px)",
+                color: "rgba(255,255,255,0.8)",
               }}
             >
               <div style={{ fontSize: "2rem" }}>🎥</div>
@@ -287,12 +448,10 @@ export default function LocationApp() {
                 gap: "0.5rem",
                 padding: "1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.1)",
-                borderRadius: "1rem",
+                background: "transparent",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                color: "white",
-                backdropFilter: "blur(10px)",
+                color: "rgba(255,255,255,0.8)",
               }}
             >
               <div style={{ fontSize: "2rem" }}>📚</div>
@@ -301,6 +460,40 @@ export default function LocationApp() {
           </div>
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes pointPulse {
+          0%, 100% { 
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+          }
+          50% { 
+            transform: translate(-50%, -50%) scale(1.1);
+            opacity: 0.8;
+          }
+        }
+
+        @keyframes ringPulse {
+          0% { 
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.6;
+          }
+          50% { 
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 0.3;
+          }
+          100% { 
+            transform: translate(-50%, -50%) scale(1.4);
+            opacity: 0;
+          }
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
