@@ -5,7 +5,7 @@ import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
 import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
-import { EnhancedCamera } from "./components/enhanced-camera"
+import { EnhancedCamera } from "./components/EnhancedCamera"
 
 interface Spot {
   id: string
@@ -549,7 +549,7 @@ export default function LocationApp() {
             </div>
           </div>
 
-          {/* CAMERA SECTION - Now below the hole */}
+          {/* CAMERA SECTION - Now below the hole with minimalistic style */}
           <div style={{ marginBottom: "2rem" }}>
             {/* Photo/Video Mode Toggle */}
             <div
@@ -557,7 +557,7 @@ export default function LocationApp() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                marginBottom: "1rem",
+                marginBottom: "1.5rem",
                 background: "rgba(255,255,255,0.1)",
                 backdropFilter: "blur(10px)",
                 borderRadius: "2rem",
@@ -579,6 +579,7 @@ export default function LocationApp() {
                   cursor: "pointer",
                   transition: "all 0.3s ease",
                   fontWeight: cameraMode === "photo" ? "bold" : "normal",
+                  fontSize: "0.875rem",
                 }}
               >
                 📸 Photo
@@ -597,13 +598,14 @@ export default function LocationApp() {
                   cursor: "pointer",
                   transition: "all 0.3s ease",
                   fontWeight: cameraMode === "video" ? "bold" : "normal",
+                  fontSize: "0.875rem",
                 }}
               >
                 🎥 Video
               </button>
             </div>
 
-            {/* Camera Button */}
+            {/* Minimalistic Camera Button */}
             <div style={{ textAlign: "center" }}>
               <button
                 onClick={() => setShowCamera(true)}
@@ -611,33 +613,27 @@ export default function LocationApp() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "0.75rem",
-                  padding: "1.5rem",
-                  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                  borderRadius: "1.5rem",
+                  gap: "0.25rem",
+                  padding: "0.5rem",
+                  background: "transparent",
                   border: "none",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  color: "white",
-                  boxShadow: "0 10px 25px rgba(239, 68, 68, 0.4)",
-                  transform: "scale(1)",
+                  color: "rgba(255,255,255,0.6)",
                 }}
                 onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.9)"
                   e.currentTarget.style.transform = "scale(1.05)"
-                  e.currentTarget.style.boxShadow = "0 15px 35px rgba(239, 68, 68, 0.6)"
                 }}
                 onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.6)"
                   e.currentTarget.style.transform = "scale(1)"
-                  e.currentTarget.style.boxShadow = "0 10px 25px rgba(239, 68, 68, 0.4)"
                 }}
               >
-                <div style={{ fontSize: "2rem" }}>{cameraMode === "photo" ? "📸" : "🎥"}</div>
-                <div style={{ fontWeight: "bold", fontSize: "1.125rem" }}>
-                  {cameraMode === "photo" ? "TAKE PHOTO" : "RECORD VIDEO"}
-                </div>
-                <div style={{ fontSize: "0.875rem", opacity: 0.9 }}>
-                  Create your {cameraMode === "photo" ? "photo" : "video"} postcard
-                </div>
+                <div style={{ fontSize: "1.5rem" }}>{cameraMode === "photo" ? "📸" : "🎥"}</div>
+                <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>
+                  {cameraMode === "photo" ? "Photo" : "Video"}
+                </span>
               </button>
             </div>
           </div>
