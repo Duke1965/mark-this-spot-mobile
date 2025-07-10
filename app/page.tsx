@@ -524,18 +524,18 @@ export default function LocationApp() {
       return null
     }
 
+    // Remove the markers parameter to get a clean map without red pin
     const params = new URLSearchParams({
       center: `${lat},${lng}`,
       zoom: "16",
       size: "400x400",
       maptype: "roadmap",
-      markers: `color:red|size:mid|${lat},${lng}`,
       key: apiKey,
       style: "feature:poi|visibility:off",
     })
 
     const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
-    console.log("🗺️ Generated map image URL:", imageUrl)
+    console.log("🗺️ Generated clean map image URL:", imageUrl)
 
     const testImg = new Image()
     testImg.onload = () => {
@@ -1036,7 +1036,7 @@ export default function LocationApp() {
               )}
             </div>
 
-            {/* Circular Map Preview */}
+            {/* Interactive Circular Map Preview */}
             {mapImageUrl && (
               <div
                 style={{
@@ -1046,6 +1046,7 @@ export default function LocationApp() {
                 }}
               >
                 <div
+                  onClick={markSpot}
                   style={{
                     width: "320px",
                     height: "320px",
@@ -1056,15 +1057,26 @@ export default function LocationApp() {
                     position: "relative",
                     background: "rgba(255,255,255,0.1)",
                     backdropFilter: "blur(10px)",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.05)"
+                    e.currentTarget.style.boxShadow = "0 15px 40px rgba(0,0,0,0.4)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)"
+                    e.currentTarget.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)"
                   }}
                 >
                   <img
                     src={mapImageUrl || "/placeholder.svg"}
-                    alt="Your current location"
+                    alt="Your current location - Click to mark this spot"
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                      pointerEvents: "none",
                     }}
                     onError={(e) => {
                       console.error("Map image failed to load")
@@ -1072,19 +1084,51 @@ export default function LocationApp() {
                     }}
                   />
 
-                  {/* Pulse animation overlay */}
+                  {/* White Pointing Finger Icon */}
                   <div
                     style={{
                       position: "absolute",
                       top: "50%",
                       left: "50%",
                       transform: "translate(-50%, -50%)",
-                      width: "20px",
-                      height: "20px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      color: "white",
+                      textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+                      animation: "pointPulse 2s infinite",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <div style={{ fontSize: "3rem", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))" }}>👆</div>
+                    <div
+                      style={{
+                        fontSize: "1rem",
+                        fontWeight: "bold",
+                        background: "rgba(0,0,0,0.7)",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "1rem",
+                        backdropFilter: "blur(10px)",
+                      }}
+                    >
+                      Click Here
+                    </div>
+                  </div>
+
+                  {/* Subtle pulse ring */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "60px",
+                      height: "60px",
                       borderRadius: "50%",
-                      background: "#10B981",
-                      boxShadow: "0 0 0 0 rgba(16, 185, 129, 0.7)",
-                      animation: "pulse 2s infinite",
+                      border: "3px solid rgba(255,255,255,0.6)",
+                      animation: "ringPulse 2s infinite",
+                      pointerEvents: "none",
                     }}
                   />
                 </div>
@@ -1139,30 +1183,6 @@ export default function LocationApp() {
                 marginTop: "2rem",
               }}
             >
-              <button
-                onClick={markSpot}
-                disabled={isMarking || locationLoading}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  color: isMarking || locationLoading ? "rgba(255,255,255,0.3)" : "white",
-                  opacity: isMarking || locationLoading ? 0.5 : 1,
-                  pointerEvents: isMarking || locationLoading ? "none" : "auto",
-                }}
-              >
-                <div style={{ fontSize: "2rem" }}>{isMarking ? "⏳" : "📍"}</div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>
-                  {isMarking ? "Marking..." : "Mark Spot"}
-                </span>
-              </button>
-
               <button
                 onClick={() => {
                   setCameraMode("photo")
@@ -1425,35 +1445,44 @@ export default function LocationApp() {
 
   return null
 }
-;<style jsx>{`
-  @keyframes pulse {
-    0% {
+
+// CSS animations
+const styles = `
+  @keyframes pointPulse {
+    0%, 100% { 
       transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      opacity: 1;
     }
-    70% {
-      transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    50% { 
+      transform: translate(-50%, -50%) scale(1.1);
+      opacity: 0.8;
     }
-    100% {
+  }
+
+  @keyframes ringPulse {
+    0% { 
       transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      opacity: 0.6;
+    }
+    50% { 
+      transform: translate(-50%, -50%) scale(1.2);
+      opacity: 0.3;
+    }
+    100% { 
+      transform: translate(-50%, -50%) scale(1.4);
+      opacity: 0;
     }
   }
 
   @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
+`
 
-  @keyframes fadeInOut {
-    0% { opacity: 0; transform: translateY(10px); }
-    20% { opacity: 1; transform: translateY(0); }
-    80% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-10px); }
-  }
-`}</style>
+// Inject styles
+if (typeof document !== "undefined") {
+  const styleSheet = document.createElement("style")
+  styleSheet.textContent = styles
+  document.head.appendChild(styleSheet)
+}
