@@ -417,9 +417,8 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* CLEAN HOLE EFFECT - Simple circular cutout in wall */}
+          {/* NATURAL HOLE EFFECT - Directional lighting from 2pm position */}
           <div style={{ position: "relative", marginBottom: "3rem" }}>
-            {/* Just the hole - no visible container */}
             <div
               style={{
                 position: "relative",
@@ -430,7 +429,7 @@ export default function LocationApp() {
                 justifyContent: "center",
               }}
             >
-              {/* The Clean Circular Hole */}
+              {/* The Natural Circular Hole with Directional Shadow */}
               <div
                 style={{
                   width: "16rem",
@@ -438,12 +437,13 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  // More reliable shadow approach for all devices
-                  border: "4px solid rgba(30, 41, 59, 0.8)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 0 40px rgba(0,0,0,0.3)",
+                  // Natural rim shadow - darker on bottom-left (opposite of 2pm light)
+                  border: "3px solid rgba(30, 41, 59, 0.6)",
+                  // Outer shadow cast by the hole
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                 }}
               >
-                {/* Subtle inner shadow overlay */}
+                {/* Directional inner shadow - mimics 2pm sunlight */}
                 <div
                   style={{
                     position: "absolute",
@@ -451,9 +451,39 @@ export default function LocationApp() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: "radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.2) 100%)",
+                    background: `
+            radial-gradient(
+              ellipse 120% 80% at 25% 25%, 
+              transparent 50%, 
+              rgba(0,0,0,0.15) 65%,
+              rgba(0,0,0,0.3) 85%,
+              rgba(0,0,0,0.4) 100%
+            )
+          `,
                     pointerEvents: "none",
                     zIndex: 5,
+                  }}
+                />
+
+                {/* Additional shadow emphasis on bottom-left */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    width: "60%",
+                    height: "60%",
+                    background: `
+            radial-gradient(
+              ellipse at top right,
+              transparent 40%,
+              rgba(0,0,0,0.2) 70%,
+              rgba(0,0,0,0.35) 100%
+            )
+          `,
+                    borderRadius: "0 0 0 100%",
+                    pointerEvents: "none",
+                    zIndex: 6,
                   }}
                 />
 
