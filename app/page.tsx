@@ -429,7 +429,7 @@ export default function LocationApp() {
                 justifyContent: "center",
               }}
             >
-              {/* The Natural Circular Hole with Directional Shadow */}
+              {/* The Clean Circular Hole - No shadows, just thick border */}
               <div
                 style={{
                   width: "16rem",
@@ -437,55 +437,12 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  // Natural rim shadow - darker on bottom-left (opposite of 2pm light)
-                  border: "3px solid rgba(30, 41, 59, 0.6)",
-                  // Outer shadow cast by the hole
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  // Thick border instead of shadows
+                  border: "6px solid rgba(30, 41, 59, 0.8)",
+                  // NO box-shadow at all
                 }}
               >
-                {/* Directional inner shadow - mimics 2pm sunlight */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: `
-            radial-gradient(
-              ellipse 120% 80% at 25% 25%, 
-              transparent 50%, 
-              rgba(0,0,0,0.15) 65%,
-              rgba(0,0,0,0.3) 85%,
-              rgba(0,0,0,0.4) 100%
-            )
-          `,
-                    pointerEvents: "none",
-                    zIndex: 5,
-                  }}
-                />
-
-                {/* Additional shadow emphasis on bottom-left */}
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    width: "60%",
-                    height: "60%",
-                    background: `
-            radial-gradient(
-              ellipse at top right,
-              transparent 40%,
-              rgba(0,0,0,0.2) 70%,
-              rgba(0,0,0,0.35) 100%
-            )
-          `,
-                    borderRadius: "0 0 0 100%",
-                    pointerEvents: "none",
-                    zIndex: 6,
-                  }}
-                />
+                {/* Remove all the shadow overlay divs - they're gone! */}
 
                 {/* Map visible through the hole */}
                 <div
