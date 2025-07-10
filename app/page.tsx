@@ -439,7 +439,7 @@ export default function LocationApp() {
                   overflow: "hidden",
                   position: "relative",
                   boxShadow:
-                    "inset 0 0 60px rgba(0,0,0,0.9), inset 0 0 120px rgba(0,0,0,0.7), 0 0 0 3px rgba(30, 41, 59, 0.8)",
+                    "inset 0 0 80px rgba(0,0,0,0.95), inset 0 0 160px rgba(0,0,0,0.8), inset 0 0 240px rgba(0,0,0,0.6), 0 0 0 3px rgba(30, 41, 59, 0.8)",
                 }}
               >
                 {/* Map visible through the hole */}
