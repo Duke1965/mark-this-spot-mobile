@@ -1,28 +1,57 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { MapPin, Volume2, VolumeX } from "lucide-react"
+import { MapPin, ArrowLeft, Check } from "lucide-react"
+
+interface SavedSpot {
+  id: string
+  latitude: number
+  longitude: number
+  name: string
+  note: string
+  timestamp: string
+  address: string
+}
 
 export default function LocationApp() {
   const [isClient, setIsClient] = useState(false)
   const [currentLocation, setCurrentLocation] = useState<string>("Getting your location...")
-  const [isMuted, setIsMuted] = useState(false)
-  const [spots, setSpots] = useState<any[]>([])
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
+  const [savedSpots, setSavedSpots] = useState<SavedSpot[]>([])
+  const [currentScreen, setCurrentScreen] = useState<"main" | "mark" | "library">("main")
+
+  // Mark screen state
+  const [markerPosition, setMarkerPosition] = useState<{ lat: number; lng: number } | null>(null)
+  const [spotName, setSpotName] = useState("")
+  const [spotNote, setSpotNote] = useState("")
 
   // Ensure we're on the client side
   useEffect(() => {
     setIsClient(true)
-    console.log("🚀 Mark This Spot - App Loaded!")
+    console.log("🚀 Mark This Spot - Like Shazam only for traveling!")
+
+    // Load saved spots from localStorage
+    const saved = localStorage.getItem("markThisSpot_savedSpots")
+    if (saved) {
+      setSavedSpots(JSON.parse(saved))
+    }
   }, [])
 
   // Generate Google Maps static image URL
-  const generateMapImageUrl = (lat: number, lng: number) => {
+  const generateMapImageUrl = (
+    lat: number,
+    lng: number,
+    showMarker = false,
+    markerLat?: number,
+    markerLng?: number,
+  ) => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
-      console.error("❌ No Google Maps API key found!")
-      return null
+      console.log("📍 Using placeholder map (no API key)")
+      return `/placeholder.svg?height=400&width=400&text=Map+${lat.toFixed(2)},${lng.toFixed(2)}`
     }
 
     const params = new URLSearchParams({
@@ -34,8 +63,13 @@ export default function LocationApp() {
       style: "feature:poi|visibility:off",
     })
 
+    // Add marker if specified
+    if (showMarker && markerLat && markerLng) {
+      params.append("markers", `color:green|${markerLat},${markerLng}`)
+    }
+
     const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
-    console.log("🗺️ Generated map image URL:", imageUrl)
+    console.log("🗺️ Generated map image URL")
     return imageUrl
   }
 
@@ -83,46 +117,66 @@ export default function LocationApp() {
     getUserLocation()
   }, [isClient])
 
-  const handleMarkSpot = async () => {
-    console.log("🎯 CIRCLE CLICKED! Marking spot...")
-    try {
-      if (!navigator.geolocation) {
-        console.error("Geolocation not supported")
-        return
-      }
+  const handleMapClick = () => {
+    if (!userLocation) return
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords
-          const newSpot = {
-            id: Date.now().toString(),
-            latitude,
-            longitude,
-            timestamp: new Date().toISOString(),
-            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-          }
+    console.log("🎯 Map clicked - Going to mark screen")
+    setMarkerPosition(userLocation) // Start with current location
+    setCurrentScreen("mark")
+  }
 
-          setSpots((prev) => [newSpot, ...prev])
-          console.log("✅ Spot marked successfully:", newSpot)
+  const handleMarkerDrag = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!userLocation) return
 
-          // Smooth success feedback without popup
-          setCurrentLocation(`✅ Spot saved! ${newSpot.address}`)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
 
-          // Update the map to show the new location
-          const imageUrl = generateMapImageUrl(latitude, longitude)
-          if (imageUrl) {
-            setMapImageUrl(imageUrl)
-          }
-        },
-        (error) => {
-          console.error("Location error:", error)
-          setCurrentLocation("❌ Location access denied")
-        },
-      )
-    } catch (error) {
-      console.error("Error marking spot:", error)
-      setCurrentLocation("❌ Failed to mark spot")
+    // Convert pixel coordinates to approximate lat/lng offset
+    const latOffset = ((y - 200) / 200) * 0.01 // Rough conversion
+    const lngOffset = ((x - 200) / 200) * 0.01
+
+    setMarkerPosition({
+      lat: userLocation.lat - latOffset,
+      lng: userLocation.lng + lngOffset,
+    })
+  }
+
+  const handleSaveSpot = () => {
+    if (!markerPosition || !spotName.trim()) return
+
+    const newSpot: SavedSpot = {
+      id: Date.now().toString(),
+      latitude: markerPosition.lat,
+      longitude: markerPosition.lng,
+      name: spotName.trim(),
+      note: spotNote.trim(),
+      timestamp: new Date().toISOString(),
+      address: `${markerPosition.lat.toFixed(6)}, ${markerPosition.lng.toFixed(6)}`,
     }
+
+    const updatedSpots = [newSpot, ...savedSpots]
+    setSavedSpots(updatedSpots)
+    localStorage.setItem("markThisSpot_savedSpots", JSON.stringify(updatedSpots))
+
+    console.log("✅ Spot saved:", newSpot)
+
+    // Reset form and return to main screen
+    setSpotName("")
+    setSpotNote("")
+    setMarkerPosition(null)
+    setCurrentScreen("main")
+  }
+
+  const handleShowLibrary = () => {
+    setCurrentScreen("library")
+  }
+
+  const handleBackToMain = () => {
+    setCurrentScreen("main")
+    setSpotName("")
+    setSpotNote("")
+    setMarkerPosition(null)
   }
 
   // Don't render anything until we're on the client
@@ -130,6 +184,269 @@ export default function LocationApp() {
     return null
   }
 
+  // MARK SCREEN
+  if (currentScreen === "mark") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 2rem",
+            color: "white",
+          }}
+        >
+          <button
+            onClick={handleBackToMain}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            <ArrowLeft size={20} />
+            Back
+          </button>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>Mark This Spot</h1>
+          <div style={{ width: "80px" }} />
+        </div>
+
+        {/* Map with draggable marker */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "1rem",
+            gap: "1rem",
+          }}
+        >
+          <div
+            onClick={handleMarkerDrag}
+            style={{
+              width: "400px",
+              height: "400px",
+              borderRadius: "1rem",
+              overflow: "hidden",
+              border: "4px solid rgba(255,255,255,0.3)",
+              position: "relative",
+              cursor: "crosshair",
+              background: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <img
+              src={
+                userLocation
+                  ? generateMapImageUrl(
+                      userLocation.lat,
+                      userLocation.lng,
+                      true,
+                      markerPosition?.lat,
+                      markerPosition?.lng,
+                    )
+                  : "/placeholder.svg"
+              }
+              alt="Map for marking location"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+
+            {/* Green draggable marker */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "20px",
+                height: "20px",
+                borderRadius: "50%",
+                background: "#10B981",
+                border: "3px solid white",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                cursor: "grab",
+                zIndex: 10,
+              }}
+            />
+          </div>
+
+          <p style={{ color: "rgba(255,255,255,0.8)", textAlign: "center", margin: 0 }}>
+            🎯 Move the green dot to mark the exact location
+          </p>
+
+          {/* Form */}
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Name this place..."
+              value={spotName}
+              onChange={(e) => setSpotName(e.target.value)}
+              style={{
+                padding: "1rem",
+                borderRadius: "1rem",
+                border: "none",
+                fontSize: "1rem",
+                background: "rgba(255,255,255,0.9)",
+                outline: "none",
+              }}
+            />
+
+            <textarea
+              placeholder="Add a note (optional)..."
+              value={spotNote}
+              onChange={(e) => setSpotNote(e.target.value)}
+              rows={3}
+              style={{
+                padding: "1rem",
+                borderRadius: "1rem",
+                border: "none",
+                fontSize: "1rem",
+                background: "rgba(255,255,255,0.9)",
+                outline: "none",
+                resize: "none",
+              }}
+            />
+
+            <button
+              onClick={handleSaveSpot}
+              disabled={!spotName.trim()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.75rem",
+                padding: "1rem 2rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: spotName.trim() ? "#10B981" : "rgba(255,255,255,0.3)",
+                color: "white",
+                cursor: spotName.trim() ? "pointer" : "not-allowed",
+                fontWeight: "bold",
+                fontSize: "1rem",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <Check size={20} />
+              Save This Spot
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // LIBRARY SCREEN
+  if (currentScreen === "library") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 2rem",
+            color: "white",
+          }}
+        >
+          <button
+            onClick={handleBackToMain}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            <ArrowLeft size={20} />
+            Back
+          </button>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>My Library</h1>
+          <div style={{ width: "80px" }} />
+        </div>
+
+        {/* Spots list */}
+        <div style={{ flex: 1, padding: "1rem 2rem", overflow: "auto" }}>
+          {savedSpots.length === 0 ? (
+            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)", padding: "4rem 2rem" }}>
+              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📚</div>
+              <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>No spots saved yet</h3>
+              <p>Start marking locations to build your library!</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {savedSpots.map((spot) => (
+                <div
+                  key={spot.id}
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    borderRadius: "1rem",
+                    padding: "1.5rem",
+                    color: "white",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", margin: "0 0 0.5rem 0" }}>📍 {spot.name}</h3>
+                  {spot.note && <p style={{ margin: "0 0 1rem 0", opacity: 0.8 }}>{spot.note}</p>}
+                  <div style={{ fontSize: "0.875rem", opacity: 0.7 }}>
+                    <p style={{ margin: "0.25rem 0" }}>📍 {spot.address}</p>
+                    <p style={{ margin: "0.25rem 0" }}>🕒 {new Date(spot.timestamp).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // MAIN SCREEN
   return (
     <div
       style={{
@@ -142,35 +459,6 @@ export default function LocationApp() {
         overflow: "hidden",
       }}
     >
-      {/* Sound toggle - top right */}
-      <div
-        style={{
-          position: "absolute",
-          top: "2rem",
-          right: "2rem",
-          zIndex: 20,
-        }}
-      >
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "0.25rem",
-            padding: "0.5rem",
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            color: "rgba(255,255,255,0.6)",
-          }}
-        >
-          {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>{isMuted ? "Muted" : "Sound"}</span>
-        </button>
-      </div>
-
       {/* Main content area */}
       <div
         style={{
@@ -198,7 +486,7 @@ export default function LocationApp() {
           <div style={{ color: "white" }}>
             <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: 0 }}>Mark This Spot</h1>
             <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: "0.5rem 0" }}>
-              Remember the exact location of your favorite places.
+              Like Shazam only for traveling
             </p>
             <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>📍 {currentLocation}</p>
           </div>
@@ -213,7 +501,7 @@ export default function LocationApp() {
               }}
             >
               <div
-                onClick={handleMarkSpot}
+                onClick={handleMapClick}
                 style={{
                   width: "320px",
                   height: "320px",
@@ -293,7 +581,7 @@ export default function LocationApp() {
                       backdropFilter: "blur(10px)",
                     }}
                   >
-                    Click Here
+                    Tap Here
                   </div>
                 </div>
 
@@ -354,7 +642,7 @@ export default function LocationApp() {
           ) : (
             /* Fallback button when no location */
             <button
-              onClick={handleMarkSpot}
+              onClick={handleMapClick}
               style={{
                 width: "320px",
                 height: "320px",
@@ -386,80 +674,33 @@ export default function LocationApp() {
             </button>
           )}
 
-          {/* Simple Action Buttons */}
-          <div
+          {/* Library Button */}
+          <button
+            onClick={handleShowLibrary}
             style={{
               display: "flex",
-              justifyContent: "center",
-              gap: "2rem",
-              marginTop: "2rem",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "1rem",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              color: "rgba(255,255,255,0.8)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.1)"
+              e.currentTarget.style.color = "white"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)"
+              e.currentTarget.style.color = "rgba(255,255,255,0.8)"
             }}
           >
-            <button
-              onClick={() => alert("📸 Camera feature coming soon!")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: "rgba(255,255,255,0.8)",
-              }}
-            >
-              <div style={{ fontSize: "2rem" }}>📸</div>
-              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Photo</span>
-            </button>
-
-            <button
-              onClick={() => alert("🎥 Video feature coming soon!")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: "rgba(255,255,255,0.8)",
-              }}
-            >
-              <div style={{ fontSize: "2rem" }}>🎥</div>
-              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Video</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (spots.length === 0) {
-                  alert("📚 No spots saved yet! Mark some locations first.")
-                } else {
-                  alert(
-                    `📚 You have ${spots.length} saved spots:\n\n${spots.map((spot, i) => `${i + 1}. ${spot.address}`).join("\n")}`,
-                  )
-                }
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: "rgba(255,255,255,0.8)",
-              }}
-            >
-              <div style={{ fontSize: "2rem" }}>📚</div>
-              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Libraries ({spots.length})</span>
-            </button>
-          </div>
+            <div style={{ fontSize: "2rem" }}>📚</div>
+            <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Library ({savedSpots.length})</span>
+          </button>
         </div>
       </div>
 
