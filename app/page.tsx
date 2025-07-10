@@ -1,12 +1,12 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
+import React from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
-import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
-import { EnhancedCamera } from "./components/enhanced-camera"
-import { PostcardEditor } from "./components/postcard-editor"
+import { Volume2, VolumeX, MapPin } from "lucide-react"
+import LiveResultsMap from "./components/live-results-map" // Import LiveResultsMap
 
 interface Spot {
   id: string
@@ -19,6 +19,120 @@ interface Spot {
   category?: string
   photo?: string
   postcard?: any
+}
+
+interface SpotCardProps {
+  spot: Spot
+  index: number
+  onView: () => void
+  onDelete: () => void
+  category: { name: string; emoji: string; color: string }
+}
+
+const SpotCardComponent = ({ spot, index, onView, onDelete, category }: SpotCardProps) => {
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.1)",
+        backdropFilter: "blur(10px)",
+        borderRadius: "1rem",
+        border: "1px solid rgba(255,255,255,0.2)",
+        padding: "1rem",
+        display: "flex",
+        flexDirection: "column",
+        transition: "all 0.3s ease",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Category Tag */}
+      <div
+        style={{
+          position: "absolute",
+          top: "0.75rem",
+          left: "0.75rem",
+          background: `${category.color}90`,
+          color: "white",
+          padding: "0.25rem 0.5rem",
+          borderRadius: "0.5rem",
+          fontSize: "0.75rem",
+          fontWeight: "bold",
+          zIndex: 1,
+        }}
+      >
+        {category.emoji} {category.name}
+      </div>
+
+      {/* Postcard/Photo Preview */}
+      {(spot.postcard || spot.photo) && (
+        <div style={{ marginBottom: "1rem", borderRadius: "0.75rem", overflow: "hidden" }}>
+          {spot.postcard ? (
+            spot.postcard.mediaType === "photo" ? (
+              <img
+                src={spot.postcard.mediaUrl || "/placeholder.svg?height=200&width=300&text=Postcard"}
+                alt="Postcard"
+                style={{ width: "100%", height: "150px", objectFit: "cover" }}
+              />
+            ) : (
+              <video src={spot.postcard.mediaUrl} style={{ width: "100%", height: "150px", objectFit: "cover" }} />
+            )
+          ) : spot.photo ? (
+            <img
+              src={spot.photo || "/placeholder.svg?height=200&width=300&text=Photo"}
+              alt="Spot photo"
+              style={{ width: "100%", height: "150px", objectFit: "cover" }}
+            />
+          ) : null}
+        </div>
+      )}
+
+      {/* Location Info */}
+      <h3 style={{ fontSize: "1rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>{spot.address}</h3>
+      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>
+        {new Date(spot.timestamp).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })}
+      </p>
+
+      {/* Action Buttons */}
+      <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
+        <button
+          onClick={onView}
+          style={{
+            flex: 1,
+            padding: "0.5rem",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+            transition: "all 0.3s ease",
+          }}
+        >
+          View
+        </button>
+        <button
+          onClick={onDelete}
+          style={{
+            flex: 1,
+            padding: "0.5rem",
+            background: "rgba(220, 38, 38, 0.3)",
+            color: "white",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+            transition: "all 0.3s ease",
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function LocationApp() {
@@ -41,6 +155,10 @@ export default function LocationApp() {
   const [capturedMediaUrl, setCapturedMediaUrl] = useState<string | null>(null)
   const [capturedMediaType, setCapturedMediaType] = useState<"photo" | "video">("photo")
   const [postcardData, setPostcardData] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filterCategory, setFilterCategory] = useState("all")
+  const [sortBy, setSortBy] = useState("newest")
+  const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -151,6 +269,42 @@ export default function LocationApp() {
       console.log(`Playing sound for spot ${spotId}! 🎵`)
     }
   }, [selectedSound, isMuted])
+
+  // Filter and sort spots based on user preferences
+  const filteredAndSortedSpots = React.useMemo(() => {
+    let filtered = spots
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (spot) =>
+          spot.address.toLowerCase().includes(query) ||
+          spot.notes.toLowerCase().includes(query) ||
+          spotCategories[spot.category || "general"].name.toLowerCase().includes(query),
+      )
+    }
+
+    // Apply category filter
+    if (filterCategory !== "all") {
+      filtered = filtered.filter((spot) => (spot.category || "general") === filterCategory)
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        case "alphabetical":
+          return a.address.localeCompare(b.address)
+        case "newest":
+        default:
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      }
+    })
+
+    return filtered
+  }, [spots, searchQuery, filterCategory, sortBy])
 
   const markSpot = async () => {
     setIsMarking(true)
@@ -400,1041 +554,14 @@ export default function LocationApp() {
             justifyContent: "center",
             padding: "2rem",
             position: "relative",
-            zIndex: 10,
           }}
         >
-          {locationError && (
-            <div
-              style={{
-                marginBottom: "2rem",
-                background: "rgba(239, 68, 68, 0.2)",
-                backdropFilter: "blur(10px)",
-                border: "2px solid rgba(239, 68, 68, 0.5)",
-                borderRadius: "1rem",
-                padding: "1rem",
-                boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-                maxWidth: "24rem",
-                color: "white",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <span style={{ marginRight: "0.75rem", fontSize: "1.25rem" }}>⚠️</span>
-                <div>
-                  <div style={{ fontWeight: "bold" }}>Location Error</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.9 }}>{locationError}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* THE HOLE - Clean circular hole with thick border */}
-          <div style={{ position: "relative", marginBottom: "2rem" }}>
-            <div
-              style={{
-                position: "relative",
-                width: "16rem",
-                height: "16rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: "16rem",
-                  height: "16rem",
-                  borderRadius: "50%",
-                  overflow: "hidden",
-                  position: "relative",
-                  border: "6px solid rgba(30, 41, 59, 0.8)",
-                }}
-              >
-                {/* Map visible through the hole */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "-2rem",
-                    left: "-2rem",
-                    right: "-2rem",
-                    bottom: "-2rem",
-                    backgroundImage: mapImageUrl
-                      ? `url(${mapImageUrl})`
-                      : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    transform: "scale(1.2)",
-                  }}
-                />
-
-                {/* Interactive Button */}
-                <button
-                  onClick={markSpot}
-                  disabled={isMarking || locationLoading}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: "50%",
-                    cursor: isMarking || locationLoading ? "not-allowed" : "pointer",
-                    zIndex: 10,
-                    transition: "all 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isMarking && !locationLoading) {
-                      e.currentTarget.style.background = "transparent"
-                    }
-                  }}
-                />
-
-                {/* Loading State */}
-                {(isMarking || locationLoading || !mapImageUrl) && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: "rgba(0,0,0,0.8)",
-                      borderRadius: "50%",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      zIndex: 15,
-                      color: "white",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "3rem",
-                        height: "3rem",
-                        border: "4px solid rgba(255,255,255,0.3)",
-                        borderTop: "4px solid white",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
-                        marginBottom: "1rem",
-                      }}
-                    />
-                    <div style={{ fontSize: "1rem", fontWeight: 900, textAlign: "center" }}>
-                      {isMarking ? "MARKING..." : locationLoading ? "GETTING GPS..." : "LOADING MAP..."}
-                    </div>
-                  </div>
-                )}
-
-                {/* Center Location Dot */}
-                {mapImageUrl && !isMarking && !locationLoading && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      width: "12px",
-                      height: "12px",
-                      borderRadius: "50%",
-                      background: "rgba(239, 68, 68, 0.9)",
-                      border: "2px solid white",
-                      boxShadow: "0 0 0 4px rgba(239, 68, 68, 0.3)",
-                      zIndex: 12,
-                      animation: "pulse 2s infinite",
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* CAMERA SECTION - Now below the hole with minimalistic style */}
-          <div style={{ marginBottom: "2rem" }}>
-            {/* Photo/Video Mode Toggle */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "1.5rem",
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "2rem",
-                padding: "0.25rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-              }}
-            >
-              <button
-                onClick={() => setCameraMode("photo")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: "1.5rem",
-                  border: "none",
-                  background: cameraMode === "photo" ? "rgba(255,255,255,0.2)" : "transparent",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  fontWeight: cameraMode === "photo" ? "bold" : "normal",
-                  fontSize: "0.875rem",
-                }}
-              >
-                📸 Photo
-              </button>
-              <button
-                onClick={() => setCameraMode("video")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: "1.5rem",
-                  border: "none",
-                  background: cameraMode === "video" ? "rgba(255,255,255,0.2)" : "transparent",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  fontWeight: cameraMode === "video" ? "bold" : "normal",
-                  fontSize: "0.875rem",
-                }}
-              >
-                🎥 Video
-              </button>
-            </div>
-
-            {/* App Title and Description */}
-            <div style={{ textAlign: "center", maxWidth: "28rem" }}>
-              <h1
-                style={{
-                  fontSize: "2.5rem",
-                  fontWeight: 900,
-                  color: "white",
-                  marginBottom: "1rem",
-                  background: "linear-gradient(135deg, #bfdbfe 0%, #c4b5fd 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                Mark This Spot
-              </h1>
-              <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "1.125rem", marginBottom: "0.5rem" }}>
-                <span style={{ fontWeight: "bold" }}>Like Shazam, but for places!</span>
-              </p>
-              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
-                {spots.length} {spots.length === 1 ? "spot" : "spots"} marked • Real GPS tracking
-              </p>
-              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontStyle: "italic" }}>
-                📍 {locationAddress}
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom Navigation */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "2rem",
-              left: "2rem",
-              zIndex: 20,
-            }}
-          >
-            <button
-              onClick={() => setCurrentScreen("libraries")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.25rem",
-                padding: "0.5rem",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: "rgba(255,255,255,0.6)",
-              }}
-            >
-              <Library size={20} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Libraries</span>
-            </button>
-          </div>
-
-          <div
-            style={{
-              position: "absolute",
-              bottom: "2rem",
-              right: "2rem",
-              zIndex: 20,
-            }}
-          >
-            <button
-              onClick={() => setCurrentScreen("settings")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.25rem",
-                padding: "0.5rem",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: "rgba(255,255,255,0.6)",
-              }}
-            >
-              <Settings size={20} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Settings</span>
-            </button>
-          </div>
-
-          {/* Muted indicator */}
-          {isMuted && (
-            <div
-              style={{
-                position: "absolute",
-                top: "5rem",
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 20,
-                background: "rgba(239, 68, 68, 0.9)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                padding: "0.5rem 1rem",
-                borderRadius: "9999px",
-                fontSize: "0.875rem",
-                fontWeight: "bold",
-                boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-              }}
-            >
-              🔇 Sound Muted
-            </div>
-          )}
-
-          {/* Enhanced Camera Modal */}
-          {showCamera && (
-            <EnhancedCamera
-              mode={cameraMode}
-              onCapture={(mediaData, type) => {
-                console.log(`📸 ${type.toUpperCase()} CAPTURED!`, mediaData.substring(0, 50) + "...")
-                setCapturedMediaUrl(mediaData)
-                setCapturedMediaType(type)
-                setShowCamera(false)
-                setShowPostcardEditor(true)
-              }}
-              onClose={() => setShowCamera(false)}
-            />
-          )}
-
-          {/* Postcard Editor Modal */}
-          {showPostcardEditor && capturedMediaUrl && (
-            <PostcardEditor
-              mediaUrl={capturedMediaUrl}
-              mediaType={capturedMediaType}
-              locationName={locationAddress}
-              onSave={(postcardData) => {
-                console.log("🎨 POSTCARD CREATED!", postcardData)
-                setPostcardData(postcardData)
-                setShowPostcardEditor(false)
-                markSpot()
-              }}
-              onClose={() => {
-                setShowPostcardEditor(false)
-                setCapturedMediaUrl(null)
-                setPostcardData(null)
-              }}
-            />
-          )}
-
-          <style jsx>{`
-            @keyframes spin {
-              0% {
-                transform: rotate(0deg);
-              }
-              100% {
-                transform: rotate(360deg);
-              }
-            }
-
-            @keyframes pulse {
-              0% {
-                transform: translate(-50%, -50%) scale(1);
-                opacity: 1;
-              }
-              50% {
-                transform: translate(-50%, -50%) scale(1.2);
-                opacity: 0.7;
-              }
-              100% {
-                transform: translate(-50%, -50%) scale(1);
-                opacity: 1;
-              }
-            }
-          `}</style>
+          {/* Placeholder for main content */}
+          <h2 style={{ color: "white", fontSize: "2rem" }}>Main Screen Content</h2>
         </div>
       </div>
     )
   }
 
-  if (currentScreen === "settings") {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #1e293b 0%, #4f46e5 50%, #7c3aed 100%)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "1.5rem",
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "white" }}>Settings</h1>
-            <button
-              onClick={() => setCurrentScreen("main")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem 1rem",
-                background: "rgba(255,255,255,0.2)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                borderRadius: "0.75rem",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-            >
-              <ArrowLeft size={20} />
-              Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                🎯 Spot Customization
-              </h2>
-              <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "1.5rem" }}>
-                Customize how you mark and categorize your spots
-              </p>
-
-              <div
-                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}
-              >
-                <button
-                  onClick={() => setCurrentScreen("category-selector")}
-                  style={{
-                    padding: "1.5rem",
-                    borderRadius: "1rem",
-                    border: "2px solid rgba(255,255,255,0.2)",
-                    background: "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    color: "white",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>
-                    {spotCategories[selectedCategory].emoji}
-                  </div>
-                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Category</h3>
-                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                    Current: {spotCategories[selectedCategory].name}
-                  </p>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>Tap to change →</div>
-                </button>
-
-                <button
-                  onClick={() => setShowCamera(true)}
-                  style={{
-                    padding: "1.5rem",
-                    borderRadius: "1rem",
-                    border: isPhotoMode ? "2px solid rgba(16, 185, 129, 0.5)" : "2px solid rgba(255,255,255,0.2)",
-                    background: isPhotoMode ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    color: "white",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📸</div>
-                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Photo Mode</h3>
-                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                    {isPhotoMode ? "✓ Enabled" : "Disabled"}
-                  </p>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                    {isPhotoMode ? "Photos will be captured" : "Tap to enable"}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setCurrentScreen("marker-selector")}
-                  style={{
-                    padding: "1.5rem",
-                    borderRadius: "1rem",
-                    border: "2px solid rgba(255,255,255,0.2)",
-                    background: "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    color: "white",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🎯</div>
-                  <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Marker Style</h3>
-                  <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
-                    Current: {selectedMarker.toUpperCase()}
-                  </p>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>Tap to change →</div>
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                🔊 Sound Settings
-              </h2>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: "1.5rem",
-                }}
-              >
-                <div>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "0.5rem" }}>
-                    Sound Effects
-                  </h3>
-                  <p style={{ color: "rgba(255,255,255,0.7)" }}>Enable or disable all app sounds</p>
-                </div>
-                <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  style={{
-                    padding: "0.75rem",
-                    borderRadius: "50%",
-                    transition: "all 0.3s ease",
-                    background: isMuted ? "#ef4444" : "#10b981",
-                    color: "white",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                </button>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                <span style={{ fontSize: "2rem" }}>
-                  {Object.values(soundCategories)
-                    .flatMap((category) => Object.entries(category))
-                    .find(([key]) => key === selectedSound)?.[1]?.emoji || "🎵"}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: "white", fontWeight: "bold" }}>
-                    {Object.values(soundCategories)
-                      .flatMap((category) => Object.entries(category))
-                      .find(([key]) => key === selectedSound)?.[1]?.name || "Unknown"}
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
-                    {Object.values(soundCategories)
-                      .flatMap((category) => Object.entries(category))
-                      .find(([key]) => key === selectedSound)?.[1]?.description || ""}
-                  </div>
-                </div>
-                <button
-                  onClick={() => !isMuted && playSound(selectedSound)}
-                  disabled={isMuted}
-                  style={{
-                    padding: "0.5rem",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: isMuted ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
-                    color: isMuted ? "rgba(255,255,255,0.5)" : "white",
-                    cursor: isMuted ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <Play size={20} />
-                </button>
-                <button
-                  onClick={() => setCurrentScreen("libraries")}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.5rem",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    cursor: "pointer",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Change Sound
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-                📱 App Info
-              </h2>
-              <div
-                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}
-              >
-                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>📍</div>
-                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{spots.length}</div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Spots Marked</div>
-                </div>
-                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🎵</div>
-                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>v1.0</div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>App Version</div>
-                </div>
-                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.8)" }}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🗺️</div>
-                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>GPS</div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Location Mode</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Other screens with proper styling...
-  if (currentScreen === "category-selector") {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #4f46e5 100%)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "1.5rem",
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "white", margin: 0 }}>🏷️ Choose Category</h1>
-            <button
-              onClick={() => setCurrentScreen("settings")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem 1rem",
-                background: "rgba(255,255,255,0.2)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                borderRadius: "0.75rem",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-            >
-              <ArrowLeft size={20} />
-              Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
-            {Object.entries(spotCategories).map(([key, category]) => (
-              <button
-                key={key}
-                onClick={() => setSelectedCategory(key)}
-                style={{
-                  padding: "1.5rem",
-                  borderRadius: "1rem",
-                  border: "2px solid rgba(255,255,255,0.2)",
-                  background: selectedCategory === key ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-                  backdropFilter: "blur(10px)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>{category.emoji}</div>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "0.5rem" }}>{category.name}</h3>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Continue with other screens...
   return null
-}
-
-function LiveResultsMap({
-  spot,
-  onLocationUpdate,
-}: {
-  spot: Spot
-  onLocationUpdate: (lat: number, lng: number, address: string) => void
-}) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const streetViewRef = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<any>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [marker, setMarker] = useState<any>(null)
-  const [streetView, setStreetView] = useState<any>(null)
-  const [showStreetView, setShowStreetView] = useState(false)
-
-  useEffect(() => {
-    if ((window as any).google) {
-      setIsLoaded(true)
-      return
-    }
-
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-
-    if (!apiKey) {
-      setLoadError("Google Maps API key not configured")
-      return
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-    if (existingScript) {
-      setIsLoaded(true)
-      return
-    }
-
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initResultsMap&libraries=places&v=weekly&loading=async`
-    script.async = true
-    script.defer = true
-    ;(window as any).initResultsMap = () => {
-      console.log("🗺️ Google Maps loaded successfully")
-      setIsLoaded(true)
-    }
-
-    script.onerror = () => {
-      setLoadError("Failed to load Google Maps")
-    }
-
-    document.head.appendChild(script)
-
-    return () => {
-      delete (window as any).initResultsMap
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || loadError || !(window as any).google) return
-
-    try {
-      const newMap = new (window as any).google.maps.Map(mapRef.current, {
-        zoom: 18,
-        center: { lat: spot.latitude, lng: spot.longitude },
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-        zoomControl: true,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }],
-          },
-        ],
-      })
-
-      setTimeout(() => {
-        ;(window as any).google.maps.event.trigger(newMap, "resize")
-        newMap.setCenter({ lat: spot.latitude, lng: spot.longitude })
-      }, 100)
-
-      const newMarker = new (window as any).google.maps.Marker({
-        position: { lat: spot.latitude, lng: spot.longitude },
-        map: newMap,
-        title: "Drag to refine location",
-        draggable: true,
-        icon: {
-          path: (window as any).google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: "#10B981",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 3,
-        },
-      })
-
-      newMarker.addListener("dragend", async (event: any) => {
-        const position = event.latLng
-        const lat = position.lat()
-        const lng = position.lng()
-
-        try {
-          const geocoder = new (window as any).google.maps.Geocoder()
-          geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
-            if (status === "OK" && results[0]) {
-              onLocationUpdate(lat, lng, results[0].formatted_address)
-            } else {
-              onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-            }
-          })
-        } catch (error) {
-          onLocationUpdate(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-        }
-      })
-
-      if (streetViewRef.current) {
-        const streetViewService = new (window as any).google.maps.StreetViewService()
-
-        streetViewService.getPanorama(
-          {
-            location: { lat: spot.latitude, lng: spot.longitude },
-            radius: 50,
-            source: (window as any).google.maps.StreetViewSource.OUTDOOR,
-          },
-          (data: any, status: string) => {
-            if (status === "OK") {
-              const streetViewPanorama = new (window as any).google.maps.StreetViewPanorama(streetViewRef.current, {
-                position: data.location.latLng,
-                pov: { heading: 0, pitch: 0 },
-                zoom: 1,
-                visible: false,
-                addressControl: true,
-                linksControl: true,
-                panControl: true,
-                enableCloseButton: false,
-              })
-
-              setStreetView(streetViewPanorama)
-            } else {
-              setStreetView(null)
-            }
-          },
-        )
-      }
-
-      setMap(newMap)
-      setMarker(newMarker)
-    } catch (error) {
-      console.error("Map initialization failed:", error)
-      setLoadError("Failed to initialize map")
-    }
-  }, [isLoaded, spot.latitude, spot.longitude, loadError, onLocationUpdate])
-
-  const toggleStreetView = () => {
-    if (!streetView) {
-      alert("❌ Street View not available at this location.\n\nTry dragging the marker to a nearby street!")
-      return
-    }
-
-    if (!showStreetView) {
-      if (marker) {
-        const position = marker.getPosition ? marker.getPosition() : marker.position
-        streetView.setPosition(position)
-      }
-      streetView.setVisible(true)
-      setShowStreetView(true)
-    } else {
-      streetView.setVisible(false)
-      setShowStreetView(false)
-    }
-  }
-
-  if (loadError) {
-    return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(239, 68, 68, 0.1)",
-          color: "white",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
-          <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Map Error</h3>
-          <p>{loadError}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isLoaded) {
-    return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(255,255,255,0.1)",
-          color: "white",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: "3rem",
-              height: "3rem",
-              border: "4px solid rgba(255,255,255,0.3)",
-              borderTop: "4px solid white",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-              marginBottom: "1rem",
-              margin: "0 auto 1rem auto",
-            }}
-          />
-          <p>Loading interactive map...</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ height: "100%", position: "relative" }}>
-      <div
-        ref={mapRef}
-        style={{
-          width: "100%",
-          height: "100%",
-          minHeight: "400px",
-          backgroundColor: "#f0f0f0",
-          display: showStreetView ? "none" : "block",
-        }}
-      />
-
-      <div
-        ref={streetViewRef}
-        style={{
-          width: "100%",
-          height: "100%",
-          minHeight: "400px",
-          backgroundColor: "#f0f0f0",
-          display: showStreetView ? "block" : "none",
-        }}
-      />
-
-      <button
-        onClick={toggleStreetView}
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "0.75rem 1rem",
-          background: showStreetView ? "#10b981" : "rgba(255,255,255,0.9)",
-          backdropFilter: "blur(10px)",
-          color: showStreetView ? "white" : "#1f2937",
-          borderRadius: "0.75rem",
-          border: "none",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          fontWeight: 600,
-          fontSize: "0.875rem",
-          zIndex: 10,
-        }}
-      >
-        <Eye size={18} />
-        {showStreetView ? "Exit Street View" : "Street View"}
-      </button>
-
-      {!showStreetView && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(0,0,0,0.8)",
-            backdropFilter: "blur(10px)",
-            color: "white",
-            padding: "0.75rem 1rem",
-            borderRadius: "0.75rem",
-            fontSize: "0.875rem",
-            textAlign: "center",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-          }}
-        >
-          🖱️ Drag the green marker to refine your location
-        </div>
-      )}
-
-      {showStreetView && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(16, 185, 129, 0.9)",
-            backdropFilter: "blur(10px)",
-            color: "white",
-            padding: "0.75rem 1rem",
-            borderRadius: "0.75rem",
-            fontSize: "0.875rem",
-            textAlign: "center",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-          }}
-        >
-          🏠 Street View Active - Look around with mouse/touch
-        </div>
-      )}
-    </div>
-  )
 }
