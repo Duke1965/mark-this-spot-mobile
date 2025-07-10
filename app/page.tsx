@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import React from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
@@ -9,6 +9,7 @@ import { Volume2, VolumeX, MapPin } from "lucide-react"
 import { Search, ArrowLeft } from "lucide-react"
 import { EnhancedCamera } from "./components/enhanced-camera"
 import { PostcardEditor } from "./components/postcard-editor"
+import { VoiceCommander } from "./components/voice-commander"
 
 interface Spot {
   id: string
@@ -478,10 +479,11 @@ export default function LocationApp() {
   const [filterCategory, setFilterCategory] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null)
+  const [voiceEnabled, setVoiceEnabled] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
-    console.log("🚀 Mark This Spot - Latest Version Loaded!")
+    console.log("🚀 Mark This Spot - Voice-Activated Version Loaded!")
   }, [])
 
   const { getCurrentLocation, isLoading: locationLoading, error: locationError } = useLocationServices()
@@ -588,6 +590,87 @@ export default function LocationApp() {
       console.log(`Playing sound for spot ${spotId}! 🎵`)
     }
   }, [selectedSound, isMuted])
+
+  // Voice command handler
+  const handleVoiceCommand = useCallback(
+    async (command: string, confidence: number) => {
+      console.log(`🎤 Processing command: "${command}" (confidence: ${confidence})`)
+
+      // Only process commands with reasonable confidence
+      if (confidence < 0.7) {
+        console.log("🎤 Command confidence too low, ignoring")
+        return
+      }
+
+      const lowerCommand = command.toLowerCase()
+
+      // Mark spot commands
+      if (
+        lowerCommand.includes("mark this spot") ||
+        lowerCommand.includes("mark spot") ||
+        lowerCommand.includes("save location")
+      ) {
+        console.log("🎤 Voice command: Mark Spot")
+        if (!isMuted) await playSound("success-chime")
+        markSpot()
+      }
+      // Photo commands
+      else if (
+        lowerCommand.includes("take a photo") ||
+        lowerCommand.includes("take photo") ||
+        lowerCommand.includes("camera")
+      ) {
+        console.log("🎤 Voice command: Take Photo")
+        if (!isMuted) await playSound("coin-collect")
+        setCameraMode("photo")
+        setShowCamera(true)
+      }
+      // Video commands
+      else if (
+        lowerCommand.includes("record video") ||
+        lowerCommand.includes("take video") ||
+        lowerCommand.includes("video")
+      ) {
+        console.log("🎤 Voice command: Record Video")
+        if (!isMuted) await playSound("coin-collect")
+        setCameraMode("video")
+        setShowCamera(true)
+      }
+      // Library commands
+      else if (
+        lowerCommand.includes("show my spots") ||
+        lowerCommand.includes("open library") ||
+        lowerCommand.includes("my spots")
+      ) {
+        console.log("🎤 Voice command: Show Libraries")
+        if (!isMuted) await playSound("bird-chirp")
+        setCurrentScreen("libraries")
+      }
+      // Mute/Unmute commands
+      else if (lowerCommand.includes("mute")) {
+        console.log("🎤 Voice command: Mute")
+        setIsMuted(true)
+      } else if (lowerCommand.includes("unmute")) {
+        console.log("🎤 Voice command: Unmute")
+        setIsMuted(false)
+        await playSound("magic-sparkle")
+      }
+      // Go back/home commands
+      else if (
+        lowerCommand.includes("go back") ||
+        lowerCommand.includes("go home") ||
+        lowerCommand.includes("main screen")
+      ) {
+        console.log("🎤 Voice command: Go Back")
+        if (!isMuted) await playSound("water-drop")
+        setCurrentScreen("main")
+        setCurrentSpot(null)
+      } else {
+        console.log("🎤 Command not recognized:", command)
+      }
+    },
+    [isMuted],
+  )
 
   // Filter and sort spots based on user preferences
   const filteredAndSortedSpots = React.useMemo(() => {
@@ -706,6 +789,13 @@ export default function LocationApp() {
           flexDirection: "column",
         }}
       >
+        {/* Voice Commander */}
+        <VoiceCommander
+          onCommand={handleVoiceCommand}
+          isEnabled={voiceEnabled}
+          onToggle={() => setVoiceEnabled(!voiceEnabled)}
+        />
+
         <div
           style={{
             padding: "1rem 1.5rem",
@@ -847,6 +937,13 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
+        {/* Voice Commander */}
+        <VoiceCommander
+          onCommand={handleVoiceCommand}
+          isEnabled={voiceEnabled}
+          onToggle={() => setVoiceEnabled(!voiceEnabled)}
+        />
+
         {/* Camera Component */}
         {showCamera && (
           <EnhancedCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />
@@ -932,6 +1029,11 @@ export default function LocationApp() {
               <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>
                 {locationLoading ? "Getting your location..." : locationAddress}
               </p>
+              {voiceEnabled && (
+                <p style={{ fontSize: "0.875rem", color: "rgba(16, 185, 129, 0.9)", margin: 0 }}>
+                  🎤 Voice commands active - Try saying "Mark this spot"
+                </p>
+              )}
             </div>
 
             {/* Circular Map Preview */}
@@ -1143,6 +1245,13 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
+        {/* Voice Commander */}
+        <VoiceCommander
+          onCommand={handleVoiceCommand}
+          isEnabled={voiceEnabled}
+          onToggle={() => setVoiceEnabled(!voiceEnabled)}
+        />
+
         {/* Header */}
         <div
           style={{
@@ -1339,5 +1448,12 @@ export default function LocationApp() {
     100% {
       transform: rotate(360deg);
     }
+  }
+
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(10px); }
+    20% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
   }
 `}</style>
