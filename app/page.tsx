@@ -438,10 +438,25 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  boxShadow:
-                    "inset 0 0 80px rgba(0,0,0,0.95), inset 0 0 160px rgba(0,0,0,0.8), inset 0 0 240px rgba(0,0,0,0.6), 0 0 0 3px rgba(30, 41, 59, 0.8)",
+                  // More reliable shadow approach for all devices
+                  border: "4px solid rgba(30, 41, 59, 0.8)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 0 40px rgba(0,0,0,0.3)",
                 }}
               >
+                {/* Subtle inner shadow overlay */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.2) 100%)",
+                    pointerEvents: "none",
+                    zIndex: 5,
+                  }}
+                />
+
                 {/* Map visible through the hole */}
                 <div
                   style={{
