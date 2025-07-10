@@ -84,6 +84,7 @@ export default function LocationApp() {
   }, [isClient])
 
   const handleMarkSpot = async () => {
+    console.log("🎯 CIRCLE CLICKED! Marking spot...")
     try {
       console.log("🎯 Marking spot...")
 
@@ -219,6 +220,12 @@ export default function LocationApp() {
                   backdropFilter: "blur(10px)",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
+                  WebkitTapHighlightColor: "transparent",
+                  WebkitTouchCallout: "none",
+                  WebkitUserSelect: "none",
+                  userSelect: "none",
+                  outline: "none",
+                  transform: "scale(1)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.05)"
@@ -227,6 +234,14 @@ export default function LocationApp() {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "scale(1)"
                   e.currentTarget.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)"
+                }}
+                onMouseDown={(e) => {
+                  e.currentTarget.style.transform = "scale(0.98)"
+                  e.currentTarget.style.boxShadow = "0 5px 15px rgba(0,0,0,0.5)"
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)"
+                  e.currentTarget.style.boxShadow = "0 15px 40px rgba(0,0,0,0.4)"
                 }}
               >
                 <img
