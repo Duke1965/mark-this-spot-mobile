@@ -5,6 +5,7 @@ import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
 import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
+import { EnhancedCamera } from "./components/EnhancedCamera"
 
 interface Spot {
   id: string
@@ -33,6 +34,8 @@ export default function LocationApp() {
   const [selectedCategory, setSelectedCategory] = useState("general")
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [isPhotoMode, setIsPhotoMode] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   useEffect(() => {
     setIsClient(true)
@@ -353,6 +356,7 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
+        {/* Sound toggle - top right */}
         <div
           style={{
             position: "absolute",
@@ -381,6 +385,7 @@ export default function LocationApp() {
           </button>
         </div>
 
+        {/* Main content area */}
         <div
           style={{
             flex: 1,
@@ -417,8 +422,8 @@ export default function LocationApp() {
             </div>
           )}
 
-          {/* NATURAL HOLE EFFECT - Directional lighting from 2pm position */}
-          <div style={{ position: "relative", marginBottom: "3rem" }}>
+          {/* THE HOLE - Clean circular hole with thick border */}
+          <div style={{ position: "relative", marginBottom: "2rem" }}>
             <div
               style={{
                 position: "relative",
@@ -429,7 +434,6 @@ export default function LocationApp() {
                 justifyContent: "center",
               }}
             >
-              {/* The Clean Circular Hole - No shadows, just thick border */}
               <div
                 style={{
                   width: "16rem",
@@ -437,13 +441,9 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  // Thick border instead of shadows
                   border: "6px solid rgba(30, 41, 59, 0.8)",
-                  // NO box-shadow at all
                 }}
               >
-                {/* Remove all the shadow overlay divs - they're gone! */}
-
                 {/* Map visible through the hole */}
                 <div
                   style={{
@@ -549,6 +549,100 @@ export default function LocationApp() {
             </div>
           </div>
 
+          {/* CAMERA SECTION - Now below the hole */}
+          <div style={{ marginBottom: "2rem" }}>
+            {/* Photo/Video Mode Toggle */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "1rem",
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "2rem",
+                padding: "0.25rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+              }}
+            >
+              <button
+                onClick={() => setCameraMode("photo")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 1.5rem",
+                  borderRadius: "1.5rem",
+                  border: "none",
+                  background: cameraMode === "photo" ? "rgba(255,255,255,0.2)" : "transparent",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  fontWeight: cameraMode === "photo" ? "bold" : "normal",
+                }}
+              >
+                📸 Photo
+              </button>
+              <button
+                onClick={() => setCameraMode("video")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 1.5rem",
+                  borderRadius: "1.5rem",
+                  border: "none",
+                  background: cameraMode === "video" ? "rgba(255,255,255,0.2)" : "transparent",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  fontWeight: cameraMode === "video" ? "bold" : "normal",
+                }}
+              >
+                🎥 Video
+              </button>
+            </div>
+
+            {/* Camera Button */}
+            <div style={{ textAlign: "center" }}>
+              <button
+                onClick={() => setShowCamera(true)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  padding: "1.5rem",
+                  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                  borderRadius: "1.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  color: "white",
+                  boxShadow: "0 10px 25px rgba(239, 68, 68, 0.4)",
+                  transform: "scale(1)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)"
+                  e.currentTarget.style.boxShadow = "0 15px 35px rgba(239, 68, 68, 0.6)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)"
+                  e.currentTarget.style.boxShadow = "0 10px 25px rgba(239, 68, 68, 0.4)"
+                }}
+              >
+                <div style={{ fontSize: "2rem" }}>{cameraMode === "photo" ? "📸" : "🎥"}</div>
+                <div style={{ fontWeight: "bold", fontSize: "1.125rem" }}>
+                  {cameraMode === "photo" ? "TAKE PHOTO" : "RECORD VIDEO"}
+                </div>
+                <div style={{ fontSize: "0.875rem", opacity: 0.9 }}>
+                  Create your {cameraMode === "photo" ? "photo" : "video"} postcard
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* App Title and Description */}
           <div style={{ textAlign: "center", maxWidth: "28rem" }}>
             <h1
               style={{
@@ -576,6 +670,7 @@ export default function LocationApp() {
           </div>
         </div>
 
+        {/* Bottom Navigation */}
         <div
           style={{
             position: "absolute",
@@ -632,6 +727,7 @@ export default function LocationApp() {
           </button>
         </div>
 
+        {/* Muted indicator */}
         {isMuted && (
           <div
             style={{
@@ -652,6 +748,25 @@ export default function LocationApp() {
           >
             🔇 Sound Muted
           </div>
+        )}
+
+        {/* Enhanced Camera Modal */}
+        {showCamera && (
+          <EnhancedCamera
+            mode={cameraMode}
+            onCapture={(mediaData, type) => {
+              if (type === "photo") {
+                setCapturedPhoto(mediaData)
+              } else {
+                // Handle video capture - we'll implement this next
+                console.log("Video captured:", mediaData)
+              }
+              setShowCamera(false)
+              // Proceed to mark spot with media
+              markSpot()
+            }}
+            onClose={() => setShowCamera(false)}
+          />
         )}
 
         <style jsx>{`
