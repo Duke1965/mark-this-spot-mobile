@@ -7,6 +7,8 @@ import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
 import { Volume2, VolumeX, MapPin } from "lucide-react"
 import { Search, ArrowLeft } from "lucide-react"
+import { EnhancedCamera } from "./components/enhanced-camera"
+import { PostcardEditor } from "./components/postcard-editor"
 
 interface Spot {
   id: string
@@ -466,7 +468,6 @@ export default function LocationApp() {
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [locationAddress, setLocationAddress] = useState<string>("Getting your location...")
   const [selectedCategory, setSelectedCategory] = useState("general")
-  const [isPhotoMode, setIsPhotoMode] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [showPostcardEditor, setShowPostcardEditor] = useState(false)
@@ -682,6 +683,19 @@ export default function LocationApp() {
     }
   }
 
+  const handleCameraCapture = (mediaData: string, type: "photo" | "video") => {
+    setCapturedMediaUrl(mediaData)
+    setCapturedMediaType(type)
+    setShowCamera(false)
+    setShowPostcardEditor(true)
+  }
+
+  const handlePostcardSave = (postcard: any) => {
+    setPostcardData(postcard)
+    setShowPostcardEditor(false)
+    console.log("📮 Postcard created:", postcard)
+  }
+
   if (currentScreen === "results" && currentSpot) {
     return (
       <div
@@ -833,6 +847,22 @@ export default function LocationApp() {
           overflow: "hidden",
         }}
       >
+        {/* Camera Component */}
+        {showCamera && (
+          <EnhancedCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />
+        )}
+
+        {/* Postcard Editor */}
+        {showPostcardEditor && capturedMediaUrl && (
+          <PostcardEditor
+            mediaUrl={capturedMediaUrl}
+            mediaType={capturedMediaType}
+            locationName={locationAddress}
+            onSave={handlePostcardSave}
+            onClose={() => setShowPostcardEditor(false)}
+          />
+        )}
+
         {/* Sound toggle - top right */}
         <div
           style={{
@@ -915,8 +945,8 @@ export default function LocationApp() {
               >
                 <div
                   style={{
-                    width: "320px", // Increased from 200px
-                    height: "320px", // Increased from 200px
+                    width: "320px",
+                    height: "320px",
                     borderRadius: "50%",
                     overflow: "hidden",
                     border: "4px solid rgba(255,255,255,0.3)",
@@ -970,8 +1000,8 @@ export default function LocationApp() {
               >
                 <div
                   style={{
-                    width: "320px", // Increased from 200px
-                    height: "320px", // Increased from 200px
+                    width: "320px",
+                    height: "320px",
                     borderRadius: "50%",
                     border: "4px solid rgba(255,255,255,0.3)",
                     background: "rgba(255,255,255,0.1)",
@@ -1003,7 +1033,7 @@ export default function LocationApp() {
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "3rem",
+                gap: "2rem",
                 marginTop: "2rem",
               }}
             >
@@ -1029,6 +1059,50 @@ export default function LocationApp() {
                 <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>
                   {isMarking ? "Marking..." : "Mark Spot"}
                 </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCameraMode("photo")
+                  setShowCamera(true)
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  color: "rgba(255,255,255,0.8)",
+                }}
+              >
+                <div style={{ fontSize: "2rem" }}>📸</div>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Photo</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCameraMode("video")
+                  setShowCamera(true)
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  color: "rgba(255,255,255,0.8)",
+                }}
+              >
+                <div style={{ fontSize: "2rem" }}>🎥</div>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Video</span>
               </button>
 
               <button
@@ -1257,9 +1331,13 @@ export default function LocationApp() {
       box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
     }
   }
-  
+
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 `}</style>
