@@ -86,10 +86,8 @@ export default function LocationApp() {
   const handleMarkSpot = async () => {
     console.log("🎯 CIRCLE CLICKED! Marking spot...")
     try {
-      console.log("🎯 Marking spot...")
-
       if (!navigator.geolocation) {
-        alert("Geolocation not supported")
+        console.error("Geolocation not supported")
         return
       }
 
@@ -105,17 +103,25 @@ export default function LocationApp() {
           }
 
           setSpots((prev) => [newSpot, ...prev])
-          console.log("✅ Spot marked:", newSpot)
-          alert(`📍 Spot marked!\nLocation: ${newSpot.address}`)
+          console.log("✅ Spot marked successfully:", newSpot)
+
+          // Smooth success feedback without popup
+          setCurrentLocation(`✅ Spot saved! ${newSpot.address}`)
+
+          // Update the map to show the new location
+          const imageUrl = generateMapImageUrl(latitude, longitude)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+          }
         },
         (error) => {
           console.error("Location error:", error)
-          alert("❌ Could not get location. Please enable location permissions.")
+          setCurrentLocation("❌ Location access denied")
         },
       )
     } catch (error) {
       console.error("Error marking spot:", error)
-      alert("❌ Failed to mark spot")
+      setCurrentLocation("❌ Failed to mark spot")
     }
   }
 
@@ -378,25 +384,6 @@ export default function LocationApp() {
               <div style={{ fontSize: "1.25rem", fontWeight: "bold" }}>MARK SPOT</div>
               <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Tap to save location</div>
             </button>
-          )}
-
-          {/* Spots Counter */}
-          {spots.length > 0 && (
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "1rem",
-                padding: "1rem 2rem",
-                color: "white",
-                border: "1px solid rgba(255,255,255,0.2)",
-              }}
-            >
-              <div style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                📍 {spots.length} {spots.length === 1 ? "Spot" : "Spots"} Marked
-              </div>
-              <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Latest: {spots[0]?.address}</div>
-            </div>
           )}
 
           {/* Simple Action Buttons */}
