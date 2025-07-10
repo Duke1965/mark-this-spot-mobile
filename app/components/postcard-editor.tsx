@@ -32,42 +32,42 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
       emoji: "📮",
       border: "12px solid #8B4513",
       background: "linear-gradient(45deg, #F4E4BC, #E6D3A3)",
-      shadow: "0 8px 32px rgba(139, 69, 19, 0.3)",
+      boxShadow: "0 8px 32px rgba(139, 69, 19, 0.3)",
     },
     polaroid: {
       name: "Polaroid",
       emoji: "📸",
       border: "16px solid white",
       background: "white",
-      shadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
     },
     film: {
       name: "Film Strip",
       emoji: "🎞️",
       border: "8px solid #1a1a1a",
       background: "linear-gradient(90deg, #1a1a1a 0%, #333 50%, #1a1a1a 100%)",
-      shadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
     },
     tropical: {
       name: "Tropical",
       emoji: "🌺",
       border: "12px solid #FF6B9D",
       background: "linear-gradient(135deg, #FF6B9D, #C44569, #F8B500)",
-      shadow: "0 8px 32px rgba(255, 107, 157, 0.3)",
+      boxShadow: "0 8px 32px rgba(255, 107, 157, 0.3)",
     },
     nature: {
       name: "Nature",
       emoji: "🌿",
       border: "12px solid #27AE60",
       background: "linear-gradient(135deg, #27AE60, #2ECC71, #58D68D)",
-      shadow: "0 8px 32px rgba(39, 174, 96, 0.3)",
+      boxShadow: "0 8px 32px rgba(39, 174, 96, 0.3)",
     },
     sunset: {
       name: "Sunset",
       emoji: "🌅",
       border: "12px solid #E67E22",
       background: "linear-gradient(135deg, #E67E22, #F39C12, #F7DC6F)",
-      shadow: "0 8px 32px rgba(230, 126, 34, 0.3)",
+      boxShadow: "0 8px 32px rgba(230, 126, 34, 0.3)",
     },
   }
 
@@ -78,14 +78,23 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
       color: "#E4405F",
       gradient: "linear-gradient(45deg, #F58529, #DD2A7B, #8134AF)",
     },
-    { name: "Facebook", icon: Facebook, color: "#1877F2", gradient: "linear-gradient(45deg, #1877F2, #42A5F5)" },
-    { name: "Twitter", icon: Twitter, color: "#1DA1F2", gradient: "linear-gradient(45deg, #1DA1F2, #0D8BD9)" },
+    {
+      name: "Facebook",
+      icon: Facebook,
+      color: "#1877F2",
+      gradient: "linear-gradient(45deg, #1877F2, #42A5F5)",
+    },
+    {
+      name: "Twitter",
+      icon: Twitter,
+      color: "#1DA1F2",
+      gradient: "linear-gradient(45deg, #1DA1F2, #0D8BD9)",
+    },
   ]
 
   const handleShare = async (platform: string) => {
     setIsSharing(true)
 
-    // Create postcard data
     const postcardData: PostcardData = {
       mediaUrl,
       mediaType,
@@ -95,7 +104,6 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
       timestamp: new Date().toISOString(),
     }
 
-    // Simulate sharing delay with realistic timing
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
     console.log(`🚀 SHARING TO ${platform.toUpperCase()}:`, {
@@ -105,7 +113,6 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
       mediaType: postcardData.mediaType,
     })
 
-    // Save the postcard and close
     onSave(postcardData)
     setIsSharing(false)
   }
@@ -113,331 +120,120 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
   const currentFrame = frameStyles[selectedFrame as keyof typeof frameStyles]
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        zIndex: 1000,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <div className="fixed inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 z-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <div
-        style={{
-          padding: "1rem 1.5rem",
-          background: "rgba(255,255,255,0.1)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <div style={{ fontSize: "2rem" }}>🎨</div>
+      <div className="p-4 bg-white/10 backdrop-blur-md border-b border-white/20 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="text-3xl">🎨</div>
           <div>
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 900, color: "white", margin: 0 }}>Create Postcard</h1>
-            <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", margin: 0 }}>
-              Add a frame and message to your {mediaType}
-            </p>
+            <h1 className="text-xl font-black text-white">Create Postcard</h1>
+            <p className="text-white/80 text-sm">Add a frame and message to your {mediaType}</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-          }}
-        >
+        <button onClick={onClose} className="p-3 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all">
           <X size={24} />
         </button>
       </div>
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Preview */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "2rem",
-            background: "rgba(255,255,255,0.05)",
-          }}
-        >
+        <div className="flex-1 flex items-center justify-center p-8 bg-white/5">
           <div
+            className="relative max-w-sm max-h-96 rounded-2xl overflow-hidden transition-all duration-300"
             style={{
-              position: "relative",
-              maxWidth: "400px",
-              maxHeight: "500px",
               ...currentFrame,
-              borderRadius: "1rem",
-              overflow: "hidden",
               transform: "rotate(-2deg)",
-              transition: "all 0.3s ease",
             }}
           >
             {/* Media Content */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "4/3",
-                overflow: "hidden",
-                borderRadius: "0.5rem",
-              }}
-            >
+            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg">
               {mediaType === "photo" ? (
                 <img
-                  src={mediaUrl || "/placeholder.svg"}
+                  src={mediaUrl || "/placeholder.svg?height=300&width=400&text=Photo"}
                   alt="Captured moment"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <video
-                  src={mediaUrl}
-                  autoPlay
-                  loop
-                  muted
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
+                <video src={mediaUrl} autoPlay loop muted className="w-full h-full object-cover" />
               )}
 
               {/* Location Badge */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "1rem",
-                  left: "1rem",
-                  background: "rgba(0,0,0,0.7)",
-                  backdropFilter: "blur(10px)",
-                  color: "white",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "1rem",
-                  fontSize: "0.875rem",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
+              <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-md text-white px-3 py-2 rounded-full text-sm font-bold flex items-center gap-2">
                 📍 {locationName}
               </div>
             </div>
 
             {/* Message Area */}
             {message && (
-              <div
-                style={{
-                  padding: "1.5rem",
-                  background: "rgba(255,255,255,0.9)",
-                  margin: "1rem",
-                  borderRadius: "0.5rem",
-                  fontFamily: "'Kalam', cursive",
-                  fontSize: "1.125rem",
-                  color: "#2c3e50",
-                  lineHeight: 1.6,
-                  textAlign: "center",
-                  boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)",
-                }}
-              >
-                "{message}"
+              <div className="p-6 bg-white/90 m-4 rounded-lg text-center text-slate-800 leading-relaxed shadow-inner">
+                <div className="font-handwriting text-lg">"{message}"</div>
               </div>
             )}
 
             {/* Postcard Stamp */}
-            <div
-              style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                width: "3rem",
-                height: "3rem",
-                background: "linear-gradient(135deg, #e74c3c, #c0392b)",
-                borderRadius: "0.25rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.5rem",
-                transform: "rotate(15deg)",
-                boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-              }}
-            >
+            <div className="absolute top-4 right-4 w-12 h-12 bg-gradient-to-br from-red-500 to-red-700 rounded transform rotate-12 flex items-center justify-center text-xl shadow-lg">
               ❤️
             </div>
           </div>
         </div>
 
         {/* Right Panel - Controls */}
-        <div
-          style={{
-            width: "400px",
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            borderLeft: "1px solid rgba(255,255,255,0.2)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "auto",
-          }}
-        >
+        <div className="w-96 bg-white/10 backdrop-blur-md border-l border-white/20 flex flex-col overflow-auto">
           {/* Frame Selection */}
-          <div style={{ padding: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              🖼️ Choose Frame
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div className="p-6 border-b border-white/10">
+            <h3 className="text-lg font-bold text-white mb-4">🖼️ Choose Frame</h3>
+            <div className="grid grid-cols-2 gap-3">
               {Object.entries(frameStyles).map(([key, frame]) => (
                 <button
                   key={key}
                   onClick={() => setSelectedFrame(key)}
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.75rem",
-                    border: selectedFrame === key ? "2px solid #3B82F6" : "2px solid transparent",
-                    background: selectedFrame === key ? "rgba(59, 130, 246, 0.2)" : "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    color: "white",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    textAlign: "center",
-                  }}
+                  className={`p-4 rounded-xl border-2 transition-all text-center text-white ${
+                    selectedFrame === key
+                      ? "border-blue-400 bg-blue-400/20"
+                      : "border-transparent bg-white/10 hover:bg-white/20"
+                  }`}
                 >
-                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>{frame.emoji}</div>
-                  <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{frame.name}</div>
+                  <div className="text-2xl mb-2">{frame.emoji}</div>
+                  <div className="text-sm font-bold">{frame.name}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Message Input */}
-          <div style={{ padding: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              ✍️ Add Message
-            </h3>
+          <div className="p-6 border-b border-white/10">
+            <h3 className="text-lg font-bold text-white mb-4">✍️ Add Message</h3>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Write a short note about this special place..."
               maxLength={120}
-              style={{
-                width: "100%",
-                height: "100px",
-                padding: "1rem",
-                borderRadius: "0.75rem",
-                border: "2px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                fontSize: "1rem",
-                fontFamily: "'Kalam', cursive",
-                resize: "none",
-                outline: "none",
-                transition: "all 0.3s ease",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#3B82F6"
-                e.target.style.background = "rgba(59, 130, 246, 0.1)"
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(255,255,255,0.2)"
-                e.target.style.background = "rgba(255,255,255,0.1)"
-              }}
+              className="w-full h-24 p-4 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-md text-white placeholder-white/50 resize-none outline-none transition-all focus:border-blue-400 focus:bg-blue-400/10"
+              style={{ fontFamily: "'Kalam', cursive" }}
             />
-            <div
-              style={{
-                textAlign: "right",
-                marginTop: "0.5rem",
-                fontSize: "0.75rem",
-                color: "rgba(255,255,255,0.6)",
-              }}
-            >
-              {message.length}/120
-            </div>
+            <div className="text-right mt-2 text-xs text-white/60">{message.length}/120</div>
           </div>
 
           {/* Share Buttons */}
-          <div style={{ padding: "1.5rem", flex: 1 }}>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "white", marginBottom: "1rem" }}>
-              📤 Share Your Postcard
-            </h3>
+          <div className="p-6 flex-1">
+            <h3 className="text-lg font-bold text-white mb-4">📤 Share Your Postcard</h3>
 
             {isSharing ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "2rem",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    width: "3rem",
-                    height: "3rem",
-                    border: "4px solid rgba(255,255,255,0.3)",
-                    borderTop: "4px solid white",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                    marginBottom: "1rem",
-                  }}
-                />
-                <p style={{ color: "white", fontSize: "1.125rem", fontWeight: "bold" }}>Creating your postcard...</p>
-                <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem" }}>
-                  Adding the perfect finishing touches ✨
-                </p>
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" />
+                <p className="text-white text-lg font-bold">Creating your postcard...</p>
+                <p className="text-white/70 text-sm">Adding the perfect finishing touches ✨</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div className="flex flex-col gap-4">
                 {socialPlatforms.map((platform) => {
                   const IconComponent = platform.icon
                   return (
                     <button
                       key={platform.name}
                       onClick={() => handleShare(platform.name)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "1rem",
-                        padding: "1rem 1.5rem",
-                        borderRadius: "1rem",
-                        border: "none",
-                        background: platform.gradient,
-                        color: "white",
-                        cursor: "pointer",
-                        transition: "all 0.3s ease",
-                        fontSize: "1rem",
-                        fontWeight: "bold",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-2px)"
-                        e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)"
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)"
-                      }}
+                      className="flex items-center gap-4 p-4 rounded-xl text-white font-bold transition-all hover:scale-105 hover:shadow-xl"
+                      style={{ background: platform.gradient }}
                     >
                       <IconComponent size={24} />
                       Share to {platform.name}
@@ -447,21 +243,7 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
 
                 <button
                   onClick={() => handleShare("save")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    padding: "1rem 1.5rem",
-                    borderRadius: "1rem",
-                    border: "2px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    color: "white",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    fontSize: "1rem",
-                    fontWeight: "bold",
-                  }}
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-white/30 bg-white/10 backdrop-blur-md text-white font-bold transition-all hover:bg-white/20"
                 >
                   <Download size={24} />
                   Save to Library
@@ -472,21 +254,7 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         </div>
       </div>
 
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-
-      <style jsx>{`
-        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap');
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        ::placeholder {
-          color: rgba(255,255,255,0.5);
-          font-style: italic;
-        }
-      `}</style>
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   )
 }
