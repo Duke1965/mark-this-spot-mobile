@@ -5,7 +5,7 @@ import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
 import { Volume2, VolumeX, Library, Settings, ArrowLeft, Play, MapPin, Eye } from "lucide-react"
-import { EnhancedCamera } from "./components/EnhancedCamera"
+import { EnhancedCamera } from "./components/enhanced-camera"
 
 interface Spot {
   id: string
