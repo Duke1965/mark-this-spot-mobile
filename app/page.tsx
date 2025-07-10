@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { MapPin, ArrowLeft, Check } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 
 interface SavedSpot {
   id: string
@@ -40,7 +40,7 @@ export default function LocationApp() {
     }
   }, [])
 
-  // Generate Google Maps static image URL
+  // Generate Google Maps static image URL with better debugging
   const generateMapImageUrl = (
     lat: number,
     lng: number,
@@ -49,9 +49,13 @@ export default function LocationApp() {
     markerLng?: number,
   ) => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+    console.log("🔑 API Key check:", apiKey ? "Found" : "Missing")
+    console.log("🔑 API Key length:", apiKey?.length || 0)
+
     if (!apiKey) {
-      console.log("📍 Using placeholder map (no API key)")
-      return `/placeholder.svg?height=400&width=400&text=Map+${lat.toFixed(2)},${lng.toFixed(2)}`
+      console.log("📍 No API key - using fallback")
+      return null
     }
 
     const params = new URLSearchParams({
@@ -60,7 +64,6 @@ export default function LocationApp() {
       size: "400x400",
       maptype: "roadmap",
       key: apiKey,
-      style: "feature:poi|visibility:off",
     })
 
     // Add marker if specified
@@ -69,7 +72,7 @@ export default function LocationApp() {
     }
 
     const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
-    console.log("🗺️ Generated map image URL")
+    console.log("🗺️ Generated Google Maps URL:", imageUrl)
     return imageUrl
   }
 
@@ -125,21 +128,32 @@ export default function LocationApp() {
     setCurrentScreen("mark")
   }
 
-  const handleMarkerDrag = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleMapClickToMove = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!userLocation) return
 
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
 
-    // Convert pixel coordinates to approximate lat/lng offset
-    const latOffset = ((y - 200) / 200) * 0.01 // Rough conversion
-    const lngOffset = ((x - 200) / 200) * 0.01
+    // Convert pixel coordinates to lat/lng offset (more accurate)
+    const mapSize = 400
+    const zoomLevel = 16
+    const metersPerPixel = (156543.03392 * Math.cos((userLocation.lat * Math.PI) / 180)) / Math.pow(2, zoomLevel)
 
-    setMarkerPosition({
-      lat: userLocation.lat - latOffset,
+    // Calculate offset in meters, then convert to degrees
+    const offsetX = (x - mapSize / 2) * metersPerPixel
+    const offsetY = (mapSize / 2 - y) * metersPerPixel
+
+    const latOffset = offsetY / 111320 // meters to degrees latitude
+    const lngOffset = offsetX / (111320 * Math.cos((userLocation.lat * Math.PI) / 180)) // meters to degrees longitude
+
+    const newPosition = {
+      lat: userLocation.lat + latOffset,
       lng: userLocation.lng + lngOffset,
-    })
+    }
+
+    setMarkerPosition(newPosition)
+    console.log("🎯 Marker moved to:", newPosition)
   }
 
   const handleSaveSpot = () => {
@@ -241,7 +255,7 @@ export default function LocationApp() {
           }}
         >
           <div
-            onClick={handleMarkerDrag}
+            onClick={handleMapClickToMove}
             style={{
               width: "400px",
               height: "400px",
@@ -250,50 +264,83 @@ export default function LocationApp() {
               border: "4px solid rgba(255,255,255,0.3)",
               position: "relative",
               cursor: "crosshair",
-              background: "rgba(255,255,255,0.1)",
+              background:
+                userLocation &&
+                generateMapImageUrl(userLocation.lat, userLocation.lng, true, markerPosition?.lat, markerPosition?.lng)
+                  ? "rgba(255,255,255,0.1)"
+                  : "linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <img
-              src={
-                userLocation
-                  ? generateMapImageUrl(
-                      userLocation.lat,
-                      userLocation.lng,
-                      true,
-                      markerPosition?.lat,
-                      markerPosition?.lng,
-                    )
-                  : "/placeholder.svg"
-              }
-              alt="Map for marking location"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
+            {userLocation &&
+            generateMapImageUrl(userLocation.lat, userLocation.lng, true, markerPosition?.lat, markerPosition?.lng) ? (
+              <img
+                src={
+                  generateMapImageUrl(
+                    userLocation.lat,
+                    userLocation.lng,
+                    true,
+                    markerPosition?.lat,
+                    markerPosition?.lng,
+                  ) || ""
+                }
+                alt="Map for marking location"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+                onError={(e) => {
+                  console.error("Map image failed to load")
+                  e.currentTarget.style.display = "none"
+                }}
+              />
+            ) : (
+              // Fallback map display
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  textAlign: "center",
+                  padding: "2rem",
+                }}
+              >
+                <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🗺️</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Map View</div>
+                <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>
+                  {userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : "Loading..."}
+                </div>
+              </div>
+            )}
 
-            {/* Green draggable marker */}
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: "20px",
-                height: "20px",
-                borderRadius: "50%",
-                background: "#10B981",
-                border: "3px solid white",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-                cursor: "grab",
-                zIndex: 10,
-              }}
-            />
+            {/* Green marker that shows current position */}
+            {markerPosition && userLocation && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  background: "#10B981",
+                  border: "3px solid white",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                  zIndex: 10,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
           </div>
 
           <p style={{ color: "rgba(255,255,255,0.8)", textAlign: "center", margin: 0 }}>
-            🎯 Move the green dot to mark the exact location
+            🎯 Click anywhere on the map to move the green dot
           </p>
 
           {/* Form */}
@@ -492,7 +539,7 @@ export default function LocationApp() {
           </div>
 
           {/* Interactive Circular Map Preview */}
-          {mapImageUrl ? (
+          {userLocation ? (
             <div
               style={{
                 display: "flex",
@@ -510,7 +557,9 @@ export default function LocationApp() {
                   border: "4px solid rgba(255,255,255,0.3)",
                   boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
                   position: "relative",
-                  background: "rgba(255,255,255,0.1)",
+                  background: mapImageUrl
+                    ? "rgba(255,255,255,0.1)"
+                    : "linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)",
                   backdropFilter: "blur(10px)",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
@@ -520,6 +569,9 @@ export default function LocationApp() {
                   userSelect: "none",
                   outline: "none",
                   transform: "scale(1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.05)"
@@ -538,20 +590,41 @@ export default function LocationApp() {
                   e.currentTarget.style.boxShadow = "0 15px 40px rgba(0,0,0,0.4)"
                 }}
               >
-                <img
-                  src={mapImageUrl || "/placeholder.svg"}
-                  alt="Your current location - Click to mark this spot"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    pointerEvents: "none",
-                  }}
-                  onError={(e) => {
-                    console.error("Map image failed to load")
-                    e.currentTarget.style.display = "none"
-                  }}
-                />
+                {mapImageUrl ? (
+                  <img
+                    src={mapImageUrl || "/placeholder.svg"}
+                    alt="Your current location - Click to mark this spot"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      pointerEvents: "none",
+                    }}
+                    onError={(e) => {
+                      console.error("Map image failed to load")
+                      e.currentTarget.style.display = "none"
+                    }}
+                  />
+                ) : (
+                  // Fallback when no map image
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      textAlign: "center",
+                      padding: "2rem",
+                    }}
+                  >
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Your Location</div>
+                    <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>
+                      {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                    </div>
+                  </div>
+                )}
 
                 {/* White Pointing Finger Icon */}
                 <div
@@ -602,7 +675,7 @@ export default function LocationApp() {
                 />
               </div>
             </div>
-          ) : userLocation ? (
+          ) : (
             /* Loading state for map */
             <div
               style={{
@@ -636,42 +709,9 @@ export default function LocationApp() {
                     animation: "spin 1s linear infinite",
                   }}
                 />
-                <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
+                <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Getting location...</span>
               </div>
             </div>
-          ) : (
-            /* Fallback button when no location */
-            <button
-              onClick={handleMapClick}
-              style={{
-                width: "320px",
-                height: "320px",
-                borderRadius: "50%",
-                border: "4px solid rgba(255,255,255,0.3)",
-                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                color: "white",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                boxShadow: "0 10px 30px rgba(59, 130, 246, 0.3)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.05)"
-                e.currentTarget.style.boxShadow = "0 15px 40px rgba(59, 130, 246, 0.4)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)"
-                e.currentTarget.style.boxShadow = "0 10px 30px rgba(59, 130, 246, 0.3)"
-              }}
-            >
-              <MapPin size={64} />
-              <div style={{ fontSize: "1.25rem", fontWeight: "bold" }}>MARK SPOT</div>
-              <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Tap to save location</div>
-            </button>
           )}
 
           {/* Library Button */}
@@ -714,6 +754,10 @@ export default function LocationApp() {
           50% { 
             transform: translate(-50%, -50%) scale(1.1);
             opacity: 0.8;
+          }
+          100% { 
+            transform: translate(-50%, -50%) scale(1.4);
+            opacity: 0;
           }
         }
 
