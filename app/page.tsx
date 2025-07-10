@@ -904,6 +904,100 @@ export default function LocationApp() {
               </p>
             </div>
 
+            {/* Circular Map Preview */}
+            {mapImageUrl && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "4px solid rgba(255,255,255,0.3)",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                    position: "relative",
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                  }}
+                >
+                  <img
+                    src={mapImageUrl || "/placeholder.svg"}
+                    alt="Your current location"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    onError={(e) => {
+                      console.error("Map image failed to load")
+                      e.currentTarget.style.display = "none"
+                    }}
+                  />
+
+                  {/* Pulse animation overlay */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "50%",
+                      background: "#10B981",
+                      boxShadow: "0 0 0 0 rgba(16, 185, 129, 0.7)",
+                      animation: "pulse 2s infinite",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Loading state for map */}
+            {!mapImageUrl && userLocation && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    borderRadius: "50%",
+                    border: "4px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "2rem",
+                      height: "2rem",
+                      border: "3px solid rgba(255,255,255,0.3)",
+                      borderTop: "3px solid white",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  />
+                  <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
+                </div>
+              </div>
+            )}
+
             {/* Action Button */}
             <button
               onClick={markSpot}
@@ -1140,3 +1234,24 @@ export default function LocationApp() {
 
   return null
 }
+;<style jsx>{`
+  @keyframes pulse {
+    0% {
+      transform: translate(-50%, -50%) scale(1);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+      transform: translate(-50%, -50%) scale(1);
+      box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`}</style>
