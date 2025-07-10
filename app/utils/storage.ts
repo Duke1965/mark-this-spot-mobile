@@ -8,6 +8,14 @@ interface Spot {
   photos?: string[]
   category?: string
   photo?: string
+  postcard?: {
+    mediaUrl: string
+    mediaType: "photo" | "video"
+    frameStyle: string
+    message: string
+    locationName: string
+    timestamp: string
+  }
 }
 
 // Simulate AsyncStorage for demo
