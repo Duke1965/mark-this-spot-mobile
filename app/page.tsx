@@ -455,7 +455,7 @@ function LiveResultsMap({
 
 export default function LocationApp() {
   const [spots, setSpots] = useState<Spot[]>([])
-  const [isMarking, setIsMarking] = useState(isMarking)
+  const [isMarking, setIsMarking] = useState(false)
   const [selectedSound, setSelectedSound] = useState("success-chime")
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedMarker, setSelectedMarker] = useState("pin")
