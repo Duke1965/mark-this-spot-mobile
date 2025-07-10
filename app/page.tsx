@@ -438,7 +438,8 @@ export default function LocationApp() {
                   borderRadius: "50%",
                   overflow: "hidden",
                   position: "relative",
-                  boxShadow: "inset 0 0 30px rgba(0,0,0,0.8), 0 0 0 3px rgba(30, 41, 59, 0.8)",
+                  boxShadow:
+                    "inset 0 0 60px rgba(0,0,0,0.9), inset 0 0 120px rgba(0,0,0,0.7), 0 0 0 3px rgba(30, 41, 59, 0.8)",
                 }}
               >
                 {/* Map visible through the hole */}
@@ -543,26 +544,6 @@ export default function LocationApp() {
                   />
                 )}
               </div>
-            </div>
-
-            {/* Instruction Text */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-3rem",
-                left: "50%",
-                transform: "translateX(-50%)",
-                color: "rgba(255,255,255,0.7)",
-                fontSize: "0.875rem",
-                textAlign: "center",
-                background: "rgba(0,0,0,0.3)",
-                backdropFilter: "blur(10px)",
-                padding: "0.5rem 1rem",
-                borderRadius: "1rem",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              👆 Tap through the hole to mark this spot
             </div>
           </div>
 
