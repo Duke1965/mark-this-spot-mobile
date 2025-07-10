@@ -1,214 +1,306 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Mic, MicOff } from "lucide-react"
+import { useState, useEffect } from "react"
+import { MapPin, Volume2, VolumeX } from "lucide-react"
 
-interface VoiceCommanderProps {
-  onCommand: (command: string, confidence: number) => void
-  isEnabled: boolean
-  onToggle: () => void
-}
+export default function LocationApp() {
+  const [isClient, setIsClient] = useState(false)
+  const [currentLocation, setCurrentLocation] = useState<string>("Getting your location...")
+  const [isMuted, setIsMuted] = useState(false)
+  const [spots, setSpots] = useState<any[]>([])
 
-export function VoiceCommander({ onCommand, isEnabled, onToggle }: VoiceCommanderProps) {
-  const [isListening, setIsListening] = useState(false)
-  const [recognition, setRecognition] = useState<any>(null)
-  const [lastCommand, setLastCommand] = useState<string>("")
-  const [isSupported, setIsSupported] = useState(false)
-
-  // Initialize speech recognition
+  // Ensure we're on the client side
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+    setIsClient(true)
+    console.log("🚀 Mark This Spot - App Loaded!")
+  }, [])
 
-      if (SpeechRecognition) {
-        setIsSupported(true)
-        const recognitionInstance = new SpeechRecognition()
-
-        recognitionInstance.continuous = true
-        recognitionInstance.interimResults = false
-        recognitionInstance.lang = "en-US"
-        recognitionInstance.maxAlternatives = 1
-
-        recognitionInstance.onstart = () => {
-          console.log("🎤 Voice recognition started")
-          setIsListening(true)
-        }
-
-        recognitionInstance.onend = () => {
-          console.log("🎤 Voice recognition ended")
-          setIsListening(false)
-
-          // Auto-restart if still enabled
-          if (isEnabled) {
-            setTimeout(() => {
-              try {
-                recognitionInstance.start()
-              } catch (error) {
-                console.log("Recognition restart failed:", error)
-              }
-            }, 1000)
-          }
-        }
-
-        recognitionInstance.onresult = (event: any) => {
-          const result = event.results[event.results.length - 1]
-          const transcript = result[0].transcript.toLowerCase().trim()
-          const confidence = result[0].confidence
-
-          console.log(`🎤 Heard: "${transcript}" (confidence: ${confidence})`)
-          setLastCommand(transcript)
-          onCommand(transcript, confidence)
-        }
-
-        recognitionInstance.onerror = (event: any) => {
-          console.error("🎤 Speech recognition error:", event.error)
-          setIsListening(false)
-        }
-
-        setRecognition(recognitionInstance)
-      } else {
-        console.warn("🎤 Speech Recognition not supported")
-        setIsSupported(false)
-      }
-    }
-  }, [onCommand, isEnabled])
-
-  // Start/stop recognition based on enabled state
+  // Get user location
   useEffect(() => {
-    if (!recognition || !isSupported) return
+    if (!isClient) return
 
-    if (isEnabled && !isListening) {
+    const getUserLocation = async () => {
       try {
-        recognition.start()
-      } catch (error) {
-        console.log("Recognition start failed:", error)
-      }
-    } else if (!isEnabled && isListening) {
-      recognition.stop()
-    }
-  }, [isEnabled, recognition, isListening, isSupported])
+        if (!navigator.geolocation) {
+          setCurrentLocation("Geolocation not supported")
+          return
+        }
 
-  if (!isSupported) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: "1rem",
-          left: "1rem",
-          background: "rgba(239, 68, 68, 0.2)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid rgba(239, 68, 68, 0.3)",
-          borderRadius: "0.75rem",
-          padding: "0.75rem 1rem",
-          color: "white",
-          fontSize: "0.75rem",
-          zIndex: 30,
-        }}
-      >
-        🎤 Voice commands not supported in this browser
-      </div>
-    )
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setCurrentLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
+            console.log("📍 Location obtained:", latitude, longitude)
+          },
+          (error) => {
+            console.error("Location error:", error)
+            setCurrentLocation("Location access denied")
+          },
+          (positionOptions) => {
+            console.log("positionOptions", positionOptions)
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000,
+          },
+        )
+      } catch (error) {
+        console.error("Geolocation error:", error)
+        setCurrentLocation("Location unavailable")
+      }
+    }
+
+    getUserLocation()
+  }, [isClient])
+
+  const handleMarkSpot = async () => {
+    try {
+      console.log("🎯 Marking spot...")
+
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported")
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          const newSpot = {
+            id: Date.now().toString(),
+            latitude,
+            longitude,
+            timestamp: new Date().toISOString(),
+            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+          }
+
+          setSpots((prev) => [newSpot, ...prev])
+          console.log("✅ Spot marked:", newSpot)
+          alert(`📍 Spot marked!\nLocation: ${newSpot.address}`)
+        },
+        (error) => {
+          console.error("Location error:", error)
+          alert("❌ Could not get location. Please enable location permissions.")
+        },
+      )
+    } catch (error) {
+      console.error("Error marking spot:", error)
+      alert("❌ Failed to mark spot")
+    }
+  }
+
+  // Don't render anything until we're on the client
+  if (!isClient) {
+    return null
   }
 
   return (
     <div
       style={{
-        position: "fixed",
-        top: "1rem",
-        left: "1rem",
-        zIndex: 30,
+        minHeight: "100vh",
+        width: "100%",
+        background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
         display: "flex",
         flexDirection: "column",
-        gap: "0.5rem",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      {/* Voice Toggle Button */}
-      <button
-        onClick={onToggle}
+      {/* Sound toggle - top right */}
+      <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "0.75rem 1rem",
-          background: isEnabled ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(255,255,255,0.1)",
-          backdropFilter: "blur(10px)",
-          border: isEnabled ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(255,255,255,0.2)",
-          borderRadius: "0.75rem",
-          color: "white",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          boxShadow: isEnabled ? "0 4px 12px rgba(16, 185, 129, 0.3)" : "none",
+          position: "absolute",
+          top: "2rem",
+          right: "2rem",
+          zIndex: 20,
         }}
       >
-        {isListening ? (
+        <button
+          onClick={() => setIsMuted(!isMuted)}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.25rem",
+            padding: "0.5rem",
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            color: "rgba(255,255,255,0.6)",
+          }}
+        >
+          {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>{isMuted ? "Muted" : "Sound"}</span>
+        </button>
+      </div>
+
+      {/* Main content area */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "600px",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2rem",
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        >
+          {/* App Title */}
+          <div style={{ color: "white" }}>
+            <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: 0 }}>Mark This Spot</h1>
+            <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: "0.5rem 0" }}>
+              Remember the exact location of your favorite places.
+            </p>
+            <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>📍 {currentLocation}</p>
+          </div>
+
+          {/* Main Action Button */}
+          <button
+            onClick={handleMarkSpot}
+            style={{
+              width: "200px",
+              height: "200px",
+              borderRadius: "50%",
+              border: "4px solid rgba(255,255,255,0.3)",
+              background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+              color: "white",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              boxShadow: "0 10px 30px rgba(59, 130, 246, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.05)"
+              e.currentTarget.style.boxShadow = "0 15px 40px rgba(59, 130, 246, 0.4)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)"
+              e.currentTarget.style.boxShadow = "0 10px 30px rgba(59, 130, 246, 0.3)"
+            }}
+          >
+            <MapPin size={48} />
+            <div style={{ fontSize: "1.25rem", fontWeight: "bold" }}>MARK SPOT</div>
+            <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Tap to save location</div>
+          </button>
+
+          {/* Spots Counter */}
+          {spots.length > 0 && (
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                backdropFilter: "blur(10px)",
+                borderRadius: "1rem",
+                padding: "1rem 2rem",
+                color: "white",
+                border: "1px solid rgba(255,255,255,0.2)",
+              }}
+            >
+              <div style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                📍 {spots.length} {spots.length === 1 ? "Spot" : "Spots"} Marked
+              </div>
+              <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Latest: {spots[0]?.address}</div>
+            </div>
+          )}
+
+          {/* Simple Action Buttons */}
           <div
             style={{
-              width: "0.5rem",
-              height: "0.5rem",
-              borderRadius: "50%",
-              background: "#ef4444",
-              animation: "pulse 1s infinite",
+              display: "flex",
+              justifyContent: "center",
+              gap: "2rem",
+              marginTop: "2rem",
             }}
-          />
-        ) : isEnabled ? (
-          <Mic size={16} />
-        ) : (
-          <MicOff size={16} />
-        )}
-        {isListening ? "Listening..." : isEnabled ? "Voice ON" : "Voice OFF"}
-      </button>
+          >
+            <button
+              onClick={() => alert("📸 Camera feature coming soon!")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                borderRadius: "1rem",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "white",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div style={{ fontSize: "2rem" }}>📸</div>
+              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Photo</span>
+            </button>
 
-      {/* Last Command Display */}
-      {lastCommand && isEnabled && (
-        <div
-          style={{
-            background: "rgba(0,0,0,0.8)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "0.5rem",
-            padding: "0.5rem 0.75rem",
-            color: "white",
-            fontSize: "0.75rem",
-            maxWidth: "200px",
-            animation: "fadeInOut 3s ease-in-out",
-          }}
-        >
-          💬 "{lastCommand}"
-        </div>
-      )}
+            <button
+              onClick={() => alert("🎥 Video feature coming soon!")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                borderRadius: "1rem",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "white",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div style={{ fontSize: "2rem" }}>🎥</div>
+              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Video</span>
+            </button>
 
-      {/* Voice Commands Help */}
-      {isEnabled && (
-        <div
-          style={{
-            background: "rgba(59, 130, 246, 0.2)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(59, 130, 246, 0.3)",
-            borderRadius: "0.5rem",
-            padding: "0.75rem",
-            color: "white",
-            fontSize: "0.75rem",
-            maxWidth: "250px",
-            lineHeight: "1.4",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>🎤 Voice Commands:</div>
-          <div>• "Mark this spot"</div>
-          <div>• "Take a photo"</div>
-          <div>• "Record video"</div>
-          <div>• "Show my spots"</div>
-          <div>• "Mute" / "Unmute"</div>
+            <button
+              onClick={() => {
+                if (spots.length === 0) {
+                  alert("📚 No spots saved yet! Mark some locations first.")
+                } else {
+                  alert(
+                    `📚 You have ${spots.length} saved spots:\n\n${spots.map((spot, i) => `${i + 1}. ${spot.address}`).join("\n")}`,
+                  )
+                }
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                borderRadius: "1rem",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "white",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div style={{ fontSize: "2rem" }}>📚</div>
+              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Libraries ({spots.length})</span>
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
-}
-
-// Add global type declaration
-declare global {
-  interface Window {
-    SpeechRecognition: any
-    webkitSpeechRecognition: any
-  }
 }
