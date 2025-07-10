@@ -455,7 +455,7 @@ function LiveResultsMap({
 
 export default function LocationApp() {
   const [spots, setSpots] = useState<Spot[]>([])
-  const [isMarking, setIsMarking] = useState(false)
+  const [isMarking, setIsMarking] = useState(isMarking)
   const [selectedSound, setSelectedSound] = useState("success-chime")
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedMarker, setSelectedMarker] = useState("pin")
@@ -915,8 +915,8 @@ export default function LocationApp() {
               >
                 <div
                   style={{
-                    width: "200px",
-                    height: "200px",
+                    width: "320px", // Increased from 200px
+                    height: "320px", // Increased from 200px
                     borderRadius: "50%",
                     overflow: "hidden",
                     border: "4px solid rgba(255,255,255,0.3)",
@@ -970,8 +970,8 @@ export default function LocationApp() {
               >
                 <div
                   style={{
-                    width: "200px",
-                    height: "200px",
+                    width: "320px", // Increased from 200px
+                    height: "320px", // Increased from 200px
                     borderRadius: "50%",
                     border: "4px solid rgba(255,255,255,0.3)",
                     background: "rgba(255,255,255,0.1)",
@@ -998,50 +998,58 @@ export default function LocationApp() {
               </div>
             )}
 
-            {/* Action Button */}
-            <button
-              onClick={markSpot}
-              disabled={isMarking || locationLoading}
+            {/* Action Buttons - Minimalistic */}
+            <div
               style={{
-                padding: "1rem 1.5rem",
-                background: "rgba(255,255,255,0.2)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                borderRadius: "0.75rem",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                fontSize: "1.125rem",
-                fontWeight: 600,
-                textAlign: "center",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                opacity: isMarking || locationLoading ? 0.5 : 1,
-                pointerEvents: isMarking || locationLoading ? "none" : "auto",
+                display: "flex",
+                justifyContent: "center",
+                gap: "3rem",
+                marginTop: "2rem",
               }}
             >
-              {isMarking ? "Marking Spot..." : "📍 Mark Current Location"}
-            </button>
+              <button
+                onClick={markSpot}
+                disabled={isMarking || locationLoading}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  color: isMarking || locationLoading ? "rgba(255,255,255,0.3)" : "white",
+                  opacity: isMarking || locationLoading ? 0.5 : 1,
+                  pointerEvents: isMarking || locationLoading ? "none" : "auto",
+                }}
+              >
+                <div style={{ fontSize: "2rem" }}>{isMarking ? "⏳" : "📍"}</div>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>
+                  {isMarking ? "Marking..." : "Mark Spot"}
+                </span>
+              </button>
 
-            {/* Libraries Button */}
-            <button
-              onClick={() => setCurrentScreen("libraries")}
-              style={{
-                padding: "0.75rem 1rem",
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                color: "white",
-                borderRadius: "0.75rem",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                textAlign: "center",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-              }}
-            >
-              📚 View My Libraries
-            </button>
+              <button
+                onClick={() => setCurrentScreen("libraries")}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  color: "rgba(255,255,255,0.8)",
+                }}
+              >
+                <div style={{ fontSize: "2rem" }}>📚</div>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Libraries</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
