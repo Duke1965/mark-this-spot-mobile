@@ -145,7 +145,7 @@ export default function Page() {
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "#111827",
+        background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
         color: "white",
         fontFamily: "sans-serif",
         overflow: "hidden",
@@ -153,31 +153,34 @@ export default function Page() {
         flexDirection: "column",
       }}
     >
-      {/* Header */}
-      <header
+      {/* Sound toggle - top right only */}
+      <div
         style={{
-          padding: "1rem 2rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          position: "absolute",
+          top: "2rem",
+          right: "2rem",
+          zIndex: 20,
         }}
       >
-        <h1 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>📍 PINIT</h1>
-
         <button
           onClick={() => setVoiceEnabled(!voiceEnabled)}
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.25rem",
             padding: "0.5rem",
             border: "none",
             background: "transparent",
             cursor: "pointer",
+            transition: "all 0.3s ease",
             color: "rgba(255,255,255,0.6)",
           }}
         >
           {voiceEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>{voiceEnabled ? "Sound" : "Muted"}</span>
         </button>
-      </header>
+      </div>
 
       {/* Main screen section */}
       {currentScreen === "main" && (
@@ -273,7 +276,7 @@ export default function Page() {
                         pointerEvents: "none",
                       }}
                     />
-                    {/* Enhanced Tap Here Indicator */}
+                    {/* Enhanced Tap or Speak Indicator */}
                     <div
                       style={{
                         position: "absolute",
@@ -281,20 +284,30 @@ export default function Page() {
                         left: "50%",
                         transform: "translate(-50%, -50%)",
                         color: "white",
-                        fontSize: "1.25rem",
+                        fontSize: "1.1rem",
                         fontWeight: "bold",
                         textAlign: "center",
                         zIndex: 10,
                         textShadow: "0 2px 8px rgba(0,0,0,0.8)",
                         animation: "fadeInOut 3s infinite",
                         pointerEvents: "none",
-                        background: "rgba(0,0,0,0.6)",
+                        background: "rgba(0,0,0,0.3)",
                         padding: "0.5rem 1rem",
                         borderRadius: "1rem",
                         backdropFilter: "blur(5px)",
                       }}
                     >
-                      📌 TAP TO PIN
+                      {voiceEnabled ? (
+                        <>
+                          <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP OR SPEAK TO</div>
+                          <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP TO</div>
+                          <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -369,23 +382,9 @@ export default function Page() {
               }}
             >
               <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: "0 0 0.5rem 0" }}>PINIT</h1>
-              <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: "0 0 0.5rem 0" }}>
+              <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: 0 }}>
                 Pin It. Find It. Share It.
               </p>
-              <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>
-                {locationLoading ? "Getting your location..." : locationAddress}
-              </p>
-              {voiceEnabled && (
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "rgba(16, 185, 129, 0.9)",
-                    margin: "0.5rem 0 0 0",
-                  }}
-                >
-                  🎤 Voice commands active - Try saying "Pin it!"
-                </p>
-              )}
             </div>
 
             {/* Bottom Section - Action Buttons */}
@@ -469,6 +468,34 @@ export default function Page() {
 
       {/* Libraries screen section */}
       {currentScreen === "libraries" && <div>Libraries Screen</div>}
+
+      <style jsx>{`
+        @keyframes pulse {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          }
+          70% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 0 15px rgba(16, 185, 129, 0);
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+          }
+        }
+
+        @keyframes fadeInOut {
+          0% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.9); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.9); }
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
