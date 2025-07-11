@@ -1038,6 +1038,7 @@ export default function LocationApp() {
                 }}
               >
                 <div
+                  onClick={markSpot}
                   style={{
                     width: "320px",
                     height: "320px",
@@ -1048,6 +1049,8 @@ export default function LocationApp() {
                     position: "relative",
                     background: "rgba(255,255,255,0.1)",
                     backdropFilter: "blur(10px)",
+                    cursor: "pointer",
+                    transition: "transform 0.3s ease",
                   }}
                 >
                   <img
@@ -1078,6 +1081,24 @@ export default function LocationApp() {
                       animation: "pulse 2s infinite",
                     }}
                   />
+                  {/* Tap Here Indicator */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      color: "white",
+                      fontSize: "1.25rem",
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      zIndex: 10,
+                      textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+                      animation: "fadeInOut 2s infinite",
+                    }}
+                  >
+                    👆 Tap Here
+                  </div>
                 </div>
               </div>
             )}
@@ -1130,30 +1151,6 @@ export default function LocationApp() {
                 marginTop: "2rem",
               }}
             >
-              <button
-                onClick={markSpot}
-                disabled={isMarking || locationLoading}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  color: isMarking || locationLoading ? "rgba(255,255,255,0.3)" : "white",
-                  opacity: isMarking || locationLoading ? 0.5 : 1,
-                  pointerEvents: isMarking || locationLoading ? "none" : "auto",
-                }}
-              >
-                <div style={{ fontSize: "2rem" }}>{isMarking ? "⏳" : "📍"}</div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>
-                  {isMarking ? "Marking..." : "Mark Spot"}
-                </span>
-              </button>
-
               <button
                 onClick={() => {
                   setCameraMode("photo")
