@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
 import { Camera, Video, BookOpen, Volume2, VolumeX } from "lucide-react"
 
 export default function Page() {
@@ -14,9 +13,6 @@ export default function Page() {
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
 
-  const router = useRouter()
-
-  // Speech recognition setup
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
   const recognition = useRef<any>(null)
@@ -84,18 +80,25 @@ export default function Page() {
       )
         .then((response) => response.json())
         .then((data) => {
-          setLocationAddress(data.display_name || "Location not found")
+          // Extract just the place name (city/town) instead of full address
+          const placeName =
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.county ||
+            "Current Location"
+          setLocationAddress(placeName)
           setLocationLoading(false)
         })
         .catch((error) => {
           console.error("Error getting address:", error)
-          setLocationAddress("Address not found")
+          setLocationAddress("Current Location")
           setLocationLoading(false)
         })
 
-      // Generate map image URL
+      // Generate map image URL - change to simple roadmap
       setMapImageUrl(
-        `https://maps.googleapis.com/maps/api/staticmap?center=${userLocation.latitude},${userLocation.longitude}&zoom=16&size=600x600&maptype=satellite&markers=color:red%7Clabel:C%7C${userLocation.latitude},${userLocation.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+        `https://maps.googleapis.com/maps/api/staticmap?center=${userLocation.latitude},${userLocation.longitude}&zoom=16&size=600x600&maptype=roadmap&markers=color:red%7Clabel:C%7C${userLocation.latitude},${userLocation.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
       )
     }
   }, [userLocation])
@@ -125,7 +128,13 @@ export default function Page() {
   }
 
   const markSpot = () => {
-    router.push(`/new?lat=${userLocation?.latitude}&lon=${userLocation?.longitude}`)
+    if (userLocation) {
+      // Instead of router.push, we'll handle this in-app
+      alert(`📌 Location pinned at: ${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`)
+      console.log("📌 Pin created at:", userLocation)
+    } else {
+      alert("❌ Location not available yet. Please wait a moment and try again.")
+    }
   }
 
   return (
@@ -359,7 +368,7 @@ export default function Page() {
                 color: "white",
               }}
             >
-              <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: "0 0 0.5rem 0" }}>📌 PINIT</h1>
+              <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: "0 0 0.5rem 0" }}>PINIT</h1>
               <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: "0 0 0.5rem 0" }}>
                 Pin It. Find It. Share It.
               </p>
