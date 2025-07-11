@@ -1399,11 +1399,11 @@ export default function LocationApp() {
                   category={spotCategories[spot.category || "general"]}
                   onView={() => {
                     setSelectedSpot(spot)
-                    alert("View spot details")
+                    // Could add proper spot detail view here later if needed
                   }}
                   onDelete={() => {
                     setSpots((prev) => prev.filter((s) => s.id !== spot.id))
-                    alert("Delete spot")
+                    // Spot deleted silently - much cleaner UX
                   }}
                 />
               ))}
