@@ -2,90 +2,122 @@
 
 import { useState, useCallback } from "react"
 
-interface Location {
+interface LocationData {
   latitude: number
   longitude: number
-  accuracy?: number
+  accuracy: number
+  timestamp: number
+}
+
+interface LocationError {
+  code: number
+  message: string
 }
 
 export function useLocationServices() {
   const [isLoading, setIsLoading] = useState(false)
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const getCurrentLocation = useCallback(async (): Promise<Location | null> => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
+  const getCurrentLocation = useCallback((): Promise<LocationData | null> => {
+    return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        throw new Error("Geolocation is not supported by this browser")
+        const errorMsg = "Geolocation is not supported by this browser"
+        setError(errorMsg)
+        reject(new Error(errorMsg))
+        return
       }
 
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 60000,
-        })
-      })
+      setIsLoading(true)
+      setError(null)
 
-      setHasPermission(true)
-
-      return {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-      }
-    } catch (error: any) {
-      console.error("Location error:", error)
-      setHasPermission(false)
-
-      let errorMessage = "Could not get your location"
-
-      switch (error.code) {
-        case 1:
-          errorMessage = "Location access denied. Please enable location permissions."
-          break
-        case 2:
-          errorMessage = "Location unavailable. Please check your GPS/internet connection."
-          break
-        case 3:
-          errorMessage = "Location request timed out. Please try again."
-          break
-        default:
-          errorMessage = error.message || "Unknown location error"
+      const options: PositionOptions = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000,
       }
 
-      setError(errorMessage)
-      return null
-    } finally {
-      setIsLoading(false)
-    }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const locationData: LocationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          }
+
+          console.log("📍 Location obtained:", locationData)
+          setIsLoading(false)
+          resolve(locationData)
+        },
+        (error) => {
+          let errorMessage = "Failed to get location"
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location access denied by user"
+              break
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable"
+              break
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out"
+              break
+            default:
+              errorMessage = "Unknown location error"
+              break
+          }
+
+          console.error("❌ Location error:", errorMessage, error)
+          setError(errorMessage)
+          setIsLoading(false)
+          reject(new Error(errorMessage))
+        },
+        options,
+      )
+    })
   }, [])
 
-  const getLocationWithBacktrack = useCallback(
-    async (backtrackKm = 1): Promise<Location | null> => {
-      const currentLocation = await getCurrentLocation()
-      if (!currentLocation) return null
+  const watchLocation = useCallback((callback: (location: LocationData) => void) => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by this browser")
+      return null
+    }
 
-      // Simulate backtracking by adjusting coordinates slightly
-      const backtrackOffset = (backtrackKm / 111) * (Math.random() * 0.5 + 0.5)
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 30000,
+    }
 
-      return {
-        latitude: currentLocation.latitude - backtrackOffset * (Math.random() - 0.5),
-        longitude: currentLocation.longitude - backtrackOffset * (Math.random() - 0.5),
-        accuracy: currentLocation.accuracy,
-      }
-    },
-    [getCurrentLocation],
-  )
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const locationData: LocationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp,
+        }
+        callback(locationData)
+      },
+      (error) => {
+        console.error("Watch location error:", error)
+        setError("Failed to watch location")
+      },
+      options,
+    )
+
+    return watchId
+  }, [])
+
+  const clearWatch = useCallback((watchId: number) => {
+    navigator.geolocation.clearWatch(watchId)
+  }, [])
 
   return {
     getCurrentLocation,
-    getLocationWithBacktrack,
+    watchLocation,
+    clearWatch,
     isLoading,
-    hasPermission,
     error,
   }
 }
