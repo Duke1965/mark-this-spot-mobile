@@ -1,260 +1,408 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { X, Download, Instagram, Facebook, Twitter } from "lucide-react"
+import { X, Download, Type, Palette } from "lucide-react"
 
 interface PostcardEditorProps {
   mediaUrl: string
   mediaType: "photo" | "video"
   locationName: string
-  onSave: (postcardData: PostcardData) => void
+  onSave: (postcard: any) => void
   onClose: () => void
 }
 
-interface PostcardData {
-  mediaUrl: string
-  mediaType: "photo" | "video"
-  frameStyle: string
-  message: string
-  locationName: string
-  timestamp: string
-}
-
 export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onClose }: PostcardEditorProps) {
-  const [selectedFrame, setSelectedFrame] = useState("vintage")
-  const [message, setMessage] = useState("")
-  const [isSharing, setIsSharing] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [text, setText] = useState(`Greetings from ${locationName}!`)
+  const [textColor, setTextColor] = useState("#FFFFFF")
+  const [textSize, setTextSize] = useState(24)
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 80 })
+  const [backgroundColor, setBackgroundColor] = useState("rgba(0,0,0,0.5)")
+  const [isGenerating, setIsGenerating] = useState(false)
 
-  const frameStyles = {
-    vintage: {
-      name: "Vintage Postcard",
-      emoji: "📮",
-      border: "12px solid #8B4513",
-      background: "linear-gradient(45deg, #F4E4BC, #E6D3A3)",
-      boxShadow: "0 8px 32px rgba(139, 69, 19, 0.3)",
-    },
-    polaroid: {
-      name: "Polaroid",
-      emoji: "📸",
-      border: "16px solid white",
-      background: "white",
-      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
-    },
-    film: {
-      name: "Film Strip",
-      emoji: "🎞️",
-      border: "8px solid #1a1a1a",
-      background: "linear-gradient(90deg, #1a1a1a 0%, #333 50%, #1a1a1a 100%)",
-      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-    },
-    tropical: {
-      name: "Tropical",
-      emoji: "🌺",
-      border: "12px solid #FF6B9D",
-      background: "linear-gradient(135deg, #FF6B9D, #C44569, #F8B500)",
-      boxShadow: "0 8px 32px rgba(255, 107, 157, 0.3)",
-    },
-    nature: {
-      name: "Nature",
-      emoji: "🌿",
-      border: "12px solid #27AE60",
-      background: "linear-gradient(135deg, #27AE60, #2ECC71, #58D68D)",
-      boxShadow: "0 8px 32px rgba(39, 174, 96, 0.3)",
-    },
-    sunset: {
-      name: "Sunset",
-      emoji: "🌅",
-      border: "12px solid #E67E22",
-      background: "linear-gradient(135deg, #E67E22, #F39C12, #F7DC6F)",
-      boxShadow: "0 8px 32px rgba(230, 126, 34, 0.3)",
-    },
-  }
+  const generatePostcard = async () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
 
-  const socialPlatforms = [
-    {
-      name: "Instagram",
-      icon: Instagram,
-      color: "#E4405F",
-      gradient: "linear-gradient(45deg, #F58529, #DD2A7B, #8134AF)",
-    },
-    {
-      name: "Facebook",
-      icon: Facebook,
-      color: "#1877F2",
-      gradient: "linear-gradient(45deg, #1877F2, #42A5F5)",
-    },
-    {
-      name: "Twitter",
-      icon: Twitter,
-      color: "#1DA1F2",
-      gradient: "linear-gradient(45deg, #1DA1F2, #0D8BD9)",
-    },
-  ]
+    setIsGenerating(true)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
 
-  const handleShare = async (platform: string) => {
-    setIsSharing(true)
+    try {
+      // Set canvas size
+      canvas.width = 800
+      canvas.height = 600
 
-    const postcardData: PostcardData = {
-      mediaUrl,
-      mediaType,
-      frameStyle: selectedFrame,
-      message,
-      locationName,
-      timestamp: new Date().toISOString(),
+      // Load and draw media
+      if (mediaType === "photo") {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.onload = () => {
+          // Draw image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+          // Add text overlay
+          addTextOverlay(ctx)
+
+          // Generate final postcard
+          const postcardData = {
+            mediaUrl,
+            mediaType,
+            locationName,
+            text,
+            textColor,
+            textSize,
+            textPosition,
+            backgroundColor,
+            timestamp: new Date().toISOString(),
+            canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
+          }
+
+          onSave(postcardData)
+          setIsGenerating(false)
+        }
+        img.src = mediaUrl
+      } else {
+        // For video, create a thumbnail
+        const video = document.createElement("video")
+        video.crossOrigin = "anonymous"
+        video.onloadeddata = () => {
+          video.currentTime = 1 // Get frame at 1 second
+        }
+        video.onseeked = () => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          addTextOverlay(ctx)
+
+          const postcardData = {
+            mediaUrl,
+            mediaType,
+            locationName,
+            text,
+            textColor,
+            textSize,
+            textPosition,
+            backgroundColor,
+            timestamp: new Date().toISOString(),
+            canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
+          }
+
+          onSave(postcardData)
+          setIsGenerating(false)
+        }
+        video.src = mediaUrl
+      }
+    } catch (error) {
+      console.error("❌ Failed to generate postcard:", error)
+      setIsGenerating(false)
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    console.log(`🚀 SHARING TO ${platform.toUpperCase()}:`, {
-      frame: postcardData.frameStyle,
-      messageLength: postcardData.message.length,
-      location: postcardData.locationName,
-      mediaType: postcardData.mediaType,
-    })
-
-    onSave(postcardData)
-    setIsSharing(false)
   }
 
-  const currentFrame = frameStyles[selectedFrame as keyof typeof frameStyles]
+  const addTextOverlay = (ctx: CanvasRenderingContext2D) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Add background for text
+    ctx.fillStyle = backgroundColor
+    ctx.fillRect(0, canvas.height - 120, canvas.width, 120)
+
+    // Add text
+    ctx.fillStyle = textColor
+    ctx.font = `bold ${textSize}px Arial`
+    ctx.textAlign = "center"
+    ctx.fillText(text, textPosition.x * (canvas.width / 100), textPosition.y * (canvas.height / 100))
+
+    // Add location subtitle
+    ctx.font = `${textSize * 0.6}px Arial`
+    ctx.fillStyle = "rgba(255,255,255,0.8)"
+    ctx.fillText(locationName, textPosition.x * (canvas.width / 100), (textPosition.y + 10) * (canvas.height / 100))
+  }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 z-50 flex flex-col overflow-hidden">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0,0,0,0.95)",
+        zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* Header */}
-      <div className="p-4 bg-white/10 backdrop-blur-md border-b border-white/20 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="text-3xl">🎨</div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "1rem 1.5rem",
+          background: "rgba(255,255,255,0.1)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div style={{ fontSize: "1.5rem" }}>📮</div>
           <div>
-            <h1 className="text-xl font-black text-white">Create Postcard</h1>
-            <p className="text-white/80 text-sm">Add a frame and message to your {mediaType}</p>
+            <h2 style={{ color: "white", fontSize: "1.25rem", fontWeight: "bold", margin: 0 }}>Create Postcard</h2>
+            <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem", margin: 0 }}>
+              Add text and customize your memory
+            </p>
           </div>
         </div>
-        <button onClick={onClose} className="p-3 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all">
+        <button
+          onClick={onClose}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+          }}
+        >
           <X size={24} />
         </button>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Preview */}
-        <div className="flex-1 flex items-center justify-center p-8 bg-white/5">
+      {/* Preview Area */}
+      <div style={{ flex: 1, display: "flex", gap: "1rem", padding: "1rem" }}>
+        {/* Media Preview */}
+        <div style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div
-            className="relative max-w-sm max-h-96 rounded-2xl overflow-hidden transition-all duration-300"
             style={{
-              ...currentFrame,
-              transform: "rotate(-2deg)",
+              position: "relative",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              borderRadius: "1rem",
+              overflow: "hidden",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
             }}
           >
-            {/* Media Content */}
-            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg">
-              {mediaType === "photo" ? (
-                <img
-                  src={mediaUrl || "/placeholder.svg?height=300&width=400&text=Photo"}
-                  alt="Captured moment"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <video src={mediaUrl} autoPlay loop muted className="w-full h-full object-cover" />
-              )}
-
-              {/* Location Badge */}
-              <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-md text-white px-3 py-2 rounded-full text-sm font-bold flex items-center gap-2">
-                📍 {locationName}
-              </div>
-            </div>
-
-            {/* Message Area */}
-            {message && (
-              <div className="p-6 bg-white/90 m-4 rounded-lg text-center text-slate-800 leading-relaxed shadow-inner">
-                <div className="font-handwriting text-lg">"{message}"</div>
-              </div>
+            {mediaType === "photo" ? (
+              <img
+                src={mediaUrl || "/placeholder.svg"}
+                alt="Postcard preview"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <video
+                src={mediaUrl}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                }}
+                controls
+                muted
+              />
             )}
 
-            {/* Postcard Stamp */}
-            <div className="absolute top-4 right-4 w-12 h-12 bg-gradient-to-br from-red-500 to-red-700 rounded transform rotate-12 flex items-center justify-center text-xl shadow-lg">
-              ❤️
+            {/* Text Overlay Preview */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: backgroundColor,
+                padding: "1rem",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  color: textColor,
+                  fontSize: `${textSize * 0.8}px`,
+                  fontWeight: "bold",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                {text}
+              </div>
+              <div
+                style={{
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: `${textSize * 0.5}px`,
+                }}
+              >
+                {locationName}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Panel - Controls */}
-        <div className="w-96 bg-white/10 backdrop-blur-md border-l border-white/20 flex flex-col overflow-auto">
-          {/* Frame Selection */}
-          <div className="p-6 border-b border-white/10">
-            <h3 className="text-lg font-bold text-white mb-4">🖼️ Choose Frame</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(frameStyles).map(([key, frame]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedFrame(key)}
-                  className={`p-4 rounded-xl border-2 transition-all text-center text-white ${
-                    selectedFrame === key
-                      ? "border-blue-400 bg-blue-400/20"
-                      : "border-transparent bg-white/10 hover:bg-white/20"
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{frame.emoji}</div>
-                  <div className="text-sm font-bold">{frame.name}</div>
-                </button>
-              ))}
+        {/* Controls Panel */}
+        <div
+          style={{
+            flex: 1,
+            background: "rgba(255,255,255,0.1)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "1rem",
+            padding: "1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
+            color: "white",
+          }}
+        >
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <Type size={16} />
+              Text Message
+            </label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Enter your postcard message..."
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                fontSize: "0.875rem",
+                outline: "none",
+                resize: "none",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <Palette size={16} />
+              Text Color
+            </label>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+                style={{
+                  width: "3rem",
+                  height: "2rem",
+                  borderRadius: "0.25rem",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{textColor}</span>
             </div>
           </div>
 
-          {/* Message Input */}
-          <div className="p-6 border-b border-white/10">
-            <h3 className="text-lg font-bold text-white mb-4">✍️ Add Message</h3>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write a short note about this special place..."
-              maxLength={120}
-              className="w-full h-24 p-4 rounded-xl border-2 border-white/20 bg-white/10 backdrop-blur-md text-white placeholder-white/50 resize-none outline-none transition-all focus:border-blue-400 focus:bg-blue-400/10"
-              style={{ fontFamily: "'Kalam', cursive" }}
+          <div>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+              Text Size: {textSize}px
+            </label>
+            <input
+              type="range"
+              min="16"
+              max="48"
+              value={textSize}
+              onChange={(e) => setTextSize(Number(e.target.value))}
+              style={{
+                width: "100%",
+                cursor: "pointer",
+              }}
             />
-            <div className="text-right mt-2 text-xs text-white/60">{message.length}/120</div>
           </div>
 
-          {/* Share Buttons */}
-          <div className="p-6 flex-1">
-            <h3 className="text-lg font-bold text-white mb-4">📤 Share Your Postcard</h3>
-
-            {isSharing ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" />
-                <p className="text-white text-lg font-bold">Creating your postcard...</p>
-                <p className="text-white/70 text-sm">Adding the perfect finishing touches ✨</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {socialPlatforms.map((platform) => {
-                  const IconComponent = platform.icon
-                  return (
-                    <button
-                      key={platform.name}
-                      onClick={() => handleShare(platform.name)}
-                      className="flex items-center gap-4 p-4 rounded-xl text-white font-bold transition-all hover:scale-105 hover:shadow-xl"
-                      style={{ background: platform.gradient }}
-                    >
-                      <IconComponent size={24} />
-                      Share to {platform.name}
-                    </button>
-                  )
-                })}
-
-                <button
-                  onClick={() => handleShare("save")}
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-white/30 bg-white/10 backdrop-blur-md text-white font-bold transition-all hover:bg-white/20"
-                >
-                  <Download size={24} />
-                  Save to Library
-                </button>
-              </div>
-            )}
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <Palette size={16} />
+              Background
+            </label>
+            <select
+              value={backgroundColor}
+              onChange={(e) => setBackgroundColor(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                fontSize: "0.875rem",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="rgba(0,0,0,0.5)">Semi-transparent Black</option>
+              <option value="rgba(0,0,0,0.8)">Dark Black</option>
+              <option value="rgba(255,255,255,0.8)">Light White</option>
+              <option value="rgba(59,130,246,0.8)">Blue</option>
+              <option value="rgba(16,185,129,0.8)">Green</option>
+            </select>
           </div>
         </div>
       </div>
 
-      <canvas ref={canvasRef} className="hidden" />
+      {/* Action Buttons */}
+      <div
+        style={{
+          padding: "1.5rem",
+          background: "rgba(255,255,255,0.1)",
+          backdropFilter: "blur(10px)",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          display: "flex",
+          justifyContent: "center",
+          gap: "1rem",
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "1rem 2rem",
+            borderRadius: "1rem",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: "bold",
+            fontSize: "1rem",
+            transition: "all 0.3s ease",
+          }}
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={generatePostcard}
+          disabled={isGenerating}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "1rem 2rem",
+            borderRadius: "1rem",
+            border: "none",
+            background: isGenerating ? "rgba(255,255,255,0.3)" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+            color: "white",
+            cursor: isGenerating ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+            fontSize: "1rem",
+            transition: "all 0.3s ease",
+            boxShadow: isGenerating ? "none" : "0 10px 25px rgba(16, 185, 129, 0.4)",
+          }}
+        >
+          <Download size={20} />
+          {isGenerating ? "Creating..." : "Create Postcard"}
+        </button>
+      </div>
+
+      <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
   )
 }
