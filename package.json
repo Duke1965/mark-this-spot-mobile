@@ -1,6 +1,6 @@
-{ 
-  "name": "mark-this-spot",
-  "version": "0.1.0",
+{
+  "name": "pinit-app",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,11 +19,7 @@
     "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.2.0",
-    "lucide-react": "^0.454.0",
-    "@radix-ui/react-slot": "^1.0.2"
+    "lucide-react": "^0.454.0"
   },
   "devDependencies": {
     "eslint": "^8",
