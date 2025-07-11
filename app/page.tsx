@@ -5,7 +5,7 @@ import React from "react"
 import { useLocationServices } from "./hooks/useLocationServices"
 import { reverseGeocode } from "./utils/geocoding"
 import { playSound } from "./utils/audio"
-import { Volume2, VolumeX, MapPin } from "lucide-react"
+import { Volume2, VolumeX, MapPin, Camera, Video, BookOpen } from "lucide-react"
 import { Search, ArrowLeft } from "lucide-react"
 import { EnhancedCamera } from "./components/enhanced-camera"
 import { PostcardEditor } from "./components/postcard-editor"
@@ -1142,12 +1142,12 @@ export default function LocationApp() {
               </div>
             )}
 
-            {/* Action Buttons - Minimalistic */}
+            {/* Action Buttons - Clean Minimalistic Style */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "2rem",
+                gap: "3rem",
                 marginTop: "2rem",
               }}
             >
@@ -1160,17 +1160,17 @@ export default function LocationApp() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
+                  gap: "0.25rem",
+                  padding: "0.5rem",
                   border: "none",
                   background: "transparent",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.8)",
+                  color: "rgba(255,255,255,0.6)",
                 }}
               >
-                <div style={{ fontSize: "2rem" }}>📸</div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Photo</span>
+                <Camera size={20} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Photo</span>
               </button>
 
               <button
@@ -1182,17 +1182,17 @@ export default function LocationApp() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
+                  gap: "0.25rem",
+                  padding: "0.5rem",
                   border: "none",
                   background: "transparent",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.8)",
+                  color: "rgba(255,255,255,0.6)",
                 }}
               >
-                <div style={{ fontSize: "2rem" }}>🎥</div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Video</span>
+                <Video size={20} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Video</span>
               </button>
 
               <button
@@ -1201,17 +1201,17 @@ export default function LocationApp() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
+                  gap: "0.25rem",
+                  padding: "0.5rem",
                   border: "none",
                   background: "transparent",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.8)",
+                  color: "rgba(255,255,255,0.6)",
                 }}
               >
-                <div style={{ fontSize: "2rem" }}>📚</div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "center" }}>Libraries</span>
+                <BookOpen size={20} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>Libraries</span>
               </button>
             </div>
           </div>
