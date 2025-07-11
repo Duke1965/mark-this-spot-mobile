@@ -197,7 +197,7 @@ export default function Page() {
             {/* Top Section - Map Circle */}
             <div
               style={{
-                padding: "2rem 2rem 1rem 2rem",
+                padding: "4rem 2rem 1rem 2rem",
                 display: "flex",
                 justifyContent: "center",
               }}
