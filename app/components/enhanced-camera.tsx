@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useCallback, useEffect } from "react"
-import { Camera, X, RotateCcw, Check, Square, Circle } from "lucide-react"
+import { Camera, X, RotateCcw, Check, Square, Circle, SwitchCamera } from "lucide-react"
 
 interface EnhancedCameraProps {
   mode: "photo" | "video"
@@ -22,13 +22,17 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
-  const [recordingTimer, setRecordingTimer] = useState<NodeJS.Timeout | null>(null)
+  const [cameraStarted, setCameraStarted] = useState(false)
 
   const startCamera = useCallback(async () => {
+    if (cameraStarted) return
+
     setIsLoading(true)
     setError(null)
+    console.log(`📸 Starting ${mode} camera with ${facingMode} facing...`)
 
     try {
+      // Stop existing stream
       if (stream) {
         stream.getTracks().forEach((track) => track.stop())
       }
@@ -36,10 +40,10 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
       const constraints = {
         video: {
           facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
         },
-        audio: mode === "video" ? true : false, // Only request audio for video mode
+        audio: mode === "video",
       }
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -50,24 +54,24 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
       }
 
       setStream(newStream)
+      setCameraStarted(true)
+      console.log(`✅ ${mode} camera started successfully`)
     } catch (err) {
-      console.error("Camera access failed:", err)
-      setError("Camera access denied. Please enable camera permissions.")
+      console.error("❌ Camera access failed:", err)
+      setError("Camera access denied. Please enable camera permissions and try again.")
     } finally {
       setIsLoading(false)
     }
-  }, [facingMode, stream, mode])
+  }, [facingMode, stream, mode, cameraStarted])
 
   const stopCamera = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop())
       setStream(null)
     }
-    if (recordingTimer) {
-      clearInterval(recordingTimer)
-      setRecordingTimer(null)
-    }
-  }, [stream, recordingTimer])
+    setCameraStarted(false)
+    console.log("🛑 Camera stopped")
+  }, [stream])
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
@@ -82,8 +86,9 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
     canvas.height = video.videoHeight
     context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    const photoDataUrl = canvas.toDataURL("image/jpeg", 0.8)
+    const photoDataUrl = canvas.toDataURL("image/jpeg", 0.9)
     setCapturedMedia(photoDataUrl)
+    console.log("📸 Photo captured successfully")
   }, [])
 
   const startVideoRecording = useCallback(() => {
@@ -92,7 +97,7 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
     try {
       chunksRef.current = []
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp9", // High quality codec
+        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm",
       })
 
       mediaRecorder.ondataavailable = (event) => {
@@ -105,6 +110,8 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         const videoUrl = URL.createObjectURL(blob)
         setCapturedMedia(videoUrl)
+        setIsRecording(false)
+        console.log("🎥 Video recording completed")
       }
 
       mediaRecorder.start()
@@ -112,20 +119,21 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
       setIsRecording(true)
       setRecordingTime(0)
 
-      // Start recording timer
+      // Recording timer
       const timer = setInterval(() => {
         setRecordingTime((prev) => {
-          if (prev >= 15) {
-            // 15 second limit
+          if (prev >= 30) {
             stopVideoRecording()
+            clearInterval(timer)
             return prev
           }
           return prev + 1
         })
       }, 1000)
-      setRecordingTimer(timer)
+
+      console.log("🔴 Video recording started")
     } catch (error) {
-      console.error("Failed to start recording:", error)
+      console.error("❌ Failed to start recording:", error)
       setError("Failed to start video recording")
     }
   }, [stream])
@@ -134,18 +142,14 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       mediaRecorderRef.current = null
-      setIsRecording(false)
-
-      if (recordingTimer) {
-        clearInterval(recordingTimer)
-        setRecordingTimer(null)
-      }
+      console.log("⏹️ Video recording stopped")
     }
-  }, [isRecording, recordingTimer])
+  }, [isRecording])
 
   const retakeMedia = useCallback(() => {
     setCapturedMedia(null)
     setRecordingTime(0)
+    console.log("🔄 Retaking media")
   }, [])
 
   const confirmMedia = useCallback(() => {
@@ -153,11 +157,14 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
       onCapture(capturedMedia, mode)
       setCapturedMedia(null)
       stopCamera()
+      console.log(`✅ ${mode} confirmed and saved`)
     }
   }, [capturedMedia, mode, onCapture, stopCamera])
 
   const switchCamera = useCallback(() => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
+    setCameraStarted(false)
+    console.log("🔄 Switching camera")
   }, [])
 
   const handleCapture = useCallback(() => {
@@ -172,20 +179,18 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
     }
   }, [mode, isRecording, capturePhoto, startVideoRecording, stopVideoRecording])
 
-  // Start camera when component mounts
+  const handleClose = useCallback(() => {
+    stopCamera()
+    onClose()
+  }, [stopCamera, onClose])
+
+  // Auto-start camera when component mounts or facing mode changes
   useEffect(() => {
     startCamera()
     return () => {
       stopCamera()
     }
   }, [startCamera, stopCamera])
-
-  // Update camera when facing mode changes
-  useEffect(() => {
-    if (stream) {
-      startCamera()
-    }
-  }, [facingMode, startCamera, stream])
 
   return (
     <div
@@ -217,15 +222,15 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
           <div style={{ fontSize: "1.5rem" }}>{mode === "photo" ? "📸" : "🎥"}</div>
           <div>
             <h2 style={{ color: "white", fontSize: "1.25rem", fontWeight: "bold", margin: 0 }}>
-              {mode === "photo" ? "Photo Postcard" : "Video Postcard"}
+              {mode === "photo" ? "Take Photo" : "Record Video"}
             </h2>
             <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.875rem", margin: 0 }}>
-              {mode === "photo" ? "Capture the perfect moment" : `Record up to 15 seconds`}
+              {mode === "photo" ? "Capture the perfect moment" : `Record up to 30 seconds`}
             </p>
           </div>
         </div>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           style={{
             padding: "0.75rem",
             borderRadius: "50%",
@@ -248,7 +253,11 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
             <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Error</h3>
             <p style={{ marginBottom: "1.5rem", opacity: 0.8 }}>{error}</p>
             <button
-              onClick={startCamera}
+              onClick={() => {
+                setError(null)
+                setCameraStarted(false)
+                startCamera()
+              }}
               style={{
                 padding: "1rem 2rem",
                 borderRadius: "1rem",
@@ -351,7 +360,7 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
                 animation: "pulse 1s infinite",
               }}
             />
-            REC {recordingTime}s / 15s
+            REC {recordingTime}s / 30s
           </div>
         )}
       </div>
@@ -427,25 +436,25 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
                 transition: "all 0.3s ease",
               }}
             >
-              <RotateCcw size={24} />
+              <SwitchCamera size={24} />
             </button>
 
             <button
               onClick={handleCapture}
-              disabled={!stream}
+              disabled={!cameraStarted}
               style={{
                 width: "5rem",
                 height: "5rem",
                 borderRadius: "50%",
                 border: "4px solid white",
-                background: stream
+                background: cameraStarted
                   ? mode === "photo"
                     ? "#EF4444"
                     : isRecording
                       ? "#F59E0B"
                       : "#EF4444"
                   : "rgba(255,255,255,0.3)",
-                cursor: stream ? "pointer" : "not-allowed",
+                cursor: cameraStarted ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
