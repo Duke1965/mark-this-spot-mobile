@@ -1,40 +1,67 @@
-export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+"use client"
+
+export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+  if (!apiKey) {
+    console.warn("⚠️ No Google Maps API key - using coordinates as address")
+    return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+  }
+
   try {
-    // Use Google Maps Geocoding API if available
-    if (window.google && window.google.maps) {
-      const geocoder = new window.google.maps.Geocoder()
-
-      return new Promise((resolve, reject) => {
-        geocoder.geocode({ location: { lat, lng } }, (results: any[], status: string) => {
-          if (status === "OK" && results && results[0]) {
-            resolve(results[0].formatted_address)
-          } else {
-            reject(new Error("Geocoding failed: " + status))
-          }
-        })
-      })
-    }
-
-    // Fallback to a free geocoding service
     const response = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`,
     )
 
     if (!response.ok) {
-      throw new Error("Geocoding service unavailable")
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
 
-    if (data.locality && data.countryName) {
-      return `${data.locality}, ${data.principalSubdivision || data.countryName}`
+    if (data.status === "OK" && data.results && data.results.length > 0) {
+      const address = data.results[0].formatted_address
+      console.log("🗺️ Geocoding successful:", address)
+      return address
+    } else {
+      console.warn("⚠️ Geocoding failed:", data.status)
+      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+    }
+  } catch (error) {
+    console.error("❌ Geocoding error:", error)
+    return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+  }
+}
+
+export async function forwardGeocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+  if (!apiKey) {
+    console.warn("⚠️ No Google Maps API key for forward geocoding")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`,
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
-  } catch (error) {
-    console.error("Reverse geocoding failed:", error)
+    const data = await response.json()
 
-    // Return coordinates as fallback
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    if (data.status === "OK" && data.results && data.results.length > 0) {
+      const location = data.results[0].geometry.location
+      console.log("🗺️ Forward geocoding successful:", location)
+      return { lat: location.lat, lng: location.lng }
+    } else {
+      console.warn("⚠️ Forward geocoding failed:", data.status)
+      return null
+    }
+  } catch (error) {
+    console.error("❌ Forward geocoding error:", error)
+    return null
   }
 }
