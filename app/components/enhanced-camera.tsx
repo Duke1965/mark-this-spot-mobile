@@ -24,12 +24,69 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
   const [recordingTime, setRecordingTime] = useState(0)
   const [cameraStarted, setCameraStarted] = useState(false)
 
+  const requestCameraPermissions = useCallback(async () => {
+    try {
+      console.log("🔐 Requesting camera permissions...")
+
+      // Check if permissions API is available
+      if ("permissions" in navigator) {
+        const cameraPermission = await navigator.permissions.query({ name: "camera" as PermissionName })
+        const microphonePermission =
+          mode === "video" ? await navigator.permissions.query({ name: "microphone" as PermissionName }) : null
+
+        console.log("📹 Camera permission:", cameraPermission.state)
+        if (microphonePermission) {
+          console.log("🎤 Microphone permission:", microphonePermission.state)
+        }
+      }
+
+      // Request permissions by attempting to access media
+      const constraints = {
+        video: {
+          facingMode,
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+        },
+        audio: mode === "video",
+      }
+
+      const testStream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log("✅ Camera permissions granted!")
+
+      // Stop test stream immediately
+      testStream.getTracks().forEach((track) => track.stop())
+
+      return true
+    } catch (error) {
+      console.error("❌ Camera permission denied:", error)
+
+      if (error.name === "NotAllowedError") {
+        setError("Camera access denied. Please allow camera permissions in your browser settings and refresh the page.")
+      } else if (error.name === "NotFoundError") {
+        setError("No camera found on this device.")
+      } else if (error.name === "NotSupportedError") {
+        setError("Camera not supported on this device.")
+      } else {
+        setError("Camera access failed. Please check your permissions and try again.")
+      }
+
+      return false
+    }
+  }, [facingMode, mode])
+
   const startCamera = useCallback(async () => {
     if (cameraStarted) return
 
     setIsLoading(true)
     setError(null)
     console.log(`📸 Starting ${mode} camera with ${facingMode} facing...`)
+
+    // First request permissions
+    const hasPermissions = await requestCameraPermissions()
+    if (!hasPermissions) {
+      setIsLoading(false)
+      return
+    }
 
     try {
       // Stop existing stream
@@ -62,7 +119,7 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
     } finally {
       setIsLoading(false)
     }
-  }, [facingMode, stream, mode, cameraStarted])
+  }, [facingMode, stream, mode, cameraStarted, requestCameraPermissions])
 
   const stopCamera = useCallback(() => {
     if (stream) {
@@ -252,25 +309,50 @@ export function EnhancedCamera({ mode, onCapture, onClose }: EnhancedCameraProps
             <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📷</div>
             <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Error</h3>
             <p style={{ marginBottom: "1.5rem", opacity: 0.8 }}>{error}</p>
-            <button
-              onClick={() => {
-                setError(null)
-                setCameraStarted(false)
-                startCamera()
-              }}
-              style={{
-                padding: "1rem 2rem",
-                borderRadius: "1rem",
-                border: "none",
-                background: "#3B82F6",
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
-                fontSize: "1rem",
-              }}
-            >
-              Try Again
-            </button>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+              <button
+                onClick={() => {
+                  setError(null)
+                  setCameraStarted(false)
+                  startCamera()
+                }}
+                style={{
+                  padding: "1rem 2rem",
+                  borderRadius: "1rem",
+                  border: "none",
+                  background: "#3B82F6",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "1rem",
+                }}
+              >
+                Try Again
+              </button>
+
+              <div
+                style={{
+                  background: "rgba(59, 130, 246, 0.1)",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  maxWidth: "300px",
+                }}
+              >
+                <p style={{ fontSize: "0.875rem", margin: 0, lineHeight: 1.4 }}>
+                  <strong>💡 Permission Help:</strong>
+                  <br />
+                  1. Look for camera icon in address bar
+                  <br />
+                  2. Click "Allow" for camera access
+                  <br />
+                  3. Refresh page if needed
+                  <br />
+                  4. Check browser settings if blocked
+                </p>
+              </div>
+            </div>
           </div>
         ) : isLoading ? (
           <div style={{ textAlign: "center", color: "white" }}>
