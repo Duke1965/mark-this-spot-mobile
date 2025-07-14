@@ -22,12 +22,14 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
+  const [cameraReady, setCameraReady] = useState(false)
 
   // Simple, reliable camera initialization
   const startCamera = async () => {
     console.log(`🎥 Starting ${mode} camera...`)
     setIsLoading(true)
     setError(null)
+    setCameraReady(false)
 
     try {
       // Stop any existing stream
@@ -51,11 +53,17 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          console.log("📹 Video metadata loaded")
+          setCameraReady(true)
+          setIsLoading(false)
+        }
+
         await videoRef.current.play()
         console.log("✅ Camera started successfully!")
       }
-
-      setIsLoading(false)
     } catch (err) {
       console.error("❌ Camera failed:", err)
       setError(`Camera access failed: ${err.message}`)
@@ -68,24 +76,60 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
+    setCameraReady(false)
     console.log("🛑 Camera stopped")
   }
 
   const takePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return
+    console.log("📸 Taking photo...")
+
+    if (!videoRef.current || !canvasRef.current) {
+      console.error("❌ Video or canvas ref missing")
+      return
+    }
+
+    if (!cameraReady) {
+      console.error("❌ Camera not ready yet")
+      return
+    }
 
     const video = videoRef.current
     const canvas = canvasRef.current
     const context = canvas.getContext("2d")
-    if (!context) return
 
+    if (!context) {
+      console.error("❌ Canvas context missing")
+      return
+    }
+
+    // Check if video has valid dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error("❌ Video dimensions invalid:", video.videoWidth, video.videoHeight)
+      return
+    }
+
+    console.log("📐 Video dimensions:", video.videoWidth, "x", video.videoHeight)
+
+    // Set canvas dimensions to match video
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
-    context.drawImage(video, 0, 0)
 
-    const photoData = canvas.toDataURL("image/jpeg", 0.8)
-    setCapturedMedia(photoData)
-    console.log("📸 Photo captured!")
+    // Draw the video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    // Convert to data URL
+    const photoData = canvas.toDataURL("image/jpeg", 0.9)
+
+    console.log("📸 Photo data length:", photoData.length)
+    console.log("📸 Photo data preview:", photoData.substring(0, 50) + "...")
+
+    if (photoData && photoData.length > 100) {
+      setCapturedMedia(photoData)
+      console.log("✅ Photo captured successfully!")
+    } else {
+      console.error("❌ Photo capture failed - invalid data")
+      setError("Photo capture failed. Please try again.")
+    }
   }
 
   const startRecording = () => {
@@ -156,12 +200,16 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const retake = () => {
     setCapturedMedia(null)
     setRecordingTime(0)
+    setError(null)
   }
 
   const confirm = () => {
     if (capturedMedia) {
+      console.log("✅ Confirming capture:", capturedMedia.substring(0, 50) + "...")
       onCapture(capturedMedia, mode)
       stopCamera()
+    } else {
+      console.error("❌ No captured media to confirm")
     }
   }
 
@@ -217,6 +265,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           <div style={{ fontSize: "1.5rem" }}>{mode === "photo" ? "📸" : "🎥"}</div>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.25rem" }}>{mode === "photo" ? "Take Photo" : "Record Video"}</h2>
+            {cameraReady && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Camera ready</p>}
           </div>
         </div>
         <button
@@ -242,7 +291,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Error</h3>
             <p style={{ marginBottom: "1.5rem", opacity: 0.8 }}>{error}</p>
             <button
-              onClick={startCamera}
+              onClick={() => {
+                setError(null)
+                startCamera()
+              }}
               style={{
                 padding: "1rem 2rem",
                 borderRadius: "1rem",
@@ -273,32 +325,36 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             <p style={{ fontSize: "0.875rem", opacity: 0.7 }}>Please allow camera access when prompted</p>
           </div>
         ) : capturedMedia ? (
-          mode === "photo" ? (
-            <img
-              src={capturedMedia || "/placeholder.svg"}
-              alt="Captured"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "100%",
-                objectFit: "contain",
-                borderRadius: "1rem",
-              }}
-            />
-          ) : (
-            <video
-              src={capturedMedia}
-              controls
-              autoPlay
-              loop
-              muted
-              style={{
-                maxWidth: "100%",
-                maxHeight: "100%",
-                objectFit: "contain",
-                borderRadius: "1rem",
-              }}
-            />
-          )
+          <div style={{ textAlign: "center", maxWidth: "100%", maxHeight: "100%" }}>
+            {mode === "photo" ? (
+              <img
+                src={capturedMedia || "/placeholder.svg"}
+                alt="Captured"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  borderRadius: "1rem",
+                }}
+                onLoad={() => console.log("✅ Captured image loaded successfully")}
+                onError={() => console.error("❌ Captured image failed to load")}
+              />
+            ) : (
+              <video
+                src={capturedMedia}
+                controls
+                autoPlay
+                loop
+                muted
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  borderRadius: "1rem",
+                }}
+              />
+            )}
+          </div>
         ) : (
           <video
             ref={videoRef}
@@ -306,10 +362,9 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             playsInline
             muted
             style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
+              width: "100%",
+              height: "100%",
               objectFit: "cover",
-              borderRadius: "1rem",
             }}
           />
         )}
@@ -344,6 +399,24 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               }}
             />
             REC {recordingTime}s / 30s
+          </div>
+        )}
+
+        {/* Debug info */}
+        {process.env.NODE_ENV === "development" && cameraReady && videoRef.current && (
+          <div
+            style={{
+              position: "absolute",
+              top: "1rem",
+              left: "1rem",
+              background: "rgba(0,0,0,0.7)",
+              color: "white",
+              padding: "0.5rem",
+              borderRadius: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            Video: {videoRef.current.videoWidth}x{videoRef.current.videoHeight}
           </div>
         )}
       </div>
@@ -416,16 +489,24 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
             <button
               onClick={handleCapture}
+              disabled={!cameraReady}
               style={{
                 width: "5rem",
                 height: "5rem",
                 borderRadius: "50%",
                 border: "4px solid white",
-                background: mode === "photo" ? "#EF4444" : isRecording ? "#F59E0B" : "#EF4444",
-                cursor: "pointer",
+                background: cameraReady
+                  ? mode === "photo"
+                    ? "#EF4444"
+                    : isRecording
+                      ? "#F59E0B"
+                      : "#EF4444"
+                  : "rgba(255,255,255,0.3)",
+                cursor: cameraReady ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                opacity: cameraReady ? 1 : 0.5,
               }}
             >
               {mode === "photo" ? (
