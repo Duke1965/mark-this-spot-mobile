@@ -675,10 +675,11 @@ export default function Page() {
             {/* Bottom Section - Action Buttons */}
             <div
               style={{
-                padding: "2rem",
+                padding: "2rem 2rem 4rem 2rem", // Add extra bottom padding
                 display: "flex",
                 justifyContent: "center",
                 gap: "3rem",
+                minHeight: "120px", // Ensure minimum height
               }}
             >
               <button
