@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3, FileImage } from "lucide-react"
 import { ReliableCamera } from "./components/reliable-camera"
 import { VoiceCommander } from "./components/voice-commander"
-import { PostcardEditor } from "./components/postcard-editor"
+import { AdvancedPostcardEditor } from "./components/advanced-editor/advanced-postcard-editor"
 import { playEnhancedSound } from "./utils/enhanced-audio"
 import { generateEnhancedThumbnailForPin } from "./utils/places-photos"
 
@@ -868,12 +868,12 @@ export default function Page() {
 
       {/* Editor screen section */}
       {currentScreen === "editor" && (selectedPin || editorMedia) && (
-        <PostcardEditor
+        <AdvancedPostcardEditor
           mediaUrl={selectedPin?.media?.url || selectedPin?.thumbnail || editorMedia?.url || ""}
           mediaType={selectedPin?.media?.type || editorMedia?.type || "photo"}
           locationName={selectedPin?.address || locationAddress || "Current Location"}
           onSave={(postcardData) => {
-            console.log("📮 Postcard saved:", postcardData)
+            console.log("📮 Advanced postcard saved:", postcardData)
 
             // If we came from camera (editorMedia), update the corresponding pin
             if (editorMedia && userLocation) {
