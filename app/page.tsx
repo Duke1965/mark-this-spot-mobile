@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Camera, Video, BookOpen, Volume2, VolumeX } from "lucide-react"
+import { EnhancedCamera } from "./components/enhanced-camera"
+import { VoiceCommander } from "./components/voice-commander"
 
 export default function Page() {
   const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries">("main")
@@ -181,6 +183,31 @@ export default function Page() {
           <span style={{ fontSize: "0.75rem", fontWeight: 400 }}>{voiceEnabled ? "Sound" : "Muted"}</span>
         </button>
       </div>
+
+      {/* Voice Commander */}
+      <VoiceCommander
+        onCommand={(command, confidence) => {
+          const cmd = command.toLowerCase()
+          console.log(`🎤 Voice command: "${command}" (${confidence})`)
+
+          if (cmd.includes("pin it") || cmd.includes("pin this")) {
+            markSpot()
+          } else if (cmd.includes("take photo") || cmd.includes("photo")) {
+            setCameraMode("photo")
+            setShowCamera(true)
+          } else if (cmd.includes("record video") || cmd.includes("video")) {
+            setCameraMode("video")
+            setShowCamera(true)
+          } else if (cmd.includes("library") || cmd.includes("show pins")) {
+            setCurrentScreen("libraries")
+          } else if (cmd.includes("go back") || cmd.includes("back")) {
+            setCurrentScreen("main")
+            setShowCamera(false)
+          }
+        }}
+        isEnabled={voiceEnabled}
+        onToggle={() => setVoiceEnabled(!voiceEnabled)}
+      />
 
       {/* Main screen section */}
       {currentScreen === "main" && (
@@ -464,10 +491,50 @@ export default function Page() {
       )}
 
       {/* Camera screen section */}
-      {currentScreen === "camera" && <div>Camera Screen</div>}
+      {showCamera && (
+        <EnhancedCamera
+          mode={cameraMode}
+          onCapture={(mediaData, type) => {
+            console.log(`📸 ${type} captured:`, mediaData)
+            setShowCamera(false)
+            // TODO: Save to pin library
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
 
       {/* Libraries screen section */}
-      {currentScreen === "libraries" && <div>Libraries Screen</div>}
+      {currentScreen === "libraries" && (
+        <div
+          style={{
+            flex: 1,
+            background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
+            color: "white",
+            padding: "2rem",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <h2 style={{ fontSize: "2rem", marginBottom: "1rem" }}>📚 Pin Library</h2>
+          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "2rem" }}>Your saved pins will appear here</p>
+          <button
+            onClick={() => setCurrentScreen("main")}
+            style={{
+              padding: "1rem 2rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            ← Back to Main
+          </button>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes pulse {
