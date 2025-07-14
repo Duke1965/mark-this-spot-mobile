@@ -4,13 +4,12 @@ import { useState } from "react"
 import { Sparkles, Sliders, RotateCcw } from "lucide-react"
 
 interface EffectsPanelProps {
-  onEffectChange?: (effect: string) => void
-  currentEffect?: string
-  mediaUrl?: string
-  onApplyEffect?: (effect: string) => void
+  imageUrl: string
+  onEffectApply: (effect: string) => void
 }
 
-export function EffectsPanel({ onEffectChange, currentEffect = "none", mediaUrl, onApplyEffect }: EffectsPanelProps) {
+export function EffectsPanel({ imageUrl, onEffectApply }: EffectsPanelProps) {
+  const [activeTab, setActiveTab] = useState<"presets" | "manual">("presets")
   const [brightness, setBrightness] = useState(100)
   const [contrast, setContrast] = useState(100)
   const [saturation, setSaturation] = useState(100)
@@ -18,400 +17,215 @@ export function EffectsPanel({ onEffectChange, currentEffect = "none", mediaUrl,
   const [hue, setHue] = useState(0)
 
   const presetEffects = [
-    {
-      id: "none",
-      name: "Original",
-      filter: "none",
-      preview: "🖼️",
-      description: "No effects applied",
-    },
-    {
-      id: "vintage",
-      name: "Vintage",
-      filter: "sepia(0.5) contrast(1.2) brightness(1.1)",
-      preview: "📸",
-      description: "Classic vintage look",
-    },
-    {
-      id: "blackwhite",
-      name: "B&W",
-      filter: "grayscale(1) contrast(1.1)",
-      preview: "⚫",
-      description: "Black and white",
-    },
-    {
-      id: "vibrant",
-      name: "Vibrant",
-      filter: "saturate(1.5) contrast(1.2)",
-      preview: "🌈",
-      description: "Enhanced colors",
-    },
-    {
-      id: "cool",
-      name: "Cool",
-      filter: "hue-rotate(180deg) saturate(1.2)",
-      preview: "❄️",
-      description: "Cool blue tones",
-    },
-    {
-      id: "warm",
-      name: "Warm",
-      filter: "hue-rotate(30deg) saturate(1.1) brightness(1.1)",
-      preview: "🔥",
-      description: "Warm orange tones",
-    },
-    {
-      id: "dramatic",
-      name: "Dramatic",
-      filter: "contrast(1.5) brightness(0.9) saturate(1.3)",
-      preview: "⚡",
-      description: "High contrast",
-    },
-    {
-      id: "soft",
-      name: "Soft",
-      filter: "blur(1px) brightness(1.1)",
-      preview: "☁️",
-      description: "Soft dreamy look",
-    },
+    { name: "Original", filter: "none" },
+    { name: "Vintage", filter: "sepia(0.5) contrast(1.2) brightness(0.9)" },
+    { name: "B&W", filter: "grayscale(1)" },
+    { name: "Warm", filter: "sepia(0.3) saturate(1.4) brightness(1.1)" },
+    { name: "Cool", filter: "hue-rotate(180deg) saturate(1.2)" },
+    { name: "High Contrast", filter: "contrast(1.5) brightness(1.1)" },
+    { name: "Soft", filter: "blur(1px) brightness(1.1)" },
+    { name: "Dramatic", filter: "contrast(1.8) brightness(0.8) saturate(1.3)" },
   ]
 
-  const handleEffectSelect = (effectId: string) => {
-    const effect = presetEffects.find((e) => e.id === effectId)
-    if (effect) {
-      onEffectChange?.(effect.filter)
-      onApplyEffect?.(effect.filter)
-    }
-  }
-
-  const generateCustomFilter = () => {
-    const filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px) hue-rotate(${hue}deg)`
-    onEffectChange?.(filter)
-    onApplyEffect?.(filter)
-  }
-
-  const resetCustomSettings = () => {
+  const resetManualControls = () => {
     setBrightness(100)
     setContrast(100)
     setSaturation(100)
     setBlur(0)
     setHue(0)
-    onEffectChange?.("none")
-    onApplyEffect?.("none")
+  }
+
+  const applyManualEffect = () => {
+    const filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px) hue-rotate(${hue}deg)`
+    onEffectApply(filter)
   }
 
   return (
     <div
       style={{
-        background: "rgba(0,0,0,0.9)",
+        background: "rgba(255,255,255,0.1)",
         padding: "1rem",
         borderRadius: "1rem",
-        color: "white",
-        maxHeight: "600px",
-        overflowY: "auto",
+        backdropFilter: "blur(10px)",
       }}
     >
+      <h3 style={{ color: "white", margin: "0 0 1rem 0" }}>Effects</h3>
+
+      {/* Tab Buttons */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
           gap: "0.5rem",
-          marginBottom: "1.5rem",
+          marginBottom: "1rem",
         }}
       >
-        <Sparkles size={20} />
-        <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Photo Effects</h3>
+        <button
+          onClick={() => setActiveTab("presets")}
+          style={{
+            flex: 1,
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: activeTab === "presets" ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "0.8rem",
+          }}
+        >
+          <Sparkles size={16} style={{ marginRight: "0.25rem" }} />
+          Presets
+        </button>
+        <button
+          onClick={() => setActiveTab("manual")}
+          style={{
+            flex: 1,
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: activeTab === "manual" ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "0.8rem",
+          }}
+        >
+          <Sliders size={16} style={{ marginRight: "0.25rem" }} />
+          Manual
+        </button>
       </div>
 
       {/* Preset Effects */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h4
-          style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
-          }}
-        >
-          Preset Effects
-        </h4>
+      {activeTab === "presets" && (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "0.75rem",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0.5rem",
           }}
         >
           {presetEffects.map((effect) => (
             <button
-              key={effect.id}
-              onClick={() => handleEffectSelect(effect.id)}
+              key={effect.name}
+              onClick={() => onEffectApply(effect.filter)}
               style={{
-                padding: "1rem",
-                borderRadius: "0.75rem",
-                border: currentEffect === effect.filter ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                background: currentEffect === effect.filter ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
                 color: "white",
                 cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                transition: "all 0.2s ease",
+                fontSize: "0.8rem",
                 textAlign: "center",
               }}
             >
-              <div style={{ fontSize: "1.5rem" }}>{effect.preview}</div>
-              <div style={{ fontSize: "0.8rem", fontWeight: "600" }}>{effect.name}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>{effect.description}</div>
+              {effect.name}
             </button>
           ))}
         </div>
-      </div>
+      )}
 
-      {/* Custom Adjustments */}
-      <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "1rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Sliders size={16} />
-            <h4
-              style={{
-                color: "rgba(255,255,255,0.8)",
-                fontSize: "0.9rem",
-                margin: 0,
-                fontWeight: "500",
-              }}
-            >
-              Custom Adjustments
-            </h4>
-          </div>
-          <button
-            onClick={resetCustomSettings}
-            style={{
-              padding: "0.25rem 0.5rem",
-              borderRadius: "0.5rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.7)",
-              cursor: "pointer",
-              fontSize: "0.7rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-            }}
-          >
-            <RotateCcw size={12} />
-            Reset
-          </button>
-        </div>
-
+      {/* Manual Controls */}
+      {activeTab === "manual" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {/* Brightness */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Brightness</label>
-              <span style={{ fontSize: "0.8rem", color: "white" }}>{brightness}%</span>
-            </div>
+            <label style={{ color: "white", fontSize: "0.8rem", display: "block", marginBottom: "0.25rem" }}>
+              Brightness: {brightness}%
+            </label>
             <input
               type="range"
-              min={50}
-              max={150}
+              min="0"
+              max="200"
               value={brightness}
-              onChange={(e) => {
-                setBrightness(Number(e.target.value))
-                generateCustomFilter()
-              }}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
+              onChange={(e) => setBrightness(Number(e.target.value))}
+              style={{ width: "100%" }}
             />
           </div>
 
-          {/* Contrast */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Contrast</label>
-              <span style={{ fontSize: "0.8rem", color: "white" }}>{contrast}%</span>
-            </div>
+            <label style={{ color: "white", fontSize: "0.8rem", display: "block", marginBottom: "0.25rem" }}>
+              Contrast: {contrast}%
+            </label>
             <input
               type="range"
-              min={50}
-              max={150}
+              min="0"
+              max="200"
               value={contrast}
-              onChange={(e) => {
-                setContrast(Number(e.target.value))
-                generateCustomFilter()
-              }}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
+              onChange={(e) => setContrast(Number(e.target.value))}
+              style={{ width: "100%" }}
             />
           </div>
 
-          {/* Saturation */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Saturation</label>
-              <span style={{ fontSize: "0.8rem", color: "white" }}>{saturation}%</span>
-            </div>
+            <label style={{ color: "white", fontSize: "0.8rem", display: "block", marginBottom: "0.25rem" }}>
+              Saturation: {saturation}%
+            </label>
             <input
               type="range"
-              min={0}
-              max={200}
+              min="0"
+              max="200"
               value={saturation}
-              onChange={(e) => {
-                setSaturation(Number(e.target.value))
-                generateCustomFilter()
-              }}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
+              onChange={(e) => setSaturation(Number(e.target.value))}
+              style={{ width: "100%" }}
             />
           </div>
 
-          {/* Blur */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Blur</label>
-              <span style={{ fontSize: "0.8rem", color: "white" }}>{blur}px</span>
-            </div>
+            <label style={{ color: "white", fontSize: "0.8rem", display: "block", marginBottom: "0.25rem" }}>
+              Blur: {blur}px
+            </label>
             <input
               type="range"
-              min={0}
-              max={10}
+              min="0"
+              max="10"
               value={blur}
-              onChange={(e) => {
-                setBlur(Number(e.target.value))
-                generateCustomFilter()
-              }}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
+              onChange={(e) => setBlur(Number(e.target.value))}
+              style={{ width: "100%" }}
             />
           </div>
 
-          {/* Hue */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Hue</label>
-              <span style={{ fontSize: "0.8rem", color: "white" }}>{hue}°</span>
-            </div>
+            <label style={{ color: "white", fontSize: "0.8rem", display: "block", marginBottom: "0.25rem" }}>
+              Hue: {hue}°
+            </label>
             <input
               type="range"
-              min={-180}
-              max={180}
+              min="-180"
+              max="180"
               value={hue}
-              onChange={(e) => {
-                setHue(Number(e.target.value))
-                generateCustomFilter()
-              }}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
+              onChange={(e) => setHue(Number(e.target.value))}
+              style={{ width: "100%" }}
             />
           </div>
-        </div>
-      </div>
 
-      {/* Preview */}
-      {mediaUrl && (
-        <div style={{ marginTop: "1.5rem" }}>
-          <h4
-            style={{
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "0.9rem",
-              margin: "0 0 0.5rem 0",
-              fontWeight: "500",
-            }}
-          >
-            Preview
-          </h4>
-          <div
-            style={{
-              width: "100%",
-              height: "120px",
-              borderRadius: "0.5rem",
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.2)",
-            }}
-          >
-            <img
-              src={mediaUrl || "/placeholder.svg"}
-              alt="Effect preview"
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={applyManualEffect}
               style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                filter: currentEffect,
+                flex: 1,
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(16, 185, 129, 0.3)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.8rem",
               }}
-            />
+            >
+              Apply
+            </button>
+            <button
+              onClick={resetManualControls}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              <RotateCcw size={16} />
+            </button>
           </div>
         </div>
       )}
