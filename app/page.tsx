@@ -203,17 +203,11 @@ export default function Page() {
     markSpot()
     setQuickPinMode(true)
 
-    // Auto-close after 2 seconds like Shazam
+    // Auto-navigate to results after 2 seconds
     const timer = setTimeout(() => {
       setQuickPinMode(false) // Reset the mode first
-      if (typeof window !== "undefined") {
-        // Try multiple methods to close/minimize
-        if (window.history.length > 1) {
-          window.history.back()
-        } else {
-          window.close()
-        }
-      }
+      setCurrentScreen("libraries") // Go to libraries to show the new pin
+      setLibraryTab("pins") // Make sure we're on the pins tab
     }, 2000)
 
     setAutoCloseTimer(timer)
@@ -889,3 +883,4 @@ export default function Page() {
     </div>
   )
 }
+
