@@ -152,9 +152,11 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
+        height: "100vh", // Ensure full height
+        overflow: "hidden", // Prevent body scroll
       }}
     >
-      {/* Header */}
+      {/* Header - Fixed */}
       <div
         style={{
           display: "flex",
@@ -164,6 +166,7 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           background: "rgba(255,255,255,0.1)",
           backdropFilter: "blur(10px)",
           borderBottom: "1px solid rgba(255,255,255,0.1)",
+          flexShrink: 0, // Don't shrink
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -191,9 +194,18 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         </button>
       </div>
 
-      {/* Preview Area */}
-      <div style={{ flex: 1, display: "flex", gap: "1rem", padding: "1rem" }}>
-        {/* Media Preview */}
+      {/* Preview Area - Scrollable */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          gap: "1rem",
+          padding: "1rem",
+          overflow: "hidden", // Container doesn't scroll
+          minHeight: 0, // Allow flex shrinking
+        }}
+      >
+        {/* Media Preview - Fixed */}
         <div style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div
             style={{
@@ -262,116 +274,139 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           </div>
         </div>
 
-        {/* Controls Panel */}
+        {/* Controls Panel - NOW SCROLLABLE! */}
         <div
           style={{
             flex: 1,
             background: "rgba(255,255,255,0.1)",
             backdropFilter: "blur(10px)",
             borderRadius: "1rem",
-            padding: "1.5rem",
             display: "flex",
             flexDirection: "column",
-            gap: "1.5rem",
             color: "white",
+            overflow: "hidden", // Container setup
+            minHeight: 0, // Allow flex shrinking
           }}
         >
-          <div>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <Type size={16} />
-              Text Message
-            </label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Enter your postcard message..."
-              rows={3}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: "none",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                fontSize: "0.875rem",
-                outline: "none",
-                resize: "none",
-              }}
-            />
+          {/* Controls Header - Fixed */}
+          <div
+            style={{
+              padding: "1.5rem 1.5rem 1rem 1.5rem",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              flexShrink: 0,
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "bold" }}>🎨 Customize</h3>
           </div>
 
-          <div>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <Palette size={16} />
-              Text Color
-            </label>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
+          {/* Scrollable Controls Content */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto", // Enable vertical scrolling
+              padding: "1rem 1.5rem 1.5rem 1.5rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5rem",
+            }}
+          >
+            <div>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <Type size={16} />
+                Text Message
+              </label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Enter your postcard message..."
+                rows={3}
                 style={{
-                  width: "3rem",
-                  height: "2rem",
-                  borderRadius: "0.25rem",
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
                   border: "none",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  fontSize: "0.875rem",
+                  outline: "none",
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <Palette size={16} />
+                Text Color
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="color"
+                  value={textColor}
+                  onChange={(e) => setTextColor(e.target.value)}
+                  style={{
+                    width: "3rem",
+                    height: "2rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                />
+                <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{textColor}</span>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+                Text Size: {textSize}px
+              </label>
+              <input
+                type="range"
+                min="16"
+                max="48"
+                value={textSize}
+                onChange={(e) => setTextSize(Number(e.target.value))}
+                style={{
+                  width: "100%",
                   cursor: "pointer",
                 }}
               />
-              <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{textColor}</span>
             </div>
-          </div>
 
-          <div>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
-              Text Size: {textSize}px
-            </label>
-            <input
-              type="range"
-              min="16"
-              max="48"
-              value={textSize}
-              onChange={(e) => setTextSize(Number(e.target.value))}
-              style={{
-                width: "100%",
-                cursor: "pointer",
-              }}
-            />
-          </div>
+            <div>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <Palette size={16} />
+                Background
+              </label>
+              <select
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.25rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  fontSize: "0.875rem",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="rgba(0,0,0,0.5)">Semi-transparent Black</option>
+                <option value="rgba(0,0,0,0.8)">Dark Black</option>
+                <option value="rgba(255,255,255,0.8)">Light White</option>
+                <option value="rgba(59,130,246,0.8)">Blue</option>
+                <option value="rgba(16,185,129,0.8)">Green</option>
+              </select>
+            </div>
 
-          <div>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <Palette size={16} />
-              Background
-            </label>
-            <select
-              value={backgroundColor}
-              onChange={(e) => setBackgroundColor(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                borderRadius: "0.25rem",
-                border: "none",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                fontSize: "0.875rem",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            >
-              <option value="rgba(0,0,0,0.5)">Semi-transparent Black</option>
-              <option value="rgba(0,0,0,0.8)">Dark Black</option>
-              <option value="rgba(255,255,255,0.8)">Light White</option>
-              <option value="rgba(59,130,246,0.8)">Blue</option>
-              <option value="rgba(16,185,129,0.8)">Green</option>
-            </select>
+            <PostcardTemplateSelector selectedTemplate={selectedTemplate} onTemplateSelect={setSelectedTemplate} />
           </div>
-
-          <PostcardTemplateSelector selectedTemplate={selectedTemplate} onTemplateSelect={setSelectedTemplate} />
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Fixed at bottom */}
       <div
         style={{
           padding: "1.5rem",
@@ -381,6 +416,7 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           display: "flex",
           justifyContent: "center",
           gap: "1rem",
+          flexShrink: 0, // Don't shrink
         }}
       >
         <button
