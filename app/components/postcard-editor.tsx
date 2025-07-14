@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react"
 import { X, Download, Type, Palette } from "lucide-react"
+import { PostcardTemplateSelector, postcardTemplates } from "./postcard-templates"
+import { SocialSharing } from "./social-sharing"
 
 interface PostcardEditorProps {
   mediaUrl: string
@@ -19,6 +21,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
   const [textPosition, setTextPosition] = useState({ x: 50, y: 80 })
   const [backgroundColor, setBackgroundColor] = useState("rgba(0,0,0,0.5)")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState("classic")
+  const [showSharing, setShowSharing] = useState(false)
+  const [generatedPostcard, setGeneratedPostcard] = useState<string | null>(null)
 
   const generatePostcard = async () => {
     const canvas = canvasRef.current
@@ -58,7 +63,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
             canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
           }
 
+          setGeneratedPostcard(canvas.toDataURL("image/jpeg", 0.9))
           onSave(postcardData)
+          setShowSharing(true)
           setIsGenerating(false)
         }
         img.src = mediaUrl
@@ -86,7 +93,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
             canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
           }
 
+          setGeneratedPostcard(canvas.toDataURL("image/jpeg", 0.9))
           onSave(postcardData)
+          setShowSharing(true)
           setIsGenerating(false)
         }
         video.src = mediaUrl
@@ -101,20 +110,34 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // Add background for text
-    ctx.fillStyle = backgroundColor
+    const template = postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]
+
+    // Apply template background
+    ctx.fillStyle = template.style.background
     ctx.fillRect(0, canvas.height - 120, canvas.width, 120)
 
-    // Add text
-    ctx.fillStyle = textColor
-    ctx.font = `bold ${textSize}px Arial`
+    // Add text with template styling
+    ctx.fillStyle = template.style.textColor
+    ctx.font = `bold ${textSize}px ${template.style.fontFamily}`
     ctx.textAlign = "center"
-    ctx.fillText(text, textPosition.x * (canvas.width / 100), textPosition.y * (canvas.height / 100))
+    if (template.style.textShadow) {
+      ctx.shadowColor = "rgba(0,0,0,0.5)"
+      ctx.shadowBlur = 4
+      ctx.shadowOffsetX = 2
+      ctx.shadowOffsetY = 2
+    }
+
+    const layout = template.layout
+    ctx.fillText(text, (layout.titlePosition.x * canvas.width) / 100, (layout.titlePosition.y * canvas.height) / 100)
 
     // Add location subtitle
-    ctx.font = `${textSize * 0.6}px Arial`
+    ctx.font = `${textSize * 0.6}px ${template.style.fontFamily}`
     ctx.fillStyle = "rgba(255,255,255,0.8)"
-    ctx.fillText(locationName, textPosition.x * (canvas.width / 100), (textPosition.y + 10) * (canvas.height / 100))
+    ctx.fillText(
+      locationName,
+      (layout.locationPosition.x * canvas.width) / 100,
+      (layout.locationPosition.y * canvas.height) / 100,
+    )
   }
 
   return (
@@ -343,6 +366,8 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
               <option value="rgba(16,185,129,0.8)">Green</option>
             </select>
           </div>
+
+          <PostcardTemplateSelector selectedTemplate={selectedTemplate} onTemplateSelect={setSelectedTemplate} />
         </div>
       </div>
 
@@ -401,6 +426,17 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           {isGenerating ? "Creating..." : "Create Postcard"}
         </button>
       </div>
+
+      {showSharing && generatedPostcard && (
+        <SocialSharing
+          postcardDataUrl={generatedPostcard}
+          locationName={locationName}
+          onComplete={() => {
+            setShowSharing(false)
+            onClose()
+          }}
+        />
+      )}
 
       <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
