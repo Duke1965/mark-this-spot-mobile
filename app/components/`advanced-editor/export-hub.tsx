@@ -1,291 +1,192 @@
 "use client"
 
-import { useState } from "react"
-import { Download, Share2, Instagram, Facebook, Twitter, MessageCircle, Youtube, Smartphone } from "lucide-react"
+import { useState, type RefObject } from "react"
+import { Download, Share2, Mail, MessageCircle, Instagram, Facebook, Twitter } from "lucide-react"
 
 interface ExportHubProps {
-  canvasDataUrl: string
-  platform: {
-    id: string
-    name: string
-    dimensions: { width: number; height: number }
-  }
-  onExport: (settings: ExportSettings) => void
-  onShare: (platform: string) => void
+  canvasRef: RefObject<HTMLCanvasElement>
+  locationName: string
+  onExportComplete: () => void
 }
 
-interface ExportSettings {
-  quality: number
-  format: string
-  filename: string
-}
-
-const SOCIAL_PLATFORMS = [
-  { id: "instagram", name: "Instagram", icon: <Instagram size={20} />, color: "#E4405F" },
-  { id: "facebook", name: "Facebook", icon: <Facebook size={20} />, color: "#1877F2" },
-  { id: "twitter", name: "Twitter", icon: <Twitter size={20} />, color: "#1DA1F2" },
-  { id: "whatsapp", name: "WhatsApp", icon: <MessageCircle size={20} />, color: "#25D366" },
-  { id: "youtube", name: "YouTube", icon: <Youtube size={20} />, color: "#FF0000" },
-  { id: "tiktok", name: "TikTok", icon: <Smartphone size={20} />, color: "#000000" },
-]
-
-const QUALITY_PRESETS = [
-  { value: 0.6, label: "Low (Small file)", description: "Good for sharing" },
-  { value: 0.8, label: "Medium (Balanced)", description: "Recommended" },
-  { value: 0.95, label: "High (Large file)", description: "Best quality" },
-  { value: 1.0, label: "Maximum", description: "Lossless" },
-]
-
-export function ExportHub({ canvasDataUrl, platform, onExport, onShare }: ExportHubProps) {
-  const [quality, setQuality] = useState(0.8)
-  const [format, setFormat] = useState("jpeg")
-  const [filename, setFilename] = useState(`pinit-${platform.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`)
+export function ExportHub({ canvasRef, locationName, onExportComplete }: ExportHubProps) {
+  const [exportFormat, setExportFormat] = useState("jpeg")
+  const [exportQuality, setExportQuality] = useState(90)
+  const [exportSize, setExportSize] = useState("original")
   const [isExporting, setIsExporting] = useState(false)
 
-  const handleExport = async () => {
+  const exportFormats = [
+    { id: "jpeg", name: "JPEG", description: "Best for photos, smaller file size" },
+    { id: "png", name: "PNG", description: "Best for graphics, supports transparency" },
+    { id: "webp", name: "WebP", description: "Modern format, great compression" },
+  ]
+
+  const exportSizes = [
+    { id: "original", name: "Original", width: 800, height: 600 },
+    { id: "instagram", name: "Instagram Post", width: 1080, height: 1080 },
+    { id: "story", name: "Instagram Story", width: 1080, height: 1920 },
+    { id: "facebook", name: "Facebook Post", width: 1200, height: 630 },
+    { id: "twitter", name: "Twitter Post", width: 1200, height: 675 },
+  ]
+
+  const handleDownload = async () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
     setIsExporting(true)
 
     try {
-      // Create a canvas to apply quality settings
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      const img = new Image()
+      // Get the selected size
+      const selectedSize = exportSizes.find((size) => size.id === exportSize)
+      if (!selectedSize) return
 
-      img.onload = () => {
-        canvas.width = platform.dimensions.width
-        canvas.height = platform.dimensions.height
+      // Create a new canvas with the desired size
+      const exportCanvas = document.createElement("canvas")
+      const exportCtx = exportCanvas.getContext("2d")
+      if (!exportCtx) return
 
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      exportCanvas.width = selectedSize.width
+      exportCanvas.height = selectedSize.height
 
-          // Convert to desired format and quality
-          const finalDataUrl = canvas.toDataURL(`image/${format}`, quality)
+      // Draw the original canvas content scaled to the new size
+      exportCtx.drawImage(canvas, 0, 0, selectedSize.width, selectedSize.height)
 
-          // Trigger download
-          const link = document.createElement("a")
-          link.download = `${filename}.${format}`
-          link.href = finalDataUrl
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
+      // Convert to the desired format
+      const mimeType = exportFormat === "jpeg" ? "image/jpeg" : exportFormat === "png" ? "image/png" : "image/webp"
 
-          // Call export callback
-          onExport({
-            quality,
-            format,
-            filename: `${filename}.${format}`,
-          })
-        }
+      const quality = exportFormat === "jpeg" ? exportQuality / 100 : undefined
+      const dataUrl = exportCanvas.toDataURL(mimeType, quality)
 
-        setIsExporting(false)
-      }
+      // Create download link
+      const link = document.createElement("a")
+      link.download = `pinit-postcard-${locationName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}.${exportFormat}`
+      link.href = dataUrl
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
 
-      img.src = canvasDataUrl
+      onExportComplete()
     } catch (error) {
       console.error("Export failed:", error)
+    } finally {
       setIsExporting(false)
     }
   }
 
-  const handleShare = (platformId: string) => {
-    onShare(platformId)
-  }
+  const handleShare = async (platform: string) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
 
-  const getFileSizeEstimate = () => {
-    // Rough estimate based on dimensions and quality
-    const pixels = platform.dimensions.width * platform.dimensions.height
-    const baseSize = pixels * 3 // 3 bytes per pixel (RGB)
-    const compressedSize = baseSize * quality
+    try {
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
-    if (compressedSize < 1024 * 1024) {
-      return `~${Math.round(compressedSize / 1024)}KB`
-    } else {
-      return `~${(compressedSize / (1024 * 1024)).toFixed(1)}MB`
+      if (navigator.share && platform === "native") {
+        // Use native sharing if available
+        const blob = await (await fetch(dataUrl)).blob()
+        const file = new File([blob], `pinit-postcard-${Date.now()}.jpg`, { type: "image/jpeg" })
+
+        await navigator.share({
+          title: `📍 ${locationName}`,
+          text: `Check out this postcard from ${locationName}!`,
+          files: [file],
+        })
+      } else {
+        // Fallback to platform-specific URLs
+        const text = encodeURIComponent(`Check out this postcard from ${locationName}!`)
+        const urls = {
+          twitter: `https://twitter.com/intent/tweet?text=${text}`,
+          facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
+          instagram: "https://www.instagram.com/", // Instagram doesn't support direct sharing
+          email: `mailto:?subject=Postcard from ${locationName}&body=${text}`,
+          sms: `sms:?body=${text}`,
+        }
+
+        if (urls[platform as keyof typeof urls]) {
+          window.open(urls[platform as keyof typeof urls], "_blank")
+        }
+      }
+    } catch (error) {
+      console.error("Sharing failed:", error)
     }
   }
 
   return (
-    <div
-      style={{
-        background: "rgba(0,0,0,0.9)",
-        padding: "1rem",
-        borderRadius: "1rem",
-        maxHeight: "500px",
-        overflowY: "auto",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <Download size={20} style={{ color: "#10B981" }} />
-        <h3
-          style={{
-            color: "white",
-            margin: 0,
-            fontSize: "1.1rem",
-            fontWeight: "600",
-          }}
-        >
-          Export & Share
-        </h3>
-      </div>
-
-      {/* Preview */}
-      <div
-        style={{
-          marginBottom: "1.5rem",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            display: "inline-block",
-            padding: "0.5rem",
-            background: "rgba(255,255,255,0.05)",
-            borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <img
-            src={canvasDataUrl || "/placeholder.svg"}
-            alt="Export preview"
-            style={{
-              maxWidth: "200px",
-              maxHeight: "150px",
-              borderRadius: "0.5rem",
-              objectFit: "contain",
-            }}
-          />
-          <div
-            style={{
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-            }}
-          >
-            {platform.dimensions.width} × {platform.dimensions.height}px
-          </div>
-        </div>
-      </div>
-
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
       {/* Export Settings */}
       <div
         style={{
-          marginBottom: "1.5rem",
-          padding: "1rem",
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: "0.75rem",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1.5rem",
         }}
       >
-        <h4
-          style={{
-            color: "white",
-            margin: "0 0 1rem 0",
-            fontSize: "0.9rem",
-            fontWeight: "500",
-          }}
-        >
+        <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Download size={20} />
           Export Settings
-        </h4>
+        </h3>
 
-        {/* Quality */}
+        {/* Format Selection */}
         <div style={{ marginBottom: "1rem" }}>
-          <label
-            style={{
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "0.8rem",
-              display: "block",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Quality & File Size
-          </label>
-          <div style={{ display: "grid", gap: "0.5rem" }}>
-            {QUALITY_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => setQuality(preset.value)}
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: quality === preset.value ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                  background: quality === preset.value ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  textAlign: "left",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: "0.875rem", fontWeight: "500" }}>{preset.label}</div>
-                    <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>{preset.description}</div>
-                  </div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>{getFileSizeEstimate()}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Format */}
-        <div style={{ marginBottom: "1rem" }}>
-          <label
-            style={{
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "0.8rem",
-              display: "block",
-              marginBottom: "0.5rem",
-            }}
-          >
+          <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
             Format
           </label>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {["jpeg", "png", "webp"].map((fmt) => (
-              <button
-                key={fmt}
-                onClick={() => setFormat(fmt)}
+          <div style={{ display: "grid", gap: "0.5rem" }}>
+            {exportFormats.map((format) => (
+              <label
+                key={format.id}
                 style={{
-                  padding: "0.5rem 1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
                   borderRadius: "0.5rem",
-                  border: format === fmt ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                  background: format === fmt ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                  color: "white",
+                  border: exportFormat === format.id ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
+                  background: exportFormat === format.id ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
                   cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  fontSize: "0.8rem",
-                  fontWeight: "500",
-                  textTransform: "uppercase",
                 }}
               >
-                {fmt}
-              </button>
+                <input
+                  type="radio"
+                  name="format"
+                  value={format.id}
+                  checked={exportFormat === format.id}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  style={{ margin: 0 }}
+                />
+                <div>
+                  <div style={{ fontWeight: "bold" }}>{format.name}</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>{format.description}</div>
+                </div>
+              </label>
             ))}
           </div>
         </div>
 
-        {/* Filename */}
-        <div>
-          <label
-            style={{
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "0.8rem",
-              display: "block",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Filename
+        {/* Quality Setting (for JPEG) */}
+        {exportFormat === "jpeg" && (
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
+              Quality: {exportQuality}%
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="100"
+              value={exportQuality}
+              onChange={(e) => setExportQuality(Number.parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+        )}
+
+        {/* Size Selection */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
+            Size
           </label>
-          <input
-            type="text"
-            value={filename}
-            onChange={(e) => setFilename(e.target.value)}
+          <select
+            value={exportSize}
+            onChange={(e) => setExportSize(e.target.value)}
             style={{
               width: "100%",
               padding: "0.75rem",
@@ -293,108 +194,174 @@ export function ExportHub({ canvasDataUrl, platform, onExport, onShare }: Export
               border: "1px solid rgba(255,255,255,0.2)",
               background: "rgba(255,255,255,0.1)",
               color: "white",
-              fontSize: "0.8rem",
-              outline: "none",
+              fontSize: "0.875rem",
             }}
-            placeholder="Enter filename..."
-          />
+          >
+            {exportSizes.map((size) => (
+              <option key={size.id} value={size.id} style={{ background: "#1e293b", color: "white" }}>
+                {size.name} ({size.width}×{size.height})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Export Button */}
+      {/* Download Button */}
       <button
-        onClick={handleExport}
+        onClick={handleDownload}
         disabled={isExporting}
         style={{
-          width: "100%",
-          padding: "1rem",
-          borderRadius: "0.75rem",
+          padding: "1rem 2rem",
+          borderRadius: "0.5rem",
           border: "none",
-          background: isExporting ? "rgba(107, 114, 128, 0.5)" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+          background: isExporting ? "rgba(107, 114, 128, 0.5)" : "linear-gradient(45deg, #10B981, #059669)",
           color: "white",
           cursor: isExporting ? "not-allowed" : "pointer",
           fontSize: "1rem",
-          fontWeight: "600",
-          transition: "all 0.3s ease",
+          fontWeight: "bold",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: "0.5rem",
-          marginBottom: "1.5rem",
         }}
       >
         <Download size={20} />
-        {isExporting ? "Exporting..." : "Download Image"}
+        {isExporting ? "Exporting..." : "Download Postcard"}
       </button>
 
-      {/* Social Sharing */}
+      {/* Share Options */}
       <div
         style={{
-          padding: "1rem",
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: "0.75rem",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1.5rem",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "1rem",
-          }}
-        >
-          <Share2 size={16} style={{ color: "rgba(255,255,255,0.8)" }} />
-          <h4
-            style={{
-              color: "white",
-              margin: 0,
-              fontSize: "0.9rem",
-              fontWeight: "500",
-            }}
-          >
-            Share Directly
-          </h4>
-        </div>
-
+        <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Share2 size={20} />
+          Share Postcard
+        </h3>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
             gap: "0.75rem",
           }}
         >
-          {SOCIAL_PLATFORMS.map((socialPlatform) => (
-            <button
-              key={socialPlatform.id}
-              onClick={() => handleShare(socialPlatform.id)}
-              style={{
-                padding: "0.75rem",
-                borderRadius: "0.75rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.8rem",
-                fontWeight: "500",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `${socialPlatform.color}20`
-                e.currentTarget.style.borderColor = `${socialPlatform.color}40`
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
-              }}
-            >
-              <div style={{ color: socialPlatform.color }}>{socialPlatform.icon}</div>
-              {socialPlatform.name}
-            </button>
-          ))}
+          <button
+            onClick={() => handleShare("native")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <Share2 size={20} />
+            Share
+          </button>
+          <button
+            onClick={() => handleShare("twitter")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(29, 161, 242, 0.2)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <Twitter size={20} />
+            Twitter
+          </button>
+          <button
+            onClick={() => handleShare("facebook")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(24, 119, 242, 0.2)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <Facebook size={20} />
+            Facebook
+          </button>
+          <button
+            onClick={() => handleShare("instagram")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(225, 48, 108, 0.2)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <Instagram size={20} />
+            Instagram
+          </button>
+          <button
+            onClick={() => handleShare("email")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(107, 114, 128, 0.2)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <Mail size={20} />
+            Email
+          </button>
+          <button
+            onClick={() => handleShare("sms")}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(34, 197, 94, 0.2)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <MessageCircle size={20} />
+            SMS
+          </button>
         </div>
       </div>
     </div>
