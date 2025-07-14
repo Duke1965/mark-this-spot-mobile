@@ -30,6 +30,8 @@ export default function Page() {
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [savedPins, setSavedPins] = useState<Pin[]>([])
   const [libraryTab, setLibraryTab] = useState<"pins" | "sounds" | "templates">("pins")
+  const [quickPinMode, setQuickPinMode] = useState(false)
+  const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null)
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
@@ -64,7 +66,7 @@ export default function Page() {
           .join("")
 
         if (transcript.toLowerCase().includes("pin it")) {
-          markSpot()
+          quickPin()
         }
       }
 
@@ -184,6 +186,20 @@ export default function Page() {
     }
   }
 
+  const quickPin = () => {
+    markSpot()
+    setQuickPinMode(true)
+
+    // Auto-close after 2 seconds like Shazam
+    const timer = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.close() // Try to close the app
+      }
+    }, 2000)
+
+    setAutoCloseTimer(timer)
+  }
+
   return (
     <div
       style={{
@@ -236,7 +252,7 @@ export default function Page() {
           console.log(`🎤 Voice command: "${command}" (${confidence})`)
 
           if (cmd.includes("pin it") || cmd.includes("pin this")) {
-            markSpot()
+            quickPin()
           } else if (cmd.includes("take photo") || cmd.includes("photo")) {
             setCameraMode("photo")
             setShowCamera(true)
@@ -283,7 +299,7 @@ export default function Page() {
                   }}
                 >
                   <div
-                    onClick={markSpot}
+                    onClick={quickPin}
                     style={{
                       width: "280px",
                       height: "280px",
@@ -385,7 +401,7 @@ export default function Page() {
 
                   {/* Invisible Extended Touch Area */}
                   <div
-                    onClick={markSpot}
+                    onClick={quickPin}
                     style={{
                       position: "absolute",
                       width: "350px",
@@ -436,6 +452,30 @@ export default function Page() {
                     }}
                   />
                   <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
+                </div>
+              )}
+
+              {quickPinMode && (
+                <div
+                  style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(16, 185, 129, 0.95)",
+                    zIndex: 1000,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                  }}
+                >
+                  <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
+                  <h2 style={{ fontSize: "2rem", fontWeight: "bold", margin: "0 0 0.5rem 0" }}>PINNED!</h2>
+                  <p style={{ fontSize: "1.125rem", opacity: 0.9, textAlign: "center" }}>{locationAddress}</p>
+                  <p style={{ fontSize: "0.875rem", opacity: 0.7, marginTop: "1rem" }}>Closing automatically...</p>
                 </div>
               )}
             </div>
