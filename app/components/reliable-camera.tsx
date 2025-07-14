@@ -16,40 +16,48 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
-  const [isRecording, setIsRecording] = useState(isRecording)
+  const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [cameraReady, setCameraReady] = useState(false)
   const [debugInfo, setDebugInfo] = useState<string[]>([])
 
   const addDebug = (message: string) => {
-    console.log(message)
-    setDebugInfo((prev) => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${message}`])
+    try {
+      console.log(message)
+      setDebugInfo((prev) => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${message}`])
+    } catch (err) {
+      console.error("Debug logging failed:", err)
+    }
   }
 
-  // Fixed camera start with better mobile support
+  // Safe camera start with comprehensive error handling
   const startCamera = async () => {
-    addDebug(`🎥 Starting ${mode} camera directly...`)
-    setIsLoading(true)
-    setError(null)
-    setCameraReady(false)
-
     try {
+      addDebug(`🎥 Starting ${mode} camera...`)
+      setIsLoading(true)
+      setError(null)
+      setCameraReady(false)
+
       // Stop any existing stream first
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop())
+        try {
+          streamRef.current.getTracks().forEach((track) => track.stop())
+        } catch (err) {
+          addDebug("⚠️ Error stopping existing stream")
+        }
         streamRef.current = null
       }
 
-      addDebug("📱 Checking mediaDevices support...")
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("getUserMedia not supported")
+      // Check for getUserMedia support
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Camera not supported on this device")
       }
 
-      addDebug("📱 Calling getUserMedia...")
+      addDebug("📱 Requesting camera access...")
       const constraints = {
         video: {
           facingMode,
@@ -60,148 +68,153 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       }
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      addDebug("✅ Stream obtained successfully")
+      addDebug("✅ Camera stream obtained")
 
       streamRef.current = stream
 
       if (videoRef.current) {
-        addDebug("📹 Setting video source...")
+        addDebug("📹 Setting up video element...")
 
-        // Clear any existing source
+        // Clear existing source
         videoRef.current.srcObject = null
 
-        // Set the new stream
+        // Set new stream
         videoRef.current.srcObject = stream
 
-        addDebug("▶️ Starting video playback...")
+        // Set up event listeners before playing
+        const video = videoRef.current
 
-        // Force video to play and set ready state
+        const onLoadedMetadata = () => {
+          addDebug("📹 Video metadata loaded")
+          setCameraReady(true)
+          setIsLoading(false)
+        }
+
+        const onCanPlay = () => {
+          addDebug("📹 Video can play")
+          setCameraReady(true)
+          setIsLoading(false)
+        }
+
+        const onError = (e: any) => {
+          addDebug(`❌ Video error: ${e.type}`)
+        }
+
+        video.addEventListener("loadedmetadata", onLoadedMetadata)
+        video.addEventListener("canplay", onCanPlay)
+        video.addEventListener("error", onError)
+
         try {
-          await videoRef.current.play()
-          addDebug("✅ Video play() completed")
-
-          // Set camera ready immediately after play() succeeds
-          setTimeout(() => {
-            addDebug("⏰ Setting camera ready (timeout)")
-            setCameraReady(true)
-            setIsLoading(false)
-          }, 500)
+          await video.play()
+          addDebug("✅ Video playing")
         } catch (playError) {
           addDebug(`⚠️ Video play failed: ${playError}`)
-          // Still try to set ready - sometimes video works even if play() fails
-          setTimeout(() => {
-            addDebug("⏰ Setting camera ready despite play error")
-            setCameraReady(true)
-            setIsLoading(false)
-          }, 1000)
+          // Continue anyway - sometimes it still works
         }
 
-        // Multiple fallback event listeners
-        videoRef.current.onloadedmetadata = () => {
-          addDebug("📹 Video metadata loaded")
-          if (!cameraReady) {
-            setCameraReady(true)
-            setIsLoading(false)
-          }
+        // Cleanup function for event listeners
+        const cleanup = () => {
+          video.removeEventListener("loadedmetadata", onLoadedMetadata)
+          video.removeEventListener("canplay", onCanPlay)
+          video.removeEventListener("error", onError)
         }
 
-        videoRef.current.oncanplay = () => {
-          addDebug("📹 Video can play")
-          if (!cameraReady) {
-            setCameraReady(true)
-            setIsLoading(false)
-          }
-        }
-
-        videoRef.current.onplaying = () => {
-          addDebug("📹 Video is playing")
-          if (!cameraReady) {
-            setCameraReady(true)
-            setIsLoading(false)
-          }
-        }
-
-        // Force ready after 3 seconds regardless
+        // Force ready state after timeout
         setTimeout(() => {
-          if (!cameraReady && streamRef.current) {
-            addDebug("🚨 Force setting camera ready after 3s")
+          if (streamRef.current && !cameraReady) {
+            addDebug("⏰ Force enabling camera after timeout")
             setCameraReady(true)
             setIsLoading(false)
           }
+          cleanup()
         }, 3000)
       }
     } catch (err: any) {
-      addDebug(`❌ Camera failed: ${err.name} - ${err.message}`)
-      setError(`Camera error: ${err.message}`)
+      addDebug(`❌ Camera failed: ${err.message}`)
+      setError(`Camera error: ${err.message || "Unknown error"}`)
       setIsLoading(false)
+      setCameraReady(false)
     }
   }
 
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          try {
+            track.stop()
+          } catch (err) {
+            console.warn("Error stopping track:", err)
+          }
+        })
+        streamRef.current = null
+      }
+      setCameraReady(false)
+      addDebug("🛑 Camera stopped")
+    } catch (err) {
+      console.error("Error stopping camera:", err)
     }
-    setCameraReady(false)
-    addDebug("🛑 Camera stopped")
   }
 
   const takePhoto = () => {
-    addDebug("📸 Taking photo...")
-
-    // Force enable capture even if video isn't fully ready
-    if (!streamRef.current) {
-      addDebug("❌ No stream available - trying anyway")
-      setError("Camera not ready. Please wait a moment and try again.")
-      return
-    }
-
-    if (!videoRef.current || !canvasRef.current) {
-      addDebug("❌ Video or canvas ref missing")
-      return
-    }
-
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    const context = canvas.getContext("2d")
-
-    if (!context) {
-      addDebug("❌ Canvas context missing")
-      return
-    }
-
-    // Use stream dimensions if video dimensions aren't available
-    const width = video.videoWidth || 1280
-    const height = video.videoHeight || 720
-
-    addDebug(`📐 Using dimensions: ${width}x${height}`)
-
-    canvas.width = width
-    canvas.height = height
-
     try {
+      addDebug("📸 Taking photo...")
+
+      if (!streamRef.current) {
+        setError("Camera not ready. Please wait and try again.")
+        return
+      }
+
+      if (!videoRef.current || !canvasRef.current) {
+        setError("Camera components not ready.")
+        return
+      }
+
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const context = canvas.getContext("2d")
+
+      if (!context) {
+        setError("Canvas not supported.")
+        return
+      }
+
+      // Get video dimensions
+      const width = video.videoWidth || 1280
+      const height = video.videoHeight || 720
+
+      addDebug(`📐 Photo dimensions: ${width}x${height}`)
+
+      if (width === 0 || height === 0) {
+        setError("Video not ready. Please wait a moment and try again.")
+        return
+      }
+
+      canvas.width = width
+      canvas.height = height
+
+      // Draw the video frame to canvas
       context.drawImage(video, 0, 0, width, height)
+
+      // Convert to data URL
       const photoData = canvas.toDataURL("image/jpeg", 0.9)
 
-      addDebug(`📸 Photo data length: ${photoData.length}`)
-
-      if (photoData && photoData.length > 100) {
+      if (photoData && photoData.length > 1000) {
         setCapturedMedia(photoData)
         addDebug("✅ Photo captured successfully!")
       } else {
-        addDebug("❌ Photo capture failed - invalid data")
         setError("Photo capture failed. Please try again.")
       }
-    } catch (drawError) {
-      addDebug(`❌ Canvas draw error: ${drawError}`)
+    } catch (err: any) {
+      addDebug(`❌ Photo capture error: ${err.message}`)
       setError("Photo capture failed. Please try again.")
     }
   }
 
   const startRecording = () => {
-    if (!streamRef.current) return
-
     try {
+      if (!streamRef.current) return
+
       chunksRef.current = []
       const recorder = new MediaRecorder(streamRef.current)
 
@@ -212,11 +225,22 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       }
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "video/webm" })
-        const videoUrl = URL.createObjectURL(blob)
-        setCapturedMedia(videoUrl)
+        try {
+          const blob = new Blob(chunksRef.current, { type: "video/webm" })
+          const videoUrl = URL.createObjectURL(blob)
+          setCapturedMedia(videoUrl)
+          setIsRecording(false)
+          addDebug("🎥 Recording completed!")
+        } catch (err) {
+          addDebug(`❌ Recording processing failed: ${err}`)
+          setError("Recording failed to process.")
+        }
+      }
+
+      recorder.onerror = (event: any) => {
+        addDebug(`❌ Recording error: ${event.error}`)
+        setError("Recording failed.")
         setIsRecording(false)
-        addDebug("🎥 Recording completed!")
       }
 
       recorder.start()
@@ -224,6 +248,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       setIsRecording(true)
       setRecordingTime(0)
 
+      // Recording timer
       const timer = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 30) {
@@ -237,68 +262,151 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
       addDebug("🔴 Recording started!")
     } catch (err: any) {
-      addDebug(`❌ Recording failed: ${err.message}`)
-      setError("Recording failed")
+      addDebug(`❌ Recording start failed: ${err.message}`)
+      setError("Recording failed to start.")
     }
   }
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      mediaRecorderRef.current = null
-      addDebug("⏹️ Recording stopped!")
+    try {
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current = null
+        addDebug("⏹️ Recording stopped!")
+      }
+    } catch (err) {
+      addDebug(`❌ Stop recording error: ${err}`)
     }
   }
 
   const handleCapture = () => {
-    if (mode === "photo") {
-      takePhoto()
-    } else {
-      if (isRecording) {
-        stopRecording()
+    try {
+      if (mode === "photo") {
+        takePhoto()
       } else {
-        startRecording()
+        if (isRecording) {
+          stopRecording()
+        } else {
+          startRecording()
+        }
       }
+    } catch (err: any) {
+      addDebug(`❌ Capture handler error: ${err.message}`)
+      setError("Capture failed. Please try again.")
     }
   }
 
   const retake = () => {
-    setCapturedMedia(null)
-    setRecordingTime(0)
-    setError(null)
+    try {
+      setCapturedMedia(null)
+      setRecordingTime(0)
+      setError(null)
+    } catch (err) {
+      console.error("Retake error:", err)
+    }
   }
 
   const confirm = () => {
-    if (capturedMedia) {
-      addDebug("✅ Confirming capture")
-      onCapture(capturedMedia, mode)
-      stopCamera()
+    try {
+      if (capturedMedia) {
+        addDebug("✅ Confirming capture")
+        onCapture(capturedMedia, mode)
+        stopCamera()
+      }
+    } catch (err: any) {
+      addDebug(`❌ Confirm error: ${err.message}`)
+      setError("Failed to save capture.")
     }
   }
 
   const switchCamera = () => {
-    setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
+    try {
+      setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
+    } catch (err) {
+      console.error("Switch camera error:", err)
+    }
   }
 
   const handleClose = () => {
-    stopCamera()
-    onClose()
+    try {
+      stopCamera()
+      onClose()
+    } catch (err) {
+      console.error("Close error:", err)
+      onClose() // Still try to close
+    }
   }
 
-  // Auto-start camera on mount
+  // Safe useEffect with error handling
   useEffect(() => {
-    addDebug("🚀 Component mounted, starting camera...")
-    startCamera()
-    return () => stopCamera()
+    try {
+      addDebug("🚀 Component mounted")
+      startCamera()
+      return () => {
+        try {
+          stopCamera()
+        } catch (err) {
+          console.error("Cleanup error:", err)
+        }
+      }
+    } catch (err) {
+      console.error("Mount effect error:", err)
+      setError("Failed to initialize camera.")
+    }
   }, [])
 
-  // Restart when facing mode changes
+  // Safe facing mode effect
   useEffect(() => {
-    if (!isLoading && !error && !capturedMedia) {
-      addDebug("🔄 Facing mode changed, restarting camera...")
-      startCamera()
+    try {
+      if (!isLoading && !error && !capturedMedia && facingMode) {
+        addDebug("🔄 Restarting for facing mode change")
+        startCamera()
+      }
+    } catch (err) {
+      console.error("Facing mode effect error:", err)
     }
   }, [facingMode])
+
+  // Error boundary fallback
+  if (error && error.includes("not supported")) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "#000000",
+          color: "white",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: "4rem", marginBottom: "2rem" }}>📱</div>
+        <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Not Available</h2>
+        <p style={{ marginBottom: "2rem", opacity: 0.8 }}>Camera is not supported on this device or browser.</p>
+        <button
+          onClick={handleClose}
+          style={{
+            padding: "1rem 2rem",
+            borderRadius: "1rem",
+            border: "none",
+            background: "#3B82F6",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Go Back
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -310,7 +418,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         bottom: 0,
         background: "#000000",
         zIndex: 9999,
-        isolation: "isolate",
         display: "flex",
         flexDirection: "column",
       }}
@@ -330,10 +437,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           <div style={{ fontSize: "1.5rem" }}>{mode === "photo" ? "📸" : "🎥"}</div>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.25rem" }}>{mode === "photo" ? "Take Photo" : "Record Video"}</h2>
-            {cameraReady && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Camera ready</p>}
-            {streamRef.current && !cameraReady && (
-              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Stream active</p>
-            )}
+            {cameraReady && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Ready</p>}
+            {isLoading && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Loading...</p>}
           </div>
         </div>
         <button
@@ -352,17 +457,26 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       </div>
 
       {/* Camera View */}
-      <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ flex: 1, position: "relative", background: "#333" }}>
         {error ? (
-          <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
-            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>❌</div>
-            <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Error</h3>
-            <p style={{ marginBottom: "1.5rem", opacity: 0.8 }}>{error}</p>
-
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              color: "white",
+              padding: "2rem",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>❌</div>
+            <h3 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>Camera Error</h3>
+            <p style={{ marginBottom: "2rem", opacity: 0.8 }}>{error}</p>
             <button
               onClick={() => {
                 setError(null)
-                setDebugInfo([])
                 startCamera()
               }}
               style={{
@@ -379,7 +493,14 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             </button>
           </div>
         ) : capturedMedia ? (
-          <div style={{ textAlign: "center", maxWidth: "100%", maxHeight: "100%" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+            }}
+          >
             {mode === "photo" ? (
               <img
                 src={capturedMedia || "/placeholder.svg"}
@@ -388,7 +509,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                   maxWidth: "100%",
                   maxHeight: "100%",
                   objectFit: "contain",
-                  borderRadius: "1rem",
                 }}
               />
             ) : (
@@ -402,7 +522,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                   maxWidth: "100%",
                   maxHeight: "100%",
                   objectFit: "contain",
-                  borderRadius: "1rem",
                 }}
               />
             )}
@@ -418,11 +537,9 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                background: "#333",
               }}
             />
 
-            {/* Show loading overlay if still loading */}
             {isLoading && (
               <div
                 style={{
@@ -441,10 +558,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               >
                 <div
                   style={{
-                    width: "4rem",
-                    height: "4rem",
-                    border: "4px solid rgba(255,255,255,0.3)",
-                    borderTop: "4px solid white",
+                    width: "3rem",
+                    height: "3rem",
+                    border: "3px solid rgba(255,255,255,0.3)",
+                    borderTop: "3px solid white",
                     borderRadius: "50%",
                     animation: "spin 1s linear infinite",
                     marginBottom: "1rem",
@@ -463,7 +580,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           <div
             style={{
               position: "absolute",
-              top: "2rem",
+              top: "1rem",
               left: "50%",
               transform: "translateX(-50%)",
               display: "flex",
@@ -471,53 +588,30 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               gap: "0.5rem",
               background: "rgba(239, 68, 68, 0.9)",
               color: "white",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "2rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "1rem",
+              fontSize: "0.875rem",
               fontWeight: "bold",
             }}
           >
             <div
               style={{
-                width: "0.75rem",
-                height: "0.75rem",
+                width: "0.5rem",
+                height: "0.5rem",
                 borderRadius: "50%",
                 background: "white",
                 animation: "pulse 1s infinite",
               }}
             />
-            REC {recordingTime}s / 30s
-          </div>
-        )}
-
-        {/* Debug info - only show if loading or error */}
-        {(isLoading || error) && debugInfo.length > 0 && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "6rem",
-              left: "1rem",
-              right: "1rem",
-              background: "rgba(0,0,0,0.8)",
-              color: "white",
-              padding: "1rem",
-              borderRadius: "0.5rem",
-              fontSize: "0.75rem",
-              maxHeight: "150px",
-              overflow: "auto",
-            }}
-          >
-            <strong>Debug Log:</strong>
-            {debugInfo.map((info, i) => (
-              <div key={i}>{info}</div>
-            ))}
+            REC {recordingTime}s
           </div>
         )}
       </div>
 
-      {/* Controls - ALWAYS show when not in captured media mode */}
+      {/* Controls */}
       <div
         style={{
-          padding: "2rem",
+          padding: "1.5rem",
           background: "rgba(255,255,255,0.1)",
           display: "flex",
           alignItems: "center",
@@ -526,15 +620,14 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         }}
       >
         {capturedMedia ? (
-          // Captured media controls
           <>
             <button
               onClick={retake}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
-                padding: "1rem 2rem",
+                gap: "0.5rem",
+                padding: "0.75rem 1.5rem",
                 borderRadius: "1rem",
                 border: "none",
                 background: "rgba(255,255,255,0.2)",
@@ -543,7 +636,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                 fontWeight: "bold",
               }}
             >
-              <RotateCcw size={20} />
+              <RotateCcw size={18} />
               Retake
             </button>
             <button
@@ -551,8 +644,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
-                padding: "1rem 2rem",
+                gap: "0.5rem",
+                padding: "0.75rem 1.5rem",
                 borderRadius: "1rem",
                 border: "none",
                 background: "#10B981",
@@ -561,17 +654,16 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                 fontWeight: "bold",
               }}
             >
-              <Check size={20} />
+              <Check size={18} />
               Use {mode === "photo" ? "Photo" : "Video"}
             </button>
           </>
         ) : (
-          // Camera controls - ALWAYS show unless there's captured media
           <>
             <button
               onClick={switchCamera}
               style={{
-                padding: "1rem",
+                padding: "0.75rem",
                 borderRadius: "50%",
                 border: "none",
                 background: "rgba(255,255,255,0.2)",
@@ -579,42 +671,42 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                 cursor: "pointer",
               }}
             >
-              <SwitchCamera size={24} />
+              <SwitchCamera size={20} />
             </button>
 
             <button
               onClick={handleCapture}
+              disabled={!cameraReady && !streamRef.current}
               style={{
-                width: "5rem",
-                height: "5rem",
+                width: "4rem",
+                height: "4rem",
                 borderRadius: "50%",
-                border: "4px solid white",
+                border: "3px solid white",
                 background:
-                  streamRef.current || cameraReady
+                  cameraReady || streamRef.current
                     ? mode === "photo"
                       ? "#EF4444"
                       : isRecording
                         ? "#F59E0B"
                         : "#EF4444"
-                    : "rgba(255,255,255,0.5)",
-                cursor: streamRef.current || cameraReady ? "pointer" : "not-allowed",
+                    : "rgba(255,255,255,0.3)",
+                cursor: cameraReady || streamRef.current ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: streamRef.current || cameraReady ? 1 : 0.7,
-                transition: "all 0.3s ease",
+                opacity: cameraReady || streamRef.current ? 1 : 0.5,
               }}
             >
               {mode === "photo" ? (
-                <Camera size={32} color="white" />
+                <Camera size={24} color="white" />
               ) : isRecording ? (
-                <Square size={24} color="white" fill="white" />
+                <Square size={20} color="white" fill="white" />
               ) : (
-                <Circle size={32} color="white" />
+                <Circle size={24} color="white" />
               )}
             </button>
 
-            <div style={{ width: "3rem" }} />
+            <div style={{ width: "2.5rem" }} />
           </>
         )}
       </div>
