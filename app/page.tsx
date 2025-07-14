@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3 } from "lucide-react"
+import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3, FileImage } from "lucide-react"
 import { ReliableCamera } from "./components/reliable-camera"
 import { VoiceCommander } from "./components/voice-commander"
 import { PostcardEditor } from "./components/postcard-editor"
@@ -23,6 +23,19 @@ interface Pin {
   enhancedThumbnail?: string // For place photos
 }
 
+interface SavedPostcard {
+  id: string
+  mediaUrl: string
+  mediaType: "photo" | "video"
+  locationName: string
+  text: string
+  textColor: string
+  textSize: number
+  selectedTemplate: string
+  timestamp: string
+  canvasDataUrl: string
+}
+
 export default function Page() {
   const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries" | "editor">("main")
   const [showCamera, setShowCamera] = useState(false)
@@ -33,25 +46,36 @@ export default function Page() {
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [savedPins, setSavedPins] = useState<Pin[]>([])
-  const [libraryTab, setLibraryTab] = useState<"pins" | "photos" | "videos">("pins")
+  const [savedPostcards, setSavedPostcards] = useState<SavedPostcard[]>([])
+  const [libraryTab, setLibraryTab] = useState<"pins" | "photos" | "videos" | "postcards">("pins")
   const [quickPinMode, setQuickPinMode] = useState(false)
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
   const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map())
+  const [editorMedia, setEditorMedia] = useState<{ url: string; type: "photo" | "video" } | null>(null)
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
   const recognition = useRef<any>(null)
 
-  // Load saved pins from localStorage on mount
+  // Load saved pins and postcards from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("pinit-saved-pins")
-    if (saved) {
+    const savedPinsData = localStorage.getItem("pinit-saved-pins")
+    if (savedPinsData) {
       try {
-        setSavedPins(JSON.parse(saved))
+        setSavedPins(JSON.parse(savedPinsData))
       } catch (error) {
         console.error("Failed to load saved pins:", error)
+      }
+    }
+
+    const savedPostcardsData = localStorage.getItem("pinit-saved-postcards")
+    if (savedPostcardsData) {
+      try {
+        setSavedPostcards(JSON.parse(savedPostcardsData))
+      } catch (error) {
+        console.error("Failed to load saved postcards:", error)
       }
     }
   }, [])
@@ -60,6 +84,20 @@ export default function Page() {
   useEffect(() => {
     localStorage.setItem("pinit-saved-pins", JSON.stringify(savedPins))
   }, [savedPins])
+
+  // Load saved postcards when library tab changes to postcards
+  useEffect(() => {
+    if (libraryTab === "postcards") {
+      const savedPostcardsData = localStorage.getItem("pinit-saved-postcards")
+      if (savedPostcardsData) {
+        try {
+          setSavedPostcards(JSON.parse(savedPostcardsData))
+        } catch (error) {
+          console.error("Failed to load saved postcards:", error)
+        }
+      }
+    }
+  }, [libraryTab])
 
   useEffect(() => {
     if (SpeechRecognition) {
@@ -257,7 +295,8 @@ export default function Page() {
 
   const closeEditor = () => {
     setSelectedPin(null)
-    setCurrentScreen("libraries")
+    setEditorMedia(null)
+    setCurrentScreen("main") // Go back to main instead of libraries when coming from camera
   }
 
   const updatePin = (updatedPin: Pin) => {
@@ -269,6 +308,15 @@ export default function Page() {
     if (confirm("Are you sure you want to delete this pin?")) {
       setSavedPins((prev) => prev.filter((pin) => pin.id !== pinId))
       console.log(`🗑️ Pin deleted: ${pinId}`)
+    }
+  }
+
+  const deletePostcard = (postcardId: string) => {
+    if (confirm("Are you sure you want to delete this postcard?")) {
+      const updatedPostcards = savedPostcards.filter((postcard) => postcard.id !== postcardId)
+      setSavedPostcards(updatedPostcards)
+      localStorage.setItem("pinit-saved-postcards", JSON.stringify(updatedPostcards))
+      console.log(`🗑️ Postcard deleted: ${postcardId}`)
     }
   }
 
@@ -790,7 +838,12 @@ export default function Page() {
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
 
-            // Save media to current location pin
+            // Set up editor with captured media
+            setEditorMedia({ url: mediaData, type })
+            setCurrentScreen("editor")
+            setShowCamera(false)
+
+            // Also save the pin for later
             if (userLocation) {
               const newPin: Pin = {
                 id: Date.now().toString(),
@@ -808,29 +861,36 @@ export default function Page() {
               setSavedPins((prev) => [newPin, ...prev])
               playEnhancedSound("success-chime")
             }
-
-            setShowCamera(false)
           }}
           onClose={() => setShowCamera(false)}
         />
       )}
 
       {/* Editor screen section */}
-      {currentScreen === "editor" && selectedPin && (
+      {currentScreen === "editor" && (selectedPin || editorMedia) && (
         <PostcardEditor
-          mediaUrl={selectedPin.media?.url || selectedPin.thumbnail || ""}
-          mediaType={selectedPin.media?.type || "photo"}
-          locationName={selectedPin.address}
+          mediaUrl={selectedPin?.media?.url || selectedPin?.thumbnail || editorMedia?.url || ""}
+          mediaType={selectedPin?.media?.type || editorMedia?.type || "photo"}
+          locationName={selectedPin?.address || locationAddress || "Current Location"}
           onSave={(postcardData) => {
             console.log("📮 Postcard saved:", postcardData)
-            // Here you could save the postcard or handle sharing
+
+            // If we came from camera (editorMedia), update the corresponding pin
+            if (editorMedia && userLocation) {
+              const pinToUpdate = savedPins.find((pin) => pin.media?.url === editorMedia.url)
+              if (pinToUpdate) {
+                const updatedPin = { ...pinToUpdate, postcardData }
+                setSavedPins((prev) => prev.map((pin) => (pin.id === pinToUpdate.id ? updatedPin : pin)))
+              }
+            }
+
             closeEditor()
           }}
           onClose={closeEditor}
         />
       )}
 
-      {/* Libraries screen section - NOW WITH SCROLLING! */}
+      {/* Libraries screen section - NOW WITH POSTCARDS TAB! */}
       {currentScreen === "libraries" && (
         <div
           style={{
@@ -879,6 +939,7 @@ export default function Page() {
               padding: "0 2rem",
               borderBottom: "1px solid rgba(255,255,255,0.1)",
               flexShrink: 0, // Don't shrink
+              overflowX: "auto", // Allow horizontal scroll on mobile
             }}
           >
             {[
@@ -893,6 +954,11 @@ export default function Page() {
                 label: "🎥 Videos",
                 count: savedPins.filter((pin) => pin.media?.type === "video").length,
               },
+              {
+                id: "postcards",
+                label: "📮 Postcards",
+                count: savedPostcards.length,
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -906,6 +972,7 @@ export default function Page() {
                   borderBottom: libraryTab === tab.id ? "2px solid #10B981" : "2px solid transparent",
                   fontSize: "0.875rem",
                   fontWeight: 500,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {tab.label} ({tab.count})
@@ -1090,6 +1157,124 @@ export default function Page() {
                           </div>
                         </div>
                       ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* NEW POSTCARDS TAB */}
+            {libraryTab === "postcards" && (
+              <div>
+                {savedPostcards.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", padding: "2rem" }}>
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📮</div>
+                    <p>No postcards saved yet</p>
+                    <p style={{ fontSize: "0.875rem" }}>
+                      Create postcards from your photos and videos to save memories!
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: "1rem" }}>
+                    {savedPostcards.map((postcard) => (
+                      <div
+                        key={postcard.id}
+                        style={{
+                          background: "rgba(255,255,255,0.1)",
+                          borderRadius: "1rem",
+                          padding: "1rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "1rem",
+                          transition: "all 0.3s ease",
+                          border: "1px solid transparent",
+                        }}
+                      >
+                        {/* Postcard Thumbnail */}
+                        <div
+                          style={{
+                            width: "80px",
+                            height: "60px",
+                            borderRadius: "0.5rem",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "rgba(255,255,255,0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <img
+                            src={postcard.canvasDataUrl || "/placeholder.svg"}
+                            alt="Postcard thumbnail"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg?height=60&width=80&text=Postcard"
+                            }}
+                          />
+                        </div>
+
+                        {/* Postcard Metadata */}
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{postcard.locationName}</h4>
+                          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                            📅 {new Date(postcard.timestamp).toLocaleDateString()} at{" "}
+                            {new Date(postcard.timestamp).toLocaleTimeString()}
+                          </p>
+                          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
+                            💬 "{postcard.text.substring(0, 50)}
+                            {postcard.text.length > 50 ? "..." : ""}"
+                          </p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <button
+                            onClick={() => {
+                              // Download postcard
+                              const link = document.createElement("a")
+                              link.download = `postcard-${postcard.locationName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}.jpg`
+                              link.href = postcard.canvasDataUrl
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                            }}
+                            style={{
+                              padding: "0.5rem",
+                              borderRadius: "0.5rem",
+                              border: "none",
+                              background: "rgba(16, 185, 129, 0.2)",
+                              color: "rgba(16, 185, 129, 0.8)",
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                            }}
+                          >
+                            <FileImage size={16} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deletePostcard(postcard.id)
+                            }}
+                            style={{
+                              padding: "0.5rem",
+                              borderRadius: "0.5rem",
+                              border: "none",
+                              background: "rgba(239, 68, 68, 0.2)",
+                              color: "rgba(239, 68, 68, 0.8)",
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
