@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft } from "lucide-react"
+import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3 } from "lucide-react"
 import { EnhancedCamera } from "./components/enhanced-camera"
 import { VoiceCommander } from "./components/voice-commander"
+import { PostcardEditor } from "./components/postcard-editor"
 import { playEnhancedSound } from "./utils/enhanced-audio"
 
 interface Pin {
@@ -12,14 +13,16 @@ interface Pin {
   longitude: number
   address: string
   timestamp: string
+  notes?: string
   media?: {
     url: string
     type: "photo" | "video"
   }
+  thumbnail?: string // For map pins, we'll generate a thumbnail
 }
 
 export default function Page() {
-  const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries">("main")
+  const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries" | "editor">("main")
   const [showCamera, setShowCamera] = useState(false)
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -32,6 +35,7 @@ export default function Page() {
   const [quickPinMode, setQuickPinMode] = useState(false)
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
@@ -174,6 +178,15 @@ export default function Page() {
     }
   }
 
+  const generateThumbnailForPin = (pin: Pin): string => {
+    if (pin.media) {
+      return pin.media.url // Use the actual media as thumbnail
+    } else {
+      // Generate a map thumbnail for location pins
+      return `https://maps.googleapis.com/maps/api/staticmap?center=${pin.latitude},${pin.longitude}&zoom=15&size=300x200&maptype=roadmap&markers=color:red%7Clabel:P%7C${pin.latitude},${pin.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    }
+  }
+
   const markSpot = () => {
     if (userLocation) {
       const newPin: Pin = {
@@ -182,15 +195,14 @@ export default function Page() {
         longitude: userLocation.longitude,
         address: locationAddress || "Unknown Location",
         timestamp: new Date().toISOString(),
+        notes: "", // Empty notes initially
+        thumbnail: mapImageUrl || undefined,
       }
 
       setSavedPins((prev) => [newPin, ...prev])
 
       // Play success sound
       playEnhancedSound("success-chime")
-
-      // Remove this alert line:
-      // alert(`📌 Location pinned and saved to library!\n${locationAddress}`)
 
       console.log("📌 Pin created and saved:", newPin)
     } else {
@@ -210,6 +222,21 @@ export default function Page() {
     }, 2000)
 
     setAutoCloseTimer(timer)
+  }
+
+  const openEditor = (pin: Pin) => {
+    setSelectedPin(pin)
+    setCurrentScreen("editor")
+  }
+
+  const closeEditor = () => {
+    setSelectedPin(null)
+    setCurrentScreen("libraries")
+  }
+
+  const updatePin = (updatedPin: Pin) => {
+    setSavedPins((prev) => prev.map((pin) => (pin.id === updatedPin.id ? updatedPin : pin)))
+    setSelectedPin(updatedPin)
   }
 
   return (
@@ -604,6 +631,7 @@ export default function Page() {
                 longitude: userLocation.longitude,
                 address: locationAddress || "Unknown Location",
                 timestamp: new Date().toISOString(),
+                notes: "",
                 media: {
                   url: mediaData,
                   type: type,
@@ -617,6 +645,21 @@ export default function Page() {
             setShowCamera(false)
           }}
           onClose={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Editor screen section */}
+      {currentScreen === "editor" && selectedPin && (
+        <PostcardEditor
+          mediaUrl={selectedPin.media?.url || generateThumbnailForPin(selectedPin)}
+          mediaType={selectedPin.media?.type || "photo"}
+          locationName={selectedPin.address}
+          onSave={(postcardData) => {
+            console.log("📮 Postcard saved:", postcardData)
+            // Here you could save the postcard or handle sharing
+            closeEditor()
+          }}
+          onClose={closeEditor}
         />
       )}
 
@@ -716,11 +759,7 @@ export default function Page() {
                       .map((pin) => (
                         <div
                           key={pin.id}
-                          onClick={() => {
-                            // Open location in Google Maps
-                            const mapsUrl = `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`
-                            window.open(mapsUrl, "_blank")
-                          }}
+                          onClick={() => openEditor(pin)}
                           style={{
                             background: "rgba(255,255,255,0.1)",
                             borderRadius: "1rem",
@@ -741,19 +780,47 @@ export default function Page() {
                             e.currentTarget.style.border = "1px solid transparent"
                           }}
                         >
-                          <div style={{ fontSize: "2rem" }}>📍</div>
+                          {/* Thumbnail */}
+                          <div
+                            style={{
+                              width: "80px",
+                              height: "60px",
+                              borderRadius: "0.5rem",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <img
+                              src={generateThumbnailForPin(pin) || "/placeholder.svg"}
+                              alt="Pin thumbnail"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          </div>
+
+                          {/* Metadata */}
                           <div style={{ flex: 1 }}>
                             <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
                             <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                              {new Date(pin.timestamp).toLocaleDateString()} at{" "}
+                              📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
                               {new Date(pin.timestamp).toLocaleTimeString()}
                             </p>
                             <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-                              {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                              📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
                             </p>
+                            {pin.notes && (
+                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
+                                📝 {pin.notes}
+                              </p>
+                            )}
                           </div>
-                          <div style={{ color: "rgba(16, 185, 129, 0.8)", fontSize: "0.75rem" }}>
-                            Click to view on map →
+
+                          {/* Edit indicator */}
+                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
+                            <Edit3 size={20} />
                           </div>
                         </div>
                       ))}
@@ -771,72 +838,74 @@ export default function Page() {
                     <p style={{ fontSize: "0.875rem" }}>Use the camera to capture photos at your favorite locations!</p>
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                      gap: "1rem",
-                    }}
-                  >
+                  <div style={{ display: "grid", gap: "1rem" }}>
                     {savedPins
                       .filter((pin) => pin.media?.type === "photo")
                       .map((pin) => (
                         <div
                           key={pin.id}
-                          onClick={() => {
-                            if (pin.media?.url) {
-                              window.open(pin.media.url, "_blank")
-                            }
-                          }}
+                          onClick={() => openEditor(pin)}
                           style={{
                             background: "rgba(255,255,255,0.1)",
                             borderRadius: "1rem",
-                            overflow: "hidden",
+                            padding: "1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "1rem",
                             cursor: "pointer",
                             transition: "all 0.3s ease",
                             border: "1px solid transparent",
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = "scale(1.02)"
+                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
                             e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "scale(1)"
+                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
                             e.currentTarget.style.border = "1px solid transparent"
                           }}
                         >
-                          <div style={{ position: "relative" }}>
+                          {/* Thumbnail */}
+                          <div
+                            style={{
+                              width: "80px",
+                              height: "60px",
+                              borderRadius: "0.5rem",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                            }}
+                          >
                             <img
                               src={pin.media?.url || "/placeholder.svg"}
-                              alt={`Photo from ${pin.address}`}
+                              alt="Photo thumbnail"
                               style={{
                                 width: "100%",
-                                height: "200px",
+                                height: "100%",
                                 objectFit: "cover",
                               }}
                             />
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "0.5rem",
-                                right: "0.5rem",
-                                background: "rgba(0,0,0,0.7)",
-                                color: "white",
-                                padding: "0.25rem 0.5rem",
-                                borderRadius: "0.25rem",
-                                fontSize: "0.75rem",
-                              }}
-                            >
-                              📸
-                            </div>
                           </div>
-                          <div style={{ padding: "1rem" }}>
-                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", color: "white" }}>
-                              {pin.address}
-                            </h4>
+
+                          {/* Metadata */}
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
                             <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                              {new Date(pin.timestamp).toLocaleDateString()}
+                              📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
+                              {new Date(pin.timestamp).toLocaleTimeString()}
                             </p>
+                            <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+                              📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                            </p>
+                            {pin.notes && (
+                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
+                                📝 {pin.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Edit indicator */}
+                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
+                            <Edit3 size={20} />
                           </div>
                         </div>
                       ))}
@@ -854,67 +923,94 @@ export default function Page() {
                     <p style={{ fontSize: "0.875rem" }}>Use the camera to record videos at your favorite locations!</p>
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                      gap: "1rem",
-                    }}
-                  >
+                  <div style={{ display: "grid", gap: "1rem" }}>
                     {savedPins
                       .filter((pin) => pin.media?.type === "video")
                       .map((pin) => (
                         <div
                           key={pin.id}
+                          onClick={() => openEditor(pin)}
                           style={{
                             background: "rgba(255,255,255,0.1)",
                             borderRadius: "1rem",
-                            overflow: "hidden",
+                            padding: "1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "1rem",
+                            cursor: "pointer",
                             transition: "all 0.3s ease",
                             border: "1px solid transparent",
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = "scale(1.02)"
+                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
                             e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "scale(1)"
+                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
                             e.currentTarget.style.border = "1px solid transparent"
                           }}
                         >
-                          <div style={{ position: "relative" }}>
+                          {/* Thumbnail */}
+                          <div
+                            style={{
+                              width: "80px",
+                              height: "60px",
+                              borderRadius: "0.5rem",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              position: "relative",
+                            }}
+                          >
                             <video
                               src={pin.media?.url}
                               style={{
                                 width: "100%",
-                                height: "200px",
+                                height: "100%",
                                 objectFit: "cover",
                               }}
-                              controls
-                              preload="metadata"
+                              muted
                             />
                             <div
                               style={{
                                 position: "absolute",
-                                top: "0.5rem",
-                                right: "0.5rem",
+                                top: "50%",
+                                left: "50%",
+                                transform: "translate(-50%, -50%)",
                                 background: "rgba(0,0,0,0.7)",
+                                borderRadius: "50%",
+                                width: "24px",
+                                height: "24px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                                 color: "white",
-                                padding: "0.25rem 0.5rem",
-                                borderRadius: "0.25rem",
                                 fontSize: "0.75rem",
                               }}
                             >
-                              🎥
+                              ▶
                             </div>
                           </div>
-                          <div style={{ padding: "1rem" }}>
-                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", color: "white" }}>
-                              {pin.address}
-                            </h4>
+
+                          {/* Metadata */}
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
                             <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                              {new Date(pin.timestamp).toLocaleDateString()}
+                              📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
+                              {new Date(pin.timestamp).toLocaleTimeString()}
                             </p>
+                            <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+                              📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                            </p>
+                            {pin.notes && (
+                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
+                                📝 {pin.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Edit indicator */}
+                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
+                            <Edit3 size={20} />
                           </div>
                         </div>
                       ))}
