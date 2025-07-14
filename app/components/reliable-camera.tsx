@@ -19,7 +19,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
-  const [isRecording, setIsRecording] = useState(false)
+  const [isRecording, setIsRecording] = useState(isRecording)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [cameraReady, setCameraReady] = useState(false)
@@ -149,13 +149,15 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const takePhoto = () => {
     addDebug("📸 Taking photo...")
 
-    if (!videoRef.current || !canvasRef.current) {
-      addDebug("❌ Video or canvas ref missing")
+    // Force enable capture even if video isn't fully ready
+    if (!streamRef.current) {
+      addDebug("❌ No stream available - trying anyway")
+      setError("Camera not ready. Please wait a moment and try again.")
       return
     }
 
-    if (!streamRef.current) {
-      addDebug("❌ No stream available")
+    if (!videoRef.current || !canvasRef.current) {
+      addDebug("❌ Video or canvas ref missing")
       return
     }
 
@@ -512,7 +514,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         )}
       </div>
 
-      {/* Controls */}
+      {/* Controls - ALWAYS show when not in captured media mode */}
       <div
         style={{
           padding: "2rem",
@@ -524,6 +526,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         }}
       >
         {capturedMedia ? (
+          // Captured media controls
           <>
             <button
               onClick={retake}
@@ -562,7 +565,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               Use {mode === "photo" ? "Photo" : "Video"}
             </button>
           </>
-        ) : !error ? (
+        ) : (
+          // Camera controls - ALWAYS show unless there's captured media
           <>
             <button
               onClick={switchCamera}
@@ -580,24 +584,25 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
             <button
               onClick={handleCapture}
-              disabled={!streamRef.current}
               style={{
                 width: "5rem",
                 height: "5rem",
                 borderRadius: "50%",
                 border: "4px solid white",
-                background: streamRef.current
-                  ? mode === "photo"
-                    ? "#EF4444"
-                    : isRecording
-                      ? "#F59E0B"
-                      : "#EF4444"
-                  : "rgba(255,255,255,0.3)",
-                cursor: streamRef.current ? "pointer" : "not-allowed",
+                background:
+                  streamRef.current || cameraReady
+                    ? mode === "photo"
+                      ? "#EF4444"
+                      : isRecording
+                        ? "#F59E0B"
+                        : "#EF4444"
+                    : "rgba(255,255,255,0.5)",
+                cursor: streamRef.current || cameraReady ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: streamRef.current ? 1 : 0.5,
+                opacity: streamRef.current || cameraReady ? 1 : 0.7,
+                transition: "all 0.3s ease",
               }}
             >
               {mode === "photo" ? (
@@ -611,7 +616,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
             <div style={{ width: "3rem" }} />
           </>
-        ) : null}
+        )}
       </div>
 
       <style jsx>{`
