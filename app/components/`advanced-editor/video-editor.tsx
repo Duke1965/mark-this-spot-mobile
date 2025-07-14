@@ -1,11 +1,19 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Pause, Volume2, VolumeX, Scissors } from "lucide-react"
+import { Play, Pause, Volume2, VolumeX, RotateCcw, Scissors, Zap } from "lucide-react"
 
 interface VideoEditorProps {
   videoUrl: string
-  onVideoUpdate: (updatedVideoData: any) => void
+  onVideoUpdate: (settings: VideoSettings) => void
+}
+
+interface VideoSettings {
+  startTime: number
+  endTime: number
+  playbackSpeed: number
+  volume: number
+  muted: boolean
 }
 
 export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
@@ -14,10 +22,11 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(100)
-  const [isMuted, setIsMuted] = useState(false)
+  const [muted, setMuted] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
-  const [trimStart, setTrimStart] = useState(0)
-  const [trimEnd, setTrimEnd] = useState(0)
+  const [startTime, setStartTime] = useState(0)
+  const [endTime, setEndTime] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -25,11 +34,19 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration)
-      setTrimEnd(video.duration)
+      setEndTime(video.duration)
     }
 
     const handleTimeUpdate = () => {
-      setCurrentTime(video.currentTime)
+      if (!isDragging) {
+        setCurrentTime(video.currentTime)
+      }
+
+      // Auto-pause at end time
+      if (video.currentTime >= endTime && endTime > 0) {
+        video.pause()
+        setIsPlaying(false)
+      }
     }
 
     video.addEventListener("loadedmetadata", handleLoadedMetadata)
@@ -39,15 +56,30 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata)
       video.removeEventListener("timeupdate", handleTimeUpdate)
     }
-  }, [])
+  }, [endTime, isDragging])
 
-  const togglePlayPause = () => {
+  useEffect(() => {
+    // Update parent component with current settings
+    onVideoUpdate({
+      startTime,
+      endTime,
+      playbackSpeed,
+      volume,
+      muted,
+    })
+  }, [startTime, endTime, playbackSpeed, volume, muted, onVideoUpdate])
+
+  const togglePlay = () => {
     const video = videoRef.current
     if (!video) return
 
     if (isPlaying) {
       video.pause()
     } else {
+      // Start from startTime if at beginning
+      if (video.currentTime < startTime || video.currentTime >= endTime) {
+        video.currentTime = startTime
+      }
       video.play()
     }
     setIsPlaying(!isPlaying)
@@ -65,30 +97,24 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
     const video = videoRef.current
     if (!video) return
 
-    video.volume = newVolume / 100
     setVolume(newVolume)
-    setIsMuted(newVolume === 0)
+    video.volume = newVolume / 100
   }
 
   const toggleMute = () => {
     const video = videoRef.current
     if (!video) return
 
-    if (isMuted) {
-      video.volume = volume / 100
-      setIsMuted(false)
-    } else {
-      video.volume = 0
-      setIsMuted(true)
-    }
+    setMuted(!muted)
+    video.muted = !muted
   }
 
   const handleSpeedChange = (speed: number) => {
     const video = videoRef.current
     if (!video) return
 
-    video.playbackRate = speed
     setPlaybackSpeed(speed)
+    video.playbackRate = speed
   }
 
   const formatTime = (time: number) => {
@@ -97,16 +123,20 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
-  const applyChanges = () => {
-    const videoData = {
-      url: videoUrl,
-      trimStart,
-      trimEnd,
-      volume: isMuted ? 0 : volume,
-      playbackSpeed,
-      duration: trimEnd - trimStart,
+  const resetToOriginal = () => {
+    setStartTime(0)
+    setEndTime(duration)
+    setPlaybackSpeed(1)
+    setVolume(100)
+    setMuted(false)
+
+    const video = videoRef.current
+    if (video) {
+      video.currentTime = 0
+      video.playbackRate = 1
+      video.volume = 1
+      video.muted = false
     }
-    onVideoUpdate(videoData)
   }
 
   return (
@@ -115,19 +145,54 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
         background: "rgba(0,0,0,0.9)",
         padding: "1rem",
         borderRadius: "1rem",
-        color: "white",
         maxHeight: "500px",
         overflowY: "auto",
       }}
     >
-      <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem" }}>Video Editor</h3>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "1rem",
+        }}
+      >
+        <h3
+          style={{
+            color: "white",
+            margin: 0,
+            fontSize: "1.1rem",
+            fontWeight: "600",
+          }}
+        >
+          Video Editor
+        </h3>
+        <button
+          onClick={resetToOriginal}
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: "rgba(239, 68, 68, 0.2)",
+            color: "rgba(239, 68, 68, 0.9)",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.8rem",
+          }}
+        >
+          <RotateCcw size={14} />
+          Reset
+        </button>
+      </div>
 
       {/* Video Preview */}
       <div
         style={{
-          position: "relative",
           marginBottom: "1rem",
-          borderRadius: "0.5rem",
+          borderRadius: "0.75rem",
           overflow: "hidden",
           background: "black",
         }}
@@ -140,180 +205,360 @@ export function VideoEditor({ videoUrl, onVideoUpdate }: VideoEditorProps) {
             height: "200px",
             objectFit: "contain",
           }}
-          onEnded={() => setIsPlaying(false)}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
         />
+      </div>
 
-        {/* Play/Pause Overlay */}
+      {/* Playback Controls */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          marginBottom: "1.5rem",
+          padding: "0.75rem",
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: "0.75rem",
+        }}
+      >
         <button
-          onClick={togglePlayPause}
+          onClick={togglePlay}
           style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "rgba(0,0,0,0.7)",
-            border: "none",
+            padding: "0.75rem",
             borderRadius: "50%",
-            width: "60px",
-            height: "60px",
-            color: "white",
+            border: "none",
+            background: "rgba(16, 185, 129, 0.3)",
+            color: "#10B981",
             cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            transition: "all 0.3s ease",
           }}
         >
-          {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+        </button>
+
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.8rem" }}>{formatTime(currentTime)}</span>
+            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.8rem" }}>{formatTime(duration)}</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={duration}
+            value={currentTime}
+            onChange={(e) => handleSeek(Number.parseFloat(e.target.value))}
+            onMouseDown={() => setIsDragging(true)}
+            onMouseUp={() => setIsDragging(false)}
+            style={{
+              width: "100%",
+              height: "4px",
+              borderRadius: "2px",
+              background: "rgba(255,255,255,0.2)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+
+        <button
+          onClick={toggleMute}
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: muted ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.1)",
+            color: muted ? "rgba(239, 68, 68, 0.9)" : "white",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+          }}
+        >
+          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </button>
       </div>
 
-      {/* Timeline */}
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.5rem" }}>
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max={duration}
-          value={currentTime}
-          onChange={(e) => handleSeek(Number(e.target.value))}
-          style={{
-            width: "100%",
-            height: "6px",
-            borderRadius: "3px",
-            background: "rgba(255,255,255,0.2)",
-            outline: "none",
-          }}
-        />
-      </div>
-
       {/* Trim Controls */}
-      <div style={{ marginBottom: "1rem" }}>
-        <h4 style={{ fontSize: "0.9rem", marginBottom: "0.5rem", opacity: 0.8 }}>Trim Video</h4>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.25rem", display: "block" }}>
-              Start: {formatTime(trimStart)}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max={duration}
-              value={trimStart}
-              onChange={(e) => setTrimStart(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-              }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.25rem", display: "block" }}>
-              End: {formatTime(trimEnd)}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max={duration}
-              value={trimEnd}
-              onChange={(e) => setTrimEnd(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Volume Control */}
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-          <button
-            onClick={toggleMute}
-            style={{
-              background: "none",
-              border: "none",
-              color: "white",
-              cursor: "pointer",
-              padding: "0.25rem",
-            }}
-          >
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-          <span style={{ fontSize: "0.8rem", opacity: 0.9 }}>Volume: {isMuted ? 0 : volume}%</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={isMuted ? 0 : volume}
-          onChange={(e) => handleVolumeChange(Number(e.target.value))}
-          style={{
-            width: "100%",
-            height: "4px",
-            borderRadius: "2px",
-            background: "rgba(255,255,255,0.2)",
-            outline: "none",
-          }}
-        />
-      </div>
-
-      {/* Speed Control */}
-      <div style={{ marginBottom: "1rem" }}>
-        <label style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.5rem", display: "block" }}>
-          Playback Speed: {playbackSpeed}x
-        </label>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
-            <button
-              key={speed}
-              onClick={() => handleSpeedChange(speed)}
-              style={{
-                padding: "0.25rem 0.5rem",
-                borderRadius: "0.25rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: playbackSpeed === speed ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.75rem",
-              }}
-            >
-              {speed}x
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Apply Changes Button */}
-      <button
-        onClick={applyChanges}
+      <div
         style={{
-          width: "100%",
-          padding: "0.75rem",
-          borderRadius: "0.5rem",
-          border: "none",
-          background: "rgba(16, 185, 129, 0.3)",
-          color: "white",
-          cursor: "pointer",
-          fontSize: "0.9rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "0.5rem",
+          marginBottom: "1.5rem",
+          padding: "1rem",
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: "0.75rem",
+          border: "1px solid rgba(255,255,255,0.1)",
         }}
       >
-        <Scissors size={16} />
-        Apply Video Changes
-      </button>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <Scissors size={16} style={{ color: "rgba(255,255,255,0.8)" }} />
+          <h4
+            style={{
+              color: "white",
+              margin: 0,
+              fontSize: "0.9rem",
+              fontWeight: "500",
+            }}
+          >
+            Trim Video
+          </h4>
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <label
+              style={{
+                color: "rgba(255,255,255,0.8)",
+                fontSize: "0.8rem",
+              }}
+            >
+              Start Time
+            </label>
+            <span
+              style={{
+                color: "white",
+                fontSize: "0.8rem",
+                fontWeight: "500",
+              }}
+            >
+              {formatTime(startTime)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={duration}
+            value={startTime}
+            onChange={(e) => setStartTime(Number.parseFloat(e.target.value))}
+            style={{
+              width: "100%",
+              height: "4px",
+              borderRadius: "2px",
+              background: "rgba(255,255,255,0.2)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <label
+              style={{
+                color: "rgba(255,255,255,0.8)",
+                fontSize: "0.8rem",
+              }}
+            >
+              End Time
+            </label>
+            <span
+              style={{
+                color: "white",
+                fontSize: "0.8rem",
+                fontWeight: "500",
+              }}
+            >
+              {formatTime(endTime)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={startTime}
+            max={duration}
+            value={endTime}
+            onChange={(e) => setEndTime(Number.parseFloat(e.target.value))}
+            style={{
+              width: "100%",
+              height: "4px",
+              borderRadius: "2px",
+              background: "rgba(255,255,255,0.2)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Speed & Volume Controls */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "1rem",
+        }}
+      >
+        {/* Speed Control */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <Zap size={16} style={{ color: "rgba(255,255,255,0.8)" }} />
+            <h4
+              style={{
+                color: "white",
+                margin: 0,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+              }}
+            >
+              Speed
+            </h4>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                color: "rgba(255,255,255,0.8)",
+                fontSize: "0.8rem",
+              }}
+            >
+              Playback Speed
+            </span>
+            <span
+              style={{
+                color: "white",
+                fontSize: "0.8rem",
+                fontWeight: "500",
+              }}
+            >
+              {playbackSpeed}x
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0.25}
+            max={3}
+            step={0.25}
+            value={playbackSpeed}
+            onChange={(e) => handleSpeedChange(Number.parseFloat(e.target.value))}
+            style={{
+              width: "100%",
+              height: "4px",
+              borderRadius: "2px",
+              background: "rgba(255,255,255,0.2)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+
+        {/* Volume Control */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <Volume2 size={16} style={{ color: "rgba(255,255,255,0.8)" }} />
+            <h4
+              style={{
+                color: "white",
+                margin: 0,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+              }}
+            >
+              Volume
+            </h4>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                color: "rgba(255,255,255,0.8)",
+                fontSize: "0.8rem",
+              }}
+            >
+              Audio Level
+            </span>
+            <span
+              style={{
+                color: "white",
+                fontSize: "0.8rem",
+                fontWeight: "500",
+              }}
+            >
+              {volume}%
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={volume}
+            onChange={(e) => handleVolumeChange(Number.parseInt(e.target.value))}
+            style={{
+              width: "100%",
+              height: "4px",
+              borderRadius: "2px",
+              background: "rgba(255,255,255,0.2)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
