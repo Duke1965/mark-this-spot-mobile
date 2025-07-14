@@ -190,7 +190,9 @@ export default function Page() {
       // Play success sound
       playEnhancedSound("success-chime")
 
-      alert(`📌 Location pinned and saved to library!\n${locationAddress}`)
+      // Remove this alert line:
+      // alert(`📌 Location pinned and saved to library!\n${locationAddress}`)
+
       console.log("📌 Pin created and saved:", newPin)
     } else {
       alert("❌ Location not available yet. Please wait a moment and try again.")
@@ -203,8 +205,14 @@ export default function Page() {
 
     // Auto-close after 2 seconds like Shazam
     const timer = setTimeout(() => {
+      setQuickPinMode(false) // Reset the mode first
       if (typeof window !== "undefined") {
-        window.close() // Try to close the app
+        // Try multiple methods to close/minimize
+        if (window.history.length > 1) {
+          window.history.back()
+        } else {
+          window.close()
+        }
       }
     }, 2000)
 
