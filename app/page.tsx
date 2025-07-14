@@ -1,9 +1,23 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Camera, Video, BookOpen, Volume2, VolumeX } from "lucide-react"
+import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Play, Palette } from "lucide-react"
 import { EnhancedCamera } from "./components/enhanced-camera"
 import { VoiceCommander } from "./components/voice-commander"
+import { enhancedSoundCategories, playEnhancedSound } from "./utils/enhanced-audio"
+import { postcardTemplates } from "./components/postcard-templates"
+
+interface Pin {
+  id: string
+  latitude: number
+  longitude: number
+  address: string
+  timestamp: string
+  media?: {
+    url: string
+    type: "photo" | "video"
+  }
+}
 
 export default function Page() {
   const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries">("main")
@@ -14,10 +28,29 @@ export default function Page() {
   const [locationLoading, setLocationLoading] = useState(true)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [savedPins, setSavedPins] = useState<Pin[]>([])
+  const [libraryTab, setLibraryTab] = useState<"pins" | "sounds" | "templates">("pins")
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
   const recognition = useRef<any>(null)
+
+  // Load saved pins from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("pinit-saved-pins")
+    if (saved) {
+      try {
+        setSavedPins(JSON.parse(saved))
+      } catch (error) {
+        console.error("Failed to load saved pins:", error)
+      }
+    }
+  }, [])
+
+  // Save pins to localStorage whenever savedPins changes
+  useEffect(() => {
+    localStorage.setItem("pinit-saved-pins", JSON.stringify(savedPins))
+  }, [savedPins])
 
   useEffect(() => {
     if (SpeechRecognition) {
@@ -131,9 +164,21 @@ export default function Page() {
 
   const markSpot = () => {
     if (userLocation) {
-      // Instead of router.push, we'll handle this in-app
-      alert(`📌 Location pinned at: ${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`)
-      console.log("📌 Pin created at:", userLocation)
+      const newPin: Pin = {
+        id: Date.now().toString(),
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        address: locationAddress || "Unknown Location",
+        timestamp: new Date().toISOString(),
+      }
+
+      setSavedPins((prev) => [newPin, ...prev])
+
+      // Play success sound
+      playEnhancedSound("success-chime")
+
+      alert(`📌 Location pinned and saved to library!\n${locationAddress}`)
+      console.log("📌 Pin created and saved:", newPin)
     } else {
       alert("❌ Location not available yet. Please wait a moment and try again.")
     }
@@ -496,8 +541,26 @@ export default function Page() {
           mode={cameraMode}
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
+
+            // Save media to current location pin
+            if (userLocation) {
+              const newPin: Pin = {
+                id: Date.now().toString(),
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                address: locationAddress || "Unknown Location",
+                timestamp: new Date().toISOString(),
+                media: {
+                  url: mediaData,
+                  type: type,
+                },
+              }
+
+              setSavedPins((prev) => [newPin, ...prev])
+              playEnhancedSound("success-chime")
+            }
+
             setShowCamera(false)
-            // TODO: Save to pin library
           }}
           onClose={() => setShowCamera(false)}
         />
@@ -510,29 +573,228 @@ export default function Page() {
             flex: 1,
             background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
             color: "white",
-            padding: "2rem",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
           }}
         >
-          <h2 style={{ fontSize: "2rem", marginBottom: "1rem" }}>📚 Pin Library</h2>
-          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "2rem" }}>Your saved pins will appear here</p>
-          <button
-            onClick={() => setCurrentScreen("main")}
+          {/* Library Header */}
+          <div
             style={{
-              padding: "1rem 2rem",
-              borderRadius: "1rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-              fontWeight: "bold",
+              padding: "2rem",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            ← Back to Main
-          </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <button
+                onClick={() => setCurrentScreen("main")}
+                style={{
+                  padding: "0.5rem",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h2 style={{ fontSize: "1.5rem", margin: 0 }}>📚 Library</h2>
+            </div>
+          </div>
+
+          {/* Library Tabs */}
+          <div
+            style={{
+              display: "flex",
+              padding: "0 2rem",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            {[
+              { id: "pins", label: "📍 Pins", count: savedPins.length },
+              { id: "sounds", label: "🎵 Sounds", count: Object.keys(enhancedSoundCategories).length },
+              { id: "templates", label: "🎨 Templates", count: Object.keys(postcardTemplates).length },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setLibraryTab(tab.id as any)}
+                style={{
+                  padding: "1rem 1.5rem",
+                  border: "none",
+                  background: "transparent",
+                  color: libraryTab === tab.id ? "white" : "rgba(255,255,255,0.6)",
+                  cursor: "pointer",
+                  borderBottom: libraryTab === tab.id ? "2px solid #10B981" : "2px solid transparent",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Library Content */}
+          <div style={{ flex: 1, overflow: "auto", padding: "2rem" }}>
+            {libraryTab === "pins" && (
+              <div>
+                {savedPins.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", padding: "2rem" }}>
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📍</div>
+                    <p>No pins saved yet</p>
+                    <p style={{ fontSize: "0.875rem" }}>Tap the map or use voice commands to create your first pin!</p>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: "1rem" }}>
+                    {savedPins.map((pin) => (
+                      <div
+                        key={pin.id}
+                        style={{
+                          background: "rgba(255,255,255,0.1)",
+                          borderRadius: "1rem",
+                          padding: "1rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "1rem",
+                        }}
+                      >
+                        <div style={{ fontSize: "2rem" }}>
+                          {pin.media ? (pin.media.type === "photo" ? "📸" : "🎥") : "📍"}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
+                          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                            {new Date(pin.timestamp).toLocaleDateString()} at{" "}
+                            {new Date(pin.timestamp).toLocaleTimeString()}
+                          </p>
+                          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+                            {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                          </p>
+                        </div>
+                        {pin.media && (
+                          <button
+                            onClick={() => {
+                              if (pin.media?.type === "photo") {
+                                window.open(pin.media.url, "_blank")
+                              } else {
+                                // For video, could open in modal
+                                window.open(pin.media.url, "_blank")
+                              }
+                            }}
+                            style={{
+                              padding: "0.5rem",
+                              borderRadius: "0.5rem",
+                              border: "none",
+                              background: "rgba(16, 185, 129, 0.2)",
+                              color: "#10B981",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <Play size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {libraryTab === "sounds" && (
+              <div>
+                {Object.entries(enhancedSoundCategories).map(([category, sounds]) => (
+                  <div key={category} style={{ marginBottom: "2rem" }}>
+                    <h3 style={{ fontSize: "1.125rem", marginBottom: "1rem", color: "rgba(255,255,255,0.9)" }}>
+                      {category}
+                    </h3>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      {Object.entries(sounds).map(([soundId, sound]) => (
+                        <button
+                          key={soundId}
+                          onClick={() => playEnhancedSound(soundId)}
+                          style={{
+                            padding: "1rem",
+                            borderRadius: "0.75rem",
+                            border: "none",
+                            background: "rgba(255,255,255,0.1)",
+                            color: "white",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            transition: "all 0.3s ease",
+                          }}
+                        >
+                          <div
+                            style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}
+                          >
+                            <span style={{ fontSize: "1.25rem" }}>{sound.emoji}</span>
+                            <span style={{ fontWeight: "bold", fontSize: "0.875rem" }}>{sound.name}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>{sound.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {libraryTab === "templates" && (
+              <div>
+                <h3 style={{ fontSize: "1.125rem", marginBottom: "1rem", color: "rgba(255,255,255,0.9)" }}>
+                  🎨 Postcard Templates
+                </h3>
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem" }}
+                >
+                  {Object.entries(postcardTemplates).map(([templateId, template]) => (
+                    <div
+                      key={templateId}
+                      style={{
+                        background: "rgba(255,255,255,0.1)",
+                        borderRadius: "1rem",
+                        padding: "1rem",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "120px",
+                          borderRadius: "0.5rem",
+                          background: template.style.background,
+                          marginBottom: "0.75rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: template.style.textColor,
+                          textShadow: template.style.textShadow,
+                          fontSize: "0.875rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {template.name}
+                      </div>
+                      <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>{template.name}</h4>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Palette size={14} />
+                        <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Postcard Template</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
