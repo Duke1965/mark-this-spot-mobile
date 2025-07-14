@@ -1,416 +1,277 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Download, Share2, Instagram, Twitter, Facebook, Linkedin, Copy, Check } from "lucide-react"
+import { Download, Share2, Instagram, Twitter, Facebook } from "lucide-react"
 
 interface ExportHubProps {
-  canvasDataUrl?: string
-  canvasRef?: React.RefObject<HTMLCanvasElement>
-  platform?: any
-  locationName?: string
-  onExport?: (settings: any) => void
-  onShare?: (platform: string) => void
-  onExportComplete?: () => void
+  canvasData: {
+    mediaUrl: string
+    textElements: any[]
+    stickerElements: any[]
+    dimensions: { width: number; height: number }
+    platform: string
+  }
+  onExport: (format: string, quality: string) => void
 }
 
-export function ExportHub({
-  canvasDataUrl,
-  canvasRef,
-  platform,
-  locationName,
-  onExport,
-  onShare,
-  onExportComplete,
-}: ExportHubProps) {
-  const [exportFormat, setExportFormat] = useState("jpeg")
-  const [exportQuality, setExportQuality] = useState(90)
-  const [exportSize, setExportSize] = useState("original")
+export function ExportHub({ canvasData, onExport }: ExportHubProps) {
+  const [exportFormat, setExportFormat] = useState("png")
+  const [exportQuality, setExportQuality] = useState("high")
   const [isExporting, setIsExporting] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   const exportFormats = [
-    { id: "jpeg", name: "JPEG", description: "Best for photos", extension: ".jpg" },
-    { id: "png", name: "PNG", description: "Best for graphics", extension: ".png" },
-    { id: "webp", name: "WebP", description: "Modern format", extension: ".webp" },
-    { id: "pdf", name: "PDF", description: "Document format", extension: ".pdf" },
-    { id: "svg", name: "SVG", description: "Vector format", extension: ".svg" },
+    { value: "png", label: "PNG", description: "Best for images with transparency" },
+    { value: "jpg", label: "JPG", description: "Smaller file size, good for photos" },
+    { value: "webp", label: "WebP", description: "Modern format, great compression" },
+    { value: "pdf", label: "PDF", description: "Perfect for printing" },
+    { value: "svg", label: "SVG", description: "Vector format, scalable" },
   ]
 
-  const exportSizes = [
-    { id: "original", name: "Original", description: "Keep original size" },
-    { id: "instagram-post", name: "Instagram Post", description: "1080×1080", width: 1080, height: 1080 },
-    { id: "instagram-story", name: "Instagram Story", description: "1080×1920", width: 1080, height: 1920 },
-    { id: "facebook-post", name: "Facebook Post", description: "1200×630", width: 1200, height: 630 },
-    { id: "twitter-post", name: "Twitter Post", description: "1200×675", width: 1200, height: 675 },
-    { id: "linkedin-post", name: "LinkedIn Post", description: "1200×627", width: 1200, height: 627 },
+  const qualityOptions = [
+    { value: "low", label: "Low (Fast)", description: "Quick export, larger file" },
+    { value: "medium", label: "Medium", description: "Balanced quality and size" },
+    { value: "high", label: "High (Slow)", description: "Best quality, smaller file" },
   ]
 
   const socialPlatforms = [
-    { id: "instagram", name: "Instagram", icon: <Instagram size={20} />, color: "#E4405F" },
-    { id: "twitter", name: "Twitter", icon: <Twitter size={20} />, color: "#1DA1F2" },
-    { id: "facebook", name: "Facebook", icon: <Facebook size={20} />, color: "#1877F2" },
-    { id: "linkedin", name: "LinkedIn", icon: <Linkedin size={20} />, color: "#0A66C2" },
+    {
+      name: "Instagram",
+      icon: <Instagram size={20} />,
+      color: "#E4405F",
+      sizes: ["1080x1080 (Post)", "1080x1920 (Story)"],
+    },
+    {
+      name: "Twitter",
+      icon: <Twitter size={20} />,
+      color: "#1DA1F2",
+      sizes: ["1200x675 (Post)", "1500x500 (Header)"],
+    },
+    {
+      name: "Facebook",
+      icon: <Facebook size={20} />,
+      color: "#4267B2",
+      sizes: ["1200x630 (Post)", "820x312 (Cover)"],
+    },
   ]
 
   const handleExport = async () => {
     setIsExporting(true)
 
-    try {
-      let dataUrl = canvasDataUrl
+    // Simulate export process
+    await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // If we have a canvas ref, get the data from it
-      if (canvasRef?.current) {
-        const canvas = canvasRef.current
-        dataUrl = canvas.toDataURL(`image/${exportFormat}`, exportQuality / 100)
-      }
-
-      if (!dataUrl) {
-        throw new Error("No image data available")
-      }
-
-      // Create download link
-      const link = document.createElement("a")
-      const selectedFormat = exportFormats.find((f) => f.id === exportFormat)
-      const selectedSize = exportSizes.find((s) => s.id === exportSize)
-
-      const filename = `pinit-${locationName?.replace(/[^a-zA-Z0-9]/g, "-") || "postcard"}-${Date.now()}${selectedFormat?.extension || ".jpg"}`
-
-      link.download = filename
-      link.href = dataUrl
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // Call export callback
-      onExport?.({
-        format: exportFormat,
-        quality: exportQuality,
-        size: exportSize,
-        filename,
-        dataUrl,
-      })
-
-      console.log(`✅ Exported as ${filename}`)
-    } catch (error) {
-      console.error("Export failed:", error)
-    } finally {
-      setIsExporting(false)
-      onExportComplete?.()
-    }
+    onExport(exportFormat, exportQuality)
+    setIsExporting(false)
   }
 
-  const handleShare = (platformId: string) => {
-    onShare?.(platformId)
-
-    // In a real implementation, this would integrate with social media APIs
-    const platform = socialPlatforms.find((p) => p.id === platformId)
-    console.log(`🚀 Sharing to ${platform?.name}`)
-
-    // For now, just copy to clipboard
-    if (canvasDataUrl) {
-      navigator.clipboard.writeText(canvasDataUrl).then(() => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      })
-    }
+  const handleSocialShare = (platform: string) => {
+    // In a real app, this would integrate with social media APIs
+    console.log(`Sharing to ${platform}`)
   }
 
-  const copyToClipboard = async () => {
-    if (!canvasDataUrl) return
+  const getFileSizeEstimate = () => {
+    const { width, height } = canvasData.dimensions
+    const pixels = width * height
 
-    try {
-      await navigator.clipboard.writeText(canvasDataUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      console.error("Failed to copy to clipboard:", error)
+    let baseSize = pixels / 1000 // Base calculation
+
+    switch (exportFormat) {
+      case "png":
+        baseSize *= 4
+        break
+      case "jpg":
+        baseSize *= 1
+        break
+      case "webp":
+        baseSize *= 0.7
+        break
+      case "pdf":
+        baseSize *= 2
+        break
+      case "svg":
+        baseSize *= 0.1
+        break
+    }
+
+    switch (exportQuality) {
+      case "low":
+        baseSize *= 0.5
+        break
+      case "medium":
+        baseSize *= 1
+        break
+      case "high":
+        baseSize *= 2
+        break
+    }
+
+    if (baseSize < 1000) {
+      return `~${Math.round(baseSize)}KB`
+    } else {
+      return `~${(baseSize / 1000).toFixed(1)}MB`
     }
   }
 
   return (
     <div
       style={{
-        background: "rgba(0,0,0,0.9)",
+        background: "rgba(255,255,255,0.1)",
         padding: "1rem",
         borderRadius: "1rem",
-        color: "white",
-        maxHeight: "600px",
-        overflowY: "auto",
+        backdropFilter: "blur(10px)",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <Download size={20} />
-        <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Export & Share</h3>
-      </div>
+      <h3 style={{ color: "white", margin: "0 0 1rem 0" }}>Export & Share</h3>
 
       {/* Export Format */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h4
-          style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
-          }}
-        >
-          Export Format
-        </h4>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "0.5rem",
-          }}
-        >
+      <div style={{ marginBottom: "1rem" }}>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>Format</h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           {exportFormats.map((format) => (
-            <button
-              key={format.id}
-              onClick={() => setExportFormat(format.id)}
+            <label
+              key={format.value}
               style={{
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: exportFormat === format.id ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                background: exportFormat === format.id ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                textAlign: "left",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <div style={{ fontWeight: "600", fontSize: "0.8rem" }}>{format.name}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>{format.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Export Quality */}
-      {(exportFormat === "jpeg" || exportFormat === "webp") && (
-        <div style={{ marginBottom: "1.5rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Quality</label>
-            <span style={{ fontSize: "0.8rem", color: "white" }}>{exportQuality}%</span>
-          </div>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={exportQuality}
-            onChange={(e) => setExportQuality(Number(e.target.value))}
-            style={{
-              width: "100%",
-              height: "4px",
-              borderRadius: "2px",
-              background: "rgba(255,255,255,0.2)",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "0.7rem",
-              color: "rgba(255,255,255,0.5)",
-              marginTop: "0.25rem",
-            }}
-          >
-            <span>Low</span>
-            <span>High</span>
-          </div>
-        </div>
-      )}
-
-      {/* Export Size */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h4
-          style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
-          }}
-        >
-          Export Size
-        </h4>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "0.5rem",
-          }}
-        >
-          {exportSizes.map((size) => (
-            <button
-              key={size.id}
-              onClick={() => setExportSize(size.id)}
-              style={{
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: exportSize === size.id ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                background: exportSize === size.id ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                textAlign: "left",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <div style={{ fontWeight: "600", fontSize: "0.8rem" }}>{size.name}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>{size.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Export Button */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <button
-          onClick={handleExport}
-          disabled={isExporting}
-          style={{
-            width: "100%",
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "none",
-            background: isExporting ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-            color: "white",
-            cursor: isExporting ? "not-allowed" : "pointer",
-            fontSize: "0.9rem",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            opacity: isExporting ? 0.6 : 1,
-          }}
-        >
-          <Download size={20} />
-          {isExporting ? "Exporting..." : "Download Image"}
-        </button>
-      </div>
-
-      {/* Social Sharing */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h4
-          style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <Share2 size={16} />
-          Share to Social Media
-        </h4>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "0.5rem",
-          }}
-        >
-          {socialPlatforms.map((platform) => (
-            <button
-              key={platform.id}
-              onClick={() => handleShare(platform.id)}
-              style={{
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
                 gap: "0.5rem",
+                padding: "0.5rem",
+                borderRadius: "0.5rem",
+                background: exportFormat === format.value ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
+                cursor: "pointer",
+                color: "white",
                 fontSize: "0.8rem",
-                fontWeight: "500",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `${platform.color}20`
-                e.currentTarget.style.borderColor = platform.color
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"
               }}
             >
-              {platform.icon}
-              {platform.name}
-            </button>
+              <input
+                type="radio"
+                name="format"
+                value={format.value}
+                checked={exportFormat === format.value}
+                onChange={(e) => setExportFormat(e.target.value)}
+                style={{ margin: 0 }}
+              />
+              <div>
+                <div style={{ fontWeight: "bold" }}>{format.label}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>{format.description}</div>
+              </div>
+            </label>
           ))}
         </div>
       </div>
 
-      {/* Copy to Clipboard */}
-      <div>
-        <button
-          onClick={copyToClipboard}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            borderRadius: "0.5rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: copied ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "0.8rem",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
-        >
-          {copied ? <Check size={16} /> : <Copy size={16} />}
-          {copied ? "Copied!" : "Copy Image Data"}
-        </button>
+      {/* Quality Settings */}
+      <div style={{ marginBottom: "1rem" }}>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>Quality</h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          {qualityOptions.map((quality) => (
+            <label
+              key={quality.value}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem",
+                borderRadius: "0.5rem",
+                background: exportQuality === quality.value ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
+                cursor: "pointer",
+                color: "white",
+                fontSize: "0.8rem",
+              }}
+            >
+              <input
+                type="radio"
+                name="quality"
+                value={quality.value}
+                checked={exportQuality === quality.value}
+                onChange={(e) => setExportQuality(e.target.value)}
+                style={{ margin: 0 }}
+              />
+              <div>
+                <div style={{ fontWeight: "bold" }}>{quality.label}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>{quality.description}</div>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* Export Info */}
       <div
         style={{
-          marginTop: "1rem",
+          background: "rgba(255,255,255,0.1)",
           padding: "0.75rem",
           borderRadius: "0.5rem",
-          background: "rgba(255,255,255,0.05)",
-          fontSize: "0.7rem",
-          color: "rgba(255,255,255,0.6)",
-          lineHeight: "1.4",
+          marginBottom: "1rem",
         }}
       >
-        <div style={{ marginBottom: "0.25rem" }}>
-          <strong>Format:</strong> {exportFormats.find((f) => f.id === exportFormat)?.name}
+        <div style={{ color: "white", fontSize: "0.8rem", marginBottom: "0.25rem" }}>
+          <strong>Export Details:</strong>
         </div>
-        {(exportFormat === "jpeg" || exportFormat === "webp") && (
-          <div style={{ marginBottom: "0.25rem" }}>
-            <strong>Quality:</strong> {exportQuality}%
-          </div>
-        )}
-        <div>
-          <strong>Size:</strong> {exportSizes.find((s) => s.id === exportSize)?.description}
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.7rem" }}>
+          Size: {canvasData.dimensions.width} × {canvasData.dimensions.height}px
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.7rem" }}>Platform: {canvasData.platform}</div>
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.7rem" }}>
+          Estimated file size: {getFileSizeEstimate()}
+        </div>
+      </div>
+
+      {/* Export Button */}
+      <button
+        onClick={handleExport}
+        disabled={isExporting}
+        style={{
+          width: "100%",
+          padding: "1rem",
+          borderRadius: "0.5rem",
+          border: "none",
+          background: isExporting ? "rgba(107, 114, 128, 0.5)" : "rgba(16, 185, 129, 0.3)",
+          color: "white",
+          cursor: isExporting ? "not-allowed" : "pointer",
+          fontSize: "0.9rem",
+          fontWeight: "bold",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.5rem",
+          marginBottom: "1rem",
+        }}
+      >
+        <Download size={20} />
+        {isExporting ? "Exporting..." : `Export as ${exportFormat.toUpperCase()}`}
+      </button>
+
+      {/* Social Sharing */}
+      <div>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>
+          <Share2 size={16} style={{ marginRight: "0.25rem" }} />
+          Quick Share
+        </h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {socialPlatforms.map((platform) => (
+            <button
+              key={platform.name}
+              onClick={() => handleSocialShare(platform.name)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              <div style={{ color: platform.color }}>{platform.icon}</div>
+              <div>
+                <div style={{ fontWeight: "bold" }}>{platform.name}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>{platform.sizes.join(" • ")}</div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>
