@@ -7,6 +7,7 @@ import { EffectsPanel } from "./effects-panel"
 import { StickersPanel } from "./stickers-panel"
 import { VideoEditor } from "./video-editor"
 import { ExportHub } from "./export-hub"
+import { EditorWelcome } from "./editor-welcome"
 
 interface AdvancedPostcardEditorProps {
   mediaUrl: string
@@ -23,9 +24,24 @@ export function AdvancedPostcardEditor({
   onSave,
   onClose,
 }: AdvancedPostcardEditorProps) {
+  const [currentStep, setCurrentStep] = useState<"welcome" | "editor">("welcome")
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("")
+  const [capturedMedia, setCapturedMedia] = useState<string>("")
   const [currentPanel, setCurrentPanel] = useState<"canvas" | "effects" | "stickers" | "video" | "export">("canvas")
   const [canvasData, setCanvasData] = useState<any>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const handlePlatformSelect = (platform: string, mediaUrl: string) => {
+    setSelectedPlatform(platform)
+    setCapturedMedia(mediaUrl)
+    setCurrentStep("editor")
+  }
+
+  const handleBackToWelcome = () => {
+    setCurrentStep("welcome")
+    setSelectedPlatform("")
+    setCapturedMedia("")
+  }
 
   const handleSave = () => {
     if (canvasRef.current) {
@@ -33,7 +49,7 @@ export function AdvancedPostcardEditor({
 
       const postcardData = {
         id: Date.now().toString(),
-        mediaUrl,
+        mediaUrl: capturedMedia,
         mediaType,
         locationName,
         canvasDataUrl: dataUrl,
@@ -48,6 +64,10 @@ export function AdvancedPostcardEditor({
 
       onSave(postcardData)
     }
+  }
+
+  if (currentStep === "welcome") {
+    return <EditorWelcome onPlatformSelect={handlePlatformSelect} />
   }
 
   return (
@@ -78,7 +98,7 @@ export function AdvancedPostcardEditor({
       >
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <button
-            onClick={onClose}
+            onClick={handleBackToWelcome}
             style={{
               padding: "0.5rem",
               borderRadius: "50%",
@@ -130,7 +150,7 @@ export function AdvancedPostcardEditor({
           {currentPanel === "canvas" && (
             <CanvasEditor
               ref={canvasRef}
-              mediaUrl={mediaUrl}
+              mediaUrl={capturedMedia}
               mediaType={mediaType}
               locationName={locationName}
               onDataChange={setCanvasData}
@@ -138,7 +158,7 @@ export function AdvancedPostcardEditor({
           )}
           {currentPanel === "effects" && (
             <EffectsPanel
-              mediaUrl={mediaUrl}
+              mediaUrl={capturedMedia}
               onApplyEffect={(effect) => {
                 console.log("Applying effect:", effect)
                 setCurrentPanel("canvas")
@@ -155,7 +175,7 @@ export function AdvancedPostcardEditor({
           )}
           {currentPanel === "video" && mediaType === "video" && (
             <VideoEditor
-              videoUrl={mediaUrl}
+              videoUrl={capturedMedia}
               onVideoProcessed={(processedUrl) => {
                 console.log("Video processed:", processedUrl)
                 setCurrentPanel("canvas")
