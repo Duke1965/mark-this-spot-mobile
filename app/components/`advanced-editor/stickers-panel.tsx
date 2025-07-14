@@ -1,213 +1,617 @@
 "use client"
 
 import { useState } from "react"
-import { Smile, Heart, Star, MapPin, Camera, Plane, Plus, Minus } from "lucide-react"
+import { Heart, Smile, Star, Zap, Sun, Music } from "lucide-react"
 
 interface StickersPanelProps {
-  onSelectSticker: (sticker: any) => void
+  onStickerSelect: (emoji: string) => void
 }
 
-export function StickersPanel({ onSelectSticker }: StickersPanelProps) {
-  const [selectedCategory, setSelectedCategory] = useState("emojis")
-  const [stickerSize, setStickerSize] = useState(50)
+export function StickersPanel({ onStickerSelect }: StickersPanelProps) {
+  const [activeCategory, setActiveCategory] = useState("faces")
 
   const stickerCategories = {
-    emojis: {
-      name: "Emojis",
-      icon: <Smile size={16} />,
-      stickers: ["😀", "😍", "🤩", "😎", "🥳", "😊", "🤗", "😘", "🤔", "😴", "🤯", "🥰"],
+    faces: {
+      name: "Faces",
+      icon: Smile,
+      stickers: [
+        "😀",
+        "😃",
+        "😄",
+        "😁",
+        "😆",
+        "😅",
+        "🤣",
+        "😂",
+        "🙂",
+        "🙃",
+        "😉",
+        "😊",
+        "😇",
+        "🥰",
+        "😍",
+        "🤩",
+        "😘",
+        "😗",
+        "😚",
+        "😙",
+        "😋",
+        "😛",
+        "😜",
+        "🤪",
+        "😝",
+        "🤑",
+        "🤗",
+        "🤭",
+        "🤫",
+        "🤔",
+        "🤐",
+        "🤨",
+        "😐",
+        "😑",
+        "😶",
+        "😏",
+        "😒",
+        "🙄",
+        "😬",
+        "🤥",
+        "😌",
+        "😔",
+        "😪",
+        "🤤",
+        "😴",
+        "😷",
+        "🤒",
+        "🤕",
+        "🤢",
+        "🤮",
+        "🤧",
+        "🥵",
+        "🥶",
+        "🥴",
+        "😵",
+        "🤯",
+        "🤠",
+        "🥳",
+        "😎",
+        "🤓",
+        "🧐",
+      ],
     },
     hearts: {
       name: "Hearts",
-      icon: <Heart size={16} />,
-      stickers: ["❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "🤎", "💕", "💖", "💗"],
-    },
-    travel: {
-      name: "Travel",
-      icon: <Plane size={16} />,
-      stickers: ["✈️", "🚗", "🚢", "🚁", "🚂", "🏖️", "🏔️", "🗺️", "🧳", "📍", "🌍", "🏝️"],
+      icon: Heart,
+      stickers: [
+        "❤️",
+        "🧡",
+        "💛",
+        "💚",
+        "💙",
+        "💜",
+        "🖤",
+        "🤍",
+        "🤎",
+        "💔",
+        "❣️",
+        "💕",
+        "💞",
+        "💓",
+        "💗",
+        "💖",
+        "💘",
+        "💝",
+        "💟",
+        "♥️",
+        "💌",
+        "💋",
+        "💍",
+        "💎",
+      ],
     },
     nature: {
       name: "Nature",
-      icon: <Star size={16} />,
-      stickers: ["🌸", "🌺", "🌻", "🌷", "🌹", "🌿", "🍃", "🌳", "🌲", "🌴", "🌵", "🌾"],
+      icon: Sun,
+      stickers: [
+        "🌞",
+        "🌝",
+        "🌛",
+        "🌜",
+        "🌚",
+        "🌕",
+        "🌖",
+        "🌗",
+        "🌘",
+        "🌑",
+        "🌒",
+        "🌓",
+        "🌔",
+        "🌙",
+        "⭐",
+        "🌟",
+        "💫",
+        "✨",
+        "☄️",
+        "☀️",
+        "🌤️",
+        "⛅",
+        "🌦️",
+        "🌧️",
+        "⛈️",
+        "🌩️",
+        "🌨️",
+        "❄️",
+        "☃️",
+        "⛄",
+        "🌬️",
+        "💨",
+        "🌪️",
+        "🌈",
+        "☔",
+        "💧",
+        "💦",
+        "🌊",
+      ],
+    },
+    animals: {
+      name: "Animals",
+      icon: Star,
+      stickers: [
+        "🐶",
+        "🐱",
+        "🐭",
+        "🐹",
+        "🐰",
+        "🦊",
+        "🐻",
+        "🐼",
+        "🐨",
+        "🐯",
+        "🦁",
+        "🐮",
+        "🐷",
+        "🐽",
+        "🐸",
+        "🐵",
+        "🙈",
+        "🙉",
+        "🙊",
+        "🐒",
+        "🐔",
+        "🐧",
+        "🐦",
+        "🐤",
+        "🐣",
+        "🐥",
+        "🦆",
+        "🦅",
+        "🦉",
+        "🦇",
+        "🐺",
+        "🐗",
+        "🐴",
+        "🦄",
+        "🐝",
+        "🐛",
+        "🦋",
+        "🐌",
+        "🐞",
+        "🐜",
+        "🦟",
+        "🦗",
+        "🕷️",
+        "🦂",
+        "🐢",
+        "🐍",
+        "🦎",
+        "🦖",
+        "🦕",
+        "🐙",
+        "🦑",
+        "🦐",
+        "🦞",
+        "🦀",
+        "🐡",
+        "🐠",
+        "🐟",
+        "🐬",
+        "🐳",
+        "🐋",
+        "🦈",
+        "🐊",
+        "🐅",
+        "🐆",
+        "🦓",
+        "🦍",
+        "🦧",
+        "🐘",
+        "🦛",
+        "🦏",
+        "🐪",
+        "🐫",
+        "🦒",
+        "🦘",
+        "🐃",
+        "🐂",
+        "🐄",
+        "🐎",
+        "🐖",
+        "🐏",
+        "🐑",
+        "🦙",
+        "🐐",
+        "🦌",
+        "🐕",
+        "🐩",
+        "🦮",
+        "🐕‍🦺",
+        "🐈",
+        "🐓",
+        "🦃",
+        "🦚",
+        "🦜",
+        "🦢",
+        "🦩",
+        "🕊️",
+        "🐇",
+        "🦝",
+        "🦨",
+        "🦡",
+        "🦦",
+        "🦥",
+        "🐁",
+        "🐀",
+        "🐿️",
+        "🦔",
+      ],
     },
     food: {
       name: "Food",
-      icon: <Camera size={16} />,
-      stickers: ["🍕", "🍔", "🍟", "🌭", "🥪", "🌮", "🍝", "🍜", "🍱", "🍣", "🍰", "🧁"],
+      icon: Zap,
+      stickers: [
+        "🍎",
+        "🍐",
+        "🍊",
+        "🍋",
+        "🍌",
+        "🍉",
+        "🍇",
+        "🍓",
+        "🫐",
+        "🍈",
+        "🍒",
+        "🍑",
+        "🥭",
+        "🍍",
+        "🥥",
+        "🥝",
+        "🍅",
+        "🍆",
+        "🥑",
+        "🥦",
+        "🥬",
+        "🥒",
+        "🌶️",
+        "🫑",
+        "🌽",
+        "🥕",
+        "🫒",
+        "🧄",
+        "🧅",
+        "🥔",
+        "🍠",
+        "🥐",
+        "🥯",
+        "🍞",
+        "🥖",
+        "🥨",
+        "🧀",
+        "🥚",
+        "🍳",
+        "🧈",
+        "🥞",
+        "🧇",
+        "🥓",
+        "🥩",
+        "🍗",
+        "🍖",
+        "🦴",
+        "🌭",
+        "🍔",
+        "🍟",
+        "🍕",
+        "🫓",
+        "🥪",
+        "🥙",
+        "🧆",
+        "🌮",
+        "🌯",
+        "🫔",
+        "🥗",
+        "🥘",
+        "🫕",
+        "🥫",
+        "🍝",
+        "🍜",
+        "🍲",
+        "🍛",
+        "🍣",
+        "🍱",
+        "🥟",
+        "🦪",
+        "🍤",
+        "🍙",
+        "🍚",
+        "🍘",
+        "🍥",
+        "🥠",
+        "🥮",
+        "🍢",
+        "🍡",
+        "🍧",
+        "🍨",
+        "🍦",
+        "🥧",
+        "🧁",
+        "🍰",
+        "🎂",
+        "🍮",
+        "🍭",
+        "🍬",
+        "🍫",
+        "🍿",
+        "🍩",
+        "🍪",
+        "🌰",
+        "🥜",
+        "🍯",
+      ],
     },
     activities: {
       name: "Activities",
-      icon: <MapPin size={16} />,
-      stickers: ["⚽", "🏀", "🎾", "🏈", "🎱", "🎯", "🎮", "🎲", "🎪", "🎨", "🎭", "🎪"],
+      icon: Music,
+      stickers: [
+        "⚽",
+        "🏀",
+        "🏈",
+        "⚾",
+        "🥎",
+        "🎾",
+        "🏐",
+        "🏉",
+        "🥏",
+        "🎱",
+        "🪀",
+        "🏓",
+        "🏸",
+        "🏒",
+        "🏑",
+        "🥍",
+        "🏏",
+        "🪃",
+        "🥅",
+        "⛳",
+        "🪁",
+        "🏹",
+        "🎣",
+        "🤿",
+        "🥊",
+        "🥋",
+        "🎽",
+        "🛹",
+        "🛷",
+        "⛸️",
+        "🥌",
+        "🎿",
+        "⛷️",
+        "🏂",
+        "🪂",
+        "🏋️‍♀️",
+        "🏋️",
+        "🏋️‍♂️",
+        "🤼‍♀️",
+        "🤼",
+        "🤼‍♂️",
+        "🤸‍♀️",
+        "🤸",
+        "🤸‍♂️",
+        "⛹️‍♀️",
+        "⛹️",
+        "⛹️‍♂️",
+        "🤺",
+        "🤾‍♀️",
+        "🤾",
+        "🤾‍♂️",
+        "🏌️‍♀️",
+        "🏌️",
+        "🏌️‍♂️",
+        "🏇",
+        "🧘‍♀️",
+        "🧘",
+        "🧘‍♂️",
+        "🏄‍♀️",
+        "🏄",
+        "🏄‍♂️",
+        "🏊‍♀️",
+        "🏊",
+        "🏊‍♂️",
+        "🤽‍♀️",
+        "🤽",
+        "🤽‍♂️",
+        "🚣‍♀️",
+        "🚣",
+        "🚣‍♂️",
+        "🧗‍♀️",
+        "🧗",
+        "🧗‍♂️",
+        "🚵‍♀️",
+        "🚵",
+        "🚵‍♂️",
+        "🚴‍♀️",
+        "🚴",
+        "🚴‍♂️",
+        "🏆",
+        "🥇",
+        "🥈",
+        "🥉",
+        "🏅",
+        "🎖️",
+        "🏵️",
+        "🎗️",
+        "🎫",
+        "🎟️",
+        "🎪",
+        "🤹‍♀️",
+        "🤹",
+        "🤹‍♂️",
+        "🎭",
+        "🩰",
+        "🎨",
+        "🎬",
+        "🎤",
+        "🎧",
+        "🎼",
+        "🎵",
+        "🎶",
+        "🥁",
+        "🪘",
+        "🎹",
+        "🎷",
+        "🎺",
+        "🎸",
+        "🪕",
+        "🎻",
+        "🎲",
+        "♠️",
+        "♥️",
+        "♦️",
+        "♣️",
+        "♟️",
+        "🃏",
+        "🀄",
+        "🎴",
+      ],
     },
   }
 
-  const handleStickerSelect = (sticker: string) => {
-    onSelectSticker({
-      type: "sticker",
-      content: sticker,
-      size: stickerSize,
-      position: { x: 50, y: 50 },
-      timestamp: Date.now(),
-    })
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
-      {/* Size Control */}
-      <div
-        style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "1rem",
-          padding: "1.5rem",
-        }}
-      >
-        <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          Sticker Size: {stickerSize}px
-        </h3>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <button
-            onClick={() => setStickerSize(Math.max(20, stickerSize - 10))}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <Minus size={16} />
-          </button>
-          <input
-            type="range"
-            min="20"
-            max="100"
-            value={stickerSize}
-            onChange={(e) => setStickerSize(Number.parseInt(e.target.value))}
-            style={{ flex: 1 }}
-          />
-          <button
-            onClick={() => setStickerSize(Math.min(100, stickerSize + 10))}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
+    <div
+      style={{
+        background: "rgba(255,255,255,0.1)",
+        padding: "1rem",
+        borderRadius: "1rem",
+        backdropFilter: "blur(10px)",
+        maxHeight: "500px",
+        overflowY: "auto",
+      }}
+    >
+      <h3 style={{ color: "white", margin: "0 0 1rem 0", fontSize: "1.1rem" }}>Stickers</h3>
 
       {/* Category Tabs */}
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
           gap: "0.5rem",
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "1rem",
-          padding: "1rem",
+          marginBottom: "1rem",
+          overflowX: "auto",
+          paddingBottom: "0.5rem",
         }}
       >
-        {Object.entries(stickerCategories).map(([key, category]) => (
-          <button
-            key={key}
-            onClick={() => setSelectedCategory(key)}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: selectedCategory === key ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
-              color: "white",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              fontSize: "0.875rem",
-            }}
-          >
-            {category.icon}
-            {category.name}
-          </button>
-        ))}
+        {Object.entries(stickerCategories).map(([key, category]) => {
+          const IconComponent = category.icon
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveCategory(key)}
+              style={{
+                padding: "0.5rem 0.75rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: activeCategory === key ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.8rem",
+                whiteSpace: "nowrap",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <IconComponent size={16} />
+              {category.name}
+            </button>
+          )
+        })}
       </div>
 
       {/* Stickers Grid */}
       <div
         style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "1rem",
-          padding: "1.5rem",
-          flex: 1,
+          display: "grid",
+          gridTemplateColumns: "repeat(6, 1fr)",
+          gap: "0.5rem",
+          maxHeight: "300px",
           overflowY: "auto",
         }}
       >
-        <h3 style={{ margin: "0 0 1rem 0" }}>
-          {stickerCategories[selectedCategory as keyof typeof stickerCategories].name}
-        </h3>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(60px, 1fr))",
-            gap: "0.75rem",
-          }}
-        >
-          {stickerCategories[selectedCategory as keyof typeof stickerCategories].stickers.map((sticker, index) => (
+        {stickerCategories[activeCategory as keyof typeof stickerCategories].stickers.map((sticker, index) => (
+          <button
+            key={index}
+            onClick={() => onStickerSelect(sticker)}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              cursor: "pointer",
+              fontSize: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.3s ease",
+              aspectRatio: "1",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(16, 185, 129, 0.3)"
+              e.currentTarget.style.transform = "scale(1.1)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+              e.currentTarget.style.transform = "scale(1)"
+            }}
+          >
+            {sticker}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick Access */}
+      <div style={{ marginTop: "1rem" }}>
+        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>Quick Access</h4>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {["❤️", "😍", "🔥", "💯", "✨", "🎉", "👏", "🙌"].map((sticker, index) => (
             <button
               key={index}
-              onClick={() => handleStickerSelect(sticker)}
+              onClick={() => onStickerSelect(sticker)}
               style={{
-                padding: "0.75rem",
+                padding: "0.5rem",
                 borderRadius: "0.5rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
                 cursor: "pointer",
-                fontSize: `${stickerSize * 0.6}px`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                fontSize: "1.25rem",
                 transition: "all 0.3s ease",
-                minHeight: "60px",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(16, 185, 129, 0.2)"
-                e.currentTarget.style.transform = "scale(1.1)"
+                e.currentTarget.style.background = "rgba(16, 185, 129, 0.3)"
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                e.currentTarget.style.transform = "scale(1)"
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)"
               }}
             >
               {sticker}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Preview */}
-      <div
-        style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "1rem",
-          padding: "1rem",
-          textAlign: "center",
-        }}
-      >
-        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Preview Size: {stickerSize}px</p>
-        <div
-          style={{
-            fontSize: `${stickerSize}px`,
-            lineHeight: 1,
-          }}
-        >
-          😀
         </div>
       </div>
     </div>
