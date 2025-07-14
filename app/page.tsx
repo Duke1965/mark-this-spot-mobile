@@ -32,6 +32,7 @@ export default function Page() {
   const [libraryTab, setLibraryTab] = useState<"pins" | "sounds" | "templates">("pins")
   const [quickPinMode, setQuickPinMode] = useState(false)
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
@@ -80,6 +81,16 @@ export default function Page() {
         }
       }
     }
+
+    // Detect mobile device
+    const checkMobile = () => {
+      const isMobileDevice =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        window.innerWidth <= 768
+      setIsMobile(isMobileDevice)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
 
     // Get user's location
     if (navigator.geolocation) {
@@ -245,30 +256,32 @@ export default function Page() {
         </button>
       </div>
 
-      {/* Voice Commander */}
-      <VoiceCommander
-        onCommand={(command, confidence) => {
-          const cmd = command.toLowerCase()
-          console.log(`🎤 Voice command: "${command}" (${confidence})`)
+      {/* Voice Commander - only show on desktop */}
+      {!isMobile && (
+        <VoiceCommander
+          onCommand={(command, confidence) => {
+            const cmd = command.toLowerCase()
+            console.log(`🎤 Voice command: "${command}" (${confidence})`)
 
-          if (cmd.includes("pin it") || cmd.includes("pin this")) {
-            quickPin()
-          } else if (cmd.includes("take photo") || cmd.includes("photo")) {
-            setCameraMode("photo")
-            setShowCamera(true)
-          } else if (cmd.includes("record video") || cmd.includes("video")) {
-            setCameraMode("video")
-            setShowCamera(true)
-          } else if (cmd.includes("library") || cmd.includes("show pins")) {
-            setCurrentScreen("libraries")
-          } else if (cmd.includes("go back") || cmd.includes("back")) {
-            setCurrentScreen("main")
-            setShowCamera(false)
-          }
-        }}
-        isEnabled={voiceEnabled}
-        onToggle={() => setVoiceEnabled(!voiceEnabled)}
-      />
+            if (cmd.includes("pin it") || cmd.includes("pin this")) {
+              quickPin()
+            } else if (cmd.includes("take photo") || cmd.includes("photo")) {
+              setCameraMode("photo")
+              setShowCamera(true)
+            } else if (cmd.includes("record video") || cmd.includes("video")) {
+              setCameraMode("video")
+              setShowCamera(true)
+            } else if (cmd.includes("library") || cmd.includes("show pins")) {
+              setCurrentScreen("libraries")
+            } else if (cmd.includes("go back") || cmd.includes("back")) {
+              setCurrentScreen("main")
+              setShowCamera(false)
+            }
+          }}
+          isEnabled={voiceEnabled}
+          onToggle={() => setVoiceEnabled(!voiceEnabled)}
+        />
+      )}
 
       {/* Main screen section */}
       {currentScreen === "main" && (
