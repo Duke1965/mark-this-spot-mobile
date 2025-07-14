@@ -16,17 +16,47 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [cameraReady, setCameraReady] = useState(false)
+  const [permissionState, setPermissionState] = useState<"pending" | "granted" | "denied">("pending")
 
-  // Simple, reliable camera initialization
-  const startCamera = async () => {
-    console.log(`🎥 Starting ${mode} camera...`)
+  // Check camera permissions first
+  const checkPermissions = async () => {
+    try {
+      if (navigator.permissions) {
+        const cameraPermission = await navigator.permissions.query({ name: "camera" as PermissionName })
+        const micPermission =
+          mode === "video" ? await navigator.permissions.query({ name: "microphone" as PermissionName }) : null
+
+        console.log("📹 Camera permission:", cameraPermission.state)
+        if (micPermission) console.log("🎤 Microphone permission:", micPermission.state)
+
+        if (cameraPermission.state === "granted" && (!micPermission || micPermission.state === "granted")) {
+          setPermissionState("granted")
+          return true
+        } else if (cameraPermission.state === "denied" || (micPermission && micPermission.state === "denied")) {
+          setPermissionState("denied")
+          return false
+        }
+      }
+
+      setPermissionState("pending")
+      return false
+    } catch (error) {
+      console.log("⚠️ Permission API not available, will request directly")
+      setPermissionState("pending")
+      return false
+    }
+  }
+
+  // Request camera access with user interaction
+  const requestCameraAccess = async () => {
+    console.log(`🎥 Requesting ${mode} camera access...`)
     setIsLoading(true)
     setError(null)
     setCameraReady(false)
@@ -37,7 +67,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
 
-      // Simple constraints - no complex options
       const constraints = {
         video: {
           facingMode,
@@ -47,9 +76,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         audio: mode === "video",
       }
 
-      console.log("📱 Requesting camera access...")
+      console.log("📱 Calling getUserMedia...")
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
+      setPermissionState("granted")
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -65,8 +95,21 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         console.log("✅ Camera started successfully!")
       }
     } catch (err) {
-      console.error("❌ Camera failed:", err)
-      setError(`Camera access failed: ${err.message}`)
+      console.error("❌ Camera access failed:", err)
+      setPermissionState("denied")
+
+      let errorMessage = "Camera access failed"
+      if (err.name === "NotAllowedError") {
+        errorMessage = "Camera access denied. Please allow camera permissions and try again."
+      } else if (err.name === "NotFoundError") {
+        errorMessage = "No camera found on this device."
+      } else if (err.name === "NotSupportedError") {
+        errorMessage = "Camera not supported on this device."
+      } else {
+        errorMessage = `Camera error: ${err.message}`
+      }
+
+      setError(errorMessage)
       setIsLoading(false)
     }
   }
@@ -121,7 +164,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     const photoData = canvas.toDataURL("image/jpeg", 0.9)
 
     console.log("📸 Photo data length:", photoData.length)
-    console.log("📸 Photo data preview:", photoData.substring(0, 50) + "...")
 
     if (photoData && photoData.length > 100) {
       setCapturedMedia(photoData)
@@ -158,7 +200,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       setIsRecording(true)
       setRecordingTime(0)
 
-      // Simple timer
       const timer = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 30) {
@@ -205,11 +246,9 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
   const confirm = () => {
     if (capturedMedia) {
-      console.log("✅ Confirming capture:", capturedMedia.substring(0, 50) + "...")
+      console.log("✅ Confirming capture")
       onCapture(capturedMedia, mode)
       stopCamera()
-    } else {
-      console.error("❌ No captured media to confirm")
     }
   }
 
@@ -222,16 +261,21 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     onClose()
   }
 
-  // Auto-start camera when component mounts
+  // Check permissions on mount
   useEffect(() => {
-    startCamera()
+    checkPermissions().then((hasPermission) => {
+      if (hasPermission) {
+        requestCameraAccess()
+      }
+    })
+
     return () => stopCamera()
   }, [])
 
   // Restart camera when facing mode changes
   useEffect(() => {
-    if (!isLoading && !error && !capturedMedia) {
-      startCamera()
+    if (permissionState === "granted" && !isLoading && !error && !capturedMedia) {
+      requestCameraAccess()
     }
   }, [facingMode])
 
@@ -285,15 +329,63 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
       {/* Camera View */}
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {error ? (
+        {permissionState === "pending" ? (
           <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
             <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📷</div>
+            <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Access Needed</h3>
+            <p style={{ marginBottom: "1.5rem", opacity: 0.8, lineHeight: 1.5 }}>
+              PINIT needs camera access to take photos and videos.
+              <br />
+              Click the button below to grant permission.
+            </p>
+            <button
+              onClick={requestCameraAccess}
+              style={{
+                padding: "1rem 2rem",
+                borderRadius: "1rem",
+                border: "none",
+                background: "#10B981",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "1rem",
+              }}
+            >
+              📷 Allow Camera Access
+            </button>
+
+            {/* Permission Help */}
+            <div
+              style={{
+                marginTop: "2rem",
+                background: "rgba(59, 130, 246, 0.1)",
+                padding: "1rem",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(59, 130, 246, 0.3)",
+                fontSize: "0.875rem",
+                lineHeight: 1.4,
+              }}
+            >
+              <strong>💡 If no prompt appears:</strong>
+              <br />
+              1. Look for camera icon in address bar
+              <br />
+              2. Click it and select "Allow"
+              <br />
+              3. Refresh page if needed
+              <br />
+              4. Check browser settings → Privacy → Camera
+            </div>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
+            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>❌</div>
             <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Camera Error</h3>
             <p style={{ marginBottom: "1.5rem", opacity: 0.8 }}>{error}</p>
             <button
               onClick={() => {
                 setError(null)
-                startCamera()
+                setPermissionState("pending")
               }}
               style={{
                 padding: "1rem 2rem",
@@ -322,7 +414,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               }}
             />
             <p>Starting camera...</p>
-            <p style={{ fontSize: "0.875rem", opacity: 0.7 }}>Please allow camera access when prompted</p>
           </div>
         ) : capturedMedia ? (
           <div style={{ textAlign: "center", maxWidth: "100%", maxHeight: "100%" }}>
@@ -336,8 +427,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                   objectFit: "contain",
                   borderRadius: "1rem",
                 }}
-                onLoad={() => console.log("✅ Captured image loaded successfully")}
-                onError={() => console.error("❌ Captured image failed to load")}
               />
             ) : (
               <video
@@ -401,24 +490,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             REC {recordingTime}s / 30s
           </div>
         )}
-
-        {/* Debug info */}
-        {process.env.NODE_ENV === "development" && cameraReady && videoRef.current && (
-          <div
-            style={{
-              position: "absolute",
-              top: "1rem",
-              left: "1rem",
-              background: "rgba(0,0,0,0.7)",
-              color: "white",
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
-              fontSize: "0.75rem",
-            }}
-          >
-            Video: {videoRef.current.videoWidth}x{videoRef.current.videoHeight}
-          </div>
-        )}
       </div>
 
       {/* Controls */}
@@ -471,7 +542,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               Use {mode === "photo" ? "Photo" : "Video"}
             </button>
           </>
-        ) : !isLoading && !error ? (
+        ) : permissionState === "granted" && !isLoading && !error ? (
           <>
             <button
               onClick={switchCamera}
