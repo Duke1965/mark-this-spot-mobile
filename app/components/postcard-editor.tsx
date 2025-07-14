@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { X, Download, Type, Palette } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { X, Download, Type, Palette, Save, Share2 } from "lucide-react"
 import { PostcardTemplateSelector, postcardTemplates } from "./postcard-templates"
 import { SocialSharing } from "./social-sharing"
 
@@ -24,8 +24,15 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
   const [selectedTemplate, setSelectedTemplate] = useState("classic")
   const [showSharing, setShowSharing] = useState(false)
   const [generatedPostcard, setGeneratedPostcard] = useState<string | null>(null)
+  const [isSaved, setIsSaved] = useState(false)
 
-  const generatePostcard = async () => {
+  // Add this useEffect after the existing state declarations
+  useEffect(() => {
+    // Update preview when template changes
+    console.log(`🎨 Template changed to: ${selectedTemplate}`)
+  }, [selectedTemplate])
+
+  const generatePostcard = async (action: "save" | "share" | "create") => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -50,7 +57,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           addTextOverlay(ctx)
 
           // Generate final postcard
+          const postcardDataUrl = canvas.toDataURL("image/jpeg", 0.9)
           const postcardData = {
+            id: Date.now().toString(),
             mediaUrl,
             mediaType,
             locationName,
@@ -59,13 +68,13 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
             textSize,
             textPosition,
             backgroundColor,
+            selectedTemplate,
             timestamp: new Date().toISOString(),
-            canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
+            canvasDataUrl: postcardDataUrl,
           }
 
-          setGeneratedPostcard(canvas.toDataURL("image/jpeg", 0.9))
-          onSave(postcardData)
-          setShowSharing(true)
+          setGeneratedPostcard(postcardDataUrl)
+          handlePostcardAction(action, postcardData, postcardDataUrl)
           setIsGenerating(false)
         }
         img.src = mediaUrl
@@ -80,7 +89,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
           addTextOverlay(ctx)
 
+          const postcardDataUrl = canvas.toDataURL("image/jpeg", 0.9)
           const postcardData = {
+            id: Date.now().toString(),
             mediaUrl,
             mediaType,
             locationName,
@@ -89,13 +100,13 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
             textSize,
             textPosition,
             backgroundColor,
+            selectedTemplate,
             timestamp: new Date().toISOString(),
-            canvasDataUrl: canvas.toDataURL("image/jpeg", 0.9),
+            canvasDataUrl: postcardDataUrl,
           }
 
-          setGeneratedPostcard(canvas.toDataURL("image/jpeg", 0.9))
-          onSave(postcardData)
-          setShowSharing(true)
+          setGeneratedPostcard(postcardDataUrl)
+          handlePostcardAction(action, postcardData, postcardDataUrl)
           setIsGenerating(false)
         }
         video.src = mediaUrl
@@ -103,6 +114,35 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
     } catch (error) {
       console.error("❌ Failed to generate postcard:", error)
       setIsGenerating(false)
+    }
+  }
+
+  const handlePostcardAction = (action: "save" | "share" | "create", postcardData: any, postcardDataUrl: string) => {
+    switch (action) {
+      case "save":
+        // Save to localStorage for later
+        const savedPostcards = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
+        savedPostcards.unshift(postcardData)
+        localStorage.setItem("pinit-saved-postcards", JSON.stringify(savedPostcards))
+        setIsSaved(true)
+        console.log("💾 Postcard saved for later!")
+
+        // Show success message
+        setTimeout(() => setIsSaved(false), 2000)
+        break
+
+      case "share":
+        // Save and show sharing options
+        const savedPostcardsForShare = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
+        savedPostcardsForShare.unshift(postcardData)
+        localStorage.setItem("pinit-saved-postcards", JSON.stringify(savedPostcardsForShare))
+        setShowSharing(true)
+        break
+
+      case "create":
+        // Just create and save to pin
+        onSave(postcardData)
+        break
     }
   }
 
@@ -196,6 +236,31 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         </button>
       </div>
 
+      {/* Success Message */}
+      {isSaved && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(16, 185, 129, 0.95)",
+            color: "white",
+            padding: "1rem 2rem",
+            borderRadius: "1rem",
+            zIndex: 1001,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "1rem",
+            fontWeight: "bold",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+          }}
+        >
+          💾 Postcard Saved!
+        </div>
+      )}
+
       {/* Preview Area - Scrollable */}
       <div
         style={{
@@ -249,17 +314,29 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
                 bottom: 0,
                 left: 0,
                 right: 0,
-                background: backgroundColor,
+                background:
+                  postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.background ||
+                  backgroundColor,
                 padding: "1rem",
                 textAlign: "center",
+                borderRadius: "0 0 1rem 1rem",
+                ...(postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.overlay && {
+                  backgroundImage: postcardTemplates[selectedTemplate as keyof typeof postcardTemplates].style.overlay,
+                }),
               }}
             >
               <div
                 style={{
-                  color: textColor,
+                  color:
+                    postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.textColor || textColor,
                   fontSize: `${textSize * 0.8}px`,
                   fontWeight: "bold",
                   marginBottom: "0.5rem",
+                  fontFamily:
+                    postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.fontFamily ||
+                    "sans-serif",
+                  textShadow:
+                    postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.textShadow || "none",
                 }}
               >
                 {text}
@@ -268,6 +345,9 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
                 style={{
                   color: "rgba(255,255,255,0.8)",
                   fontSize: `${textSize * 0.5}px`,
+                  fontFamily:
+                    postcardTemplates[selectedTemplate as keyof typeof postcardTemplates]?.style.fontFamily ||
+                    "sans-serif",
                 }}
               >
                 {locationName}
@@ -408,7 +488,7 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         </div>
       </div>
 
-      {/* Action Buttons - Fixed at bottom */}
+      {/* Action Buttons - Fixed at bottom with MORE OPTIONS */}
       <div
         style={{
           padding: "1rem 1.5rem",
@@ -417,65 +497,133 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
           backdropFilter: "blur(10px)",
           borderTop: "1px solid rgba(255,255,255,0.1)",
           display: "flex",
-          justifyContent: "center",
+          flexDirection: "column",
           gap: "1rem",
           flexShrink: 0,
-          minHeight: "80px", // Ensure minimum height
+          minHeight: "120px", // Increased for more buttons
         }}
       >
-        <button
-          onClick={onClose}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "1rem 2rem",
-            borderRadius: "1rem",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: "1rem",
-            transition: "all 0.3s ease",
-          }}
-        >
-          Cancel
-        </button>
+        {/* Primary Actions Row */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+          <button
+            onClick={onClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "0.875rem",
+              transition: "all 0.3s ease",
+            }}
+          >
+            Cancel
+          </button>
 
-        <button
-          onClick={generatePostcard}
-          disabled={isGenerating}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "1rem 2rem",
-            borderRadius: "1rem",
-            border: "none",
-            background: isGenerating ? "rgba(255,255,255,0.3)" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-            color: "white",
-            cursor: isGenerating ? "not-allowed" : "pointer",
-            fontWeight: "bold",
-            fontSize: "1rem",
-            transition: "all 0.3s ease",
-            boxShadow: isGenerating ? "none" : "0 10px 25px rgba(16, 185, 129, 0.4)",
-          }}
-        >
-          <Download size={20} />
-          {isGenerating ? "Creating..." : "Create Postcard"}
-        </button>
+          <button
+            onClick={() => generatePostcard("save")}
+            disabled={isGenerating}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: isGenerating ? "rgba(255,255,255,0.3)" : "rgba(59, 130, 246, 0.8)",
+              color: "white",
+              cursor: isGenerating ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              fontSize: "0.875rem",
+              transition: "all 0.3s ease",
+            }}
+          >
+            <Save size={18} />
+            Save for Later
+          </button>
+        </div>
+
+        {/* Secondary Actions Row */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+          <button
+            onClick={() => generatePostcard("create")}
+            disabled={isGenerating}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: isGenerating ? "rgba(255,255,255,0.3)" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+              color: "white",
+              cursor: isGenerating ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              fontSize: "0.875rem",
+              transition: "all 0.3s ease",
+              boxShadow: isGenerating ? "none" : "0 8px 20px rgba(16, 185, 129, 0.4)",
+            }}
+          >
+            <Download size={18} />
+            {isGenerating ? "Creating..." : "Create & Save"}
+          </button>
+
+          <button
+            onClick={() => generatePostcard("share")}
+            disabled={isGenerating}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: isGenerating ? "rgba(255,255,255,0.3)" : "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+              color: "white",
+              cursor: isGenerating ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              fontSize: "0.875rem",
+              transition: "all 0.3s ease",
+              boxShadow: isGenerating ? "none" : "0 8px 20px rgba(245, 158, 11, 0.4)",
+            }}
+          >
+            <Share2 size={18} />
+            Create & Share
+          </button>
+        </div>
       </div>
 
+      {/* Social Sharing Overlay */}
       {showSharing && generatedPostcard && (
-        <SocialSharing
-          postcardDataUrl={generatedPostcard}
-          locationName={locationName}
-          onComplete={() => {
-            setShowSharing(false)
-            onClose()
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.95)",
+            zIndex: 1001,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
           }}
-        />
+        >
+          <SocialSharing
+            postcardDataUrl={generatedPostcard}
+            locationName={locationName}
+            onComplete={() => {
+              setShowSharing(false)
+              onClose()
+            }}
+          />
+        </div>
       )}
 
       <canvas ref={canvasRef} style={{ display: "none" }} />
