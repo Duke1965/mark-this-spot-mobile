@@ -830,7 +830,7 @@ export default function Page() {
         />
       )}
 
-      {/* Libraries screen section */}
+      {/* Libraries screen section - NOW WITH SCROLLING! */}
       {currentScreen === "libraries" && (
         <div
           style={{
@@ -839,9 +839,11 @@ export default function Page() {
             color: "white",
             display: "flex",
             flexDirection: "column",
+            height: "100vh", // Full height
+            overflow: "hidden", // Prevent body scroll
           }}
         >
-          {/* Library Header */}
+          {/* Library Header - Fixed */}
           <div
             style={{
               padding: "2rem",
@@ -849,6 +851,7 @@ export default function Page() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              flexShrink: 0, // Don't shrink
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -869,12 +872,13 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Library Tabs */}
+          {/* Library Tabs - Fixed */}
           <div
             style={{
               display: "flex",
               padding: "0 2rem",
               borderBottom: "1px solid rgba(255,255,255,0.1)",
+              flexShrink: 0, // Don't shrink
             }}
           >
             {[
@@ -909,8 +913,15 @@ export default function Page() {
             ))}
           </div>
 
-          {/* Library Content */}
-          <div style={{ flex: 1, overflow: "auto", padding: "2rem" }}>
+          {/* Library Content - NOW SCROLLABLE! */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto", // Enable vertical scrolling
+              padding: "2rem",
+              minHeight: 0, // Allow flex shrinking
+            }}
+          >
             {libraryTab === "pins" && (
               <div>
                 {savedPins.filter((pin) => !pin.media).length === 0 ? (
