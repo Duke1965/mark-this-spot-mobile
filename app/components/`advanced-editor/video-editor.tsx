@@ -1,27 +1,24 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Pause, RotateCw, Volume2, VolumeX, Scissors, Download, Settings } from "lucide-react"
+import { Play, Pause, Volume2, VolumeX, Scissors, Zap, RotateCcw } from "lucide-react"
 
 interface VideoEditorProps {
   videoUrl: string
-  onVideoUpdate?: (settings: any) => void
-  onVideoProcessed?: (processedUrl: string) => void
+  onVideoProcessed: (processedUrl: string) => void
 }
 
-export function VideoEditor({ videoUrl, onVideoUpdate, onVideoProcessed }: VideoEditorProps) {
+export function VideoEditor({ videoUrl, onVideoProcessed }: VideoEditorProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(100)
+  const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
+  const [trimStart, setTrimStart] = useState(0)
+  const [trimEnd, setTrimEnd] = useState(0)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
-  const [startTime, setStartTime] = useState(0)
-  const [endTime, setEndTime] = useState(0)
-  const [brightness, setBrightness] = useState(100)
-  const [contrast, setContrast] = useState(100)
-  const [saturation, setSaturation] = useState(100)
+  const [videoFilter, setVideoFilter] = useState("none")
 
   useEffect(() => {
     const video = videoRef.current
@@ -29,7 +26,7 @@ export function VideoEditor({ videoUrl, onVideoUpdate, onVideoProcessed }: Video
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration)
-      setEndTime(video.duration)
+      setTrimEnd(video.duration)
     }
 
     const handleTimeUpdate = () => {
@@ -44,30 +41,6 @@ export function VideoEditor({ videoUrl, onVideoUpdate, onVideoProcessed }: Video
       video.removeEventListener("timeupdate", handleTimeUpdate)
     }
   }, [])
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    video.volume = volume / 100
-    video.muted = isMuted
-    video.playbackRate = playbackSpeed
-
-    const filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`
-    video.style.filter = filter
-
-    // Update parent component
-    onVideoUpdate?.({
-      startTime,
-      endTime,
-      playbackSpeed,
-      volume,
-      muted: isMuted,
-      brightness,
-      contrast,
-      saturation,
-    })
-  }, [volume, isMuted, playbackSpeed, startTime, endTime, brightness, contrast, saturation, onVideoUpdate])
 
   const togglePlayPause = () => {
     const video = videoRef.current
@@ -89,77 +62,89 @@ export function VideoEditor({ videoUrl, onVideoUpdate, onVideoProcessed }: Video
     setCurrentTime(time)
   }
 
+  const handleVolumeChange = (newVolume: number) => {
+    const video = videoRef.current
+    if (!video) return
+
+    video.volume = newVolume
+    setVolume(newVolume)
+    setIsMuted(newVolume === 0)
+  }
+
+  const toggleMute = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (isMuted) {
+      video.volume = volume
+      setIsMuted(false)
+    } else {
+      video.volume = 0
+      setIsMuted(true)
+    }
+  }
+
+  const handleSpeedChange = (speed: number) => {
+    const video = videoRef.current
+    if (!video) return
+
+    video.playbackRate = speed
+    setPlaybackSpeed(speed)
+  }
+
+  const applyVideoFilter = (filter: string) => {
+    setVideoFilter(filter)
+  }
+
+  const resetVideo = () => {
+    setTrimStart(0)
+    setTrimEnd(duration)
+    setPlaybackSpeed(1)
+    setVideoFilter("none")
+    setVolume(1)
+    setIsMuted(false)
+
+    const video = videoRef.current
+    if (video) {
+      video.playbackRate = 1
+      video.volume = 1
+      video.currentTime = 0
+    }
+  }
+
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
-  const handleTrimStart = () => {
-    setStartTime(currentTime)
-  }
-
-  const handleTrimEnd = () => {
-    setEndTime(currentTime)
-  }
-
-  const resetSettings = () => {
-    setBrightness(100)
-    setContrast(100)
-    setSaturation(100)
-    setPlaybackSpeed(1)
-    setVolume(100)
-    setIsMuted(false)
-    setStartTime(0)
-    setEndTime(duration)
-  }
-
-  const exportVideo = () => {
-    // In a real implementation, this would process the video with the applied settings
-    console.log("Exporting video with settings:", {
-      startTime,
-      endTime,
-      playbackSpeed,
-      volume,
-      muted: isMuted,
-      brightness,
-      contrast,
-      saturation,
-    })
-    onVideoProcessed?.(videoUrl) // For now, just return the original URL
-  }
+  const videoEffects = [
+    { name: "Original", filter: "none" },
+    { name: "B&W", filter: "grayscale(1)" },
+    { name: "Vintage", filter: "sepia(0.5) contrast(1.2)" },
+    { name: "High Contrast", filter: "contrast(1.5)" },
+    { name: "Warm", filter: "sepia(0.3) saturate(1.4)" },
+    { name: "Cool", filter: "hue-rotate(180deg)" },
+  ]
 
   return (
     <div
       style={{
-        background: "rgba(0,0,0,0.9)",
+        background: "rgba(255,255,255,0.1)",
         padding: "1rem",
         borderRadius: "1rem",
-        color: "white",
-        maxHeight: "600px",
-        overflowY: "auto",
+        backdropFilter: "blur(10px)",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <RotateCw size={20} />
-        <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Video Editor</h3>
-      </div>
+      <h3 style={{ color: "white", margin: "0 0 1rem 0" }}>Video Editor</h3>
 
       {/* Video Preview */}
       <div
         style={{
           position: "relative",
-          marginBottom: "1.5rem",
+          marginBottom: "1rem",
           borderRadius: "0.5rem",
           overflow: "hidden",
-          background: "black",
         }}
       >
         <video
@@ -167,385 +152,206 @@ export function VideoEditor({ videoUrl, onVideoUpdate, onVideoProcessed }: Video
           src={videoUrl}
           style={{
             width: "100%",
-            height: "200px",
+            height: "150px",
             objectFit: "cover",
+            filter: videoFilter,
           }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          muted={isMuted}
         />
 
-        {/* Video Controls Overlay */}
-        <div
+        <button
+          onClick={togglePlayPause}
           style={{
             position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-            padding: "1rem",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(0,0,0,0.7)",
+            border: "none",
+            borderRadius: "50%",
+            width: "50px",
+            height: "50px",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {/* Progress Bar */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <input
-              type="range"
-              min={0}
-              max={duration}
-              value={currentTime}
-              onChange={(e) => handleSeek(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.3)",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: "0.8rem",
-                color: "rgba(255,255,255,0.8)",
-                marginTop: "0.25rem",
-              }}
-            >
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
+          {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+        </button>
+      </div>
 
-          {/* Control Buttons */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "1rem",
-            }}
-          >
-            <button
-              onClick={togglePlayPause}
-              style={{
-                padding: "0.5rem",
-                borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-            </button>
-
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              style={{
-                padding: "0.5rem",
-                borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
-          </div>
+      {/* Timeline */}
+      <div style={{ marginBottom: "1rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "0.5rem",
+          }}
+        >
+          <span style={{ color: "white", fontSize: "0.8rem" }}>{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            min="0"
+            max={duration}
+            value={currentTime}
+            onChange={(e) => handleSeek(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <span style={{ color: "white", fontSize: "0.8rem" }}>{formatTime(duration)}</span>
         </div>
       </div>
 
       {/* Trim Controls */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h4
-          style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <Scissors size={16} />
+      <div style={{ marginBottom: "1rem" }}>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>
+          <Scissors size={16} style={{ marginRight: "0.25rem" }} />
           Trim Video
         </h4>
-
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          <button
-            onClick={handleTrimStart}
-            style={{
-              flex: 1,
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "0.8rem",
-            }}
-          >
-            Set Start ({formatTime(currentTime)})
-          </button>
-          <button
-            onClick={handleTrimEnd}
-            style={{
-              flex: 1,
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "0.8rem",
-            }}
-          >
-            Set End ({formatTime(currentTime)})
-          </button>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "0.8rem",
-            color: "rgba(255,255,255,0.7)",
-          }}
-        >
-          <span>Start: {formatTime(startTime)}</span>
-          <span>End: {formatTime(endTime)}</span>
-          <span>Duration: {formatTime(endTime - startTime)}</span>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "white", fontSize: "0.7rem", display: "block" }}>
+              Start: {formatTime(trimStart)}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max={duration}
+              value={trimStart}
+              onChange={(e) => setTrimStart(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "white", fontSize: "0.7rem", display: "block" }}>End: {formatTime(trimEnd)}</label>
+            <input
+              type="range"
+              min="0"
+              max={duration}
+              value={trimEnd}
+              onChange={(e) => setTrimEnd(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Playback Speed */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "0.5rem",
-          }}
-        >
-          <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Playback Speed</label>
-          <span style={{ fontSize: "0.8rem", color: "white" }}>{playbackSpeed}x</span>
-        </div>
-        <input
-          type="range"
-          min={0.25}
-          max={2}
-          step={0.25}
-          value={playbackSpeed}
-          onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-          style={{
-            width: "100%",
-            height: "4px",
-            borderRadius: "2px",
-            background: "rgba(255,255,255,0.2)",
-            outline: "none",
-            cursor: "pointer",
-          }}
-        />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "0.7rem",
-            color: "rgba(255,255,255,0.5)",
-            marginTop: "0.25rem",
-          }}
-        >
-          <span>0.25x</span>
-          <span>1x</span>
-          <span>2x</span>
+      {/* Speed Control */}
+      <div style={{ marginBottom: "1rem" }}>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>
+          <Zap size={16} style={{ marginRight: "0.25rem" }} />
+          Speed: {playbackSpeed}x
+        </h4>
+        <div style={{ display: "flex", gap: "0.25rem" }}>
+          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
+            <button
+              key={speed}
+              onClick={() => handleSpeedChange(speed)}
+              style={{
+                flex: 1,
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                border: "none",
+                background: playbackSpeed === speed ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.7rem",
+              }}
+            >
+              {speed}x
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Volume Control */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "0.5rem",
-          }}
-        >
-          <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Volume</label>
-          <span style={{ fontSize: "0.8rem", color: "white" }}>{volume}%</span>
+      <div style={{ marginBottom: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <button
+            onClick={toggleMute}
+            style={{
+              background: "none",
+              border: "none",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => handleVolumeChange(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
         </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={volume}
-          onChange={(e) => setVolume(Number(e.target.value))}
-          style={{
-            width: "100%",
-            height: "4px",
-            borderRadius: "2px",
-            background: "rgba(255,255,255,0.2)",
-            outline: "none",
-            cursor: "pointer",
-          }}
-        />
       </div>
 
       {/* Video Effects */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h4
+      <div style={{ marginBottom: "1rem" }}>
+        <h4 style={{ color: "white", fontSize: "0.9rem", margin: "0 0 0.5rem 0" }}>Effects</h4>
+        <div
           style={{
-            color: "rgba(255,255,255,0.8)",
-            fontSize: "0.9rem",
-            margin: "0 0 1rem 0",
-            fontWeight: "500",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0.25rem",
           }}
         >
-          Video Effects
-        </h4>
-
-        {/* Brightness */}
-        <div style={{ marginBottom: "1rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Brightness</label>
-            <span style={{ fontSize: "0.8rem", color: "white" }}>{brightness}%</span>
-          </div>
-          <input
-            type="range"
-            min={50}
-            max={150}
-            value={brightness}
-            onChange={(e) => setBrightness(Number(e.target.value))}
-            style={{
-              width: "100%",
-              height: "4px",
-              borderRadius: "2px",
-              background: "rgba(255,255,255,0.2)",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          />
-        </div>
-
-        {/* Contrast */}
-        <div style={{ marginBottom: "1rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Contrast</label>
-            <span style={{ fontSize: "0.8rem", color: "white" }}>{contrast}%</span>
-          </div>
-          <input
-            type="range"
-            min={50}
-            max={150}
-            value={contrast}
-            onChange={(e) => setContrast(Number(e.target.value))}
-            style={{
-              width: "100%",
-              height: "4px",
-              borderRadius: "2px",
-              background: "rgba(255,255,255,0.2)",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          />
-        </div>
-
-        {/* Saturation */}
-        <div style={{ marginBottom: "1rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <label style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.8)" }}>Saturation</label>
-            <span style={{ fontSize: "0.8rem", color: "white" }}>{saturation}%</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={200}
-            value={saturation}
-            onChange={(e) => setSaturation(Number(e.target.value))}
-            style={{
-              width: "100%",
-              height: "4px",
-              borderRadius: "2px",
-              background: "rgba(255,255,255,0.2)",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          />
+          {videoEffects.map((effect) => (
+            <button
+              key={effect.name}
+              onClick={() => applyVideoFilter(effect.filter)}
+              style={{
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                border: "none",
+                background: videoFilter === effect.filter ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.7rem",
+              }}
+            >
+              {effect.name}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Action Buttons */}
       <div style={{ display: "flex", gap: "0.5rem" }}>
         <button
-          onClick={resetSettings}
-          style={{
-            flex: 1,
-            padding: "0.75rem",
-            borderRadius: "0.5rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "0.8rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <Settings size={16} />
-          Reset
-        </button>
-        <button
-          onClick={exportVideo}
+          onClick={() => onVideoProcessed(videoUrl)}
           style={{
             flex: 1,
             padding: "0.75rem",
             borderRadius: "0.5rem",
             border: "none",
-            background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+            background: "rgba(16, 185, 129, 0.3)",
             color: "white",
             cursor: "pointer",
             fontSize: "0.8rem",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
           }}
         >
-          <Download size={16} />
-          Apply
+          Apply Changes
+        </button>
+        <button
+          onClick={resetVideo}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <RotateCcw size={16} />
         </button>
       </div>
     </div>
