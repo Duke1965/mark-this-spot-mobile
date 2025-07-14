@@ -195,8 +195,9 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         left: 0,
         right: 0,
         bottom: 0,
-        background: "rgba(0,0,0,0.95)",
-        zIndex: 1000,
+        background: "#000000",
+        zIndex: 9999,
+        isolation: "isolate",
         display: "flex",
         flexDirection: "column",
       }}
