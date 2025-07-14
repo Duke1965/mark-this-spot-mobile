@@ -265,6 +265,13 @@ export default function Page() {
     setSelectedPin(updatedPin)
   }
 
+  const deletePin = (pinId: string) => {
+    if (confirm("Are you sure you want to delete this pin?")) {
+      setSavedPins((prev) => prev.filter((pin) => pin.id !== pinId))
+      console.log(`🗑️ Pin deleted: ${pinId}`)
+    }
+  }
+
   // Enhanced Pin Item Component with async thumbnail loading
   const PinItem = ({ pin }: { pin: Pin }) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string>("")
@@ -277,7 +284,6 @@ export default function Page() {
           setThumbnailUrl(url)
         } catch (error) {
           console.error("Failed to load thumbnail:", error)
-          // Fallback thumbnail
           setThumbnailUrl("/placeholder.svg?height=60&width=80&text=No+Image")
         } finally {
           setIsLoading(false)
@@ -289,7 +295,6 @@ export default function Page() {
 
     return (
       <div
-        onClick={() => openEditor(pin)}
         style={{
           background: "rgba(255,255,255,0.1)",
           borderRadius: "1rem",
@@ -297,21 +302,13 @@ export default function Page() {
           display: "flex",
           alignItems: "center",
           gap: "1rem",
-          cursor: "pointer",
           transition: "all 0.3s ease",
           border: "1px solid transparent",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-          e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-          e.currentTarget.style.border = "1px solid transparent"
         }}
       >
         {/* Enhanced Thumbnail */}
         <div
+          onClick={() => openEditor(pin)}
           style={{
             width: "80px",
             height: "60px",
@@ -322,6 +319,7 @@ export default function Page() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            cursor: "pointer",
           }}
         >
           {isLoading ? (
@@ -352,7 +350,13 @@ export default function Page() {
         </div>
 
         {/* Metadata */}
-        <div style={{ flex: 1 }}>
+        <div
+          onClick={() => openEditor(pin)}
+          style={{
+            flex: 1,
+            cursor: "pointer",
+          }}
+        >
           <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
           <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
             📅 {new Date(pin.timestamp).toLocaleDateString()} at {new Date(pin.timestamp).toLocaleTimeString()}
@@ -363,9 +367,39 @@ export default function Page() {
           {pin.notes && <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>📝 {pin.notes}</p>}
         </div>
 
-        {/* Edit indicator */}
-        <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
-          <Edit3 size={20} />
+        {/* Action buttons */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <button
+            onClick={() => openEditor(pin)}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(16, 185, 129, 0.2)",
+              color: "rgba(16, 185, 129, 0.8)",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+            }}
+          >
+            <Edit3 size={16} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              deletePin(pin.id)
+            }}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(239, 68, 68, 0.2)",
+              color: "rgba(239, 68, 68, 0.8)",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+            }}
+          >
+            🗑️
+          </button>
         </div>
       </div>
     )
@@ -932,7 +966,6 @@ export default function Page() {
                       .map((pin) => (
                         <div
                           key={pin.id}
-                          onClick={() => openEditor(pin)}
                           style={{
                             background: "rgba(255,255,255,0.1)",
                             borderRadius: "1rem",
@@ -940,21 +973,13 @@ export default function Page() {
                             display: "flex",
                             alignItems: "center",
                             gap: "1rem",
-                            cursor: "pointer",
                             transition: "all 0.3s ease",
                             border: "1px solid transparent",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                            e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                            e.currentTarget.style.border = "1px solid transparent"
                           }}
                         >
                           {/* Thumbnail */}
                           <div
+                            onClick={() => openEditor(pin)}
                             style={{
                               width: "80px",
                               height: "60px",
@@ -962,6 +987,7 @@ export default function Page() {
                               overflow: "hidden",
                               flexShrink: 0,
                               position: "relative",
+                              cursor: "pointer",
                             }}
                           >
                             <video
@@ -995,7 +1021,13 @@ export default function Page() {
                           </div>
 
                           {/* Metadata */}
-                          <div style={{ flex: 1 }}>
+                          <div
+                            onClick={() => openEditor(pin)}
+                            style={{
+                              flex: 1,
+                              cursor: "pointer",
+                            }}
+                          >
                             <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
                             <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
                               📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
@@ -1011,9 +1043,39 @@ export default function Page() {
                             )}
                           </div>
 
-                          {/* Edit indicator */}
-                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
-                            <Edit3 size={20} />
+                          {/* Action buttons */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            <button
+                              onClick={() => openEditor(pin)}
+                              style={{
+                                padding: "0.5rem",
+                                borderRadius: "0.5rem",
+                                border: "none",
+                                background: "rgba(16, 185, 129, 0.2)",
+                                color: "rgba(16, 185, 129, 0.8)",
+                                cursor: "pointer",
+                                transition: "all 0.3s ease",
+                              }}
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deletePin(pin.id)
+                              }}
+                              style={{
+                                padding: "0.5rem",
+                                borderRadius: "0.5rem",
+                                border: "none",
+                                background: "rgba(239, 68, 68, 0.2)",
+                                color: "rgba(239, 68, 68, 0.8)",
+                                cursor: "pointer",
+                                transition: "all 0.3s ease",
+                              }}
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </div>
                       ))}
