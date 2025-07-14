@@ -6,6 +6,7 @@ import { EnhancedCamera } from "./components/enhanced-camera"
 import { VoiceCommander } from "./components/voice-commander"
 import { PostcardEditor } from "./components/postcard-editor"
 import { playEnhancedSound } from "./utils/enhanced-audio"
+import { generateEnhancedThumbnailForPin } from "./utils/places-photos"
 
 interface Pin {
   id: string
@@ -19,6 +20,7 @@ interface Pin {
     type: "photo" | "video"
   }
   thumbnail?: string // For map pins, we'll generate a thumbnail
+  enhancedThumbnail?: string // For place photos
 }
 
 export default function Page() {
@@ -36,6 +38,7 @@ export default function Page() {
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
+  const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map())
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
@@ -178,13 +181,36 @@ export default function Page() {
     }
   }
 
-  const generateThumbnailForPin = (pin: Pin): string => {
-    if (pin.media) {
-      return pin.media.url // Use the actual media as thumbnail
-    } else {
-      // Generate a map thumbnail for location pins
-      return `https://maps.googleapis.com/maps/api/staticmap?center=${pin.latitude},${pin.longitude}&zoom=15&size=300x200&maptype=roadmap&markers=color:red%7Clabel:P%7C${pin.latitude},${pin.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+  // Enhanced thumbnail generator with caching
+  const generateThumbnailForPin = async (pin: Pin): Promise<string> => {
+    const cacheKey = pin.id
+
+    // Check cache first
+    if (thumbnailCache.has(cacheKey)) {
+      return thumbnailCache.get(cacheKey)!
     }
+
+    let thumbnailUrl: string
+
+    if (pin.media) {
+      // Use actual media as thumbnail
+      thumbnailUrl = pin.media.url
+    } else {
+      // Try to get enhanced thumbnail with place photo
+      try {
+        thumbnailUrl = await generateEnhancedThumbnailForPin(pin)
+        console.log(`🖼️ Generated enhanced thumbnail for: ${pin.address}`)
+      } catch (error) {
+        console.warn("⚠️ Failed to generate enhanced thumbnail, using fallback:", error)
+        // Fallback to map thumbnail
+        thumbnailUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${pin.latitude},${pin.longitude}&zoom=15&size=300x200&maptype=roadmap&markers=color:red%7Clabel:P%7C${pin.latitude},${pin.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      }
+    }
+
+    // Cache the result
+    setThumbnailCache((prev) => new Map(prev.set(cacheKey, thumbnailUrl)))
+
+    return thumbnailUrl
   }
 
   const markSpot = () => {
@@ -237,6 +263,112 @@ export default function Page() {
   const updatePin = (updatedPin: Pin) => {
     setSavedPins((prev) => prev.map((pin) => (pin.id === updatedPin.id ? updatedPin : pin)))
     setSelectedPin(updatedPin)
+  }
+
+  // Enhanced Pin Item Component with async thumbnail loading
+  const PinItem = ({ pin }: { pin: Pin }) => {
+    const [thumbnailUrl, setThumbnailUrl] = useState<string>("")
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+      const loadThumbnail = async () => {
+        try {
+          const url = await generateThumbnailForPin(pin)
+          setThumbnailUrl(url)
+        } catch (error) {
+          console.error("Failed to load thumbnail:", error)
+          // Fallback thumbnail
+          setThumbnailUrl("/placeholder.svg?height=60&width=80&text=No+Image")
+        } finally {
+          setIsLoading(false)
+        }
+      }
+
+      loadThumbnail()
+    }, [pin])
+
+    return (
+      <div
+        onClick={() => openEditor(pin)}
+        style={{
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          border: "1px solid transparent",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+          e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+          e.currentTarget.style.border = "1px solid transparent"
+        }}
+      >
+        {/* Enhanced Thumbnail */}
+        <div
+          style={{
+            width: "80px",
+            height: "60px",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+            flexShrink: 0,
+            background: "rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {isLoading ? (
+            <div
+              style={{
+                width: "20px",
+                height: "20px",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderTop: "2px solid white",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+          ) : (
+            <img
+              src={thumbnailUrl || "/placeholder.svg"}
+              alt="Pin thumbnail"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg?height=60&width=80&text=No+Image"
+              }}
+            />
+          )}
+        </div>
+
+        {/* Metadata */}
+        <div style={{ flex: 1 }}>
+          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
+          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+            📅 {new Date(pin.timestamp).toLocaleDateString()} at {new Date(pin.timestamp).toLocaleTimeString()}
+          </p>
+          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+            📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+          </p>
+          {pin.notes && <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>📝 {pin.notes}</p>}
+        </div>
+
+        {/* Edit indicator */}
+        <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
+          <Edit3 size={20} />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -651,7 +783,7 @@ export default function Page() {
       {/* Editor screen section */}
       {currentScreen === "editor" && selectedPin && (
         <PostcardEditor
-          mediaUrl={selectedPin.media?.url || generateThumbnailForPin(selectedPin)}
+          mediaUrl={selectedPin.media?.url || selectedPin.thumbnail || ""}
           mediaType={selectedPin.media?.type || "photo"}
           locationName={selectedPin.address}
           onSave={(postcardData) => {
@@ -757,72 +889,7 @@ export default function Page() {
                     {savedPins
                       .filter((pin) => !pin.media)
                       .map((pin) => (
-                        <div
-                          key={pin.id}
-                          onClick={() => openEditor(pin)}
-                          style={{
-                            background: "rgba(255,255,255,0.1)",
-                            borderRadius: "1rem",
-                            padding: "1rem",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "1rem",
-                            cursor: "pointer",
-                            transition: "all 0.3s ease",
-                            border: "1px solid transparent",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                            e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                            e.currentTarget.style.border = "1px solid transparent"
-                          }}
-                        >
-                          {/* Thumbnail */}
-                          <div
-                            style={{
-                              width: "80px",
-                              height: "60px",
-                              borderRadius: "0.5rem",
-                              overflow: "hidden",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <img
-                              src={generateThumbnailForPin(pin) || "/placeholder.svg"}
-                              alt="Pin thumbnail"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          </div>
-
-                          {/* Metadata */}
-                          <div style={{ flex: 1 }}>
-                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
-                            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                              📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
-                              {new Date(pin.timestamp).toLocaleTimeString()}
-                            </p>
-                            <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-                              📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
-                            </p>
-                            {pin.notes && (
-                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
-                                📝 {pin.notes}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Edit indicator */}
-                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
-                            <Edit3 size={20} />
-                          </div>
-                        </div>
+                        <PinItem key={pin.id} pin={pin} />
                       ))}
                   </div>
                 )}
@@ -842,72 +909,7 @@ export default function Page() {
                     {savedPins
                       .filter((pin) => pin.media?.type === "photo")
                       .map((pin) => (
-                        <div
-                          key={pin.id}
-                          onClick={() => openEditor(pin)}
-                          style={{
-                            background: "rgba(255,255,255,0.1)",
-                            borderRadius: "1rem",
-                            padding: "1rem",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "1rem",
-                            cursor: "pointer",
-                            transition: "all 0.3s ease",
-                            border: "1px solid transparent",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-                            e.currentTarget.style.border = "1px solid rgba(16, 185, 129, 0.3)"
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                            e.currentTarget.style.border = "1px solid transparent"
-                          }}
-                        >
-                          {/* Thumbnail */}
-                          <div
-                            style={{
-                              width: "80px",
-                              height: "60px",
-                              borderRadius: "0.5rem",
-                              overflow: "hidden",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <img
-                              src={pin.media?.url || "/placeholder.svg"}
-                              alt="Photo thumbnail"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          </div>
-
-                          {/* Metadata */}
-                          <div style={{ flex: 1 }}>
-                            <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.address}</h4>
-                            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                              📅 {new Date(pin.timestamp).toLocaleDateString()} at{" "}
-                              {new Date(pin.timestamp).toLocaleTimeString()}
-                            </p>
-                            <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-                              📍 {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
-                            </p>
-                            {pin.notes && (
-                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>
-                                📝 {pin.notes}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Edit indicator */}
-                          <div style={{ color: "rgba(16, 185, 129, 0.8)" }}>
-                            <Edit3 size={20} />
-                          </div>
-                        </div>
+                        <PinItem key={pin.id} pin={pin} />
                       ))}
                   </div>
                 )}
