@@ -19,7 +19,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const [isLoading, setIsLoading] = useState(false) // Start as false
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
-  const [isRecording, setIsRecording] = useState(false)
+  const [isRecording, setIsRecording] = useState(isRecording)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [cameraReady, setCameraReady] = useState(false)
@@ -418,27 +418,29 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         bottom: 0,
         background: "#000000",
         zIndex: 9999,
-        display: "flex",
-        flexDirection: "column",
       }}
     >
-      {/* Header */}
+      {/* Header - Fixed at top */}
       <div
         style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "80px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "1rem",
-          background: "rgba(255,255,255,0.1)",
+          background: "rgba(0,0,0,0.7)",
           color: "white",
+          zIndex: 10,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div style={{ fontSize: "1.5rem" }}>{mode === "photo" ? "📸" : "🎥"}</div>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.25rem" }}>{mode === "photo" ? "Take Photo" : "Record Video"}</h2>
-            {cameraReady && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Ready</p>}
-            {isLoading && <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>Loading...</p>}
           </div>
         </div>
         <button
@@ -456,8 +458,17 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         </button>
       </div>
 
-      {/* Camera View */}
-      <div style={{ flex: 1, position: "relative", background: "#333" }}>
+      {/* Camera View - Full screen */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "#333",
+        }}
+      >
         {error ? (
           <div
             style={{
@@ -554,6 +565,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                   alignItems: "center",
                   justifyContent: "center",
                   color: "white",
+                  zIndex: 5,
                 }}
               >
                 <div
@@ -580,7 +592,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           <div
             style={{
               position: "absolute",
-              top: "1rem",
+              top: "100px",
               left: "50%",
               transform: "translateX(-50%)",
               display: "flex",
@@ -592,6 +604,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
               borderRadius: "1rem",
               fontSize: "0.875rem",
               fontWeight: "bold",
+              zIndex: 10,
             }}
           >
             <div
@@ -608,21 +621,24 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         )}
       </div>
 
-      {/* Controls - ALWAYS VISIBLE except when showing captured media */}
+      {/* Controls - ALWAYS FIXED AT BOTTOM */}
       <div
         style={{
-          padding: "1.5rem",
-          background: "rgba(255,255,255,0.1)",
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "120px",
+          background: "rgba(0,0,0,0.8)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: "2rem",
-          position: "relative",
+          padding: "1rem",
           zIndex: 10,
         }}
       >
         {capturedMedia ? (
-          // Only hide controls when we have captured media
           <>
             <button
               onClick={retake}
@@ -662,7 +678,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             </button>
           </>
         ) : (
-          // Always show camera controls - don't depend on loading/ready states
           <>
             <button
               onClick={switchCamera}
@@ -685,12 +700,11 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
                 height: "4rem",
                 borderRadius: "50%",
                 border: "3px solid white",
-                background: "#EF4444", // Always red - don't change based on state
+                background: mode === "photo" ? "#EF4444" : isRecording ? "#F59E0B" : "#EF4444",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: 1, // Always fully visible
                 transition: "transform 0.1s ease",
               }}
               onTouchStart={(e) => {
