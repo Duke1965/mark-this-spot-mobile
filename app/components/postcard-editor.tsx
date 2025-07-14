@@ -152,8 +152,10 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
-        height: "100vh", // Ensure full height
-        overflow: "hidden", // Prevent body scroll
+        height: "100vh",
+        height: "100dvh", // Use dynamic viewport height for better mobile support
+        overflow: "hidden",
+        paddingBottom: "env(safe-area-inset-bottom)", // Add safe area padding for mobile
       }}
     >
       {/* Header - Fixed */}
@@ -409,14 +411,16 @@ export function PostcardEditor({ mediaUrl, mediaType, locationName, onSave, onCl
       {/* Action Buttons - Fixed at bottom */}
       <div
         style={{
-          padding: "1.5rem",
+          padding: "1rem 1.5rem",
+          paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 1rem))", // Extra padding for mobile
           background: "rgba(255,255,255,0.1)",
           backdropFilter: "blur(10px)",
           borderTop: "1px solid rgba(255,255,255,0.1)",
           display: "flex",
           justifyContent: "center",
           gap: "1rem",
-          flexShrink: 0, // Don't shrink
+          flexShrink: 0,
+          minHeight: "80px", // Ensure minimum height
         }}
       >
         <button
