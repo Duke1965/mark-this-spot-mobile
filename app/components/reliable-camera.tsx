@@ -19,7 +19,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const [isLoading, setIsLoading] = useState(false) // Start as false
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
-  const [isRecording, setIsRecording] = useState(isRecording)
+  const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [cameraReady, setCameraReady] = useState(false)
