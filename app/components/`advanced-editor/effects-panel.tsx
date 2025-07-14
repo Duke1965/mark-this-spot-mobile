@@ -1,287 +1,254 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { Sliders, Palette, Sun, Moon, Zap, Heart, Sparkles, Camera } from "lucide-react"
-
-interface Effect {
-  id: string
-  name: string
-  icon: React.ReactNode
-  filter: string
-  description: string
-}
+import { useState, useRef, useEffect } from "react"
+import { Sparkles, Sun } from "lucide-react"
 
 interface EffectsPanelProps {
-  onEffectChange: (filter: string) => void
-  currentEffect: string
+  mediaUrl: string
+  onApplyEffect: (effect: any) => void
 }
 
-const PHOTO_EFFECTS: Effect[] = [
-  {
-    id: "none",
-    name: "Original",
-    icon: <Camera size={16} />,
-    filter: "none",
-    description: "No filter applied",
-  },
-  {
-    id: "vintage",
-    name: "Vintage",
-    icon: <Sun size={16} />,
-    filter: "sepia(0.8) contrast(1.2) brightness(1.1)",
-    description: "Classic vintage look",
-  },
-  {
-    id: "bw",
-    name: "B&W",
-    icon: <Moon size={16} />,
-    filter: "grayscale(1) contrast(1.2)",
-    description: "Black and white",
-  },
-  {
-    id: "vibrant",
-    name: "Vibrant",
-    icon: <Zap size={16} />,
-    filter: "saturate(1.5) contrast(1.3) brightness(1.1)",
-    description: "Enhanced colors",
-  },
-  {
-    id: "cool",
-    name: "Cool",
-    icon: <Sparkles size={16} />,
-    filter: "hue-rotate(180deg) saturate(1.2)",
-    description: "Cool blue tones",
-  },
-  {
-    id: "warm",
-    name: "Warm",
-    icon: <Heart size={16} />,
-    filter: "hue-rotate(30deg) saturate(1.3) brightness(1.1)",
-    description: "Warm golden tones",
-  },
-  {
-    id: "dramatic",
-    name: "Dramatic",
-    icon: <Palette size={16} />,
-    filter: "contrast(1.5) saturate(0.8) brightness(0.9)",
-    description: "High contrast",
-  },
-  {
-    id: "soft",
-    name: "Soft Focus",
-    icon: <Sliders size={16} />,
-    filter: "blur(0.5px) brightness(1.1) saturate(1.1)",
-    description: "Dreamy soft look",
-  },
-]
+export function EffectsPanel({ mediaUrl, onApplyEffect }: EffectsPanelProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [selectedEffect, setSelectedEffect] = useState<string | null>(null)
+  const [brightness, setBrightness] = useState(100)
+  const [contrast, setContrast] = useState(100)
+  const [saturation, setSaturation] = useState(100)
+  const [blur, setBlur] = useState(0)
 
-export function EffectsPanel({ onEffectChange, currentEffect }: EffectsPanelProps) {
-  const [selectedEffect, setSelectedEffect] = useState(currentEffect)
-  const [showManualControls, setShowManualControls] = useState(false)
-  const [manualSettings, setManualSettings] = useState({
-    brightness: 100,
-    contrast: 100,
-    saturation: 100,
-    blur: 0,
-    hue: 0,
-  })
+  const effects = [
+    { id: "vintage", name: "Vintage", icon: "📸", filter: "sepia(0.8) contrast(1.2) brightness(1.1)" },
+    { id: "bw", name: "Black & White", icon: "⚫", filter: "grayscale(1)" },
+    { id: "warm", name: "Warm", icon: "🌅", filter: "sepia(0.3) saturate(1.4) hue-rotate(15deg)" },
+    { id: "cool", name: "Cool", icon: "❄️", filter: "saturate(1.2) hue-rotate(180deg) brightness(1.1)" },
+    { id: "dramatic", name: "Dramatic", icon: "⚡", filter: "contrast(1.5) brightness(0.9) saturate(1.3)" },
+    { id: "soft", name: "Soft", icon: "☁️", filter: "blur(0.5px) brightness(1.1) contrast(0.9)" },
+    { id: "vibrant", name: "Vibrant", icon: "🌈", filter: "saturate(1.8) contrast(1.2)" },
+    { id: "retro", name: "Retro", icon: "📺", filter: "sepia(0.5) hue-rotate(320deg) saturate(1.2)" },
+  ]
 
-  const handleEffectSelect = (effect: Effect) => {
-    setSelectedEffect(effect.filter)
-    onEffectChange(effect.filter)
+  useEffect(() => {
+    drawPreview()
+  }, [mediaUrl, selectedEffect, brightness, contrast, saturation, blur])
+
+  const drawPreview = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    canvas.width = 400
+    canvas.height = 300
+
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      // Apply manual adjustments
+      ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)`
+
+      // Draw image
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      // Apply selected effect overlay
+      if (selectedEffect) {
+        const effect = effects.find((e) => e.id === selectedEffect)
+        if (effect) {
+          ctx.globalCompositeOperation = "multiply"
+          ctx.fillStyle = getEffectColor(selectedEffect)
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.globalCompositeOperation = "source-over"
+        }
+      }
+    }
+    img.src = mediaUrl
   }
 
-  const handleManualChange = (setting: string, value: number) => {
-    const newSettings = { ...manualSettings, [setting]: value }
-    setManualSettings(newSettings)
+  const getEffectColor = (effectId: string) => {
+    switch (effectId) {
+      case "vintage":
+        return "rgba(255, 204, 153, 0.3)"
+      case "warm":
+        return "rgba(255, 165, 0, 0.2)"
+      case "cool":
+        return "rgba(0, 191, 255, 0.2)"
+      case "dramatic":
+        return "rgba(0, 0, 0, 0.1)"
+      default:
+        return "transparent"
+    }
+  }
 
-    const filter = `brightness(${newSettings.brightness}%) contrast(${newSettings.contrast}%) saturate(${newSettings.saturation}%) blur(${newSettings.blur}px) hue-rotate(${newSettings.hue}deg)`
-    setSelectedEffect(filter)
-    onEffectChange(filter)
+  const applyEffect = () => {
+    const effectData = {
+      type: selectedEffect,
+      brightness,
+      contrast,
+      saturation,
+      blur,
+      timestamp: Date.now(),
+    }
+    onApplyEffect(effectData)
   }
 
   return (
-    <div
-      style={{
-        background: "rgba(0,0,0,0.9)",
-        padding: "1rem",
-        borderRadius: "1rem",
-        maxHeight: "400px",
-        overflowY: "auto",
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
+      {/* Preview Canvas */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "1rem",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1.5rem",
         }}
       >
-        <h3
+        <canvas
+          ref={canvasRef}
           style={{
-            color: "white",
-            margin: 0,
-            fontSize: "1.1rem",
-            fontWeight: "600",
-          }}
-        >
-          Effects & Filters
-        </h3>
-        <button
-          onClick={() => setShowManualControls(!showManualControls)}
-          style={{
-            padding: "0.5rem",
+            maxWidth: "100%",
+            border: "2px solid rgba(255,255,255,0.2)",
             borderRadius: "0.5rem",
-            border: "none",
-            background: showManualControls ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
-            color: "white",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
           }}
-        >
-          <Sliders size={16} />
-        </button>
+        />
       </div>
 
-      {/* Preset Effects */}
+      {/* Effect Presets */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "0.75rem",
-          marginBottom: showManualControls ? "1.5rem" : "0",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1.5rem",
         }}
       >
-        {PHOTO_EFFECTS.map((effect) => (
-          <button
-            key={effect.id}
-            onClick={() => handleEffectSelect(effect)}
-            style={{
-              padding: "0.75rem",
-              borderRadius: "0.75rem",
-              border: selectedEffect === effect.filter ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-              background: selectedEffect === effect.filter ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
-              color: "white",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.5rem",
-              textAlign: "center",
-            }}
-          >
-            {effect.icon}
-            <div>
-              <div style={{ fontSize: "0.875rem", fontWeight: "500" }}>{effect.name}</div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>{effect.description}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Manual Controls */}
-      {showManualControls && (
+        <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Sparkles size={20} />
+          Effect Presets
+        </h3>
         <div
           style={{
-            background: "rgba(255,255,255,0.05)",
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.1)",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
+            gap: "0.75rem",
           }}
         >
-          <h4
-            style={{
-              color: "white",
-              margin: "0 0 1rem 0",
-              fontSize: "0.9rem",
-              fontWeight: "500",
-            }}
-          >
-            Manual Adjustments
-          </h4>
-
-          {Object.entries(manualSettings).map(([key, value]) => (
-            <div key={key} style={{ marginBottom: "1rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <label
-                  style={{
-                    color: "rgba(255,255,255,0.8)",
-                    fontSize: "0.8rem",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {key}
-                </label>
-                <span
-                  style={{
-                    color: "white",
-                    fontSize: "0.8rem",
-                    fontWeight: "500",
-                  }}
-                >
-                  {value}
-                  {key === "blur" ? "px" : key === "hue" ? "°" : "%"}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={key === "blur" ? 0 : key === "hue" ? -180 : 0}
-                max={key === "blur" ? 10 : key === "hue" ? 180 : 200}
-                value={value}
-                onChange={(e) => handleManualChange(key, Number.parseInt(e.target.value))}
-                style={{
-                  width: "100%",
-                  height: "4px",
-                  borderRadius: "2px",
-                  background: "rgba(255,255,255,0.2)",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              />
-            </div>
+          {effects.map((effect) => (
+            <button
+              key={effect.id}
+              onClick={() => setSelectedEffect(effect.id)}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: selectedEffect === effect.id ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
+                background: selectedEffect === effect.id ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                textAlign: "center",
+                fontSize: "0.75rem",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <div style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>{effect.icon}</div>
+              {effect.name}
+            </button>
           ))}
-
-          <button
-            onClick={() => {
-              const resetSettings = {
-                brightness: 100,
-                contrast: 100,
-                saturation: 100,
-                blur: 0,
-                hue: 0,
-              }
-              setManualSettings(resetSettings)
-              onEffectChange("none")
-              setSelectedEffect("none")
-            }}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(239, 68, 68, 0.2)",
-              color: "rgba(239, 68, 68, 0.9)",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              fontWeight: "500",
-              transition: "all 0.3s ease",
-            }}
-          >
-            Reset All
-          </button>
         </div>
-      )}
+      </div>
+
+      {/* Manual Adjustments */}
+      <div
+        style={{
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1.5rem",
+        }}
+      >
+        <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Sun size={20} />
+          Manual Adjustments
+        </h3>
+        <div style={{ display: "grid", gap: "1rem" }}>
+          {/* Brightness */}
+          <div>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+              Brightness: {brightness}%
+            </label>
+            <input
+              type="range"
+              min="50"
+              max="200"
+              value={brightness}
+              onChange={(e) => setBrightness(Number.parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          {/* Contrast */}
+          <div>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+              Contrast: {contrast}%
+            </label>
+            <input
+              type="range"
+              min="50"
+              max="200"
+              value={contrast}
+              onChange={(e) => setContrast(Number.parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          {/* Saturation */}
+          <div>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+              Saturation: {saturation}%
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              value={saturation}
+              onChange={(e) => setSaturation(Number.parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          {/* Blur */}
+          <div>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem" }}>Blur: {blur}px</label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={blur}
+              onChange={(e) => setBlur(Number.parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Apply Button */}
+      <button
+        onClick={applyEffect}
+        style={{
+          padding: "1rem 2rem",
+          borderRadius: "0.5rem",
+          border: "none",
+          background: "linear-gradient(45deg, #10B981, #059669)",
+          color: "white",
+          cursor: "pointer",
+          fontSize: "1rem",
+          fontWeight: "bold",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <Sparkles size={20} />
+        Apply Effect
+      </button>
     </div>
   )
 }
