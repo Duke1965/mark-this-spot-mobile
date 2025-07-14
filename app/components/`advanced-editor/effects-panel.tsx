@@ -1,37 +1,60 @@
 "use client"
 
 import { useState } from "react"
-import { Sparkles, Sun, Contrast, Palette, Zap, Eye, Droplets, Snowflake } from "lucide-react"
+import { Download, Share2, Instagram, Twitter, Facebook, Linkedin, ImageIcon, Video, FileText } from "lucide-react"
 
-interface EffectsPanelProps {
-  imageUrl: string
-  onEffectApply: (effect: string) => void
+interface ExportHubProps {
+  canvasData: {
+    mediaUrl: string
+    textElements: any[]
+    stickerElements: any[]
+    dimensions: { width: number; height: number }
+    platform: string
+  }
+  onExport: (format: string, quality: string) => void
 }
 
-export function EffectsPanel({ imageUrl, onEffectApply }: EffectsPanelProps) {
-  const [selectedEffect, setSelectedEffect] = useState<string | null>(null)
-  const [brightness, setBrightness] = useState(100)
-  const [contrast, setContrast] = useState(100)
-  const [saturation, setSaturation] = useState(100)
-  const [blur, setBlur] = useState(0)
+export function ExportHub({ canvasData, onExport }: ExportHubProps) {
+  const [selectedFormat, setSelectedFormat] = useState("png")
+  const [selectedQuality, setSelectedQuality] = useState("high")
+  const [isExporting, setIsExporting] = useState(false)
 
-  const effects = [
-    { id: "vintage", name: "Vintage", icon: Palette, filter: "sepia(0.8) contrast(1.2) brightness(1.1)" },
-    { id: "bw", name: "B&W", icon: Eye, filter: "grayscale(1) contrast(1.1)" },
-    { id: "warm", name: "Warm", icon: Sun, filter: "sepia(0.3) saturate(1.4) brightness(1.1)" },
-    { id: "cool", name: "Cool", icon: Snowflake, filter: "hue-rotate(180deg) saturate(1.2)" },
-    { id: "dramatic", name: "Dramatic", icon: Zap, filter: "contrast(1.5) brightness(0.9) saturate(1.3)" },
-    { id: "soft", name: "Soft", icon: Droplets, filter: "blur(1px) brightness(1.1) contrast(0.9)" },
-    { id: "vibrant", name: "Vibrant", icon: Sparkles, filter: "saturate(1.8) contrast(1.2)" },
-    { id: "retro", name: "Retro", icon: Contrast, filter: "sepia(0.5) hue-rotate(315deg) saturate(1.5)" },
+  const formats = [
+    { id: "png", name: "PNG", icon: ImageIcon, description: "Best for graphics with transparency" },
+    { id: "jpg", name: "JPG", icon: ImageIcon, description: "Smaller file size, good for photos" },
+    { id: "webp", name: "WebP", icon: ImageIcon, description: "Modern format, great compression" },
+    { id: "pdf", name: "PDF", icon: FileText, description: "Perfect for printing" },
+    { id: "mp4", name: "MP4", icon: Video, description: "For video content" },
   ]
 
-  const applyEffect = (effectId: string) => {
-    setSelectedEffect(effectId)
-    onEffectApply(effectId)
+  const qualities = [
+    { id: "low", name: "Low", description: "Smaller file size" },
+    { id: "medium", name: "Medium", description: "Balanced quality and size" },
+    { id: "high", name: "High", description: "Best quality" },
+    { id: "ultra", name: "Ultra", description: "Maximum quality" },
+  ]
+
+  const socialPlatforms = [
+    { id: "instagram", name: "Instagram", icon: Instagram, color: "#E4405F" },
+    { id: "twitter", name: "Twitter", icon: Twitter, color: "#1DA1F2" },
+    { id: "facebook", name: "Facebook", icon: Facebook, color: "#1877F2" },
+    { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "#0A66C2" },
+  ]
+
+  const handleExport = async () => {
+    setIsExporting(true)
+
+    // Simulate export process
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    onExport(selectedFormat, selectedQuality)
+    setIsExporting(false)
   }
 
-  const customFilter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)`
+  const handleShare = (platform: string) => {
+    // In a real implementation, this would handle sharing to social platforms
+    console.log(`Sharing to ${platform}`)
+  }
 
   return (
     <div
@@ -44,212 +67,220 @@ export function EffectsPanel({ imageUrl, onEffectApply }: EffectsPanelProps) {
         overflowY: "auto",
       }}
     >
-      <h3 style={{ color: "white", margin: "0 0 1rem 0", fontSize: "1.1rem" }}>Photo Effects</h3>
+      <h3 style={{ color: "white", margin: "0 0 1rem 0", fontSize: "1.1rem" }}>Export & Share</h3>
 
-      {/* Preset Effects */}
+      {/* Format Selection */}
       <div style={{ marginBottom: "1.5rem" }}>
-        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.75rem 0", fontSize: "0.9rem" }}>Preset Filters</h4>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "0.5rem",
-          }}
-        >
-          {effects.map((effect) => {
-            const IconComponent = effect.icon
+        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.75rem 0", fontSize: "0.9rem" }}>Export Format</h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {formats.map((format) => {
+            const IconComponent = format.icon
             return (
               <button
-                key={effect.id}
-                onClick={() => applyEffect(effect.id)}
+                key={format.id}
+                onClick={() => setSelectedFormat(format.id)}
                 style={{
                   padding: "0.75rem",
                   borderRadius: "0.75rem",
                   border: "none",
-                  background: selectedEffect === effect.id ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                  background: selectedFormat === format.id ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
                   color: "white",
                   cursor: "pointer",
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  fontSize: "0.75rem",
+                  gap: "0.75rem",
+                  textAlign: "left",
                   transition: "all 0.3s ease",
                 }}
               >
                 <IconComponent size={20} />
-                {effect.name}
+                <div>
+                  <div style={{ fontSize: "0.9rem", fontWeight: "500" }}>{format.name}</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>{format.description}</div>
+                </div>
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Manual Adjustments */}
-      <div>
-        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 1rem 0", fontSize: "0.9rem" }}>Manual Adjustments</h4>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {/* Brightness */}
-          <div>
-            <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}
-            >
-              <label style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.8rem" }}>
-                <Sun size={14} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-                Brightness
-              </label>
-              <span style={{ color: "white", fontSize: "0.8rem" }}>{brightness}%</span>
-            </div>
-            <input
-              type="range"
-              min="50"
-              max="200"
-              value={brightness}
-              onChange={(e) => setBrightness(Number(e.target.value))}
+      {/* Quality Selection */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.75rem 0", fontSize: "0.9rem" }}>Quality</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          {qualities.map((quality) => (
+            <button
+              key={quality.id}
+              onClick={() => setSelectedQuality(quality.id)}
               style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
+                padding: "0.75rem",
+                borderRadius: "0.75rem",
+                border: "none",
+                background: selectedQuality === quality.id ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.2)",
+                color: "white",
                 cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
+                fontSize: "0.8rem",
+                transition: "all 0.3s ease",
               }}
-            />
-          </div>
-
-          {/* Contrast */}
-          <div>
-            <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}
             >
-              <label style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.8rem" }}>
-                <Contrast size={14} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-                Contrast
-              </label>
-              <span style={{ color: "white", fontSize: "0.8rem" }}>{contrast}%</span>
-            </div>
-            <input
-              type="range"
-              min="50"
-              max="200"
-              value={contrast}
-              onChange={(e) => setContrast(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            />
-          </div>
-
-          {/* Saturation */}
-          <div>
-            <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}
-            >
-              <label style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.8rem" }}>
-                <Palette size={14} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-                Saturation
-              </label>
-              <span style={{ color: "white", fontSize: "0.8rem" }}>{saturation}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="200"
-              value={saturation}
-              onChange={(e) => setSaturation(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            />
-          </div>
-
-          {/* Blur */}
-          <div>
-            <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}
-            >
-              <label style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.8rem" }}>
-                <Droplets size={14} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-                Blur
-              </label>
-              <span style={{ color: "white", fontSize: "0.8rem" }}>{blur}px</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={blur}
-              onChange={(e) => setBlur(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "4px",
-                borderRadius: "2px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            />
-          </div>
+              <div style={{ fontWeight: "500" }}>{quality.name}</div>
+              <div style={{ opacity: 0.8, fontSize: "0.7rem", textAlign: "center" }}>{quality.description}</div>
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Preview */}
-        <div style={{ marginTop: "1rem" }}>
-          <h5 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.5rem 0", fontSize: "0.8rem" }}>Preview</h5>
-          <div
-            style={{
-              width: "100%",
-              height: "100px",
-              borderRadius: "0.5rem",
-              overflow: "hidden",
-              background: "rgba(255,255,255,0.1)",
-            }}
-          >
-            <img
-              src={imageUrl || "/placeholder.svg"}
-              alt="Effect preview"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                filter: selectedEffect ? effects.find((e) => e.id === selectedEffect)?.filter : customFilter,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Apply Button */}
-        <button
-          onClick={() => onEffectApply(selectedEffect || "custom")}
+      {/* Export Preview */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.75rem 0", fontSize: "0.9rem" }}>Export Preview</h4>
+        <div
           style={{
-            width: "100%",
-            padding: "0.75rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            background: "rgba(16, 185, 129, 0.3)",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "0.9rem",
-            marginTop: "1rem",
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: "0.75rem",
+            padding: "1rem",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            flexDirection: "column",
             gap: "0.5rem",
           }}
         >
-          <Sparkles size={16} />
-          Apply Effect
-        </button>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Platform:</span>
+            <span style={{ color: "white" }}>{canvasData.platform}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Dimensions:</span>
+            <span style={{ color: "white" }}>
+              {canvasData.dimensions.width} × {canvasData.dimensions.height}
+            </span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Format:</span>
+            <span style={{ color: "white" }}>{selectedFormat.toUpperCase()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Quality:</span>
+            <span style={{ color: "white" }}>{selectedQuality}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Elements:</span>
+            <span style={{ color: "white" }}>
+              {canvasData.textElements.length} text, {canvasData.stickerElements.length} stickers
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Export Button */}
+      <button
+        onClick={handleExport}
+        disabled={isExporting}
+        style={{
+          width: "100%",
+          padding: "1rem",
+          borderRadius: "0.75rem",
+          border: "none",
+          background: isExporting ? "rgba(107, 114, 128, 0.3)" : "rgba(16, 185, 129, 0.3)",
+          color: "white",
+          cursor: isExporting ? "not-allowed" : "pointer",
+          fontSize: "1rem",
+          fontWeight: "600",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.5rem",
+          marginBottom: "1.5rem",
+          transition: "all 0.3s ease",
+        }}
+      >
+        <Download size={20} />
+        {isExporting ? "Exporting..." : "Export Creation"}
+      </button>
+
+      {/* Social Sharing */}
+      <div>
+        <h4 style={{ color: "rgba(255,255,255,0.8)", margin: "0 0 0.75rem 0", fontSize: "0.9rem" }}>Share Directly</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          {socialPlatforms.map((platform) => {
+            const IconComponent = platform.icon
+            return (
+              <button
+                key={platform.id}
+                onClick={() => handleShare(platform.id)}
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "0.75rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  fontSize: "0.8rem",
+                  transition: "all 0.3s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `${platform.color}33`
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                }}
+              >
+                <IconComponent size={16} />
+                {platform.name}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            style={{
+              flex: 1,
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <Share2 size={16} />
+            Copy Link
+          </button>
+          <button
+            style={{
+              flex: 1,
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <Download size={16} />
+            Save Draft
+          </button>
+        </div>
       </div>
     </div>
   )
