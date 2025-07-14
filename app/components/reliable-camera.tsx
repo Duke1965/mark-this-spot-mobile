@@ -16,7 +16,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Start as false
   const [error, setError] = useState<string | null>(null)
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -608,7 +608,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         )}
       </div>
 
-      {/* Controls */}
+      {/* Controls - ALWAYS VISIBLE except when showing captured media */}
       <div
         style={{
           padding: "1.5rem",
@@ -617,9 +617,12 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           alignItems: "center",
           justifyContent: "center",
           gap: "2rem",
+          position: "relative",
+          zIndex: 10,
         }}
       >
         {capturedMedia ? (
+          // Only hide controls when we have captured media
           <>
             <button
               onClick={retake}
@@ -659,6 +662,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             </button>
           </>
         ) : (
+          // Always show camera controls - don't depend on loading/ready states
           <>
             <button
               onClick={switchCamera}
@@ -676,25 +680,30 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
             <button
               onClick={handleCapture}
-              disabled={!cameraReady && !streamRef.current}
               style={{
                 width: "4rem",
                 height: "4rem",
                 borderRadius: "50%",
                 border: "3px solid white",
-                background:
-                  cameraReady || streamRef.current
-                    ? mode === "photo"
-                      ? "#EF4444"
-                      : isRecording
-                        ? "#F59E0B"
-                        : "#EF4444"
-                    : "rgba(255,255,255,0.3)",
-                cursor: cameraReady || streamRef.current ? "pointer" : "not-allowed",
+                background: "#EF4444", // Always red - don't change based on state
+                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: cameraReady || streamRef.current ? 1 : 0.5,
+                opacity: 1, // Always fully visible
+                transition: "transform 0.1s ease",
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = "scale(0.95)"
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = "scale(1)"
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.95)"
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)"
               }}
             >
               {mode === "photo" ? (
