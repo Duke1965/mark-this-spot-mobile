@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3 } from "lucide-react"
-import { EnhancedCamera } from "./components/enhanced-camera"
+import { ReliableCamera } from "./components/reliable-camera"
 import { VoiceCommander } from "./components/voice-commander"
 import { PostcardEditor } from "./components/postcard-editor"
 import { playEnhancedSound } from "./utils/enhanced-audio"
@@ -750,7 +750,7 @@ export default function Page() {
 
       {/* Camera screen section */}
       {showCamera && (
-        <EnhancedCamera
+        <ReliableCamera
           mode={cameraMode}
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
