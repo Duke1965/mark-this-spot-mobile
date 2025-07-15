@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { Camera, Video, BookOpen, Volume2, VolumeX, ArrowLeft, Edit3, FileImage } from "lucide-react"
 import { ReliableCamera } from "./components/reliable-camera"
 import { VoiceCommander } from "./components/voice-commander"
-import { AdvancedPostcardEditor } from "./components/advanced-editor/advanced-postcard-editor"
+import { SocialPlatformSelector } from "./components/social-platform-selector"
+import { MobilePostcardEditor } from "./components/mobile-postcard-editor"
+import { SocialSharing } from "./components/social-sharing"
 import { playEnhancedSound } from "./utils/enhanced-audio"
 import { generateEnhancedThumbnailForPin } from "./utils/places-photos"
 
@@ -19,8 +21,8 @@ interface Pin {
     url: string
     type: "photo" | "video"
   }
-  thumbnail?: string // For map pins, we'll generate a thumbnail
-  enhancedThumbnail?: string // For place photos
+  thumbnail?: string
+  enhancedThumbnail?: string
 }
 
 interface SavedPostcard {
@@ -32,12 +34,16 @@ interface SavedPostcard {
   textColor: string
   textSize: number
   selectedTemplate: string
+  platform: string
+  dimensions: { width: number; height: number }
   timestamp: string
   canvasDataUrl: string
 }
 
 export default function Page() {
-  const [currentScreen, setCurrentScreen] = useState<"main" | "camera" | "libraries" | "editor">("main")
+  const [currentScreen, setCurrentScreen] = useState<
+    "main" | "camera" | "platform-selector" | "editor" | "sharing" | "libraries"
+  >("main")
   const [showCamera, setShowCamera] = useState(false)
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -53,13 +59,20 @@ export default function Page() {
   const [isMobile, setIsMobile] = useState(false)
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
   const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map())
-  const [editorMedia, setEditorMedia] = useState<{ url: string; type: "photo" | "video" } | null>(null)
+
+  // New flow state
+  const [capturedMedia, setCapturedMedia] = useState<{ url: string; type: "photo" | "video" } | null>(null)
+  const [selectedPlatform, setSelectedPlatform] = useState<{
+    id: string
+    dimensions: { width: number; height: number }
+  } | null>(null)
+  const [currentPostcard, setCurrentPostcard] = useState<SavedPostcard | null>(null)
 
   const SpeechRecognition =
     typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null
   const recognition = useRef<any>(null)
 
-  // Load saved pins and postcards from localStorage on mount
+  // Load saved data on mount
   useEffect(() => {
     const savedPinsData = localStorage.getItem("pinit-saved-pins")
     if (savedPinsData) {
@@ -80,12 +93,12 @@ export default function Page() {
     }
   }, [])
 
-  // Save pins to localStorage whenever savedPins changes
+  // Save pins to localStorage
   useEffect(() => {
     localStorage.setItem("pinit-saved-pins", JSON.stringify(savedPins))
   }, [savedPins])
 
-  // Load saved postcards when library tab changes to postcards
+  // Load postcards when library tab changes
   useEffect(() => {
     if (libraryTab === "postcards") {
       const savedPostcardsData = localStorage.getItem("pinit-saved-postcards")
@@ -121,7 +134,7 @@ export default function Page() {
 
       recognition.current.onend = () => {
         if (voiceEnabled) {
-          recognition.current.start() // Restart if voice is enabled
+          recognition.current.start()
         }
       }
     }
@@ -172,7 +185,6 @@ export default function Page() {
       )
         .then((response) => response.json())
         .then((data) => {
-          // Extract just the place name (city/town) instead of full address
           const placeName =
             data.address?.city ||
             data.address?.town ||
@@ -188,7 +200,6 @@ export default function Page() {
           setLocationLoading(false)
         })
 
-      // Generate map image URL - change to simple roadmap
       setMapImageUrl(
         `https://maps.googleapis.com/maps/api/staticmap?center=${userLocation.latitude},${userLocation.longitude}&zoom=16&size=600x600&maptype=roadmap&markers=color:red%7Clabel:C%7C${userLocation.latitude},${userLocation.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
       )
@@ -219,11 +230,9 @@ export default function Page() {
     }
   }
 
-  // Enhanced thumbnail generator with caching
   const generateThumbnailForPin = async (pin: Pin): Promise<string> => {
     const cacheKey = pin.id
 
-    // Check cache first
     if (thumbnailCache.has(cacheKey)) {
       return thumbnailCache.get(cacheKey)!
     }
@@ -231,23 +240,18 @@ export default function Page() {
     let thumbnailUrl: string
 
     if (pin.media) {
-      // Use actual media as thumbnail
       thumbnailUrl = pin.media.url
     } else {
-      // Try to get enhanced thumbnail with place photo
       try {
         thumbnailUrl = await generateEnhancedThumbnailForPin(pin)
         console.log(`🖼️ Generated enhanced thumbnail for: ${pin.address}`)
       } catch (error) {
         console.warn("⚠️ Failed to generate enhanced thumbnail, using fallback:", error)
-        // Fallback to map thumbnail
         thumbnailUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${pin.latitude},${pin.longitude}&zoom=15&size=300x200&maptype=roadmap&markers=color:red%7Clabel:P%7C${pin.latitude},${pin.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
       }
     }
 
-    // Cache the result
     setThumbnailCache((prev) => new Map(prev.set(cacheKey, thumbnailUrl)))
-
     return thumbnailUrl
   }
 
@@ -259,15 +263,12 @@ export default function Page() {
         longitude: userLocation.longitude,
         address: locationAddress || "Unknown Location",
         timestamp: new Date().toISOString(),
-        notes: "", // Empty notes initially
+        notes: "",
         thumbnail: mapImageUrl || undefined,
       }
 
       setSavedPins((prev) => [newPin, ...prev])
-
-      // Play success sound
       playEnhancedSound("success-chime")
-
       console.log("📌 Pin created and saved:", newPin)
     } else {
       alert("❌ Location not available yet. Please wait a moment and try again.")
@@ -278,11 +279,10 @@ export default function Page() {
     markSpot()
     setQuickPinMode(true)
 
-    // Auto-navigate to results after 2 seconds
     const timer = setTimeout(() => {
-      setQuickPinMode(false) // Reset the mode first
-      setCurrentScreen("libraries") // Go to libraries to show the new pin
-      setLibraryTab("pins") // Make sure we're on the pins tab
+      setQuickPinMode(false)
+      setCurrentScreen("libraries")
+      setLibraryTab("pins")
     }, 2000)
 
     setAutoCloseTimer(timer)
@@ -290,19 +290,7 @@ export default function Page() {
 
   const openEditor = (pin: Pin) => {
     setSelectedPin(pin)
-    setEditorMedia(null) // Clear any previous editor media
     setCurrentScreen("editor")
-  }
-
-  const closeEditor = () => {
-    setSelectedPin(null)
-    setEditorMedia(null)
-    setCurrentScreen("main") // Go back to main instead of libraries when coming from camera
-  }
-
-  const updatePin = (updatedPin: Pin) => {
-    setSavedPins((prev) => prev.map((pin) => (pin.id === updatedPin.id ? updatedPin : pin)))
-    setSelectedPin(updatedPin)
   }
 
   const deletePin = (pinId: string) => {
@@ -321,7 +309,7 @@ export default function Page() {
     }
   }
 
-  // Enhanced Pin Item Component with async thumbnail loading
+  // Enhanced Pin Item Component
   const PinItem = ({ pin }: { pin: Pin }) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string>("")
     const [isLoading, setIsLoading] = useState(true)
@@ -355,7 +343,6 @@ export default function Page() {
           border: "1px solid transparent",
         }}
       >
-        {/* Enhanced Thumbnail */}
         <div
           onClick={() => openEditor(pin)}
           style={{
@@ -398,7 +385,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* Metadata */}
         <div
           onClick={() => openEditor(pin)}
           style={{
@@ -416,7 +402,6 @@ export default function Page() {
           {pin.notes && <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", opacity: 0.8 }}>📝 {pin.notes}</p>}
         </div>
 
-        {/* Action buttons */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <button
             onClick={() => openEditor(pin)}
@@ -470,7 +455,7 @@ export default function Page() {
         flexDirection: "column",
       }}
     >
-      {/* Sound toggle - top right only */}
+      {/* Sound toggle */}
       <div
         style={{
           position: "absolute",
@@ -499,7 +484,7 @@ export default function Page() {
         </button>
       </div>
 
-      {/* Voice Commander - only show on desktop */}
+      {/* Voice Commander */}
       {!isMobile && (
         <VoiceCommander
           onCommand={(command, confidence) => {
@@ -526,326 +511,297 @@ export default function Page() {
         />
       )}
 
-      {/* Main screen section */}
+      {/* MAIN SCREEN */}
       {currentScreen === "main" && (
-        <>
-          {/* Main content area */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+          }}
+        >
+          {/* Map Circle */}
+          <div
+            style={{
+              padding: "4rem 2rem 1rem 2rem",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            {mapImageUrl && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <div
+                  onClick={quickPin}
+                  style={{
+                    width: "280px",
+                    height: "280px",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "4px solid rgba(255,255,255,0.3)",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                    position: "relative",
+                    background: "rgba(255,255,255,0.1)",
+                    backdropFilter: "blur(10px)",
+                    cursor: "pointer",
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                    touchAction: "manipulation",
+                    userSelect: "none",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                  onTouchStart={(e) => {
+                    if (navigator.vibrate) {
+                      navigator.vibrate(50)
+                    }
+                    e.currentTarget.style.transform = "scale(0.98)"
+                    e.currentTarget.style.boxShadow = "0 5px 15px rgba(0,0,0,0.5)"
+                  }}
+                  onTouchEnd={(e) => {
+                    e.currentTarget.style.transform = "scale(1)"
+                    e.currentTarget.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)"
+                  }}
+                  onMouseDown={(e) => {
+                    e.currentTarget.style.transform = "scale(0.98)"
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = "scale(1)"
+                  }}
+                >
+                  <img
+                    src={mapImageUrl || "/placeholder.svg"}
+                    alt="Your current location"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      pointerEvents: "none",
+                    }}
+                    onError={(e) => {
+                      console.error("Map image failed to load")
+                      e.currentTarget.style.display = "none"
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      background: "#10B981",
+                      boxShadow: "0 0 0 0 rgba(16, 185, 129, 0.7)",
+                      animation: "pulse 2s infinite",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      color: "white",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      zIndex: 10,
+                      textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+                      animation: "fadeInOut 3s infinite",
+                      pointerEvents: "none",
+                      background: "rgba(0,0,0,0.3)",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "1rem",
+                      backdropFilter: "blur(5px)",
+                    }}
+                  >
+                    {voiceEnabled ? (
+                      <>
+                        <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP OR SPEAK TO</div>
+                        <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP TO</div>
+                        <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!mapImageUrl && userLocation && (
+              <div
+                style={{
+                  width: "280px",
+                  height: "280px",
+                  borderRadius: "50%",
+                  border: "4px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: "2rem",
+                    height: "2rem",
+                    border: "3px solid rgba(255,255,255,0.3)",
+                    borderTop: "3px solid white",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+                <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
+              </div>
+            )}
+
+            {quickPinMode && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "rgba(16, 185, 129, 0.95)",
+                  zIndex: 1000,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                }}
+              >
+                <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
+                <h2 style={{ fontSize: "2rem", fontWeight: "bold", margin: "0 0 0.5rem 0" }}>PINNED!</h2>
+                <p style={{ fontSize: "1.125rem", opacity: 0.9, textAlign: "center" }}>{locationAddress}</p>
+                <p style={{ fontSize: "0.875rem", opacity: 0.7, marginTop: "1rem" }}>Closing automatically...</p>
+              </div>
+            )}
+          </div>
+
+          {/* Title */}
           <div
             style={{
               flex: 1,
               display: "flex",
               flexDirection: "column",
-              position: "relative",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1rem 2rem",
+              textAlign: "center",
+              color: "white",
             }}
           >
-            {/* Top Section - Map Circle */}
-            <div
-              style={{
-                padding: "4rem 2rem 1rem 2rem",
-                display: "flex",
-                justifyContent: "center",
+            <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: "0 0 0.5rem 0" }}>PINIT</h1>
+            <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: 0 }}>
+              Pin It. Find It. Share It.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div
+            style={{
+              padding: "2rem 2rem 4rem 2rem",
+              display: "flex",
+              justifyContent: "center",
+              gap: "3rem",
+              minHeight: "120px",
+            }}
+          >
+            <button
+              onClick={() => {
+                setCameraMode("photo")
+                setShowCamera(true)
+                setCurrentScreen("camera")
               }}
-            >
-              {/* Enhanced Circular Map Preview */}
-              {mapImageUrl && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    onClick={quickPin}
-                    style={{
-                      width: "280px",
-                      height: "280px",
-                      borderRadius: "50%",
-                      overflow: "hidden",
-                      border: "4px solid rgba(255,255,255,0.3)",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-                      position: "relative",
-                      background: "rgba(255,255,255,0.1)",
-                      backdropFilter: "blur(10px)",
-                      cursor: "pointer",
-                      transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                      touchAction: "manipulation",
-                      userSelect: "none",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                    onTouchStart={(e) => {
-                      if (navigator.vibrate) {
-                        navigator.vibrate(50)
-                      }
-                      e.currentTarget.style.transform = "scale(0.98)"
-                      e.currentTarget.style.boxShadow = "0 5px 15px rgba(0,0,0,0.5)"
-                    }}
-                    onTouchEnd={(e) => {
-                      e.currentTarget.style.transform = "scale(1)"
-                      e.currentTarget.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)"
-                    }}
-                    onMouseDown={(e) => {
-                      e.currentTarget.style.transform = "scale(0.98)"
-                    }}
-                    onMouseUp={(e) => {
-                      e.currentTarget.style.transform = "scale(1)"
-                    }}
-                  >
-                    <img
-                      src={mapImageUrl || "/placeholder.svg"}
-                      alt="Your current location"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        pointerEvents: "none",
-                      }}
-                      onError={(e) => {
-                        console.error("Map image failed to load")
-                        e.currentTarget.style.display = "none"
-                      }}
-                    />
-                    {/* Enhanced pulse animation */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        background: "#10B981",
-                        boxShadow: "0 0 0 0 rgba(16, 185, 129, 0.7)",
-                        animation: "pulse 2s infinite",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    {/* Enhanced Tap or Speak Indicator */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        color: "white",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                        textAlign: "center",
-                        zIndex: 10,
-                        textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                        animation: "fadeInOut 3s infinite",
-                        pointerEvents: "none",
-                        background: "rgba(0,0,0,0.3)",
-                        padding: "0.5rem 1rem",
-                        borderRadius: "1rem",
-                        backdropFilter: "blur(5px)",
-                      }}
-                    >
-                      {voiceEnabled ? (
-                        <>
-                          <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP OR SPEAK TO</div>
-                          <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>TAP TO</div>
-                          <div style={{ fontSize: "1.3rem", fontWeight: "900" }}>PINIT</div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Invisible Extended Touch Area */}
-                  <div
-                    onClick={quickPin}
-                    style={{
-                      position: "absolute",
-                      width: "350px",
-                      height: "350px",
-                      borderRadius: "50%",
-                      top: "50%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      background: "transparent",
-                      cursor: "pointer",
-                      touchAction: "manipulation",
-                    }}
-                    onTouchStart={() => {
-                      if (navigator.vibrate) {
-                        navigator.vibrate(100)
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Loading state for map */}
-              {!mapImageUrl && userLocation && (
-                <div
-                  style={{
-                    width: "280px",
-                    height: "280px",
-                    borderRadius: "50%",
-                    border: "4px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(10px)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "column",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "2rem",
-                      height: "2rem",
-                      border: "3px solid rgba(255,255,255,0.3)",
-                      borderTop: "3px solid white",
-                      borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
-                    }}
-                  />
-                  <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem" }}>Loading map...</span>
-                </div>
-              )}
-
-              {quickPinMode && (
-                <div
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: "rgba(16, 185, 129, 0.95)",
-                    zIndex: 1000,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                  }}
-                >
-                  <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
-                  <h2 style={{ fontSize: "2rem", fontWeight: "bold", margin: "0 0 0.5rem 0" }}>PINNED!</h2>
-                  <p style={{ fontSize: "1.125rem", opacity: 0.9, textAlign: "center" }}>{locationAddress}</p>
-                  <p style={{ fontSize: "0.875rem", opacity: 0.7, marginTop: "1rem" }}>Closing automatically...</p>
-                </div>
-              )}
-            </div>
-
-            {/* Middle Section - Text Content */}
-            <div
               style={{
-                flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                padding: "1rem 2rem",
-                textAlign: "center",
-                color: "white",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "rgba(255,255,255,0.6)",
               }}
             >
-              <h1 style={{ fontSize: "2.5rem", fontWeight: 900, margin: "0 0 0.5rem 0" }}>PINIT</h1>
-              <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.8)", margin: 0 }}>
-                Pin It. Find It. Share It.
-              </p>
-            </div>
+              <Camera size={24} />
+              <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Photo</span>
+            </button>
 
-            {/* Bottom Section - Action Buttons */}
-            <div
+            <button
+              onClick={() => {
+                setCameraMode("video")
+                setShowCamera(true)
+                setCurrentScreen("camera")
+              }}
               style={{
-                padding: "2rem 2rem 4rem 2rem", // Add extra bottom padding
                 display: "flex",
-                justifyContent: "center",
-                gap: "3rem",
-                minHeight: "120px", // Ensure minimum height
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "rgba(255,255,255,0.6)",
               }}
             >
-              <button
-                onClick={() => {
-                  setCameraMode("photo")
-                  setShowCamera(true)
-                }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "1rem",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-              >
-                <Camera size={24} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Photo</span>
-              </button>
+              <Video size={24} />
+              <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Video</span>
+            </button>
 
-              <button
-                onClick={() => {
-                  setCameraMode("video")
-                  setShowCamera(true)
-                }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "1rem",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-              >
-                <Video size={24} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Video</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentScreen("libraries")}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "1rem",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-              >
-                <BookOpen size={24} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Pin Library</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setCurrentScreen("libraries")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "1rem",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: "rgba(255,255,255,0.6)",
+              }}
+            >
+              <BookOpen size={24} />
+              <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Pin Library</span>
+            </button>
           </div>
-        </>
+        </div>
       )}
 
-      {/* Camera screen section */}
-      {showCamera && (
+      {/* CAMERA SCREEN */}
+      {currentScreen === "camera" && showCamera && (
         <ReliableCamera
           mode={cameraMode}
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
 
-            // 🔧 FIX: Set up editor with captured media FIRST
-            setEditorMedia({ url: mediaData, type })
-            setSelectedPin(null) // Clear any selected pin
-            setCurrentScreen("editor")
+            // 🔧 NEW FLOW: Photo → Platform Selector
+            setCapturedMedia({ url: mediaData, type })
             setShowCamera(false)
+            setCurrentScreen("platform-selector")
 
-            // Also save the pin for later (but don't interfere with editor flow)
+            // Save pin in background
             if (userLocation) {
               const newPin: Pin = {
                 id: Date.now().toString(),
@@ -865,41 +821,67 @@ export default function Page() {
               console.log("📌 Pin saved with media:", newPin)
             }
           }}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
-
-      {/* Editor screen section - 🔧 FIXED DATA FLOW */}
-      {currentScreen === "editor" && (selectedPin || editorMedia) && (
-        <AdvancedPostcardEditor
-          mediaUrl={
-            // 🔧 FIX: Prioritize editorMedia when coming from camera
-            editorMedia?.url || selectedPin?.media?.url || selectedPin?.thumbnail || ""
-          }
-          mediaType={
-            // 🔧 FIX: Prioritize editorMedia type when coming from camera
-            editorMedia?.type || selectedPin?.media?.type || "photo"
-          }
-          locationName={selectedPin?.address || locationAddress || "Current Location"}
-          onSave={(postcardData) => {
-            console.log("📮 Advanced postcard saved:", postcardData)
-
-            // If we came from camera (editorMedia), update the corresponding pin
-            if (editorMedia && userLocation) {
-              const pinToUpdate = savedPins.find((pin) => pin.media?.url === editorMedia.url)
-              if (pinToUpdate) {
-                const updatedPin = { ...pinToUpdate, postcardData }
-                setSavedPins((prev) => prev.map((pin) => (pin.id === pinToUpdate.id ? updatedPin : pin)))
-              }
-            }
-
-            closeEditor()
+          onClose={() => {
+            setShowCamera(false)
+            setCurrentScreen("main")
           }}
-          onClose={closeEditor}
         />
       )}
 
-      {/* Libraries screen section - NOW WITH POSTCARDS TAB! */}
+      {/* PLATFORM SELECTOR SCREEN */}
+      {currentScreen === "platform-selector" && capturedMedia && (
+        <SocialPlatformSelector
+          mediaUrl={capturedMedia.url}
+          mediaType={capturedMedia.type}
+          locationName={locationAddress || "Current Location"}
+          onPlatformSelect={(platformId, dimensions) => {
+            console.log(`📱 Platform selected: ${platformId}`, dimensions)
+            setSelectedPlatform({ id: platformId, dimensions })
+            setCurrentScreen("editor")
+          }}
+          onClose={() => {
+            setCapturedMedia(null)
+            setCurrentScreen("main")
+          }}
+        />
+      )}
+
+      {/* MOBILE EDITOR SCREEN */}
+      {currentScreen === "editor" && capturedMedia && selectedPlatform && (
+        <MobilePostcardEditor
+          mediaUrl={capturedMedia.url}
+          mediaType={capturedMedia.type}
+          platform={selectedPlatform.id}
+          dimensions={selectedPlatform.dimensions}
+          locationName={locationAddress || "Current Location"}
+          onSave={(postcardData) => {
+            console.log("📮 Postcard saved:", postcardData)
+            setCurrentPostcard(postcardData)
+            setCurrentScreen("sharing")
+          }}
+          onClose={() => {
+            setCapturedMedia(null)
+            setSelectedPlatform(null)
+            setCurrentScreen("main")
+          }}
+        />
+      )}
+
+      {/* SHARING SCREEN */}
+      {currentScreen === "sharing" && currentPostcard && (
+        <SocialSharing
+          postcardDataUrl={currentPostcard.canvasDataUrl}
+          locationName={currentPostcard.locationName}
+          onComplete={() => {
+            setCapturedMedia(null)
+            setSelectedPlatform(null)
+            setCurrentPostcard(null)
+            setCurrentScreen("main")
+          }}
+        />
+      )}
+
+      {/* LIBRARIES SCREEN */}
       {currentScreen === "libraries" && (
         <div
           style={{
@@ -908,11 +890,11 @@ export default function Page() {
             color: "white",
             display: "flex",
             flexDirection: "column",
-            height: "100vh", // Full height
-            overflow: "hidden", // Prevent body scroll
+            height: "100vh",
+            overflow: "hidden",
           }}
         >
-          {/* Library Header - Fixed */}
+          {/* Header */}
           <div
             style={{
               padding: "2rem",
@@ -920,7 +902,7 @@ export default function Page() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              flexShrink: 0, // Don't shrink
+              flexShrink: 0,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -941,14 +923,14 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Library Tabs - Fixed */}
+          {/* Tabs */}
           <div
             style={{
               display: "flex",
               padding: "0 2rem",
               borderBottom: "1px solid rgba(255,255,255,0.1)",
-              flexShrink: 0, // Don't shrink
-              overflowX: "auto", // Allow horizontal scroll on mobile
+              flexShrink: 0,
+              overflowX: "auto",
             }}
           >
             {[
@@ -989,13 +971,13 @@ export default function Page() {
             ))}
           </div>
 
-          {/* Library Content - NOW SCROLLABLE! */}
+          {/* Content */}
           <div
             style={{
               flex: 1,
-              overflowY: "auto", // Enable vertical scrolling
+              overflowY: "auto",
               padding: "2rem",
-              minHeight: 0, // Allow flex shrinking
+              minHeight: 0,
             }}
           >
             {libraryTab === "pins" && (
@@ -1064,7 +1046,6 @@ export default function Page() {
                             border: "1px solid transparent",
                           }}
                         >
-                          {/* Thumbnail */}
                           <div
                             onClick={() => openEditor(pin)}
                             style={{
@@ -1107,7 +1088,6 @@ export default function Page() {
                             </div>
                           </div>
 
-                          {/* Metadata */}
                           <div
                             onClick={() => openEditor(pin)}
                             style={{
@@ -1130,7 +1110,6 @@ export default function Page() {
                             )}
                           </div>
 
-                          {/* Action buttons */}
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                             <button
                               onClick={() => openEditor(pin)}
@@ -1171,7 +1150,6 @@ export default function Page() {
               </div>
             )}
 
-            {/* NEW POSTCARDS TAB */}
             {libraryTab === "postcards" && (
               <div>
                 {savedPostcards.length === 0 ? (
@@ -1198,7 +1176,6 @@ export default function Page() {
                           border: "1px solid transparent",
                         }}
                       >
-                        {/* Postcard Thumbnail */}
                         <div
                           style={{
                             width: "80px",
@@ -1227,7 +1204,6 @@ export default function Page() {
                           />
                         </div>
 
-                        {/* Postcard Metadata */}
                         <div style={{ flex: 1 }}>
                           <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{postcard.locationName}</h4>
                           <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
@@ -1240,11 +1216,9 @@ export default function Page() {
                           </p>
                         </div>
 
-                        {/* Action buttons */}
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                           <button
                             onClick={() => {
-                              // Download postcard
                               const link = document.createElement("a")
                               link.download = `postcard-${postcard.locationName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}.jpg`
                               link.href = postcard.canvasDataUrl
