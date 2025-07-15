@@ -161,4 +161,3 @@ export function EditorWelcome({ onToolSelect, mediaType, locationName }: EditorW
     </div>
   )
 }
-
