@@ -7,6 +7,7 @@ import { VoiceCommander } from "./components/voice-commander"
 import { SocialPlatformSelector } from "./components/social-platform-selector"
 import { MobilePostcardEditor } from "./components/mobile-postcard-editor"
 import { SocialSharing } from "./components/social-sharing"
+import { AdvancedPostcardEditor } from "./components/advanced-editor/advanced-postcard-editor"
 import { playEnhancedSound } from "./utils/enhanced-audio"
 import { generateEnhancedThumbnailForPin } from "./utils/places-photos"
 
@@ -290,6 +291,8 @@ export default function Page() {
 
   const openEditor = (pin: Pin) => {
     setSelectedPin(pin)
+    setCapturedMedia(null) // Clear captured media when opening from library
+    setSelectedPlatform(null) // Clear platform selection
     setCurrentScreen("editor")
   }
 
@@ -496,9 +499,11 @@ export default function Page() {
             } else if (cmd.includes("take photo") || cmd.includes("photo")) {
               setCameraMode("photo")
               setShowCamera(true)
+              setCurrentScreen("camera")
             } else if (cmd.includes("record video") || cmd.includes("video")) {
               setCameraMode("video")
               setShowCamera(true)
+              setCurrentScreen("camera")
             } else if (cmd.includes("library") || cmd.includes("show pins")) {
               setCurrentScreen("libraries")
             } else if (cmd.includes("go back") || cmd.includes("back")) {
@@ -796,7 +801,7 @@ export default function Page() {
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
 
-            // 🔧 NEW FLOW: Photo → Platform Selector
+            // NEW FLOW: Photo → Platform Selector
             setCapturedMedia({ url: mediaData, type })
             setShowCamera(false)
             setCurrentScreen("platform-selector")
@@ -846,7 +851,7 @@ export default function Page() {
         />
       )}
 
-      {/* MOBILE EDITOR SCREEN */}
+      {/* MOBILE EDITOR SCREEN - For new photos */}
       {currentScreen === "editor" && capturedMedia && selectedPlatform && (
         <MobilePostcardEditor
           mediaUrl={capturedMedia.url}
@@ -863,6 +868,24 @@ export default function Page() {
             setCapturedMedia(null)
             setSelectedPlatform(null)
             setCurrentScreen("main")
+          }}
+        />
+      )}
+
+      {/* ADVANCED EDITOR SCREEN - For library items */}
+      {currentScreen === "editor" && selectedPin && !capturedMedia && (
+        <AdvancedPostcardEditor
+          mediaUrl={selectedPin.media?.url || selectedPin.thumbnail || ""}
+          mediaType={selectedPin.media?.type || "photo"}
+          locationName={selectedPin.address}
+          onSave={(postcardData) => {
+            console.log("📮 Advanced postcard saved:", postcardData)
+            setSelectedPin(null)
+            setCurrentScreen("libraries")
+          }}
+          onClose={() => {
+            setSelectedPin(null)
+            setCurrentScreen("libraries")
           }}
         />
       )}
