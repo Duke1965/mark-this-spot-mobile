@@ -1,6 +1,7 @@
 "use client"
 
-import { ArrowLeft, Instagram, MessageCircle, Twitter, Facebook, Mail, Download } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Instagram, MessageCircle, Twitter, Facebook, Share2 } from "lucide-react"
 
 interface SocialPlatformSelectorProps {
   mediaUrl: string
@@ -10,6 +11,57 @@ interface SocialPlatformSelectorProps {
   onClose: () => void
 }
 
+const PLATFORMS = [
+  {
+    id: "instagram-story",
+    name: "Instagram Story",
+    icon: Instagram,
+    dimensions: { width: 1080, height: 1920 },
+    color: "#E4405F",
+    description: "9:16 vertical format",
+  },
+  {
+    id: "instagram-post",
+    name: "Instagram Post",
+    icon: Instagram,
+    dimensions: { width: 1080, height: 1080 },
+    color: "#E4405F",
+    description: "1:1 square format",
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: MessageCircle,
+    dimensions: { width: 1080, height: 1080 },
+    color: "#25D366",
+    description: "Perfect for sharing",
+  },
+  {
+    id: "twitter",
+    name: "Twitter/X",
+    icon: Twitter,
+    dimensions: { width: 1200, height: 675 },
+    color: "#1DA1F2",
+    description: "16:9 landscape",
+  },
+  {
+    id: "facebook",
+    name: "Facebook",
+    icon: Facebook,
+    dimensions: { width: 1200, height: 630 },
+    color: "#1877F2",
+    description: "Social media ready",
+  },
+  {
+    id: "generic",
+    name: "Universal",
+    icon: Share2,
+    dimensions: { width: 1080, height: 1080 },
+    color: "#6B7280",
+    description: "Works everywhere",
+  },
+]
+
 export function SocialPlatformSelector({
   mediaUrl,
   mediaType,
@@ -17,56 +69,15 @@ export function SocialPlatformSelector({
   onPlatformSelect,
   onClose,
 }: SocialPlatformSelectorProps) {
-  const platforms = [
-    {
-      id: "instagram-story",
-      name: "Instagram Story",
-      icon: <Instagram size={24} />,
-      dimensions: { width: 1080, height: 1920 },
-      color: "#E4405F",
-      description: "9:16 vertical format",
-    },
-    {
-      id: "instagram-post",
-      name: "Instagram Post",
-      icon: <Instagram size={24} />,
-      dimensions: { width: 1080, height: 1080 },
-      color: "#E4405F",
-      description: "1:1 square format",
-    },
-    {
-      id: "whatsapp",
-      name: "WhatsApp",
-      icon: <MessageCircle size={24} />,
-      dimensions: { width: 1200, height: 630 },
-      color: "#25D366",
-      description: "Perfect for sharing",
-    },
-    {
-      id: "twitter",
-      name: "Twitter/X",
-      icon: <Twitter size={24} />,
-      dimensions: { width: 1200, height: 675 },
-      color: "#1DA1F2",
-      description: "16:9 landscape",
-    },
-    {
-      id: "facebook",
-      name: "Facebook",
-      icon: <Facebook size={24} />,
-      dimensions: { width: 1200, height: 630 },
-      color: "#1877F2",
-      description: "Social media ready",
-    },
-    {
-      id: "email",
-      name: "Email",
-      icon: <Mail size={24} />,
-      dimensions: { width: 800, height: 600 },
-      color: "#6B7280",
-      description: "Email friendly size",
-    },
-  ]
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
+
+  const handlePlatformSelect = (platform: (typeof PLATFORMS)[0]) => {
+    setSelectedPlatform(platform.id)
+    // Small delay for visual feedback
+    setTimeout(() => {
+      onPlatformSelect(platform.id, platform.dimensions)
+    }, 200)
+  }
 
   return (
     <div
@@ -103,24 +114,26 @@ export function SocialPlatformSelector({
             background: "rgba(255,255,255,0.2)",
             color: "white",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Choose Platform</h2>
-          <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
-            Select where you want to share your {mediaType}
-          </p>
+          <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>Choose Platform</h2>
+          <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>Optimize your {mediaType} for sharing</p>
         </div>
       </div>
 
-      {/* Media Preview */}
+      {/* Preview */}
       <div
         style={{
           padding: "1rem 2rem",
           display: "flex",
           justifyContent: "center",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
           flexShrink: 0,
         }}
       >
@@ -137,11 +150,14 @@ export function SocialPlatformSelector({
           {mediaType === "photo" ? (
             <img
               src={mediaUrl || "/placeholder.svg"}
-              alt="Preview"
+              alt="Captured media"
               style={{
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+              }}
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg?height=120&width=120&text=Photo"
               }}
             />
           ) : (
@@ -153,6 +169,8 @@ export function SocialPlatformSelector({
                 objectFit: "cover",
               }}
               muted
+              loop
+              autoPlay
             />
           )}
         </div>
@@ -162,7 +180,7 @@ export function SocialPlatformSelector({
       <div
         style={{
           flex: 1,
-          padding: "1rem 2rem 2rem",
+          padding: "2rem",
           overflowY: "auto",
         }}
       >
@@ -171,106 +189,109 @@ export function SocialPlatformSelector({
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "1rem",
+            maxWidth: "800px",
+            margin: "0 auto",
           }}
         >
-          {platforms.map((platform) => (
-            <button
-              key={platform.id}
-              onClick={() => onPlatformSelect(platform.id, platform.dimensions)}
-              style={{
-                padding: "1.5rem",
-                borderRadius: "1rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.2)"
-                e.currentTarget.style.transform = "translateY(-2px)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-                e.currentTarget.style.transform = "translateY(0)"
-              }}
-            >
-              <div
+          {PLATFORMS.map((platform) => {
+            const IconComponent = platform.icon
+            const isSelected = selectedPlatform === platform.id
+
+            return (
+              <button
+                key={platform.id}
+                onClick={() => handlePlatformSelect(platform)}
+                disabled={isSelected}
                 style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "0.75rem",
-                  background: platform.color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  padding: "1.5rem",
+                  borderRadius: "1rem",
+                  border: isSelected ? `2px solid ${platform.color}` : "2px solid rgba(255,255,255,0.1)",
+                  background: isSelected
+                    ? `linear-gradient(135deg, ${platform.color}20, ${platform.color}10)`
+                    : "rgba(255,255,255,0.05)",
                   color: "white",
-                  flexShrink: 0,
+                  cursor: isSelected ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "1rem",
+                  textAlign: "center",
+                  transform: isSelected ? "scale(0.98)" : "scale(1)",
+                  opacity: isSelected ? 0.8 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                    e.currentTarget.style.transform = "scale(1.02)"
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.05)"
+                    e.currentTarget.style.transform = "scale(1)"
+                  }
                 }}
               >
-                {platform.icon}
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1.125rem" }}>{platform.name}</h3>
-                <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.7 }}>{platform.description}</p>
-                <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.5 }}>
-                  {platform.dimensions.width} × {platform.dimensions.height}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
+                <div
+                  style={{
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "50%",
+                    background: `${platform.color}20`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: `2px solid ${platform.color}40`,
+                  }}
+                >
+                  <IconComponent size={28} color={platform.color} />
+                </div>
 
-        {/* Quick Actions */}
-        <div
-          style={{
-            marginTop: "2rem",
-            padding: "1.5rem",
-            borderRadius: "1rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.05)",
-          }}
-        >
-          <h3
-            style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", display: "flex", alignItems: "center", gap: "0.5rem" }}
-          >
-            <Download size={20} />
-            Quick Actions
-          </h3>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <button
-              onClick={() => {
-                // Download original
-                const link = document.createElement("a")
-                link.href = mediaUrl
-                link.download = `pinit-${mediaType}-${Date.now()}.${mediaType === "photo" ? "jpg" : "webm"}`
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-              }}
-              style={{
-                padding: "0.75rem 1.5rem",
-                borderRadius: "0.5rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <Download size={16} />
-              Download Original
-            </button>
-          </div>
+                <div>
+                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.125rem", fontWeight: "bold" }}>{platform.name}</h3>
+                  <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
+                    {platform.dimensions.width}×{platform.dimensions.height}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>{platform.description}</p>
+                </div>
+
+                {isSelected && (
+                  <div
+                    style={{
+                      marginTop: "0.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      fontSize: "0.875rem",
+                      color: platform.color,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTop: `2px solid ${platform.color}`,
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                    Loading...
+                  </div>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
