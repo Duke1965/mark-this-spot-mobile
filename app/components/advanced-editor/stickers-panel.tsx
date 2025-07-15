@@ -477,4 +477,3 @@ export function StickersPanel({ stickers, onUpdate }: StickersPanelProps) {
     </div>
   )
 }
-
