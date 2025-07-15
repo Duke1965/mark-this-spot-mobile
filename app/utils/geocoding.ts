@@ -1,67 +1,195 @@
-"use client"
+// Geocoding utilities using OpenStreetMap Nominatim API
+export interface GeocodeResult {
+  address: string
+  city?: string
+  state?: string
+  country?: string
+  postalCode?: string
+  formattedAddress: string
+  latitude: number
+  longitude: number
+}
 
-export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-
-  if (!apiKey) {
-    console.warn("⚠️ No Google Maps API key - using coordinates as address")
-    return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-  }
-
+/**
+ * Reverse geocode coordinates to get address information
+ */
+export async function reverseGeocode(latitude: number, longitude: number): Promise<GeocodeResult | null> {
   try {
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+      {
+        headers: {
+          "User-Agent": "MarkThisSpot/1.0",
+        },
+      },
     )
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      throw new Error(`Geocoding API error: ${response.status}`)
     }
 
     const data = await response.json()
 
-    if (data.status === "OK" && data.results && data.results.length > 0) {
-      const address = data.results[0].formatted_address
-      console.log("🗺️ Geocoding successful:", address)
-      return address
-    } else {
-      console.warn("⚠️ Geocoding failed:", data.status)
-      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+    if (!data || !data.address) {
+      return null
     }
+
+    const address = data.address
+    const result: GeocodeResult = {
+      address: data.display_name || "Unknown Location",
+      city: address.city || address.town || address.village || address.hamlet,
+      state: address.state || address.region,
+      country: address.country,
+      postalCode: address.postcode,
+      formattedAddress: data.display_name || "Unknown Location",
+      latitude,
+      longitude,
+    }
+
+    return result
   } catch (error) {
-    console.error("❌ Geocoding error:", error)
-    return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+    console.error("Reverse geocoding failed:", error)
+    return null
   }
 }
 
-export async function forwardGeocode(address: string): Promise<{ lat: number; lng: number } | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+/**
+ * Forward geocode an address to get coordinates
+ */
+export async function forwardGeocode(address: string): Promise<GeocodeResult[]> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&addressdetails=1&limit=5`,
+      {
+        headers: {
+          "User-Agent": "MarkThisSpot/1.0",
+        },
+      },
+    )
 
-  if (!apiKey) {
-    console.warn("⚠️ No Google Maps API key for forward geocoding")
+    if (!response.ok) {
+      throw new Error(`Geocoding API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data.map((item: any) => ({
+      address: item.display_name || "Unknown Location",
+      city: item.address?.city || item.address?.town || item.address?.village,
+      state: item.address?.state || item.address?.region,
+      country: item.address?.country,
+      postalCode: item.address?.postcode,
+      formattedAddress: item.display_name || "Unknown Location",
+      latitude: Number.parseFloat(item.lat),
+      longitude: Number.parseFloat(item.lon),
+    }))
+  } catch (error) {
+    console.error("Forward geocoding failed:", error)
+    return []
+  }
+}
+
+/**
+ * Get current location using browser geolocation API
+ */
+export function getCurrentLocation(options?: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser"))
+      return
+    }
+
+    const defaultOptions: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000,
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, { ...defaultOptions, ...options })
+  })
+}
+
+/**
+ * Watch location changes
+ */
+export function watchLocation(
+  onSuccess: (position: GeolocationPosition) => void,
+  onError: (error: GeolocationPositionError) => void,
+  options?: PositionOptions,
+): number | null {
+  if (!navigator.geolocation) {
+    onError({
+      code: 2,
+      message: "Geolocation is not supported by this browser",
+    } as GeolocationPositionError)
+    return null
+  }
+
+  const defaultOptions: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 60000,
+  }
+
+  return navigator.geolocation.watchPosition(onSuccess, onError, { ...defaultOptions, ...options })
+}
+
+/**
+ * Calculate distance between two coordinates in meters
+ */
+export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3 // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180
+  const φ2 = (lat2 * Math.PI) / 180
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return R * c
+}
+
+/**
+ * Format coordinates for display
+ */
+export function formatCoordinates(latitude: number, longitude: number, precision = 6): string {
+  return `${latitude.toFixed(precision)}, ${longitude.toFixed(precision)}`
+}
+
+/**
+ * Check if coordinates are valid
+ */
+export function isValidCoordinates(latitude: number, longitude: number): boolean {
+  return (
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    !isNaN(latitude) &&
+    !isNaN(longitude)
+  )
+}
+
+/**
+ * Get location permission status
+ */
+export async function getLocationPermission(): Promise<PermissionState | null> {
+  if (!("permissions" in navigator)) {
     return null
   }
 
   try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`,
-    )
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json()
-
-    if (data.status === "OK" && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location
-      console.log("🗺️ Forward geocoding successful:", location)
-      return { lat: location.lat, lng: location.lng }
-    } else {
-      console.warn("⚠️ Forward geocoding failed:", data.status)
-      return null
-    }
+    const result = await navigator.permissions.query({ name: "geolocation" })
+    return result.state
   } catch (error) {
-    console.error("❌ Forward geocoding error:", error)
+    console.warn("Could not check location permission:", error)
     return null
   }
 }
