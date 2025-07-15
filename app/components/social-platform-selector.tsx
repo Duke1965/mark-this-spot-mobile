@@ -1,74 +1,72 @@
 "use client"
 
-import { useState } from "react"
-import { Instagram, MessageCircle, Twitter, Facebook, Smartphone, ArrowLeft } from "lucide-react"
+import { ArrowLeft, Instagram, MessageCircle, Twitter, Facebook, Mail, Download } from "lucide-react"
 
 interface SocialPlatformSelectorProps {
-  onSelectPlatform: (platform: string, dimensions: { width: number; height: number }) => void
-  onBack: () => void
+  mediaUrl: string
+  mediaType: "photo" | "video"
+  locationName: string
+  onPlatformSelect: (platformId: string, dimensions: { width: number; height: number }) => void
+  onClose: () => void
 }
 
-const PLATFORMS = [
-  {
-    id: "instagram-story",
-    name: "Instagram Story",
-    icon: Instagram,
-    dimensions: { width: 1080, height: 1920 },
-    color: "linear-gradient(135deg, #E1306C 0%, #FD1D1D 50%, #F77737 100%)",
-    description: "9:16 vertical format",
-  },
-  {
-    id: "instagram-post",
-    name: "Instagram Post",
-    icon: Instagram,
-    dimensions: { width: 1080, height: 1080 },
-    color: "linear-gradient(135deg, #405DE6 0%, #5851DB 25%, #833AB4 50%, #C13584 75%, #E1306C 100%)",
-    description: "1:1 square format",
-  },
-  {
-    id: "whatsapp",
-    name: "WhatsApp",
-    icon: MessageCircle,
-    dimensions: { width: 1080, height: 1080 },
-    color: "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
-    description: "Perfect for sharing",
-  },
-  {
-    id: "twitter",
-    name: "Twitter/X",
-    icon: Twitter,
-    dimensions: { width: 1200, height: 675 },
-    color: "linear-gradient(135deg, #1DA1F2 0%, #0084B4 100%)",
-    description: "16:9 landscape",
-  },
-  {
-    id: "facebook",
-    name: "Facebook",
-    icon: Facebook,
-    dimensions: { width: 1200, height: 630 },
-    color: "linear-gradient(135deg, #1877F2 0%, #42A5F5 100%)",
-    description: "Optimized for feed",
-  },
-  {
-    id: "generic",
-    name: "Universal",
-    icon: Smartphone,
-    dimensions: { width: 1080, height: 1080 },
-    color: "linear-gradient(135deg, #667EEA 0%, #764BA2 100%)",
-    description: "Works everywhere",
-  },
-]
-
-export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatformSelectorProps) {
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
-
-  const handlePlatformSelect = (platform: (typeof PLATFORMS)[0]) => {
-    setSelectedPlatform(platform.id)
-    // Small delay for visual feedback
-    setTimeout(() => {
-      onSelectPlatform(platform.id, platform.dimensions)
-    }, 200)
-  }
+export function SocialPlatformSelector({
+  mediaUrl,
+  mediaType,
+  locationName,
+  onPlatformSelect,
+  onClose,
+}: SocialPlatformSelectorProps) {
+  const platforms = [
+    {
+      id: "instagram-story",
+      name: "Instagram Story",
+      icon: <Instagram size={24} />,
+      dimensions: { width: 1080, height: 1920 },
+      color: "#E4405F",
+      description: "9:16 vertical format",
+    },
+    {
+      id: "instagram-post",
+      name: "Instagram Post",
+      icon: <Instagram size={24} />,
+      dimensions: { width: 1080, height: 1080 },
+      color: "#E4405F",
+      description: "1:1 square format",
+    },
+    {
+      id: "whatsapp",
+      name: "WhatsApp",
+      icon: <MessageCircle size={24} />,
+      dimensions: { width: 1200, height: 630 },
+      color: "#25D366",
+      description: "Perfect for sharing",
+    },
+    {
+      id: "twitter",
+      name: "Twitter/X",
+      icon: <Twitter size={24} />,
+      dimensions: { width: 1200, height: 675 },
+      color: "#1DA1F2",
+      description: "16:9 landscape",
+    },
+    {
+      id: "facebook",
+      name: "Facebook",
+      icon: <Facebook size={24} />,
+      dimensions: { width: 1200, height: 630 },
+      color: "#1877F2",
+      description: "Social media ready",
+    },
+    {
+      id: "email",
+      name: "Email",
+      icon: <Mail size={24} />,
+      dimensions: { width: 800, height: 600 },
+      color: "#6B7280",
+      description: "Email friendly size",
+    },
+  ]
 
   return (
     <div
@@ -78,19 +76,18 @@ export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatf
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #667EEA 0%, #764BA2 100%)",
-        zIndex: 1000,
+        background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
+        color: "white",
         display: "flex",
         flexDirection: "column",
-        color: "white",
-        overflow: "hidden",
+        zIndex: 1000,
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: "1rem",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
+          padding: "2rem",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
           display: "flex",
           alignItems: "center",
           gap: "1rem",
@@ -98,7 +95,7 @@ export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatf
         }}
       >
         <button
-          onClick={onBack}
+          onClick={onClose}
           style={{
             padding: "0.5rem",
             borderRadius: "50%",
@@ -106,18 +103,58 @@ export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatf
             background: "rgba(255,255,255,0.2)",
             color: "white",
             cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
           }}
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>📱 Choose Platform</h2>
-          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", opacity: 0.8 }}>
-            Select where you'll share your postcard
+          <h2 style={{ margin: 0, fontSize: "1.5rem" }}>Choose Platform</h2>
+          <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
+            Select where you want to share your {mediaType}
           </p>
+        </div>
+      </div>
+
+      {/* Media Preview */}
+      <div
+        style={{
+          padding: "1rem 2rem",
+          display: "flex",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: "120px",
+            height: "120px",
+            borderRadius: "1rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.1)",
+          }}
+        >
+          {mediaType === "photo" ? (
+            <img
+              src={mediaUrl || "/placeholder.svg"}
+              alt="Preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <video
+              src={mediaUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+              muted
+            />
+          )}
         </div>
       </div>
 
@@ -125,7 +162,7 @@ export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatf
       <div
         style={{
           flex: 1,
-          padding: "2rem",
+          padding: "1rem 2rem 2rem",
           overflowY: "auto",
         }}
       >
@@ -133,149 +170,107 @@ export function SocialPlatformSelector({ onSelectPlatform, onBack }: SocialPlatf
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "1.5rem",
-            maxWidth: "800px",
-            margin: "0 auto",
+            gap: "1rem",
           }}
         >
-          {PLATFORMS.map((platform) => {
-            const IconComponent = platform.icon
-            const isSelected = selectedPlatform === platform.id
-
-            return (
-              <button
-                key={platform.id}
-                onClick={() => handlePlatformSelect(platform)}
-                disabled={isSelected}
+          {platforms.map((platform) => (
+            <button
+              key={platform.id}
+              onClick={() => onPlatformSelect(platform.id, platform.dimensions)}
+              style={{
+                padding: "1.5rem",
+                borderRadius: "1rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                e.currentTarget.style.transform = "translateY(-2px)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                e.currentTarget.style.transform = "translateY(0)"
+              }}
+            >
+              <div
                 style={{
-                  padding: "2rem",
-                  borderRadius: "1.5rem",
-                  border: "none",
-                  background: isSelected ? "rgba(255,255,255,0.3)" : platform.color,
-                  color: "white",
-                  cursor: isSelected ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  transform: isSelected ? "scale(0.95)" : "scale(1)",
-                  boxShadow: isSelected ? "inset 0 4px 20px rgba(0,0,0,0.3)" : "0 8px 25px rgba(0,0,0,0.2)",
-                  textAlign: "left",
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "0.75rem",
+                  background: platform.color,
                   display: "flex",
-                  flexDirection: "column",
-                  gap: "1rem",
-                  position: "relative",
-                  overflow: "hidden",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  flexShrink: 0,
                 }}
               >
-                {/* Icon and Title */}
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div
-                    style={{
-                      padding: "1rem",
-                      borderRadius: "1rem",
-                      background: "rgba(255,255,255,0.2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <IconComponent size={32} />
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>{platform.name}</h3>
-                    <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", opacity: 0.8 }}>
-                      {platform.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dimensions */}
-                <div
-                  style={{
-                    padding: "0.75rem 1rem",
-                    borderRadius: "0.75rem",
-                    background: "rgba(255,255,255,0.1)",
-                    fontSize: "0.875rem",
-                    fontWeight: "bold",
-                    textAlign: "center",
-                  }}
-                >
-                  {platform.dimensions.width} × {platform.dimensions.height}px
-                </div>
-
-                {/* Selection Indicator */}
-                {isSelected && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "1rem",
-                      right: "1rem",
-                      width: "2rem",
-                      height: "2rem",
-                      borderRadius: "50%",
-                      background: "rgba(34, 197, 94, 0.9)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1rem",
-                    }}
-                  >
-                    ✓
-                  </div>
-                )}
-
-                {/* Loading Spinner */}
-                {isSelected && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "1rem",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: "1.5rem",
-                      height: "1.5rem",
-                      border: "2px solid rgba(255,255,255,0.3)",
-                      borderTop: "2px solid white",
-                      borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
-                    }}
-                  />
-                )}
-              </button>
-            )
-          })}
+                {platform.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1.125rem" }}>{platform.name}</h3>
+                <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.7 }}>{platform.description}</p>
+                <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.5 }}>
+                  {platform.dimensions.width} × {platform.dimensions.height}
+                </p>
+              </div>
+            </button>
+          ))}
         </div>
 
-        {/* Info Section */}
+        {/* Quick Actions */}
         <div
           style={{
-            marginTop: "3rem",
-            padding: "2rem",
+            marginTop: "2rem",
+            padding: "1.5rem",
             borderRadius: "1rem",
-            background: "rgba(255,255,255,0.1)",
-            textAlign: "center",
-            maxWidth: "600px",
-            margin: "3rem auto 0",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.05)",
           }}
         >
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", fontWeight: "bold" }}>
-            🎨 Platform-Optimized Templates
+          <h3
+            style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", display: "flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <Download size={20} />
+            Quick Actions
           </h3>
-          <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.9, lineHeight: 1.6 }}>
-            Each platform has custom templates designed for optimal engagement. Your photo will be automatically
-            formatted with the perfect dimensions and styling for your chosen platform.
-          </p>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                // Download original
+                const link = document.createElement("a")
+                link.href = mediaUrl
+                link.download = `pinit-${mediaType}-${Date.now()}.${mediaType === "photo" ? "jpg" : "webm"}`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+              }}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "0.5rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <Download size={16} />
+              Download Original
+            </button>
+          </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          0% {
-            transform: translateX(-50%) rotate(0deg);
-          }
-          100% {
-            transform: translateX(-50%) rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   )
 }
