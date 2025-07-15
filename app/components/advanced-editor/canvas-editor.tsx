@@ -99,6 +99,7 @@ export function CanvasEditor({ mediaUrl, mediaType, onUpdate, onMediaProcess }: 
   const [isAddingText, setIsAddingText] = useState(false)
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null)
   const [canvasBackground, setCanvasBackground] = useState("#FFFFFF")
+  const [mediaLoaded, setMediaLoaded] = useState(false)
 
   // Text editing controls
   const [fontSize, setFontSize] = useState(24)
@@ -130,33 +131,61 @@ export function CanvasEditor({ mediaUrl, mediaType, onUpdate, onMediaProcess }: 
     }
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Draw main media
-    try {
-      const img = new Image()
-      img.crossOrigin = "anonymous"
+    // 🔧 FIX: Draw main media with better error handling
+    if (mediaUrl) {
+      try {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
 
-      await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-        img.src = mediaUrl
-      })
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            setMediaLoaded(true)
+            resolve(img)
+          }
+          img.onerror = (error) => {
+            console.error("❌ Failed to load media:", error)
+            setMediaLoaded(false)
+            reject(error)
+          }
+          img.src = mediaUrl
+        })
 
-      // Calculate dimensions to fit canvas while maintaining aspect ratio
-      const aspectRatio = img.width / img.height
-      let drawWidth = canvas.width * 0.7
-      let drawHeight = drawWidth / aspectRatio
+        // Calculate dimensions to fit canvas while maintaining aspect ratio
+        const aspectRatio = img.width / img.height
+        let drawWidth = canvas.width * 0.7
+        let drawHeight = drawWidth / aspectRatio
 
-      if (drawHeight > canvas.height * 0.5) {
-        drawHeight = canvas.height * 0.5
-        drawWidth = drawHeight * aspectRatio
+        if (drawHeight > canvas.height * 0.5) {
+          drawHeight = canvas.height * 0.5
+          drawWidth = drawHeight * aspectRatio
+        }
+
+        const x = (canvas.width - drawWidth) / 2
+        const y = (canvas.height - drawHeight) / 2
+
+        ctx.drawImage(img, x, y, drawWidth, drawHeight)
+        console.log("✅ Media drawn successfully:", { mediaUrl, drawWidth, drawHeight })
+      } catch (error) {
+        console.error("❌ Failed to draw media:", error)
+        setMediaLoaded(false)
+
+        // Draw placeholder
+        ctx.fillStyle = "#f0f0f0"
+        ctx.fillRect(canvas.width * 0.15, canvas.height * 0.25, canvas.width * 0.7, canvas.height * 0.5)
+        ctx.fillStyle = "#666"
+        ctx.font = "24px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText("Image Loading...", canvas.width / 2, canvas.height / 2)
       }
-
-      const x = (canvas.width - drawWidth) / 2
-      const y = (canvas.height - drawHeight) / 2
-
-      ctx.drawImage(img, x, y, drawWidth, drawHeight)
-    } catch (error) {
-      console.error("❌ Failed to draw media:", error)
+    } else {
+      // No media URL provided
+      ctx.fillStyle = "#f0f0f0"
+      ctx.fillRect(canvas.width * 0.15, canvas.height * 0.25, canvas.width * 0.7, canvas.height * 0.5)
+      ctx.fillStyle = "#666"
+      ctx.font = "24px Arial"
+      ctx.textAlign = "center"
+      ctx.fillText("No Media", canvas.width / 2, canvas.height / 2)
+      console.warn("⚠️ No media URL provided to canvas")
     }
 
     // Draw text elements
@@ -177,6 +206,7 @@ export function CanvasEditor({ mediaUrl, mediaType, onUpdate, onMediaProcess }: 
   }, [mediaUrl, textElements, selectedElement, currentTemplate, canvasBackground])
 
   useEffect(() => {
+    console.log("🎨 Canvas Editor received media:", { mediaUrl, mediaType })
     redrawCanvas()
   }, [redrawCanvas])
 
@@ -315,6 +345,25 @@ export function CanvasEditor({ mediaUrl, mediaType, onUpdate, onMediaProcess }: 
             boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
           }}
         >
+          {/* 🔧 DEBUG: Show media info */}
+          {!mediaLoaded && mediaUrl && (
+            <div
+              style={{
+                position: "absolute",
+                top: "1rem",
+                right: "1rem",
+                background: "rgba(255,165,0,0.9)",
+                color: "white",
+                padding: "0.5rem 1rem",
+                borderRadius: "0.5rem",
+                fontSize: "0.75rem",
+                zIndex: 10,
+              }}
+            >
+              Loading media...
+            </div>
+          )}
+
           <canvas
             ref={canvasRef}
             width={800}
@@ -359,6 +408,20 @@ export function CanvasEditor({ mediaUrl, mediaType, onUpdate, onMediaProcess }: 
         }}
       >
         <h3 style={{ color: "white", marginBottom: "1.5rem", fontSize: "1.25rem" }}>Canvas Tools</h3>
+
+        {/* 🔧 DEBUG: Media Status */}
+        <div
+          style={{ marginBottom: "1rem", padding: "1rem", background: "rgba(255,255,255,0.1)", borderRadius: "0.5rem" }}
+        >
+          <h4 style={{ color: "white", fontSize: "0.875rem", margin: "0 0 0.5rem 0" }}>Media Status</h4>
+          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem", margin: 0 }}>
+            URL: {mediaUrl ? "✅ Provided" : "❌ Missing"}
+          </p>
+          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem", margin: 0 }}>
+            Loaded: {mediaLoaded ? "✅ Yes" : "⏳ Loading"}
+          </p>
+          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.75rem", margin: 0 }}>Type: {mediaType}</p>
+        </div>
 
         {/* Templates */}
         <div style={{ marginBottom: "2rem" }}>
