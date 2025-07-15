@@ -290,6 +290,7 @@ export default function Page() {
 
   const openEditor = (pin: Pin) => {
     setSelectedPin(pin)
+    setEditorMedia(null) // Clear any previous editor media
     setCurrentScreen("editor")
   }
 
@@ -838,12 +839,13 @@ export default function Page() {
           onCapture={(mediaData, type) => {
             console.log(`📸 ${type} captured:`, mediaData)
 
-            // Set up editor with captured media
+            // 🔧 FIX: Set up editor with captured media FIRST
             setEditorMedia({ url: mediaData, type })
+            setSelectedPin(null) // Clear any selected pin
             setCurrentScreen("editor")
             setShowCamera(false)
 
-            // Also save the pin for later
+            // Also save the pin for later (but don't interfere with editor flow)
             if (userLocation) {
               const newPin: Pin = {
                 id: Date.now().toString(),
@@ -860,17 +862,24 @@ export default function Page() {
 
               setSavedPins((prev) => [newPin, ...prev])
               playEnhancedSound("success-chime")
+              console.log("📌 Pin saved with media:", newPin)
             }
           }}
           onClose={() => setShowCamera(false)}
         />
       )}
 
-      {/* Editor screen section */}
+      {/* Editor screen section - 🔧 FIXED DATA FLOW */}
       {currentScreen === "editor" && (selectedPin || editorMedia) && (
         <AdvancedPostcardEditor
-          mediaUrl={selectedPin?.media?.url || selectedPin?.thumbnail || editorMedia?.url || ""}
-          mediaType={selectedPin?.media?.type || editorMedia?.type || "photo"}
+          mediaUrl={
+            // 🔧 FIX: Prioritize editorMedia when coming from camera
+            editorMedia?.url || selectedPin?.media?.url || selectedPin?.thumbnail || ""
+          }
+          mediaType={
+            // 🔧 FIX: Prioritize editorMedia type when coming from camera
+            editorMedia?.type || selectedPin?.media?.type || "photo"
+          }
           locationName={selectedPin?.address || locationAddress || "Current Location"}
           onSave={(postcardData) => {
             console.log("📮 Advanced postcard saved:", postcardData)
