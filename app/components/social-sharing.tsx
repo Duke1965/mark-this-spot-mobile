@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Share2, Download, Copy, Check, Instagram, MessageCircle, Twitter, Facebook, Mail } from "lucide-react"
+import { ArrowLeft, Download, Copy, Share2, CheckCircle, ExternalLink } from "lucide-react"
 
 interface SocialSharingProps {
   postcardDataUrl: string
@@ -10,34 +10,44 @@ interface SocialSharingProps {
 }
 
 export function SocialSharing({ postcardDataUrl, locationName, onComplete }: SocialSharingProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [shareResult, setShareResult] = useState<{
+    success: boolean
+    message: string
+    shareUrl?: string
+  } | null>(null)
   const [copied, setCopied] = useState(false)
-  const [downloading, setDownloading] = useState(false)
 
-  const handleDownload = async () => {
-    setDownloading(true)
-    try {
-      const link = document.createElement("a")
-      link.download = `postcard-${locationName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}.jpg`
-      link.href = postcardDataUrl
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } catch (error) {
-      console.error("Download failed:", error)
-    } finally {
-      setDownloading(false)
-    }
+  const handleDownload = () => {
+    const link = document.createElement("a")
+    link.download = `postcard-${locationName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}.jpg`
+    link.href = postcardDataUrl
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    setShareResult({
+      success: true,
+      message: "Postcard downloaded successfully!",
+    })
   }
 
   const handleCopyLink = async () => {
     try {
-      // In a real app, you'd upload the image and get a shareable URL
-      const shareText = `Check out this amazing postcard from ${locationName}! 📍`
-      await navigator.clipboard.writeText(shareText)
+      await navigator.clipboard.writeText(postcardDataUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+
+      setShareResult({
+        success: true,
+        message: "Postcard link copied to clipboard!",
+      })
     } catch (error) {
-      console.error("Copy failed:", error)
+      console.error("Failed to copy:", error)
+      setShareResult({
+        success: false,
+        message: "Failed to copy link",
+      })
     }
   }
 
@@ -51,12 +61,17 @@ export function SocialSharing({ postcardDataUrl, locationName, onComplete }: Soc
 
         await navigator.share({
           title: `Postcard from ${locationName}`,
-          text: `Check out this amazing postcard from ${locationName}! 📍`,
+          text: `Check out this postcard from ${locationName}!`,
           files: [file],
+        })
+
+        setShareResult({
+          success: true,
+          message: "Postcard shared successfully!",
         })
       } catch (error) {
         console.error("Native share failed:", error)
-        // Fallback to copy
+        // Fallback to copy link
         handleCopyLink()
       }
     } else {
@@ -65,55 +80,9 @@ export function SocialSharing({ postcardDataUrl, locationName, onComplete }: Soc
     }
   }
 
-  const socialPlatforms = [
-    {
-      name: "Instagram",
-      icon: Instagram,
-      color: "#E4405F",
-      action: () => {
-        // Instagram doesn't support direct URL sharing, so download the image
-        handleDownload()
-        alert("📸 Image downloaded! Open Instagram and share from your gallery.")
-      },
-    },
-    {
-      name: "WhatsApp",
-      icon: MessageCircle,
-      color: "#25D366",
-      action: () => {
-        const text = encodeURIComponent(`Check out this postcard from ${locationName}! 📍`)
-        window.open(`https://wa.me/?text=${text}`, "_blank")
-      },
-    },
-    {
-      name: "Twitter",
-      icon: Twitter,
-      color: "#1DA1F2",
-      action: () => {
-        const text = encodeURIComponent(`Check out this amazing postcard from ${locationName}! 📍`)
-        window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank")
-      },
-    },
-    {
-      name: "Facebook",
-      icon: Facebook,
-      color: "#1877F2",
-      action: () => {
-        const text = encodeURIComponent(`Check out this postcard from ${locationName}! 📍`)
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${text}`, "_blank")
-      },
-    },
-    {
-      name: "Email",
-      icon: Mail,
-      color: "#6B7280",
-      action: () => {
-        const subject = encodeURIComponent(`Postcard from ${locationName}`)
-        const body = encodeURIComponent(`Check out this amazing postcard from ${locationName}! 📍`)
-        window.open(`mailto:?subject=${subject}&body=${body}`, "_blank")
-      },
-    },
-  ]
+  const handleOpenShareUrl = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
 
   return (
     <div
@@ -134,274 +103,246 @@ export function SocialSharing({ postcardDataUrl, locationName, onComplete }: Soc
       <div
         style={{
           padding: "2rem",
-          textAlign: "center",
           borderBottom: "1px solid rgba(255,255,255,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           flexShrink: 0,
         }}
       >
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button
+            onClick={onComplete}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h2 style={{ fontSize: "1.5rem", margin: 0 }}>Share Your Postcard</h2>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        {/* Success Animation */}
         <div
           style={{
-            width: "60px",
-            height: "60px",
+            width: "120px",
+            height: "120px",
             borderRadius: "50%",
-            background: "rgba(16, 185, 129, 0.2)",
+            background: "linear-gradient(135deg, #10B981, #059669)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            margin: "0 auto 1rem",
-            border: "2px solid rgba(16, 185, 129, 0.4)",
+            marginBottom: "2rem",
+            animation: "successPulse 2s ease-in-out infinite",
           }}
         >
-          <Share2 size={28} color="#10B981" />
+          <CheckCircle size={60} color="white" />
         </div>
-        <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "1.5rem", fontWeight: "bold" }}>Postcard Ready! 🎉</h2>
-        <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>Share your postcard from {locationName}</p>
-      </div>
 
-      {/* Preview */}
-      <div
-        style={{
-          padding: "2rem",
-          display: "flex",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
+        <h3 style={{ fontSize: "2rem", marginBottom: "1rem", fontWeight: "bold" }}>Postcard Created! 🎉</h3>
+
+        <p style={{ fontSize: "1.125rem", opacity: 0.8, marginBottom: "2rem", maxWidth: "400px" }}>
+          Your beautiful postcard from <strong>{locationName}</strong> is ready to share with the world!
+        </p>
+
+        {/* Postcard Preview */}
         <div
           style={{
-            maxWidth: "300px",
+            width: "200px",
+            height: "150px",
             borderRadius: "1rem",
             overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.2)",
+            marginBottom: "2rem",
             boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+            border: "3px solid rgba(255,255,255,0.2)",
           }}
         >
           <img
             src={postcardDataUrl || "/placeholder.svg"}
-            alt="Generated postcard"
+            alt="Your postcard"
             style={{
               width: "100%",
-              height: "auto",
-              display: "block",
+              height: "100%",
+              objectFit: "cover",
             }}
           />
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div
-        style={{
-          padding: "0 2rem 2rem",
-          display: "flex",
-          gap: "1rem",
-          flexShrink: 0,
-        }}
-      >
-        <button
-          onClick={handleDownload}
-          disabled={downloading}
+        {/* Share Options */}
+        <div
           style={{
-            flex: 1,
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "none",
-            background: downloading ? "#6B7280" : "#10B981",
-            color: "white",
-            cursor: downloading ? "not-allowed" : "pointer",
-            fontSize: "1rem",
-            fontWeight: "bold",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            transition: "all 0.3s ease",
+            flexDirection: "column",
+            gap: "1rem",
+            width: "100%",
+            maxWidth: "300px",
           }}
         >
-          {downloading ? (
-            <>
-              <div
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  borderTop: "2px solid white",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
-              Downloading...
-            </>
-          ) : (
-            <>
-              <Download size={20} />
-              Download
-            </>
+          <button
+            onClick={handleDownload}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.75rem",
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              border: "none",
+              background: "linear-gradient(135deg, #10B981, #059669)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: "600",
+              transition: "transform 0.2s ease",
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <Download size={20} />
+            Download Postcard
+          </button>
+
+          <button
+            onClick={handleCopyLink}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.75rem",
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              border: "2px solid rgba(255,255,255,0.3)",
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: "600",
+              transition: "all 0.2s ease",
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <Copy size={20} />
+            {copied ? "Copied!" : "Copy Link"}
+          </button>
+
+          {navigator.share && (
+            <button
+              onClick={handleNativeShare}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.75rem",
+                padding: "1rem",
+                borderRadius: "0.75rem",
+                border: "2px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "1rem",
+                fontWeight: "600",
+                transition: "all 0.2s ease",
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+              onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              <Share2 size={20} />
+              Share
+            </button>
           )}
-        </button>
+        </div>
 
-        <button
-          onClick={handleNativeShare}
-          style={{
-            flex: 1,
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "none",
-            background: "#3B82F6",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "1rem",
-            fontWeight: "bold",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            transition: "all 0.3s ease",
-          }}
-        >
-          <Share2 size={20} />
-          Share
-        </button>
+        {/* Result Message */}
+        {shareResult && (
+          <div
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              background: shareResult.success ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)",
+              border: `1px solid ${shareResult.success ? "#10B981" : "#EF4444"}`,
+              color: shareResult.success ? "#10B981" : "#EF4444",
+              textAlign: "center",
+              maxWidth: "400px",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "0.875rem" }}>{shareResult.message}</p>
 
+            {shareResult.shareUrl && (
+              <button
+                onClick={() => handleOpenShareUrl(shareResult.shareUrl!)}
+                style={{
+                  marginTop: "0.5rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  margin: "0.5rem auto 0 auto",
+                }}
+              >
+                <ExternalLink size={16} />
+                Open Platform
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Continue Button */}
         <button
-          onClick={handleCopyLink}
+          onClick={onComplete}
           style={{
-            padding: "1rem",
+            marginTop: "2rem",
+            padding: "0.75rem 2rem",
             borderRadius: "0.75rem",
-            border: "2px solid rgba(255,255,255,0.2)",
+            border: "2px solid rgba(255,255,255,0.3)",
             background: "transparent",
             color: "white",
             cursor: "pointer",
             fontSize: "1rem",
-            fontWeight: "bold",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.3s ease",
-          }}
-        >
-          {copied ? <Check size={20} color="#10B981" /> : <Copy size={20} />}
-        </button>
-      </div>
-
-      {/* Social Platforms */}
-      <div
-        style={{
-          flex: 1,
-          padding: "0 2rem 2rem",
-          overflowY: "auto",
-        }}
-      >
-        <h3
-          style={{
-            margin: "0 0 1rem 0",
-            fontSize: "1.125rem",
-            fontWeight: "bold",
-            textAlign: "center",
-            opacity: 0.9,
-          }}
-        >
-          Share on Social Media
-        </h3>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: "1rem",
-            maxWidth: "600px",
-            margin: "0 auto",
-          }}
-        >
-          {socialPlatforms.map((platform) => {
-            const IconComponent = platform.icon
-
-            return (
-              <button
-                key={platform.name}
-                onClick={platform.action}
-                style={{
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "2px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = `${platform.color}20`
-                  e.currentTarget.style.borderColor = `${platform.color}40`
-                  e.currentTarget.style.transform = "scale(1.05)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)"
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"
-                  e.currentTarget.style.transform = "scale(1)"
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: `${platform.color}20`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: `1px solid ${platform.color}40`,
-                  }}
-                >
-                  <IconComponent size={20} color={platform.color} />
-                </div>
-                <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>{platform.name}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Done Button */}
-      <div
-        style={{
-          padding: "2rem",
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          flexShrink: 0,
-        }}
-      >
-        <button
-          onClick={onComplete}
-          style={{
-            width: "100%",
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "none",
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "1rem",
-            fontWeight: "bold",
-            transition: "all 0.3s ease",
+            fontWeight: "500",
+            transition: "all 0.2s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.2)"
-          }}
-          onMouseLeave={(e) => {
             e.currentTarget.style.background = "rgba(255,255,255,0.1)"
           }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+          }}
         >
-          Done
+          Create Another Postcard
         </button>
       </div>
 
       <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        @keyframes successPulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
       `}</style>
     </div>
