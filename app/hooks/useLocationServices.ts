@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 interface LocationData {
   latitude: number
@@ -14,110 +14,184 @@ interface LocationError {
   message: string
 }
 
-export function useLocationServices() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+interface UseLocationServicesReturn {
+  location: LocationData | null
+  error: LocationError | null
+  loading: boolean
+  requestLocation: () => void
+  watchLocation: () => void
+  stopWatching: () => void
+  isWatching: boolean
+}
 
-  const getCurrentLocation = useCallback((): Promise<LocationData | null> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        const errorMsg = "Geolocation is not supported by this browser"
-        setError(errorMsg)
-        reject(new Error(errorMsg))
-        return
-      }
+export function useLocationServices(): UseLocationServicesReturn {
+  const [location, setLocation] = useState<LocationData | null>(null)
+  const [error, setError] = useState<LocationError | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [isWatching, setIsWatching] = useState(false)
+  const [watchId, setWatchId] = useState<number | null>(null)
 
-      setIsLoading(true)
-      setError(null)
+  const handleSuccess = useCallback((position: GeolocationPosition) => {
+    const locationData: LocationData = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp,
+    }
 
-      const options: PositionOptions = {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 60000,
-      }
+    setLocation(locationData)
+    setError(null)
+    setLoading(false)
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const locationData: LocationData = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp,
-          }
-
-          console.log("📍 Location obtained:", locationData)
-          setIsLoading(false)
-          resolve(locationData)
-        },
-        (error) => {
-          let errorMessage = "Failed to get location"
-
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = "Location access denied by user"
-              break
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location information unavailable"
-              break
-            case error.TIMEOUT:
-              errorMessage = "Location request timed out"
-              break
-            default:
-              errorMessage = "Unknown location error"
-              break
-          }
-
-          console.error("❌ Location error:", errorMessage, error)
-          setError(errorMessage)
-          setIsLoading(false)
-          reject(new Error(errorMessage))
-        },
-        options,
-      )
-    })
+    console.log("📍 Location updated:", locationData)
   }, [])
 
-  const watchLocation = useCallback((callback: (location: LocationData) => void) => {
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by this browser")
-      return null
+  const handleError = useCallback((err: GeolocationPositionError) => {
+    const errorData: LocationError = {
+      code: err.code,
+      message: getErrorMessage(err.code),
     }
+
+    setError(errorData)
+    setLoading(false)
+
+    console.error("❌ Location error:", errorData)
+  }, [])
+
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError({
+        code: -1,
+        message: "Geolocation is not supported by this browser",
+      })
+      return
+    }
+
+    setLoading(true)
+    setError(null)
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 30000,
+      maximumAge: 60000, // 1 minute
     }
 
-    const watchId = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, options)
+  }, [handleSuccess, handleError])
+
+  const watchLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError({
+        code: -1,
+        message: "Geolocation is not supported by this browser",
+      })
+      return
+    }
+
+    if (isWatching) {
+      console.warn("⚠️ Location watching is already active")
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setIsWatching(true)
+
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 30000, // 30 seconds
+    }
+
+    const id = navigator.geolocation.watchPosition(
       (position) => {
-        const locationData: LocationData = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        }
-        callback(locationData)
+        handleSuccess(position)
+        setLoading(false)
       },
-      (error) => {
-        console.error("Watch location error:", error)
-        setError("Failed to watch location")
+      (err) => {
+        handleError(err)
+        setIsWatching(false)
       },
       options,
     )
 
-    return watchId
-  }, [])
+    setWatchId(id)
+    console.log("👀 Started watching location with ID:", id)
+  }, [handleSuccess, handleError, isWatching])
 
-  const clearWatch = useCallback((watchId: number) => {
-    navigator.geolocation.clearWatch(watchId)
-  }, [])
+  const stopWatching = useCallback(() => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId)
+      setWatchId(null)
+      setIsWatching(false)
+      setLoading(false)
+      console.log("🛑 Stopped watching location")
+    }
+  }, [watchId])
+
+  // Auto-request location on mount
+  useEffect(() => {
+    requestLocation()
+  }, [requestLocation])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId)
+      }
+    }
+  }, [watchId])
 
   return {
-    getCurrentLocation,
-    watchLocation,
-    clearWatch,
-    isLoading,
+    location,
     error,
+    loading,
+    requestLocation,
+    watchLocation,
+    stopWatching,
+    isWatching,
   }
+}
+
+function getErrorMessage(code: number): string {
+  switch (code) {
+    case 1:
+      return "Location access denied by user"
+    case 2:
+      return "Location information unavailable"
+    case 3:
+      return "Location request timed out"
+    default:
+      return "An unknown location error occurred"
+  }
+}
+
+// Utility function to calculate distance between two points
+export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Radius of the Earth in kilometers
+  const dLat = deg2rad(lat2 - lat1)
+  const dLon = deg2rad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  const distance = R * c // Distance in kilometers
+  return distance
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180)
+}
+
+// Utility function to format location for display
+export function formatLocation(location: LocationData): string {
+  return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+}
+
+// Utility function to check if location is recent
+export function isLocationRecent(location: LocationData, maxAgeMinutes = 5): boolean {
+  const now = Date.now()
+  const ageMinutes = (now - location.timestamp) / (1000 * 60)
+  return ageMinutes <= maxAgeMinutes
 }
