@@ -12,7 +12,7 @@ import { EditorWelcome } from "./editor-welcome"
 interface AdvancedPostcardEditorProps {
   mediaUrl: string
   mediaType: "photo" | "video"
-  location?: string
+  locationName?: string
   onSave: (postcardData: any) => void
   onClose: () => void
 }
@@ -22,7 +22,7 @@ type EditorTool = "welcome" | "canvas" | "effects" | "stickers" | "video" | "exp
 export function AdvancedPostcardEditor({
   mediaUrl,
   mediaType,
-  location,
+  locationName,
   onSave,
   onClose,
 }: AdvancedPostcardEditorProps) {
@@ -128,11 +128,11 @@ export function AdvancedPostcardEditor({
       }
 
       // Draw location if provided
-      if (location) {
+      if (locationName) {
         ctx.font = "16px Arial"
         ctx.fillStyle = "#666666"
         ctx.textAlign = "center"
-        ctx.fillText(`📍 ${location}`, canvas.width / 2, canvas.height - 20)
+        ctx.fillText(`📍 ${locationName}`, canvas.width / 2, canvas.height - 20)
       }
 
       // Convert to data URL
@@ -143,7 +143,7 @@ export function AdvancedPostcardEditor({
       console.error("❌ Failed to generate postcard:", error)
       return null
     }
-  }, [processedMediaUrl, canvasData, addedStickers, location])
+  }, [processedMediaUrl, canvasData, addedStickers, locationName])
 
   const handleSave = useCallback(async () => {
     const finalPostcard = await generateFinalPostcard()
@@ -152,7 +152,7 @@ export function AdvancedPostcardEditor({
         finalImage: finalPostcard,
         originalMedia: mediaUrl,
         mediaType,
-        location,
+        locationName,
         effects: appliedEffects,
         stickers: addedStickers,
         canvasData,
@@ -160,12 +160,18 @@ export function AdvancedPostcardEditor({
       }
       onSave(postcardData)
     }
-  }, [generateFinalPostcard, mediaUrl, mediaType, location, appliedEffects, addedStickers, canvasData, onSave])
+  }, [generateFinalPostcard, mediaUrl, mediaType, locationName, appliedEffects, addedStickers, canvasData, onSave])
 
   const renderCurrentTool = () => {
     switch (currentTool) {
       case "welcome":
-        return <EditorWelcome onToolSelect={handleToolSelect} />
+        return (
+          <EditorWelcome
+            onToolSelect={handleToolSelect}
+            mediaType={mediaType}
+            locationName={locationName || "Current Location"}
+          />
+        )
 
       case "canvas":
         return (
@@ -178,34 +184,55 @@ export function AdvancedPostcardEditor({
         )
 
       case "effects":
-        return <EffectsPanel mediaUrl={processedMediaUrl} mediaType={mediaType} onEffectApply={handleEffectApply} />
-
-      case "stickers":
         return (
-          <StickersPanel
-            onStickerAdd={handleStickerAdd}
-            addedStickers={addedStickers}
-            onStickersUpdate={setAddedStickers}
+          <EffectsPanel
+            effects={{
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              blur: 0,
+              sepia: 0,
+              hueRotate: 0,
+            }}
+            onUpdate={(effects) => {
+              // Apply effects to media
+              console.log("🎨 Effects updated:", effects)
+            }}
           />
         )
+
+      case "stickers":
+        return <StickersPanel stickers={addedStickers} onUpdate={setAddedStickers} />
 
       case "video":
         return mediaType === "video" ? (
           <VideoEditor videoUrl={processedMediaUrl} onFrameCapture={handleVideoFrameCapture} />
         ) : (
-          <div style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
-            <Film size={48} style={{ marginBottom: "1rem" }} />
-            <p>Video editing is only available for video content</p>
+          <div
+            style={{
+              padding: "2rem",
+              textAlign: "center",
+              color: "white",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+            }}
+          >
+            <Film size={48} style={{ marginBottom: "1rem", opacity: 0.6 }} />
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.25rem" }}>Video Tools Not Available</h3>
+            <p style={{ margin: "0 0 2rem 0", opacity: 0.8 }}>Video editing is only available for video content</p>
             <button
               onClick={() => setCurrentTool("canvas")}
               style={{
-                marginTop: "1rem",
                 padding: "0.75rem 1.5rem",
                 borderRadius: "0.5rem",
                 border: "none",
                 background: "#3B82F6",
                 color: "white",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Go to Canvas Editor
@@ -220,7 +247,7 @@ export function AdvancedPostcardEditor({
             postcardData={{
               mediaUrl: processedMediaUrl,
               mediaType,
-              location,
+              location: locationName,
               effects: appliedEffects,
               stickers: addedStickers,
               canvasData,
@@ -229,7 +256,13 @@ export function AdvancedPostcardEditor({
         )
 
       default:
-        return <EditorWelcome onToolSelect={handleToolSelect} />
+        return (
+          <EditorWelcome
+            onToolSelect={handleToolSelect}
+            mediaType={mediaType}
+            locationName={locationName || "Current Location"}
+          />
+        )
     }
   }
 
@@ -245,9 +278,11 @@ export function AdvancedPostcardEditor({
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden", // Prevent body scroll
       }}
     >
-      {/* Header */}
+      {/* Header - Fixed */}
       <div
         style={{
           display: "flex",
@@ -257,12 +292,14 @@ export function AdvancedPostcardEditor({
           background: "rgba(255,255,255,0.1)",
           backdropFilter: "blur(10px)",
           borderBottom: "1px solid rgba(255,255,255,0.2)",
+          flexShrink: 0, // Don't shrink
+          zIndex: 10,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div style={{ fontSize: "1.5rem" }}>🎨</div>
           <div>
-            <h1 style={{ color: "white", fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>Postcard Editor</h1>
+            <h1 style={{ color: "white", fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>Advanced Editor</h1>
             <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", margin: 0 }}>
               Create amazing postcards with advanced tools
             </p>
@@ -306,7 +343,7 @@ export function AdvancedPostcardEditor({
         </div>
       </div>
 
-      {/* Tool Navigation */}
+      {/* Tool Navigation - Fixed */}
       {currentTool !== "welcome" && (
         <div
           style={{
@@ -315,7 +352,9 @@ export function AdvancedPostcardEditor({
             background: "rgba(255,255,255,0.05)",
             borderBottom: "1px solid rgba(255,255,255,0.1)",
             gap: "0.5rem",
-            overflowX: "auto",
+            overflowX: "auto", // Allow horizontal scroll for tabs
+            flexShrink: 0, // Don't shrink
+            zIndex: 9,
           }}
         >
           {[
@@ -342,6 +381,7 @@ export function AdvancedPostcardEditor({
                 fontWeight: currentTool === tool.id ? "bold" : "normal",
                 transition: "all 0.3s ease",
                 whiteSpace: "nowrap",
+                flexShrink: 0, // Don't shrink tabs
               }}
             >
               <tool.icon size={16} />
@@ -351,8 +391,28 @@ export function AdvancedPostcardEditor({
         </div>
       )}
 
-      {/* Main Content */}
-      <div style={{ flex: 1, overflow: "hidden" }}>{renderCurrentTool()}</div>
+      {/* Main Content - SCROLLABLE */}
+      <div
+        style={{
+          flex: 1,
+          overflow: "hidden", // Container doesn't scroll
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0, // Allow flex shrinking
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto", // Enable vertical scrolling
+            overflowX: "hidden", // Prevent horizontal scroll
+            padding: 0, // Remove padding to let child components handle it
+            minHeight: 0, // Allow flex shrinking
+          }}
+        >
+          {renderCurrentTool()}
+        </div>
+      </div>
 
       {/* Hidden canvas for final rendering */}
       <canvas ref={canvasRef} style={{ display: "none" }} width={800} height={600} />
