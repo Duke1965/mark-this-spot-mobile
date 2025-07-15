@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { X, Save } from "lucide-react"
+import { X, Save, Send, Phone } from "lucide-react"
 
 interface MobilePostcardEditorProps {
   mediaUrl: string
@@ -64,6 +64,10 @@ export function MobilePostcardEditor({
   const [fontSize, setFontSize] = useState(28)
   const [showTextControls, setShowTextControls] = useState(false)
   const [canvasReady, setCanvasReady] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [sendMessage, setSendMessage] = useState("")
+  const [sending, setSending] = useState(false)
 
   const templates = PLATFORM_TEMPLATES[platform as keyof typeof PLATFORM_TEMPLATES] || PLATFORM_TEMPLATES.generic
 
@@ -194,6 +198,48 @@ export function MobilePostcardEditor({
     onSave,
   ])
 
+  const handleSendPostcard = async () => {
+    if (!phoneNumber.trim() || !canvasReady) return
+
+    setSending(true)
+    try {
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
+
+      // Call our send API
+      const response = await fetch("/api/send-postcard", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: phoneNumber.trim(),
+          message: sendMessage || `Check out this amazing spot: ${locationName}! 📍`,
+          postcardDataUrl: dataUrl,
+          locationName,
+          platform,
+        }),
+      })
+
+      if (response.ok) {
+        alert("📱 Postcard sent successfully!")
+        setShowSendModal(false)
+        setPhoneNumber("")
+        setSendMessage("")
+      } else {
+        const error = await response.text()
+        alert(`❌ Failed to send: ${error}`)
+      }
+    } catch (error) {
+      console.error("❌ Send failed:", error)
+      alert("❌ Failed to send postcard. Please try again.")
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <div
       style={{
@@ -245,26 +291,49 @@ export function MobilePostcardEditor({
           </p>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={!canvasReady}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.25rem",
-            padding: "0.5rem 0.75rem",
-            borderRadius: "1rem",
-            border: "none",
-            background: canvasReady ? "#10B981" : "#6B7280",
-            color: "white",
-            cursor: canvasReady ? "pointer" : "not-allowed",
-            fontSize: "0.75rem",
-            fontWeight: "bold",
-          }}
-        >
-          <Save size={14} />
-          Save
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            onClick={() => setShowSendModal(true)}
+            disabled={!canvasReady}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.5rem 0.75rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: canvasReady ? "#3B82F6" : "#6B7280",
+              color: "white",
+              cursor: canvasReady ? "pointer" : "not-allowed",
+              fontSize: "0.75rem",
+              fontWeight: "bold",
+            }}
+          >
+            <Send size={14} />
+            Send
+          </button>
+
+          <button
+            onClick={handleSave}
+            disabled={!canvasReady}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.5rem 0.75rem",
+              borderRadius: "1rem",
+              border: "none",
+              background: canvasReady ? "#10B981" : "#6B7280",
+              color: "white",
+              cursor: canvasReady ? "pointer" : "not-allowed",
+              fontSize: "0.75rem",
+              fontWeight: "bold",
+            }}
+          >
+            <Save size={14} />
+            Save
+          </button>
+        </div>
       </div>
 
       {/* Main Canvas Area - FULL SCREEN */}
@@ -276,6 +345,7 @@ export function MobilePostcardEditor({
           justifyContent: "center",
           padding: "0.5rem",
           position: "relative",
+          minHeight: 0, // Important for flex child
         }}
       >
         <canvas
@@ -317,12 +387,15 @@ export function MobilePostcardEditor({
         )}
       </div>
 
-      {/* Compact Bottom Controls */}
+      {/* SCROLLABLE Bottom Controls */}
       <div
         style={{
           background: "rgba(0,0,0,0.9)",
           borderTop: "1px solid rgba(255,255,255,0.1)",
           flexShrink: 0,
+          maxHeight: "50vh", // Limit height to 50% of viewport
+          overflowY: "auto", // Enable vertical scrolling
+          overflowX: "hidden",
         }}
       >
         {/* Template Selector */}
@@ -379,6 +452,7 @@ export function MobilePostcardEditor({
               fontSize: "0.875rem",
               resize: "none",
               minHeight: "60px",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -412,7 +486,7 @@ export function MobilePostcardEditor({
             <label style={{ fontSize: "0.75rem", opacity: 0.8, display: "block", marginBottom: "0.25rem" }}>
               Color
             </label>
-            <div style={{ display: "flex", gap: "0.25rem" }}>
+            <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
               {QUICK_COLORS.map((color) => (
                 <button
                   key={color}
@@ -430,7 +504,152 @@ export function MobilePostcardEditor({
             </div>
           </div>
         </div>
+
+        {/* Extra padding for scrolling */}
+        <div style={{ height: "2rem" }} />
       </div>
+
+      {/* Send Modal */}
+      {showSendModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.8)",
+            zIndex: 1001,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
+          <div
+            style={{
+              background: "#1F2937",
+              borderRadius: "1rem",
+              padding: "2rem",
+              width: "100%",
+              maxWidth: "400px",
+              color: "white",
+            }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}
+            >
+              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>📱 Send Postcard</h3>
+              <button
+                onClick={() => setShowSendModal(false)}
+                style={{
+                  padding: "0.5rem",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+                Phone Number
+              </label>
+              <div style={{ position: "relative" }}>
+                <Phone
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "0.75rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    opacity: 0.6,
+                  }}
+                />
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+                    borderRadius: "0.5rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    fontSize: "1rem",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+                Message (optional)
+              </label>
+              <textarea
+                value={sendMessage}
+                onChange={(e) => setSendMessage(e.target.value)}
+                placeholder={`Check out this amazing spot: ${locationName}! 📍`}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  fontSize: "0.875rem",
+                  resize: "none",
+                  minHeight: "80px",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "bold",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendPostcard}
+                disabled={!phoneNumber.trim() || sending}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: !phoneNumber.trim() || sending ? "#6B7280" : "#3B82F6",
+                  color: "white",
+                  cursor: !phoneNumber.trim() || sending ? "not-allowed" : "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "bold",
+                }}
+              >
+                {sending ? "Sending..." : "Send Postcard"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes spin {
