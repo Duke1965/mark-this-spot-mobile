@@ -249,4 +249,3 @@ export function EffectsPanel({ effects, onUpdate }: EffectsPanelProps) {
     </div>
   )
 }
-
