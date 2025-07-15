@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
-import { X, Save, Send, Phone } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { ArrowLeft, Save, Send, Type, Palette } from "lucide-react"
 
 interface MobilePostcardEditorProps {
   mediaUrl: string
@@ -13,40 +13,6 @@ interface MobilePostcardEditorProps {
   onClose: () => void
 }
 
-interface TextElement {
-  id: string
-  text: string
-  x: number
-  y: number
-  fontSize: number
-  color: string
-  fontWeight: "normal" | "bold"
-}
-
-const PLATFORM_TEMPLATES = {
-  "instagram-story": [
-    { name: "Story Classic", textColor: "#FFFFFF", fontSize: 32, position: "bottom" },
-    { name: "Story Bold", textColor: "#FFD700", fontSize: 40, position: "top" },
-    { name: "Story Minimal", textColor: "#000000", fontSize: 24, position: "center" },
-  ],
-  "instagram-post": [
-    { name: "Post Classic", textColor: "#FFFFFF", fontSize: 28, position: "bottom" },
-    { name: "Post Vibrant", textColor: "#FF6B6B", fontSize: 32, position: "top" },
-  ],
-  whatsapp: [
-    { name: "WhatsApp Simple", textColor: "#FFFFFF", fontSize: 24, position: "bottom" },
-    { name: "WhatsApp Fun", textColor: "#25D366", fontSize: 28, position: "center" },
-  ],
-  twitter: [
-    { name: "Twitter Clean", textColor: "#FFFFFF", fontSize: 26, position: "bottom" },
-    { name: "Twitter Bold", textColor: "#1DA1F2", fontSize: 30, position: "top" },
-  ],
-  facebook: [{ name: "Facebook Standard", textColor: "#FFFFFF", fontSize: 24, position: "bottom" }],
-  generic: [{ name: "Universal", textColor: "#FFFFFF", fontSize: 28, position: "bottom" }],
-}
-
-const QUICK_COLORS = ["#FFFFFF", "#000000", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"]
-
 export function MobilePostcardEditor({
   mediaUrl,
   mediaType,
@@ -57,187 +23,218 @@ export function MobilePostcardEditor({
   onClose,
 }: MobilePostcardEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [textElements, setTextElements] = useState<TextElement[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState(0)
-  const [currentText, setCurrentText] = useState(`Amazing spot in ${locationName}! 📍`)
+  const [text, setText] = useState("")
   const [textColor, setTextColor] = useState("#FFFFFF")
-  const [fontSize, setFontSize] = useState(28)
-  const [showTextControls, setShowTextControls] = useState(false)
-  const [canvasReady, setCanvasReady] = useState(false)
+  const [textSize, setTextSize] = useState(32)
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 80 })
+  const [selectedTemplate, setSelectedTemplate] = useState("bottom-overlay")
   const [showSendModal, setShowSendModal] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState("")
-  const [sendMessage, setSendMessage] = useState("")
-  const [sending, setSending] = useState(false)
+  const [customMessage, setCustomMessage] = useState("")
+  const [isSending, setIsSending] = useState(false)
+  const [mediaLoaded, setMediaLoaded] = useState(false)
+  const [mediaError, setMediaError] = useState(false)
 
-  const templates = PLATFORM_TEMPLATES[platform as keyof typeof PLATFORM_TEMPLATES] || PLATFORM_TEMPLATES.generic
+  // Platform-specific templates
+  const templates = {
+    "instagram-story": {
+      name: "Story Overlay",
+      textPosition: { x: 50, y: 85 },
+      textSize: 36,
+      textColor: "#FFFFFF",
+      background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)",
+    },
+    "instagram-post": {
+      name: "Center Text",
+      textPosition: { x: 50, y: 50 },
+      textSize: 28,
+      textColor: "#FFFFFF",
+      background: "rgba(0,0,0,0.5)",
+    },
+    whatsapp: {
+      name: "Bottom Caption",
+      textPosition: { x: 50, y: 90 },
+      textSize: 24,
+      textColor: "#FFFFFF",
+      background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+    },
+    twitter: {
+      name: "Corner Badge",
+      textPosition: { x: 20, y: 20 },
+      textSize: 20,
+      textColor: "#1DA1F2",
+      background: "rgba(255,255,255,0.9)",
+    },
+  }
 
-  const redrawCanvas = useCallback(async () => {
+  const currentTemplate = templates[platform as keyof typeof templates] || templates["instagram-post"]
+
+  useEffect(() => {
+    // Set initial template values
+    setTextPosition(currentTemplate.textPosition)
+    setTextSize(currentTemplate.textSize)
+    setTextColor(currentTemplate.textColor)
+    setText(`📍 ${locationName}`)
+  }, [platform, locationName])
+
+  useEffect(() => {
+    drawCanvas()
+  }, [text, textColor, textSize, textPosition, selectedTemplate, mediaLoaded])
+
+  const drawCanvas = () => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas || !mediaLoaded) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Set canvas size to platform dimensions
+    // Set canvas dimensions
     canvas.width = dimensions.width
     canvas.height = dimensions.height
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    try {
-      // Draw media
+    // Create and draw media
+    if (mediaType === "photo") {
       const img = new Image()
       img.crossOrigin = "anonymous"
-
-      await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-        img.src = mediaUrl
-      })
-
-      // Calculate dimensions to fill canvas
-      const imgAspect = img.width / img.height
-      const canvasAspect = canvas.width / canvas.height
-
-      let drawWidth, drawHeight, offsetX, offsetY
-
-      if (imgAspect > canvasAspect) {
-        // Image is wider - fit to height
-        drawHeight = canvas.height
-        drawWidth = drawHeight * imgAspect
-        offsetX = (canvas.width - drawWidth) / 2
-        offsetY = 0
-      } else {
-        // Image is taller - fit to width
-        drawWidth = canvas.width
-        drawHeight = drawWidth / imgAspect
-        offsetX = 0
-        offsetY = (canvas.height - drawHeight) / 2
+      img.onload = () => {
+        // Draw image to fit canvas
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        drawTextOverlay(ctx)
       }
-
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight)
-
-      // Draw text overlay
-      if (currentText.trim()) {
-        const template = templates[selectedTemplate]
-        ctx.font = `bold ${fontSize}px Arial`
-        ctx.fillStyle = textColor
-        ctx.strokeStyle = textColor === "#FFFFFF" ? "#000000" : "#FFFFFF"
-        ctx.lineWidth = 2
-        ctx.textAlign = "center"
-
-        let textY
-        switch (template.position) {
-          case "top":
-            textY = fontSize + 40
-            break
-          case "center":
-            textY = canvas.height / 2
-            break
-          case "bottom":
-          default:
-            textY = canvas.height - 40
-            break
-        }
-
-        // Draw text with stroke for better visibility
-        ctx.strokeText(currentText, canvas.width / 2, textY)
-        ctx.fillText(currentText, canvas.width / 2, textY)
-      }
-
-      setCanvasReady(true)
-      console.log("✅ Canvas redrawn successfully")
-    } catch (error) {
-      console.error("❌ Failed to draw canvas:", error)
+      img.src = mediaUrl
     }
-  }, [mediaUrl, currentText, textColor, fontSize, selectedTemplate, dimensions, templates])
+  }
 
-  useEffect(() => {
-    redrawCanvas()
-  }, [redrawCanvas])
+  const drawTextOverlay = (ctx: CanvasRenderingContext2D) => {
+    if (!text.trim()) return
 
-  const handleSave = useCallback(async () => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
+    // Calculate text position
+    const x = (textPosition.x / 100) * canvas.width
+    const y = (textPosition.y / 100) * canvas.height
+
+    // Draw background overlay
+    if (selectedTemplate === "bottom-overlay") {
+      const gradient = ctx.createLinearGradient(0, canvas.height - 100, 0, canvas.height)
+      gradient.addColorStop(0, "rgba(0,0,0,0)")
+      gradient.addColorStop(1, "rgba(0,0,0,0.7)")
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, canvas.height - 100, canvas.width, 100)
+    } else if (selectedTemplate === "center-box") {
+      ctx.fillStyle = "rgba(0,0,0,0.5)"
+      ctx.fillRect(x - 20, y - textSize - 10, ctx.measureText(text).width + 40, textSize + 20)
+    }
+
+    // Draw text
+    ctx.font = `bold ${textSize}px Arial, sans-serif`
+    ctx.fillStyle = textColor
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+
+    // Add text shadow for better readability
+    ctx.shadowColor = "rgba(0,0,0,0.8)"
+    ctx.shadowBlur = 4
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 2
+
+    ctx.fillText(text, x, y)
+
+    // Reset shadow
+    ctx.shadowColor = "transparent"
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
+  }
+
+  const handleSave = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const canvasDataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
     const postcardData = {
       id: Date.now().toString(),
       mediaUrl,
       mediaType,
       locationName,
-      text: currentText,
+      text,
       textColor,
-      textSize: fontSize,
+      textSize,
       selectedTemplate,
       platform,
       dimensions,
       timestamp: new Date().toISOString(),
-      canvasDataUrl: dataUrl,
+      canvasDataUrl,
     }
 
     // Save to localStorage
-    const existingPostcards = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
-    existingPostcards.unshift(postcardData)
-    localStorage.setItem("pinit-saved-postcards", JSON.stringify(existingPostcards))
+    const savedPostcards = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
+    savedPostcards.unshift(postcardData)
+    localStorage.setItem("pinit-saved-postcards", JSON.stringify(savedPostcards))
 
     onSave(postcardData)
-    console.log("💾 Postcard saved:", postcardData)
-  }, [
-    mediaUrl,
-    mediaType,
-    locationName,
-    currentText,
-    textColor,
-    fontSize,
-    selectedTemplate,
-    platform,
-    dimensions,
-    onSave,
-  ])
+  }
 
-  const handleSendPostcard = async () => {
-    if (!phoneNumber.trim() || !canvasReady) return
+  const handleSend = async () => {
+    if (!phoneNumber.trim()) {
+      alert("Please enter a phone number")
+      return
+    }
 
-    setSending(true)
+    setIsSending(true)
+
     try {
       const canvas = canvasRef.current
-      if (!canvas) return
+      if (!canvas) throw new Error("Canvas not ready")
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
+      const canvasDataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
-      // Call our send API
       const response = await fetch("/api/send-postcard", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phoneNumber: phoneNumber.trim(),
-          message: sendMessage || `Check out this amazing spot: ${locationName}! 📍`,
-          postcardDataUrl: dataUrl,
+          phoneNumber,
+          imageDataUrl: canvasDataUrl,
+          message: customMessage || `Check out this postcard from ${locationName}!`,
           locationName,
-          platform,
         }),
       })
 
-      if (response.ok) {
-        alert("📱 Postcard sent successfully!")
+      const result = await response.json()
+
+      if (result.success) {
+        alert("Postcard sent successfully! 📮")
         setShowSendModal(false)
         setPhoneNumber("")
-        setSendMessage("")
+        setCustomMessage("")
       } else {
-        const error = await response.text()
-        alert(`❌ Failed to send: ${error}`)
+        throw new Error(result.error || "Failed to send")
       }
     } catch (error) {
-      console.error("❌ Send failed:", error)
-      alert("❌ Failed to send postcard. Please try again.")
+      console.error("Send error:", error)
+      alert("Failed to send postcard. Please try again.")
     } finally {
-      setSending(false)
+      setIsSending(false)
     }
+  }
+
+  const handleMediaLoad = () => {
+    console.log("📸 Media loaded successfully in editor")
+    setMediaLoaded(true)
+    setMediaError(false)
+  }
+
+  const handleMediaError = () => {
+    console.error("❌ Media failed to load in editor:", mediaUrl)
+    setMediaError(true)
+    setMediaLoaded(false)
   }
 
   return (
@@ -249,253 +246,228 @@ export function MobilePostcardEditor({
         right: 0,
         bottom: 0,
         background: "#000000",
-        zIndex: 1000,
+        color: "white",
         display: "flex",
         flexDirection: "column",
-        color: "white",
+        zIndex: 1000,
       }}
     >
-      {/* Compact Header */}
+      {/* Header */}
       <div
         style={{
+          padding: "1rem",
+          background: "rgba(0,0,0,0.8)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0.75rem 1rem",
-          background: "rgba(0,0,0,0.8)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
           flexShrink: 0,
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
         }}
       >
-        <button
-          onClick={onClose}
-          style={{
-            padding: "0.5rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            fontSize: "1rem",
-          }}
-        >
-          <X size={16} />
-        </button>
-
-        <div style={{ textAlign: "center" }}>
-          <h3 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "bold" }}>
-            {platform.replace("-", " ").toUpperCase()}
-          </h3>
-          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-            {dimensions.width}×{dimensions.height}
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.125rem" }}>Edit for {platform}</h2>
+            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+              {dimensions.width}×{dimensions.height}
+            </p>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
             onClick={() => setShowSendModal(true)}
-            disabled={!canvasReady}
             style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "#10B981",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
               display: "flex",
               alignItems: "center",
-              gap: "0.25rem",
-              padding: "0.5rem 0.75rem",
-              borderRadius: "1rem",
-              border: "none",
-              background: canvasReady ? "#3B82F6" : "#6B7280",
-              color: "white",
-              cursor: canvasReady ? "pointer" : "not-allowed",
-              fontSize: "0.75rem",
-              fontWeight: "bold",
+              gap: "0.5rem",
             }}
           >
-            <Send size={14} />
+            <Send size={16} />
             Send
           </button>
-
           <button
             onClick={handleSave}
-            disabled={!canvasReady}
             style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "#3B82F6",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
               display: "flex",
               alignItems: "center",
-              gap: "0.25rem",
-              padding: "0.5rem 0.75rem",
-              borderRadius: "1rem",
-              border: "none",
-              background: canvasReady ? "#10B981" : "#6B7280",
-              color: "white",
-              cursor: canvasReady ? "pointer" : "not-allowed",
-              fontSize: "0.75rem",
-              fontWeight: "bold",
+              gap: "0.5rem",
             }}
           >
-            <Save size={14} />
+            <Save size={16} />
             Save
           </button>
         </div>
       </div>
 
-      {/* Main Canvas Area - FULL SCREEN */}
+      {/* Canvas Area - Fixed */}
       <div
         style={{
           flex: 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0.5rem",
+          padding: "1rem",
+          background: "#111",
           position: "relative",
-          minHeight: 0, // Important for flex child
+          minHeight: 0,
         }}
       >
-        <canvas
-          ref={canvasRef}
-          style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            borderRadius: "0.5rem",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-          }}
+        {/* Hidden image for loading */}
+        <img
+          src={mediaUrl || "/placeholder.svg"}
+          alt="Media"
+          style={{ display: "none" }}
+          onLoad={handleMediaLoad}
+          onError={handleMediaError}
+          crossOrigin="anonymous"
         />
 
-        {!canvasReady && (
+        {mediaError ? (
           <div
             style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              background: "rgba(0,0,0,0.8)",
-              padding: "1rem",
-              borderRadius: "0.5rem",
               textAlign: "center",
+              color: "rgba(255,255,255,0.6)",
+              padding: "2rem",
+            }}
+          >
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>❌</div>
+            <p>Failed to load media</p>
+            <p style={{ fontSize: "0.875rem" }}>Please try again</p>
+          </div>
+        ) : !mediaLoaded ? (
+          <div
+            style={{
+              textAlign: "center",
+              color: "rgba(255,255,255,0.6)",
+              padding: "2rem",
             }}
           >
             <div
               style={{
-                width: "2rem",
-                height: "2rem",
+                width: "3rem",
+                height: "3rem",
                 border: "3px solid rgba(255,255,255,0.3)",
                 borderTop: "3px solid white",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
-                margin: "0 auto 0.5rem",
+                margin: "0 auto 1rem",
               }}
             />
-            <p style={{ margin: 0, fontSize: "0.875rem" }}>Loading...</p>
+            <p>Loading media...</p>
           </div>
+        ) : (
+          <canvas
+            ref={canvasRef}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "0.5rem",
+            }}
+          />
         )}
       </div>
 
-      {/* SCROLLABLE Bottom Controls */}
+      {/* Controls - Scrollable */}
       <div
         style={{
+          maxHeight: "50vh",
+          overflowY: "auto",
           background: "rgba(0,0,0,0.9)",
           borderTop: "1px solid rgba(255,255,255,0.1)",
           flexShrink: 0,
-          maxHeight: "50vh", // Limit height to 50% of viewport
-          overflowY: "auto", // Enable vertical scrolling
-          overflowX: "hidden",
         }}
       >
-        {/* Template Selector */}
-        <div
-          style={{
-            padding: "0.75rem 1rem",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              overflowX: "auto",
-              paddingBottom: "0.25rem",
-            }}
-          >
-            {templates.map((template, index) => (
-              <button
-                key={index}
-                onClick={() => setSelectedTemplate(index)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  borderRadius: "1rem",
-                  border: "none",
-                  background: selectedTemplate === index ? "#3B82F6" : "rgba(255,255,255,0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: "bold",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                }}
-              >
-                {template.name}
-              </button>
-            ))}
+        <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {/* Text Input */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              <Type size={16} style={{ display: "inline", marginRight: "0.5rem" }} />
+              Text
+            </label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Add your message..."
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                fontSize: "1rem",
+                resize: "vertical",
+                minHeight: "80px",
+              }}
+            />
           </div>
-        </div>
 
-        {/* Text Input */}
-        <div style={{ padding: "0.75rem 1rem" }}>
-          <textarea
-            value={currentText}
-            onChange={(e) => setCurrentText(e.target.value)}
-            placeholder="Add your message..."
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              border: "1px solid rgba(255,255,255,0.3)",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
-              fontSize: "0.875rem",
-              resize: "none",
-              minHeight: "60px",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        {/* Quick Controls */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-            padding: "0.75rem 1rem",
-          }}
-        >
-          {/* Font Size */}
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "0.75rem", opacity: 0.8, display: "block", marginBottom: "0.25rem" }}>
-              Size: {fontSize}px
+          {/* Text Size */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              Text Size: {textSize}px
             </label>
             <input
               type="range"
               min="16"
-              max="48"
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              style={{ width: "100%" }}
+              max="72"
+              value={textSize}
+              onChange={(e) => setTextSize(Number(e.target.value))}
+              style={{
+                width: "100%",
+                height: "6px",
+                borderRadius: "3px",
+                background: "rgba(255,255,255,0.2)",
+                outline: "none",
+              }}
             />
           </div>
 
-          {/* Color Picker */}
+          {/* Text Color */}
           <div>
-            <label style={{ fontSize: "0.75rem", opacity: 0.8, display: "block", marginBottom: "0.25rem" }}>
-              Color
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              <Palette size={16} style={{ display: "inline", marginRight: "0.5rem" }} />
+              Text Color
             </label>
-            <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-              {QUICK_COLORS.map((color) => (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"].map((color) => (
                 <button
                   key={color}
                   onClick={() => setTextColor(color)}
                   style={{
-                    width: "24px",
-                    height: "24px",
+                    width: "40px",
+                    height: "40px",
                     borderRadius: "50%",
-                    border: textColor === color ? "2px solid white" : "1px solid rgba(255,255,255,0.3)",
+                    border: textColor === color ? "3px solid #10B981" : "2px solid rgba(255,255,255,0.3)",
                     background: color,
                     cursor: "pointer",
                   }}
@@ -503,10 +475,80 @@ export function MobilePostcardEditor({
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Extra padding for scrolling */}
-        <div style={{ height: "2rem" }} />
+          {/* Templates */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              Template Style
+            </label>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {[
+                { id: "bottom-overlay", name: "Bottom" },
+                { id: "center-box", name: "Center" },
+                { id: "corner", name: "Corner" },
+              ].map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => setSelectedTemplate(template.id)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: "0.5rem",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    background: selectedTemplate === template.id ? "#10B981" : "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {template.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text Position */}
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              Position
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+              <div>
+                <label style={{ fontSize: "0.75rem", opacity: 0.7 }}>Horizontal: {textPosition.x}%</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={textPosition.x}
+                  onChange={(e) => setTextPosition({ ...textPosition, x: Number(e.target.value) })}
+                  style={{
+                    width: "100%",
+                    height: "4px",
+                    borderRadius: "2px",
+                    background: "rgba(255,255,255,0.2)",
+                    outline: "none",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: "0.75rem", opacity: 0.7 }}>Vertical: {textPosition.y}%</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={textPosition.y}
+                  onChange={(e) => setTextPosition({ ...textPosition, y: Number(e.target.value) })}
+                  style={{
+                    width: "100%",
+                    height: "4px",
+                    borderRadius: "2px",
+                    background: "rgba(255,255,255,0.2)",
+                    outline: "none",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Send Modal */}
@@ -519,11 +561,11 @@ export function MobilePostcardEditor({
             right: 0,
             bottom: 0,
             background: "rgba(0,0,0,0.8)",
-            zIndex: 1001,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "2rem",
+            zIndex: 2000,
+            padding: "1rem",
           }}
         >
           <div
@@ -536,78 +578,47 @@ export function MobilePostcardEditor({
               color: "white",
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}
-            >
-              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>📱 Send Postcard</h3>
-              <button
-                onClick={() => setShowSendModal(false)}
-                style={{
-                  padding: "0.5rem",
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.25rem" }}>Send Postcard</h3>
 
             <div style={{ marginBottom: "1rem" }}>
               <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
                 Phone Number
               </label>
-              <div style={{ position: "relative" }}>
-                <Phone
-                  size={16}
-                  style={{
-                    position: "absolute",
-                    left: "0.75rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    opacity: 0.6,
-                  }}
-                />
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 0.75rem 0.75rem 2.5rem",
-                    borderRadius: "0.5rem",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    fontSize: "1rem",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-                Message (optional)
-              </label>
-              <textarea
-                value={sendMessage}
-                onChange={(e) => setSendMessage(e.target.value)}
-                placeholder={`Check out this amazing spot: ${locationName}! 📍`}
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+1234567890"
                 style={{
                   width: "100%",
                   padding: "0.75rem",
                   borderRadius: "0.5rem",
-                  border: "1px solid rgba(255,255,255,0.3)",
+                  border: "1px solid rgba(255,255,255,0.2)",
                   background: "rgba(255,255,255,0.1)",
                   color: "white",
-                  fontSize: "0.875rem",
-                  resize: "none",
+                  fontSize: "1rem",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+                Custom Message (Optional)
+              </label>
+              <textarea
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                placeholder="Add a personal message..."
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  fontSize: "1rem",
+                  resize: "vertical",
                   minHeight: "80px",
-                  boxSizing: "border-box",
                 }}
               />
             </div>
@@ -615,36 +626,57 @@ export function MobilePostcardEditor({
             <div style={{ display: "flex", gap: "1rem" }}>
               <button
                 onClick={() => setShowSendModal(false)}
+                disabled={isSending}
                 style={{
                   flex: 1,
                   padding: "0.75rem",
                   borderRadius: "0.5rem",
-                  border: "none",
-                  background: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "transparent",
                   color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "bold",
+                  cursor: isSending ? "not-allowed" : "pointer",
+                  opacity: isSending ? 0.5 : 1,
                 }}
               >
                 Cancel
               </button>
               <button
-                onClick={handleSendPostcard}
-                disabled={!phoneNumber.trim() || sending}
+                onClick={handleSend}
+                disabled={isSending || !phoneNumber.trim()}
                 style={{
                   flex: 1,
                   padding: "0.75rem",
                   borderRadius: "0.5rem",
                   border: "none",
-                  background: !phoneNumber.trim() || sending ? "#6B7280" : "#3B82F6",
+                  background: isSending || !phoneNumber.trim() ? "#6B7280" : "#10B981",
                   color: "white",
-                  cursor: !phoneNumber.trim() || sending ? "not-allowed" : "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "bold",
+                  cursor: isSending || !phoneNumber.trim() ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
                 }}
               >
-                {sending ? "Sending..." : "Send Postcard"}
+                {isSending ? (
+                  <>
+                    <div
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTop: "2px solid white",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    Send
+                  </>
+                )}
               </button>
             </div>
           </div>
