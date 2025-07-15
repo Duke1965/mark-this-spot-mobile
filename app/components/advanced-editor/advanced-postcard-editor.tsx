@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { X, Share2, Palette, Type, Sparkles, Film, Save } from "lucide-react"
 import { CanvasEditor } from "./canvas-editor"
 import { EffectsPanel } from "./effects-panel"
@@ -26,13 +26,22 @@ export function AdvancedPostcardEditor({
   onSave,
   onClose,
 }: AdvancedPostcardEditorProps) {
-  const [currentTool, setCurrentTool] = useState<EditorTool>("welcome")
+  // 🔧 FIX: Start with canvas if we have media, otherwise welcome
+  const [currentTool, setCurrentTool] = useState<EditorTool>(mediaUrl ? "canvas" : "welcome")
   const [processedMediaUrl, setProcessedMediaUrl] = useState(mediaUrl)
   const [canvasData, setCanvasData] = useState<any>(null)
   const [appliedEffects, setAppliedEffects] = useState<string[]>([])
   const [addedStickers, setAddedStickers] = useState<any[]>([])
   const [videoFrame, setVideoFrame] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // 🔧 FIX: Auto-switch to canvas when media is provided
+  useEffect(() => {
+    if (mediaUrl && currentTool === "welcome") {
+      console.log("📸 Media detected, switching to canvas:", mediaUrl)
+      setCurrentTool("canvas")
+    }
+  }, [mediaUrl, currentTool])
 
   const handleToolSelect = useCallback((tool: EditorTool) => {
     setCurrentTool(tool)
@@ -266,6 +275,15 @@ export function AdvancedPostcardEditor({
     }
   }
 
+  // 🔧 DEBUG: Log the current state
+  console.log("🎨 Advanced Editor State:", {
+    mediaUrl,
+    processedMediaUrl,
+    mediaType,
+    currentTool,
+    locationName,
+  })
+
   return (
     <div
       style={{
@@ -301,7 +319,10 @@ export function AdvancedPostcardEditor({
           <div>
             <h1 style={{ color: "white", fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>Advanced Editor</h1>
             <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.875rem", margin: 0 }}>
-              Create amazing postcards with advanced tools
+              {/* 🔧 FIX: Show current media info */}
+              {mediaUrl
+                ? `Working with: ${mediaType} • ${locationName || "Current Location"}`
+                : "Create amazing postcards with advanced tools"}
             </p>
           </div>
         </div>
