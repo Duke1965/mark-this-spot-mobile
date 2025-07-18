@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Mic, MicOff, MapPin, Sparkles } from "lucide-react"
-import { useLocationServices } from "@/hooks/useLocationServices"
-import { EnhancedAudio } from "@/components/enhanced-audio"
+import { useLocationServices } from "../hooks/useLocationServices"
+import { EnhancedAudio, type EnhancedAudioRef } from "../components/enhanced-audio"
 
 type AppMode = "capture" | "editor" | "advanced" | "story"
 type MediaType = "photo" | "video"
@@ -16,7 +16,7 @@ interface PinData {
   location: string
   coordinates: { lat: number; lng: number }
   timestamp: number
-  audioUrl?: string | null // ✅ Fixed: Allow null
+  audioUrl: string | null
   effects: string[]
   stickers: any[]
   canvasData: any
@@ -41,16 +41,20 @@ export default function PINITApp() {
   const [canvasData, setCanvasData] = useState<any>({})
 
   // Location services
-  const { location, isLoading: locationLoading, error: locationError } = useLocationServices()
+  const { location, isLoading: locationLoading } = useLocationServices()
 
   // Audio recording ref
-  const audioRecorderRef = useRef<any>(null)
+  const audioRecorderRef = useRef<EnhancedAudioRef>(null)
 
   // Auto-save pins to localStorage
   useEffect(() => {
     const saved = localStorage.getItem("pinit-pins")
     if (saved) {
-      setSavedPins(JSON.parse(saved))
+      try {
+        setSavedPins(JSON.parse(saved))
+      } catch (error) {
+        console.error("Failed to parse saved pins:", error)
+      }
     }
   }, [])
 
@@ -101,7 +105,7 @@ export default function PINITApp() {
       location: location.name,
       coordinates: { lat: location.latitude, lng: location.longitude },
       timestamp: Date.now(),
-      audioUrl, // ✅ Now properly typed
+      audioUrl,
       effects,
       stickers,
       canvasData,
