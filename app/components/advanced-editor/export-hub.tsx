@@ -1,360 +1,434 @@
 "use client"
 
-import { Download, Instagram, Facebook, Twitter, Smartphone, Monitor, Square, Share2 } from "lucide-react"
-import { useState } from "react"
+import { useState, useCallback, useRef } from "react"
+import { ArrowLeft, Download, Share, Copy, Instagram, Facebook, Twitter } from "lucide-react"
+
+interface PostcardData {
+  mediaUrl: string
+  mediaType: "photo" | "video"
+  location?: string
+  effects: string[]
+  stickers: any[]
+  canvasData: any
+}
 
 interface ExportHubProps {
   generatePostcard: () => Promise<string | null>
-  postcardData: {
-    mediaUrl: string
-    mediaType: "photo" | "video"
-    location?: string
-    effects: string[]
-    stickers: any[]
-    canvasData: any
-  }
+  postcardData: PostcardData
 }
 
 export function ExportHub({ generatePostcard, postcardData }: ExportHubProps) {
-  const [generatedPostcard, setGeneratedPostcard] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [selectedFormat, setSelectedFormat] = useState<string>("instagram")
+  const [generatedPostcard, setGeneratedPostcard] = useState<string | null>(null)
+  const [selectedFormat, setSelectedFormat] = useState<"postcard" | "square" | "story">("postcard")
+  const [selectedQuality, setSelectedQuality] = useState<"high" | "medium" | "low">("high")
+  const [includeWatermark, setIncludeWatermark] = useState(true)
 
-  const socialFormats = {
-    instagram: {
-      name: "Instagram Post",
-      icon: <Instagram size={20} />,
-      dimensions: "1080x1080",
-      description: "Perfect square format for Instagram feed",
-      color: "#E4405F",
-      aspectRatio: "1:1",
-    },
-    story: {
-      name: "Instagram Story",
-      icon: <Smartphone size={20} />,
-      dimensions: "1080x1920",
-      description: "Vertical format for Instagram/Facebook stories",
-      color: "#8B5CF6",
-      aspectRatio: "9:16",
-    },
-    facebook: {
-      name: "Facebook Post",
-      icon: <Facebook size={20} />,
-      dimensions: "1200x630",
-      description: "Optimized for Facebook timeline sharing",
-      color: "#1877F2",
-      aspectRatio: "1.91:1",
-    },
-    twitter: {
-      name: "Twitter Post",
-      icon: <Twitter size={20} />,
-      dimensions: "1200x675",
-      description: "Perfect for Twitter image posts",
-      color: "#1DA1F2",
-      aspectRatio: "16:9",
-    },
-    desktop: {
-      name: "Desktop Wallpaper",
-      icon: <Monitor size={20} />,
-      dimensions: "1920x1080",
-      description: "High resolution for desktop backgrounds",
-      color: "#10B981",
-      aspectRatio: "16:9",
-    },
-    square: {
-      name: "Square Format",
-      icon: <Square size={20} />,
-      dimensions: "1080x1080",
-      description: "Universal square format",
-      color: "#F59E0B",
-      aspectRatio: "1:1",
-    },
-  }
+  const formats = [
+    { id: "postcard", name: "Postcard", dimensions: "800x600", ratio: "4:3" },
+    { id: "square", name: "Square", dimensions: "800x800", ratio: "1:1" },
+    { id: "story", name: "Story", dimensions: "600x800", ratio: "3:4" },
+  ]
 
-  const handleGenerate = async () => {
+  const qualitySettings = [
+    { id: "high", name: "High Quality", size: "~2MB", quality: 0.95 },
+    { id: "medium", name: "Medium Quality", size: "~1MB", quality: 0.8 },
+    { id: "low", name: "Low Quality", size: "~500KB", quality: 0.6 },
+  ]
+
+  const generateCustomPostcard = useCallback(async () => {
+    if (!postcardData.mediaUrl || !canvasRef.current) return null
+
     setIsGenerating(true)
+
     try {
-      const result = await generatePostcard()
-      if (result) {
-        setGeneratedPostcard(result)
-        console.log("✅ Postcard generated successfully")
-      } else {
-        console.error("❌ Failed to generate postcard")
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return null
+
+      // Set canvas dimensions based on format
+      const formatConfig = formats.find((f) => f.id === selectedFormat)
+      if (selectedFormat === "postcard") {
+        canvas.width = 800
+        canvas.height = 600
+      } else if (selectedFormat === "square") {
+        canvas.width = 800
+        canvas.height = 800
+      } else if (selectedFormat === "story") {
+        canvas.width = 600
+        canvas.height = 800
+      }
+
+      // Background
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
+      gradient.addColorStop(0, "#f8fafc")
+      gradient.addColorStop(1, "#e2e8f0")
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Load and draw media
+      if (postcardData.mediaType === "photo") {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+
+        return new Promise<string>((resolve) => {
+          img.onload = () => {
+            // Calculate image placement
+            const padding = 40
+            const availableWidth = canvas.width - padding * 2
+            const availableHeight = canvas.height - 160 // Space for text
+
+            const imgAspect = img.width / img.height
+            const availableAspect = availableWidth / availableHeight
+
+            let drawWidth, drawHeight, drawX, drawY
+
+            if (imgAspect > availableAspect) {
+              drawWidth = availableWidth
+              drawHeight = availableWidth / imgAspect
+              drawX = padding
+              drawY = padding + (availableHeight - drawHeight) / 2
+            } else {
+              drawHeight = availableHeight
+              drawWidth = availableHeight * imgAspect
+              drawX = padding + (availableWidth - drawWidth) / 2
+              drawY = padding
+            }
+
+            // Draw image with rounded corners
+            ctx.save()
+            ctx.beginPath()
+            ctx.roundRect(drawX, drawY, drawWidth, drawHeight, 12)
+            ctx.clip()
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+            ctx.restore()
+
+            // Add subtle shadow
+            ctx.shadowColor = "rgba(0,0,0,0.1)"
+            ctx.shadowBlur = 10
+            ctx.shadowOffsetY = 4
+            ctx.strokeStyle = "rgba(0,0,0,0.1)"
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.roundRect(drawX, drawY, drawWidth, drawHeight, 12)
+            ctx.stroke()
+            ctx.shadowColor = "transparent"
+
+            // Location text
+            if (postcardData.location) {
+              ctx.fillStyle = "#1e293b"
+              ctx.font = "bold 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              ctx.textAlign = "center"
+              ctx.fillText(postcardData.location, canvas.width / 2, canvas.height - 80)
+            }
+
+            // Date
+            ctx.fillStyle = "#64748b"
+            ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+            ctx.textAlign = "center"
+            const dateText = new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+            ctx.fillText(dateText, canvas.width / 2, canvas.height - 45)
+
+            // Watermark
+            if (includeWatermark) {
+              ctx.fillStyle = "rgba(100, 116, 139, 0.6)"
+              ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              ctx.textAlign = "right"
+              ctx.fillText("Created with PINIT", canvas.width - 20, canvas.height - 15)
+            }
+
+            // Decorative elements
+            ctx.strokeStyle = "#cbd5e1"
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            ctx.roundRect(20, 20, canvas.width - 40, canvas.height - 40, 16)
+            ctx.stroke()
+
+            const quality = qualitySettings.find((q) => q.id === selectedQuality)?.quality || 0.9
+            const result = canvas.toDataURL("image/jpeg", quality)
+            setGeneratedPostcard(result)
+            resolve(result)
+          }
+          img.src = postcardData.mediaUrl
+        })
       }
     } catch (error) {
-      console.error("❌ Generation error:", error)
+      console.error("Failed to generate postcard:", error)
+      return null
     } finally {
       setIsGenerating(false)
     }
-  }
+  }, [postcardData, selectedFormat, selectedQuality, includeWatermark])
 
-  const downloadPostcard = (format = selectedFormat) => {
-    if (!generatedPostcard) return
+  const handleDownload = useCallback(async () => {
+    const postcard = generatedPostcard || (await generateCustomPostcard())
+    if (postcard) {
+      const link = document.createElement("a")
+      link.download = `pinit-${selectedFormat}-${Date.now()}.jpg`
+      link.href = postcard
+      link.click()
+    }
+  }, [generatedPostcard, generateCustomPostcard, selectedFormat])
 
-    const formatInfo = socialFormats[format as keyof typeof socialFormats]
-    const link = document.createElement("a")
-    link.download = `postcard-${postcardData.location?.replace(/[^a-zA-Z0-9]/g, "-") || "memory"}-${formatInfo.name.replace(/\s+/g, "-")}-${Date.now()}.jpg`
-    link.href = generatedPostcard
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    console.log(`📥 Downloaded: ${formatInfo.name}`)
-  }
+  const handleShare = useCallback(
+    async (platform?: string) => {
+      const postcard = generatedPostcard || (await generateCustomPostcard())
+      if (!postcard) return
 
-  const shareToSocial = (platform: string) => {
-    const text = `Check out this amazing moment${postcardData.location ? ` at ${postcardData.location}` : ""}! 📍✨`
+      if (platform) {
+        // Platform-specific sharing
+        const text = `Check out my ${postcardData.location ? `postcard from ${postcardData.location}` : "PINIT creation"}! 📍✨`
+        const url = window.location.href
 
-    const shareActions = {
-      instagram: () => {
-        navigator.clipboard
-          .writeText(
-            `${text} #Travel #Adventure #Memories${postcardData.location ? ` #${postcardData.location.replace(/\s+/g, "")}` : ""}`,
-          )
-          .then(() => {
-            alert("📋 Caption copied! Now download your image and share it on Instagram!")
+        switch (platform) {
+          case "twitter":
+            window.open(
+              `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+            )
+            break
+          case "facebook":
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`)
+            break
+          case "instagram":
+            // Instagram doesn't support direct sharing, so copy to clipboard
+            navigator.clipboard.writeText(text)
+            alert("Caption copied to clipboard! Open Instagram to share your image.")
+            break
+        }
+      } else if (navigator.share) {
+        // Native sharing
+        try {
+          const response = await fetch(postcard)
+          const blob = await response.blob()
+          const file = new File([blob], `pinit-${selectedFormat}.jpg`, { type: "image/jpeg" })
+
+          await navigator.share({
+            title: "My PINIT Creation",
+            text: `Check out my ${postcardData.location ? `postcard from ${postcardData.location}` : "PINIT creation"}!`,
+            files: [file],
           })
-      },
-      facebook: () => {
-        const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(text)}`
-        window.open(url, "_blank")
-      },
-      twitter: () => {
-        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text + " #Travel #Adventure #Memories")}`
-        window.open(url, "_blank")
-      },
-    }
-
-    const shareAction = shareActions[platform as keyof typeof shareActions]
-    if (shareAction) {
-      shareAction()
-    }
-  }
-
-  const copyToClipboard = async () => {
-    if (!generatedPostcard) return
-
-    try {
-      const response = await fetch(generatedPostcard)
-      const blob = await response.blob()
-
-      if (navigator.clipboard && window.ClipboardItem) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [blob.type]: blob,
-          }),
-        ])
-        alert("📋 Image copied to clipboard!")
-      } else {
-        // Fallback - just copy the data URL
-        await navigator.clipboard.writeText(generatedPostcard)
-        alert("📋 Image data copied to clipboard!")
+        } catch (error) {
+          console.error("Share failed:", error)
+        }
       }
-    } catch (error) {
-      console.error("❌ Failed to copy to clipboard:", error)
-      alert("❌ Failed to copy to clipboard")
+    },
+    [generatedPostcard, generateCustomPostcard, postcardData.location, selectedFormat],
+  )
+
+  const copyToClipboard = useCallback(async () => {
+    const postcard = generatedPostcard || (await generateCustomPostcard())
+    if (postcard) {
+      try {
+        const response = await fetch(postcard)
+        const blob = await response.blob()
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+        alert("Image copied to clipboard!")
+      } catch (error) {
+        console.error("Copy failed:", error)
+        // Fallback: copy the data URL
+        navigator.clipboard.writeText(postcard)
+        alert("Image URL copied to clipboard!")
+      }
     }
-  }
+  }, [generatedPostcard, generateCustomPostcard])
 
   return (
     <div
       style={{
         flex: 1,
-        padding: "1.5rem",
-        color: "white",
-        overflowY: "auto",
         display: "flex",
         flexDirection: "column",
-        gap: "1.5rem",
+        background: "#1a202c",
+        color: "white",
       }}
     >
-      <div>
-        <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", fontWeight: "bold" }}>📤 Export & Share</h3>
-      </div>
-
-      {/* Project Summary */}
+      {/* Header */}
       <div
         style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "0.75rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           padding: "1rem",
+          background: "rgba(0,0,0,0.5)",
         }}
       >
-        <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>📋 PROJECT SUMMARY</h4>
-        <div style={{ fontSize: "0.75rem", opacity: 0.9, lineHeight: 1.5 }}>
-          <div>
-            <strong>Media Type:</strong> {postcardData.mediaType === "photo" ? "📸 Photo" : "🎥 Video"}
-          </div>
-          {postcardData.location && (
-            <div>
-              <strong>Location:</strong> 📍 {postcardData.location}
-            </div>
-          )}
-          <div>
-            <strong>Effects Applied:</strong> {postcardData.effects.length || "None"}
-          </div>
-          <div>
-            <strong>Stickers Added:</strong> {postcardData.stickers.length || "None"}
-          </div>
-          <div>
-            <strong>Text Elements:</strong> {postcardData.canvasData?.texts?.length || "None"}
-          </div>
-        </div>
-      </div>
-
-      {/* Generate Section */}
-      {!generatedPostcard && (
-        <div
+        <button
+          onClick={() => window.history.back()}
           style={{
-            background: "rgba(59, 130, 246, 0.1)",
-            border: "1px solid rgba(59, 130, 246, 0.3)",
-            borderRadius: "0.75rem",
-            padding: "2rem",
-            textAlign: "center",
+            padding: "0.5rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
           }}
         >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎨</div>
-          <h4 style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", fontWeight: "bold" }}>
-            Ready to Create Your Masterpiece?
-          </h4>
-          <p style={{ margin: "0 0 1.5rem 0", opacity: 0.8, fontSize: "0.875rem" }}>
-            Generate your final postcard with all the customizations you've made
-          </p>
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              padding: "1rem 2rem",
-              borderRadius: "0.75rem",
-              border: "none",
-              background: isGenerating ? "rgba(255,255,255,0.3)" : "#3B82F6",
-              color: "white",
-              cursor: isGenerating ? "not-allowed" : "pointer",
-              fontWeight: "bold",
-              fontSize: "1rem",
-              margin: "0 auto",
-              transition: "all 0.3s ease",
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <div
-                  style={{
-                    width: "20px",
-                    height: "20px",
-                    border: "2px solid rgba(255,255,255,0.3)",
-                    borderTop: "2px solid white",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                  }}
-                />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Download size={20} />
-                Generate Postcard
-              </>
-            )}
-          </button>
-        </div>
-      )}
+          <ArrowLeft size={20} />
+        </button>
 
-      {/* Generated Postcard Preview */}
-      {generatedPostcard && (
-        <div>
-          <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>✨ YOUR CREATION</h4>
+        <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "bold" }}>Export & Share</h2>
+
+        <button
+          onClick={generateCustomPostcard}
+          disabled={isGenerating}
+          style={{
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: isGenerating ? "rgba(255,255,255,0.2)" : "#8B5CF6",
+            color: "white",
+            cursor: isGenerating ? "not-allowed" : "pointer",
+            fontSize: "0.75rem",
+            fontWeight: "bold",
+            opacity: isGenerating ? 0.5 : 1,
+          }}
+        >
+          {isGenerating ? "Generating..." : "Generate"}
+        </button>
+      </div>
+
+      {/* Preview */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1rem",
+          background: "#2d3748",
+        }}
+      >
+        {generatedPostcard ? (
+          <img
+            src={generatedPostcard || "/placeholder.svg"}
+            alt="Generated Postcard"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              borderRadius: "0.5rem",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            }}
+          />
+        ) : (
           <div
             style={{
-              background: "rgba(255,255,255,0.1)",
-              borderRadius: "0.75rem",
-              padding: "1rem",
-              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "1rem",
+              opacity: 0.6,
             }}
           >
-            <img
-              src={generatedPostcard || "/placeholder.svg"}
-              alt="Generated postcard"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "300px",
-                objectFit: "contain",
-                borderRadius: "0.5rem",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-              }}
-            />
+            <div style={{ fontSize: "4rem" }}>📮</div>
+            <p style={{ margin: 0, textAlign: "center" }}>
+              {isGenerating ? "Generating your postcard..." : "Click Generate to create your postcard"}
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Format Selection */}
-      {generatedPostcard && (
-        <div>
-          <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>📐 SELECT FORMAT</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", marginBottom: "1rem" }}>
-            {Object.entries(socialFormats).map(([id, format]) => (
+      {/* Controls */}
+      <div
+        style={{
+          padding: "1rem",
+          background: "rgba(0,0,0,0.8)",
+          maxHeight: "60vh",
+          overflowY: "auto",
+        }}
+      >
+        {/* Format Selection */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>📐 Format</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.5rem" }}>
+            {formats.map((format) => (
               <button
-                key={id}
-                onClick={() => setSelectedFormat(id)}
+                key={format.id}
+                onClick={() => setSelectedFormat(format.id as any)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
+                  padding: "1rem 0.5rem",
                   borderRadius: "0.5rem",
-                  border: selectedFormat === id ? `2px solid ${format.color}` : "1px solid rgba(255,255,255,0.3)",
-                  background: selectedFormat === id ? `${format.color}20` : "rgba(255,255,255,0.1)",
+                  border: "none",
+                  background: selectedFormat === format.id ? "#3B82F6" : "rgba(255,255,255,0.1)",
                   color: "white",
                   cursor: "pointer",
+                  textAlign: "center",
                   fontSize: "0.75rem",
-                  fontWeight: selectedFormat === id ? "bold" : "normal",
-                  textAlign: "left",
                 }}
               >
-                <div style={{ color: format.color }}>{format.icon}</div>
-                <div>
-                  <div>{format.name}</div>
-                  <div style={{ opacity: 0.7, fontSize: "0.6rem" }}>{format.dimensions}</div>
-                </div>
+                <div style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>{format.name}</div>
+                <div style={{ opacity: 0.8 }}>{format.dimensions}</div>
+                <div style={{ opacity: 0.6 }}>{format.ratio}</div>
               </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Download Options */}
-      {generatedPostcard && (
-        <div>
-          <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>📥 DOWNLOAD OPTIONS</h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <button
-              onClick={() => downloadPostcard()}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                borderRadius: "0.75rem",
-                border: "none",
-                background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
-                fontSize: "0.875rem",
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-              }}
-            >
-              <Download size={18} />
-              Download {socialFormats[selectedFormat as keyof typeof socialFormats].name}
-            </button>
+        {/* Quality Selection */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>⚡ Quality</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            {qualitySettings.map((quality) => (
+              <button
+                key={quality.id}
+                onClick={() => setSelectedQuality(quality.id as any)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: selectedQuality === quality.id ? "#3B82F6" : "rgba(255,255,255,0.1)",
+                  color: "white",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <span style={{ fontWeight: "bold" }}>{quality.name}</span>
+                <span style={{ opacity: 0.8, fontSize: "0.75rem" }}>{quality.size}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
+        {/* Options */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>⚙️ Options</h3>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              padding: "0.75rem",
+              background: "rgba(255,255,255,0.05)",
+              borderRadius: "0.5rem",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={includeWatermark}
+              onChange={(e) => setIncludeWatermark(e.target.checked)}
+              style={{ width: "16px", height: "16px" }}
+            />
+            <span>Include PINIT watermark</span>
+          </label>
+        </div>
+
+        {/* Export Actions */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>💾 Export</h3>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
             <button
-              onClick={copyToClipboard}
+              onClick={handleDownload}
               style={{
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -362,138 +436,133 @@ export function ExportHub({ generatePostcard, postcardData }: ExportHubProps) {
                 padding: "0.75rem",
                 borderRadius: "0.5rem",
                 border: "none",
-                background: "rgba(255,255,255,0.2)",
+                background: "#10B981",
                 color: "white",
                 cursor: "pointer",
                 fontWeight: "bold",
-                fontSize: "0.875rem",
               }}
             >
-              📋 Copy to Clipboard
+              <Download size={16} />
+              Download
+            </button>
+
+            <button
+              onClick={copyToClipboard}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "#6366F1",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              <Copy size={16} />
+              Copy
             </button>
           </div>
         </div>
-      )}
 
-      {/* Social Sharing */}
-      {generatedPostcard && (
+        {/* Share Options */}
         <div>
-          <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>📱 SHARE DIRECTLY</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>🚀 Share</h3>
+
+          {/* Native Share */}
+          <button
+            onClick={() => handleShare()}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "#3B82F6",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: "bold",
+              marginBottom: "1rem",
+            }}
+          >
+            <Share size={16} />
+            Share
+          </button>
+
+          {/* Social Media */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
             <button
-              onClick={() => shareToSocial("instagram")}
+              onClick={() => handleShare("twitter")}
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "0.5rem",
-                padding: "1rem",
-                borderRadius: "0.75rem",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
                 border: "none",
-                background: "rgba(228, 64, 95, 0.2)",
-                color: "#E4405F",
+                background: "#1DA1F2",
+                color: "white",
                 cursor: "pointer",
                 fontSize: "0.75rem",
-                fontWeight: "bold",
-                transition: "all 0.3s ease",
               }}
             >
-              <Instagram size={24} />
-              Instagram
+              <Twitter size={16} />
+              Twitter
             </button>
 
             <button
-              onClick={() => shareToSocial("facebook")}
+              onClick={() => handleShare("facebook")}
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "0.5rem",
-                padding: "1rem",
-                borderRadius: "0.75rem",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
                 border: "none",
-                background: "rgba(24, 119, 242, 0.2)",
-                color: "#1877F2",
+                background: "#4267B2",
+                color: "white",
                 cursor: "pointer",
                 fontSize: "0.75rem",
-                fontWeight: "bold",
-                transition: "all 0.3s ease",
               }}
             >
-              <Facebook size={24} />
+              <Facebook size={16} />
               Facebook
             </button>
 
             <button
-              onClick={() => shareToSocial("twitter")}
+              onClick={() => handleShare("instagram")}
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "0.5rem",
-                padding: "1rem",
-                borderRadius: "0.75rem",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
                 border: "none",
-                background: "rgba(29, 161, 242, 0.2)",
-                color: "#1DA1F2",
+                background: "linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
+                color: "white",
                 cursor: "pointer",
                 fontSize: "0.75rem",
-                fontWeight: "bold",
-                transition: "all 0.3s ease",
               }}
             >
-              <Twitter size={24} />
-              Twitter
+              <Instagram size={16} />
+              Instagram
             </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Native Share */}
-      {generatedPostcard && navigator.share && (
-        <button
-          onClick={async () => {
-            try {
-              const response = await fetch(generatedPostcard)
-              const blob = await response.blob()
-              const file = new File([blob], "postcard.jpg", { type: "image/jpeg" })
-
-              await navigator.share({
-                title: `Amazing moment${postcardData.location ? ` at ${postcardData.location}` : ""}`,
-                text: `Check out this postcard I created! 📍✨`,
-                files: [file],
-              })
-            } catch (error) {
-              console.log("Native sharing cancelled or failed")
-            }
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            padding: "1rem",
-            borderRadius: "0.75rem",
-            border: "none",
-            background: "rgba(59, 130, 246, 0.2)",
-            color: "#3B82F6",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: "0.875rem",
-            marginTop: "1rem",
-          }}
-        >
-          <Share2 size={18} />
-          Share via Device
-        </button>
-      )}
-
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+      {/* Hidden canvas for generation */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
   )
 }
