@@ -16,7 +16,7 @@ interface PinData {
   location: string
   coordinates: { lat: number; lng: number }
   timestamp: number
-  audioUrl?: string
+  audioUrl?: string | null // ✅ Fixed: Allow null
   effects: string[]
   stickers: any[]
   canvasData: any
@@ -101,7 +101,7 @@ export default function PINITApp() {
       location: location.name,
       coordinates: { lat: location.latitude, lng: location.longitude },
       timestamp: Date.now(),
-      audioUrl,
+      audioUrl, // ✅ Now properly typed
       effects,
       stickers,
       canvasData,
