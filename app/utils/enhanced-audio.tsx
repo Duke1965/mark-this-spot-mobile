@@ -1,121 +1,166 @@
 "use client"
 
-// Enhanced audio feedback system
-export const playEnhancedSound = (soundType: string) => {
-  if (typeof window === "undefined") return
+import { forwardRef, useImperativeHandle, useRef, useState, useCallback } from "react"
 
-  try {
-    // Create audio context for better control
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-    switch (soundType) {
-      case "success-chime":
-        playSuccessChime(audioContext)
-        break
-      case "camera-shutter":
-        playCameraShutter(audioContext)
-        break
-      case "notification":
-        playNotification(audioContext)
-        break
-      case "error":
-        playError(audioContext)
-        break
-      default:
-        playClick(audioContext)
-    }
-  } catch (error) {
-    console.warn("Audio not supported:", error)
-    // Fallback to vibration if available
-    if (navigator.vibrate) {
-      navigator.vibrate(100)
-    }
-  }
+interface EnhancedAudioProps {
+  onAudioRecorded: (audioUrl: string) => void
+  isRecording: boolean
 }
 
-const playSuccessChime = (audioContext: AudioContext) => {
-  const oscillator = audioContext.createOscillator()
-  const gainNode = audioContext.createGain()
-
-  oscillator.connect(gainNode)
-  gainNode.connect(audioContext.destination)
-
-  // Success chord progression
-  oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime) // C5
-  oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1) // E5
-  oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2) // G5
-
-  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-
-  oscillator.start(audioContext.currentTime)
-  oscillator.stop(audioContext.currentTime + 0.5)
+export interface EnhancedAudioRef {
+  startRecording: () => void
+  stopRecording: () => void
 }
 
-const playCameraShutter = (audioContext: AudioContext) => {
-  // Create a short, sharp click sound
-  const oscillator = audioContext.createOscillator()
-  const gainNode = audioContext.createGain()
+export const EnhancedAudio = forwardRef<EnhancedAudioRef, EnhancedAudioProps>(
+  ({ onAudioRecorded, isRecording }, ref) => {
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+    const audioChunksRef = useRef<Blob[]>([])
+    const [audioLevel, setAudioLevel] = useState(0)
+    const analyserRef = useRef<AnalyserNode | null>(null)
+    const animationFrameRef = useRef<number | null>(null)
 
-  oscillator.connect(gainNode)
-  gainNode.connect(audioContext.destination)
+    const startRecording = useCallback(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
 
-  oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-  oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1)
+        // Set up audio level monitoring
+        const audioContext = new AudioContext()
+        const source = audioContext.createMediaStreamSource(stream)
+        const analyser = audioContext.createAnalyser()
+        analyser.fftSize = 256
+        source.connect(analyser)
+        analyserRef.current = analyser
 
-  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1)
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
 
-  oscillator.start(audioContext.currentTime)
-  oscillator.stop(audioContext.currentTime + 0.1)
-}
+        const updateAudioLevel = () => {
+          if (analyserRef.current) {
+            analyserRef.current.getByteFrequencyData(dataArray)
+            const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+            setAudioLevel(average / 255)
+            animationFrameRef.current = requestAnimationFrame(updateAudioLevel)
+          }
+        }
+        updateAudioLevel()
 
-const playNotification = (audioContext: AudioContext) => {
-  const oscillator = audioContext.createOscillator()
-  const gainNode = audioContext.createGain()
+        mediaRecorderRef.current = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4",
+        })
 
-  oscillator.connect(gainNode)
-  gainNode.connect(audioContext.destination)
+        audioChunksRef.current = []
 
-  oscillator.frequency.setValueAtTime(440, audioContext.currentTime)
-  oscillator.frequency.setValueAtTime(554.37, audioContext.currentTime + 0.15)
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data)
+          }
+        }
 
-  gainNode.gain.setValueAtTime(0.2, audioContext.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: mediaRecorderRef.current?.mimeType || "audio/webm",
+          })
+          const audioUrl = URL.createObjectURL(audioBlob)
+          onAudioRecorded(audioUrl)
 
-  oscillator.start(audioContext.currentTime)
-  oscillator.stop(audioContext.currentTime + 0.3)
-}
+          // Cleanup
+          stream.getTracks().forEach((track) => track.stop())
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current)
+          }
+          setAudioLevel(0)
+        }
 
-const playError = (audioContext: AudioContext) => {
-  const oscillator = audioContext.createOscillator()
-  const gainNode = audioContext.createGain()
+        mediaRecorderRef.current.start(100) // Record in 100ms chunks
+        console.log("🎤 Enhanced audio recording started")
+      } catch (error) {
+        console.error("❌ Failed to start audio recording:", error)
+      }
+    }, [onAudioRecorded])
 
-  oscillator.connect(gainNode)
-  gainNode.connect(audioContext.destination)
+    const stopRecording = useCallback(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop()
+        console.log("🎤 Enhanced audio recording stopped")
+      }
+    }, [])
 
-  oscillator.frequency.setValueAtTime(200, audioContext.currentTime)
-  oscillator.frequency.setValueAtTime(150, audioContext.currentTime + 0.2)
+    useImperativeHandle(ref, () => ({
+      startRecording,
+      stopRecording,
+    }))
 
-  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4)
+    return (
+      <div
+        style={{
+          position: "fixed",
+          bottom: "6rem",
+          right: "1rem",
+          zIndex: 50,
+          pointerEvents: "none",
+        }}
+      >
+        {isRecording && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem",
+              background: "rgba(239, 68, 68, 0.9)",
+              borderRadius: "2rem",
+              color: "white",
+              fontSize: "0.875rem",
+              fontWeight: "bold",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <div
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "white",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            <span>Recording...</span>
+            <div
+              style={{
+                width: "40px",
+                height: "4px",
+                background: "rgba(255,255,255,0.3)",
+                borderRadius: "2px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${audioLevel * 100}%`,
+                  height: "100%",
+                  background: "white",
+                  transition: "width 0.1s ease",
+                }}
+              />
+            </div>
+          </div>
+        )}
 
-  oscillator.start(audioContext.currentTime)
-  oscillator.stop(audioContext.currentTime + 0.4)
-}
+        <style jsx>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+          }
+        `}</style>
+      </div>
+    )
+  },
+)
 
-const playClick = (audioContext: AudioContext) => {
-  const oscillator = audioContext.createOscillator()
-  const gainNode = audioContext.createGain()
-
-  oscillator.connect(gainNode)
-  gainNode.connect(audioContext.destination)
-
-  oscillator.frequency.setValueAtTime(1000, audioContext.currentTime)
-
-  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05)
-
-  oscillator.start(audioContext.currentTime)
-  oscillator.stop(audioContext.currentTime + 0.05)
-}
+EnhancedAudio.displayName = "EnhancedAudio"
