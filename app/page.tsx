@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Mic, MicOff, MapPin, Sparkles } from "lucide-react"
-import { useLocationServices } from "../hooks/useLocationServices"
+import { useLocationServices } from "../src/hooks/useLocationServices"
 import { EnhancedAudio, type EnhancedAudioRef } from "../components/enhanced-audio"
 
 type AppMode = "capture" | "editor" | "advanced" | "story"
