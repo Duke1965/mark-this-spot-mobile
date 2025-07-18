@@ -1,9 +1,10 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'PINIT - Location-Based Media Capture',
-  description: 'Mobile-first location-based media capture and storytelling app',
+  title: "PINIT - Location-Based Media Capture",
+  description: "Mobile-first location-based media capture and storytelling app",
 }
 
 export default function RootLayout({
