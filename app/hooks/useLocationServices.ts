@@ -25,10 +25,8 @@ export function useLocationServices(): UseLocationServicesReturn {
   const [error, setError] = useState<string | null>(null)
   const [watchId, setWatchId] = useState<number | null>(null)
 
-  // Reverse geocoding to get location name
   const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
     try {
-      // Using a simple geocoding approach - in production you might want to use a proper service
       const response = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
       )
@@ -41,11 +39,9 @@ export function useLocationServices(): UseLocationServicesReturn {
       console.warn("Reverse geocoding failed:", error)
     }
 
-    // Fallback to coordinate-based naming
     return `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
   }, [])
 
-  // Get current location
   const getCurrentLocation = useCallback(async () => {
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by this browser")
@@ -60,7 +56,7 @@ export function useLocationServices(): UseLocationServicesReturn {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 300000, // 5 minutes
+          maximumAge: 300000,
         })
       })
 
@@ -100,7 +96,6 @@ export function useLocationServices(): UseLocationServicesReturn {
     }
   }, [reverseGeocode])
 
-  // Watch location changes
   const watchLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by this browser")
@@ -149,14 +144,13 @@ export function useLocationServices(): UseLocationServicesReturn {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000, // 5 minutes
+        maximumAge: 300000,
       },
     )
 
     setWatchId(id)
   }, [reverseGeocode, watchId])
 
-  // Stop watching location
   const stopWatching = useCallback(() => {
     if (watchId !== null) {
       navigator.geolocation.clearWatch(watchId)
@@ -165,12 +159,10 @@ export function useLocationServices(): UseLocationServicesReturn {
     }
   }, [watchId])
 
-  // Auto-get location on mount
   useEffect(() => {
     getCurrentLocation()
   }, [getCurrentLocation])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (watchId !== null) {
