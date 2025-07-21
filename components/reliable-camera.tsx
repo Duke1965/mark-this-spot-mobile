@@ -1,107 +1,206 @@
 "use client"
 
-import { useRef, useEffect, useState, useCallback } from "react"
-import { Camera, Video, RotateCcw, Zap, ZapOff } from "lucide-react"
+import type React from "react"
+
+import { useState, useRef, useCallback, useEffect } from "react"
+import { Camera, Video, RotateCcw, X, Zap, ZapOff, ZoomIn, ZoomOut, Focus } from "lucide-react"
 
 interface ReliableCameraProps {
-  onPhotoCapture: (photoUrl: string) => void
-  onVideoCapture: (videoUrl: string) => void
-  isRecording: boolean
+  mode: "photo" | "video"
+  onCapture: (mediaData: string, type: "photo" | "video") => void
+  onClose: () => void
 }
 
-export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: ReliableCameraProps) {
+export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const videoChunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
-  const initializationAttemptedRef = useRef(false)
+  const chunksRef = useRef<Blob[]>([])
 
-  const [stream, setStream] = useState<MediaStream | null>(null)
-  const [isVideoMode, setIsVideoMode] = useState(false)
-  const [isVideoRecording, setIsVideoRecording] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [flashEnabled, setFlashEnabled] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
-  const [isCameraReady, setIsCameraReady] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [maxZoom, setMaxZoom] = useState(3)
+  const [capabilities, setCapabilities] = useState<any>(null)
 
   const startCamera = useCallback(async () => {
-    // Prevent multiple initialization attempts
-    if (initializationAttemptedRef.current) return
-    initializationAttemptedRef.current = true
-
     try {
-      setCameraError(null)
-      setIsCameraReady(false)
+      setError(null)
+      setCameraReady(false)
 
-      // Clean up existing stream
+      // Stop existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
 
       const constraints: MediaStreamConstraints = {
         video: {
-          facingMode,
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
-        audio: false,
+        audio: mode === "video",
       }
 
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints)
-      streamRef.current = newStream
-      setStream(newStream)
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = stream
 
       if (videoRef.current) {
-        videoRef.current.srcObject = newStream
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+        setCameraReady(true)
 
-        // Handle video loading properly
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current
-              .play()
-              .then(() => {
-                setIsCameraReady(true)
-                console.log(`📷 Camera ready - ${facingMode} facing, ${isVideoMode ? "video" : "photo"} mode`)
-              })
-              .catch((error) => {
-                console.warn("Video play warning:", error)
-                // Still mark as ready since camera stream is available
-                setIsCameraReady(true)
-              })
+        // Get camera capabilities for zoom
+        const videoTrack = stream.getVideoTracks()[0]
+        if (videoTrack) {
+          const trackCapabilities = videoTrack.getCapabilities()
+          setCapabilities(trackCapabilities)
+
+          if (trackCapabilities.zoom) {
+            setMaxZoom(trackCapabilities.zoom.max || 3)
           }
         }
-
-        videoRef.current.onerror = (error) => {
-          console.error("Video element error:", error)
-          setIsCameraReady(true)
-        }
       }
-    } catch (error) {
-      console.error("❌ Camera access error:", error)
-      setCameraError("Camera access denied. Please allow camera permissions.")
-      setIsCameraReady(true)
-    }
-  }, [facingMode, isVideoMode])
 
-  // Initialize camera only once on mount
+      console.log(`📹 Camera started in ${mode} mode, facing: ${facingMode}`)
+    } catch (err) {
+      console.error("❌ Camera access failed:", err)
+      setError("Camera access denied or not available")
+    }
+  }, [facingMode, mode])
+
   useEffect(() => {
     startCamera()
 
     return () => {
+      // Cleanup on unmount
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
     }
+  }, [startCamera])
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime((prev) => prev + 1)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [isRecording])
+
+  const switchCamera = useCallback(() => {
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
+    setZoom(1) // Reset zoom when switching cameras
   }, [])
 
-  // Handle facing mode changes
-  useEffect(() => {
-    if (initializationAttemptedRef.current && isCameraReady) {
-      initializationAttemptedRef.current = false
-      startCamera()
+  const toggleFlash = useCallback(async () => {
+    if (streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0]
+      if (videoTrack && "applyConstraints" in videoTrack) {
+        try {
+          await videoTrack.applyConstraints({
+            advanced: [{ torch: !flashEnabled } as any],
+          })
+          setFlashEnabled(!flashEnabled)
+        } catch (err) {
+          console.warn("Flash not supported:", err)
+        }
+      }
     }
-  }, [facingMode, startCamera])
+  }, [flashEnabled])
+
+  const handleZoom = useCallback(
+    async (newZoom: number) => {
+      if (!streamRef.current) return
+
+      const videoTrack = streamRef.current.getVideoTracks()[0]
+      if (videoTrack && capabilities?.zoom) {
+        try {
+          await videoTrack.applyConstraints({
+            advanced: [{ zoom: newZoom } as any],
+          })
+          setZoom(newZoom)
+        } catch (err) {
+          console.warn("Zoom not supported:", err)
+        }
+      }
+    },
+    [capabilities],
+  )
+
+  const handleFocus = useCallback(
+    async (event: React.TouchEvent | React.MouseEvent) => {
+      if (!videoRef.current || !streamRef.current) return
+
+      const rect = videoRef.current.getBoundingClientRect()
+      const x = ("touches" in event ? event.touches[0].clientX : event.clientX) - rect.left
+      const y = ("touches" in event ? event.touches[0].clientY : event.clientY) - rect.top
+
+      // Convert to relative coordinates (0-1)
+      const relativeX = x / rect.width
+      const relativeY = y / rect.height
+
+      const videoTrack = streamRef.current.getVideoTracks()[0]
+      if (videoTrack && capabilities?.focusMode) {
+        try {
+          await videoTrack.applyConstraints({
+            advanced: [
+              {
+                focusMode: "single-shot",
+                pointsOfInterest: [{ x: relativeX, y: relativeY }],
+              } as any,
+            ],
+          })
+
+          // Show focus indicator
+          showFocusIndicator(x, y)
+        } catch (err) {
+          console.warn("Focus not supported:", err)
+        }
+      }
+    },
+    [capabilities],
+  )
+
+  const showFocusIndicator = (x: number, y: number) => {
+    const indicator = document.createElement("div")
+    indicator.style.cssText = `
+      position: absolute;
+      left: ${x - 25}px;
+      top: ${y - 25}px;
+      width: 50px;
+      height: 50px;
+      border: 2px solid #10B981;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1000;
+      animation: focusPulse 0.6s ease-out;
+    `
+
+    const style = document.createElement("style")
+    style.textContent = `
+      @keyframes focusPulse {
+        0% { transform: scale(1.5); opacity: 0; }
+        50% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(0.8); opacity: 0; }
+      }
+    `
+    document.head.appendChild(style)
+
+    videoRef.current?.parentElement?.appendChild(indicator)
+
+    setTimeout(() => {
+      indicator.remove()
+      style.remove()
+    }, 600)
+  }
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
@@ -112,471 +211,417 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
 
     if (!ctx) return
 
-    canvas.width = video.videoWidth || 1280
-    canvas.height = video.videoHeight || 720
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
 
-    // Apply flash effect
-    if (flashEnabled) {
-      document.body.style.background = "white"
-      setTimeout(() => {
-        document.body.style.background = ""
-      }, 100)
-    }
+    // Draw video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    try {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    // Convert to data URL
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const photoUrl = URL.createObjectURL(blob)
-            onPhotoCapture(photoUrl)
-            console.log("📸 Photo captured successfully")
-          }
-        },
-        "image/jpeg",
-        0.9,
-      )
-    } catch (err) {
-      console.error("Error capturing photo:", err)
-    }
-  }, [flashEnabled, onPhotoCapture])
+    console.log("📸 Photo captured successfully")
+    onCapture(dataUrl, "photo")
+  }, [onCapture])
 
   const startVideoRecording = useCallback(() => {
-    if (!stream) return
+    if (!streamRef.current) return
 
     try {
-      videoChunksRef.current = []
-
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : "video/mp4",
+      chunksRef.current = []
+      const mediaRecorder = new MediaRecorder(streamRef.current, {
+        mimeType: "video/webm;codecs=vp9",
       })
 
-      mediaRecorderRef.current.ondataavailable = (event) => {
+      mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          videoChunksRef.current.push(event.data)
+          chunksRef.current.push(event.data)
         }
       }
 
-      mediaRecorderRef.current.onstop = () => {
-        const videoBlob = new Blob(videoChunksRef.current, {
-          type: mediaRecorderRef.current?.mimeType || "video/webm",
-        })
-        const videoUrl = URL.createObjectURL(videoBlob)
-        onVideoCapture(videoUrl)
-        console.log("🎥 Video recorded successfully")
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "video/webm" })
+        const videoUrl = URL.createObjectURL(blob)
+        console.log("🎥 Video recording completed")
+        onCapture(videoUrl, "video")
       }
 
-      mediaRecorderRef.current.start()
-      setIsVideoRecording(true)
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+
       console.log("🎥 Video recording started")
-    } catch (error) {
-      console.error("❌ Video recording error:", error)
+    } catch (err) {
+      console.error("❌ Video recording failed:", err)
+      setError("Video recording not supported")
     }
-  }, [stream, onVideoCapture])
+  }, [onCapture])
 
   const stopVideoRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isVideoRecording) {
+    if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
-      setIsVideoRecording(false)
+      setIsRecording(false)
       console.log("🎥 Video recording stopped")
     }
-  }, [isVideoRecording])
+  }, [isRecording])
 
-  const toggleCamera = useCallback(() => {
-    setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
-  }, [])
-
-  const handleCaptureClick = useCallback(() => {
-    if (isVideoMode) {
-      if (isVideoRecording) {
+  const handleCapture = useCallback(() => {
+    if (mode === "photo") {
+      capturePhoto()
+    } else {
+      if (isRecording) {
         stopVideoRecording()
       } else {
         startVideoRecording()
       }
-    } else {
-      capturePhoto()
     }
-  }, [isVideoMode, isVideoRecording, capturePhoto, startVideoRecording, stopVideoRecording])
+  }, [mode, isRecording, capturePhoto, startVideoRecording, stopVideoRecording])
 
-  if (cameraError) {
-    return (
-      <div className="flex-1 flex items-center justify-center flex-col gap-4 text-center p-8">
-        <div className="text-6xl">📷</div>
-        <h3 className="text-xl font-bold">Camera Access Required</h3>
-        <p className="opacity-80">{cameraError}</p>
-        <button
-          onClick={() => {
-            initializationAttemptedRef.current = false
-            setCameraError(null)
-            startCamera()
-          }}
-          className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg font-bold transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    )
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
   return (
-    <div className="flex-1 relative overflow-hidden">
-      {/* Camera Feed - Full Background */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          transform: facingMode === "user" ? "scaleX(-1)" : "none",
-          zIndex: 1,
-        }}
-      />
-
-      {/* Circular Viewfinder Overlay */}
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "#000000",
+        zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+      }}
+    >
+      {/* Camera View */}
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
-      >
-        {/* Dark overlay with hole cut out */}
-        <svg
-          width="100%"
-          height="100%"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-          }}
-        >
-          <defs>
-            <mask id="hole">
-              <rect width="100%" height="100%" fill="white" />
-              <circle cx="50%" cy="50%" r="150" fill="black" />
-            </mask>
-            <filter id="shadow">
-              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="black" floodOpacity="0.5" />
-            </filter>
-          </defs>
-          <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#hole)" />
-          <circle
-            cx="50%"
-            cy="50%"
-            r="150"
-            fill="none"
-            stroke="rgba(255,255,255,0.3)"
-            strokeWidth="3"
-            filter="url(#shadow)"
-          />
-        </svg>
-
-        {/* Center crosshair */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "30px",
-            height: "30px",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "0",
-              right: "0",
-              height: "1px",
-              background: "rgba(255,255,255,0.6)",
-              transform: "translateY(-50%)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "0",
-              bottom: "0",
-              width: "1px",
-              background: "rgba(255,255,255,0.6)",
-              transform: "translateX(-50%)",
-            }}
-          />
-        </div>
-
-        {/* Corner guides */}
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(50% - 120px)",
-            left: "calc(50% - 120px)",
-            width: "20px",
-            height: "20px",
-            borderTop: "2px solid rgba(255,255,255,0.4)",
-            borderLeft: "2px solid rgba(255,255,255,0.4)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(50% - 120px)",
-            right: "calc(50% - 120px)",
-            width: "20px",
-            height: "20px",
-            borderTop: "2px solid rgba(255,255,255,0.4)",
-            borderRight: "2px solid rgba(255,255,255,0.4)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "calc(50% - 120px)",
-            left: "calc(50% - 120px)",
-            width: "20px",
-            height: "20px",
-            borderBottom: "2px solid rgba(255,255,255,0.4)",
-            borderLeft: "2px solid rgba(255,255,255,0.4)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "calc(50% - 120px)",
-            right: "calc(50% - 120px)",
-            width: "20px",
-            height: "20px",
-            borderBottom: "2px solid rgba(255,255,255,0.4)",
-            borderRight: "2px solid rgba(255,255,255,0.4)",
-          }}
-        />
-      </div>
-
-      {/* Camera Controls */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "1.5rem",
-          left: "50%",
-          transform: "translateX(-50%)",
+          flex: 1,
+          position: "relative",
           display: "flex",
           alignItems: "center",
-          gap: "1rem",
-          zIndex: 10,
+          justifyContent: "center",
+          overflow: "hidden",
         }}
       >
-        {/* Mode Toggle */}
-        <button
-          onClick={() => setIsVideoMode(!isVideoMode)}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
           style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: isVideoMode ? "rgba(239, 68, 68, 0.8)" : "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(10px)",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
           }}
-          title={isVideoMode ? "Switch to Photo" : "Switch to Video"}
-        >
-          {isVideoMode ? <Camera size={20} /> : <Video size={20} />}
-        </button>
+          onTouchStart={handleFocus}
+          onClick={handleFocus}
+        />
 
-        {/* Main Capture Button */}
-        <button
-          onClick={handleCaptureClick}
-          disabled={!isCameraReady}
+        {/* Hidden canvas for photo capture */}
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
+        {/* Top Controls */}
+        <div
           style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "50%",
-            border: isVideoRecording ? "4px solid #EF4444" : "4px solid white",
-            background: isVideoRecording ? "#EF4444" : isVideoMode ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.2)",
-            cursor: isCameraReady ? "pointer" : "not-allowed",
+            position: "absolute",
+            top: "1rem",
+            left: "1rem",
+            right: "1rem",
             display: "flex",
+            justifyContent: "space-between",
             alignItems: "center",
-            justifyContent: "center",
-            transform: isVideoRecording ? "scale(0.9)" : "scale(1)",
-            transition: "all 0.3s ease",
-            backdropFilter: "blur(10px)",
-            opacity: isCameraReady ? 1 : 0.5,
+            zIndex: 10,
           }}
         >
-          {isVideoMode ? (
-            isVideoRecording ? (
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  background: "white",
-                  borderRadius: "2px",
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  background: "white",
-                  borderRadius: "50%",
-                }}
-              />
-            )
-          ) : (
-            <div
-              style={{
-                width: "60px",
-                height: "60px",
-                background: "#3B82F6",
-                borderRadius: "50%",
-              }}
-            />
-          )}
-        </button>
-
-        {/* Camera Flip */}
-        <button
-          onClick={toggleCamera}
-          style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(10px)",
-          }}
-          title="Flip Camera"
-        >
-          <RotateCcw size={20} />
-        </button>
-      </div>
-
-      {/* Top Controls */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1.5rem",
-          right: "1.5rem",
-          display: "flex",
-          gap: "0.5rem",
-          zIndex: 10,
-        }}
-      >
-        {/* Flash Toggle (Photo mode only) */}
-        {!isVideoMode && (
           <button
-            onClick={() => setFlashEnabled(!flashEnabled)}
+            onClick={onClose}
             style={{
-              padding: "0.5rem",
+              padding: "0.75rem",
               borderRadius: "50%",
               border: "none",
-              background: flashEnabled ? "rgba(255, 255, 0, 0.8)" : "rgba(255,255,255,0.2)",
-              color: flashEnabled ? "black" : "white",
+              background: "rgba(0,0,0,0.6)",
+              color: "white",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              backdropFilter: "blur(10px)",
             }}
-            title={flashEnabled ? "Disable Flash" : "Enable Flash"}
           >
-            {flashEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
+            <X size={24} />
           </button>
-        )}
-      </div>
 
-      {/* Recording Indicator */}
-      {isVideoRecording && (
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={toggleFlash}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "50%",
+                border: "none",
+                background: flashEnabled ? "rgba(255, 193, 7, 0.8)" : "rgba(0,0,0,0.6)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {flashEnabled ? <Zap size={20} /> : <ZapOff size={20} />}
+            </button>
+
+            <button
+              onClick={switchCamera}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "50%",
+                border: "none",
+                background: "rgba(0,0,0,0.6)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Zoom Controls */}
+        {capabilities?.zoom && (
+          <div
+            style={{
+              position: "absolute",
+              right: "1rem",
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+              zIndex: 10,
+            }}
+          >
+            <button
+              onClick={() => handleZoom(Math.min(zoom + 0.5, maxZoom))}
+              disabled={zoom >= maxZoom}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "50%",
+                border: "none",
+                background: zoom >= maxZoom ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.6)",
+                color: "white",
+                cursor: zoom >= maxZoom ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ZoomIn size={20} />
+            </button>
+
+            <div
+              style={{
+                padding: "0.5rem",
+                background: "rgba(0,0,0,0.6)",
+                borderRadius: "1rem",
+                fontSize: "0.75rem",
+                textAlign: "center",
+                minWidth: "40px",
+              }}
+            >
+              {zoom.toFixed(1)}x
+            </div>
+
+            <button
+              onClick={() => handleZoom(Math.max(zoom - 0.5, 1))}
+              disabled={zoom <= 1}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "50%",
+                border: "none",
+                background: zoom <= 1 ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.6)",
+                color: "white",
+                cursor: zoom <= 1 ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ZoomOut size={20} />
+            </button>
+          </div>
+        )}
+
+        {/* Recording indicator */}
+        {isRecording && (
+          <div
+            style={{
+              position: "absolute",
+              top: "5rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(239, 68, 68, 0.9)",
+              padding: "0.5rem 1rem",
+              borderRadius: "1rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "1rem",
+              fontWeight: "bold",
+              zIndex: 10,
+            }}
+          >
+            <div
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "white",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            REC {formatTime(recordingTime)}
+          </div>
+        )}
+
+        {/* Focus hint */}
         <div
           style={{
             position: "absolute",
-            top: "1.5rem",
-            left: "1.5rem",
+            bottom: "8rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.6)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            fontSize: "0.875rem",
+            opacity: 0.7,
+            zIndex: 10,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            background: "rgba(239, 68, 68, 0.9)",
-            padding: "0.5rem 1rem",
-            borderRadius: "1rem",
-            color: "white",
-            fontSize: "0.875rem",
-            fontWeight: "bold",
-            backdropFilter: "blur(10px)",
-            zIndex: 10,
           }}
         >
+          <Focus size={16} />
+          Tap to focus
+        </div>
+
+        {/* Error message */}
+        {error && (
           <div
             style={{
-              width: "8px",
-              height: "8px",
-              background: "white",
-              borderRadius: "50%",
-              animation: "pulse 1s infinite",
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(239, 68, 68, 0.9)",
+              padding: "1rem",
+              borderRadius: "1rem",
+              textAlign: "center",
+              maxWidth: "80%",
+              zIndex: 10,
             }}
-          />
-          REC
-        </div>
-      )}
+          >
+            <p style={{ margin: 0, fontSize: "1rem" }}>{error}</p>
+          </div>
+        )}
 
-      {/* Loading Indicator */}
-      {!isCameraReady && !cameraError && (
-        <div
+        {/* Loading indicator */}
+        {!cameraReady && !error && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(0,0,0,0.8)",
+              padding: "2rem",
+              borderRadius: "1rem",
+              textAlign: "center",
+              zIndex: 10,
+            }}
+          >
+            <div
+              style={{
+                width: "3rem",
+                height: "3rem",
+                border: "4px solid rgba(255,255,255,0.3)",
+                borderTop: "4px solid white",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+                margin: "0 auto 1rem",
+              }}
+            />
+            <p style={{ margin: 0, fontSize: "1rem" }}>Starting camera...</p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Controls */}
+      <div
+        style={{
+          padding: "2rem",
+          background: "rgba(0,0,0,0.8)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {/* Capture Button */}
+        <button
+          onClick={handleCapture}
+          disabled={!cameraReady}
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            width: "80px",
+            height: "80px",
+            borderRadius: "50%",
+            border: "4px solid white",
+            background: isRecording ? "#EF4444" : cameraReady ? "white" : "rgba(255,255,255,0.5)",
+            cursor: cameraReady ? "pointer" : "not-allowed",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "rgba(0,0,0,0.8)",
-            zIndex: 20,
+            transition: "all 0.3s ease",
+            position: "relative",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+          {mode === "photo" ? (
+            <Camera size={32} color={cameraReady ? "#000" : "#666"} />
+          ) : (
+            <Video size={32} color={isRecording ? "white" : cameraReady ? "#000" : "#666"} />
+          )}
+
+          {isRecording && (
             <div
               style={{
-                width: "32px",
-                height: "32px",
-                border: "2px solid rgba(255,255,255,0.3)",
-                borderTop: "2px solid white",
+                position: "absolute",
+                width: "100%",
+                height: "100%",
                 borderRadius: "50%",
-                animation: "spin 1s linear infinite",
+                border: "4px solid #EF4444",
+                animation: "pulse 1s infinite",
               }}
             />
-            <span style={{ color: "rgba(255,255,255,0.8)" }}>Starting camera...</span>
-          </div>
-        </div>
-      )}
-
-      <canvas ref={canvasRef} style={{ display: "none" }} />
+          )}
+        </button>
+      </div>
 
       <style jsx>{`
         @keyframes pulse {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 1; }
+          0% { opacity: 1; }
+          50% { opacity: 0.5; }
+          100% { opacity: 1; }
         }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
