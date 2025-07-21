@@ -1,153 +1,195 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 
-export interface LocationData {
+interface LocationData {
   latitude: number
   longitude: number
   accuracy: number
-  name: string
-  address?: string
+  timestamp: number
+}
+
+interface LocationError {
+  code: number
+  message: string
 }
 
 export function useLocationServices() {
   const [location, setLocation] = useState<LocationData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const watchIdRef = useRef<number | null>(null)
+  const [error, setError] = useState<LocationError | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null)
 
-  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
-    try {
-      // Use Google's Geocoding API for better results
-      if (window.google && window.google.maps) {
-        const geocoder = new google.maps.Geocoder()
-        const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-            if (status === "OK" && results) {
-              resolve(results)
-            } else {
-              reject(new Error("Geocoding failed"))
-            }
-          })
+  // Check permission status on mount
+  useEffect(() => {
+    if ("permissions" in navigator) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        setPermissionStatus(result.state)
+        result.addEventListener("change", () => {
+          setPermissionStatus(result.state)
         })
-
-        if (result.length > 0) {
-          // Extract meaningful location name
-          const addressComponents = result[0].address_components
-          const locality = addressComponents.find((c) => c.types.includes("locality"))
-          const sublocality = addressComponents.find((c) => c.types.includes("sublocality"))
-          const area = addressComponents.find((c) => c.types.includes("administrative_area_level_1"))
-
-          return locality?.long_name || sublocality?.long_name || area?.long_name || result[0].formatted_address
-        }
-      }
-
-      // Fallback to free geocoding service
-      const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        return (
-          data.city || data.locality || data.principalSubdivision || `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
-        )
-      }
-
-      return `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
-    } catch (error) {
-      console.warn("Reverse geocoding failed:", error)
-      return `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      })
     }
   }, [])
 
-  const getCurrentLocation = useCallback(async () => {
-    if (!navigator.geolocation) {
-      setError("Geolocation not supported by this browser")
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Get initial position
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000,
-        })
-      })
-
-      const { latitude, longitude, accuracy } = position.coords
-      const name = await reverseGeocode(latitude, longitude)
-
-      const locationData: LocationData = {
-        latitude,
-        longitude,
-        accuracy,
-        name,
-      }
-
-      setLocation(locationData)
-
-      // Start watching position for real-time updates
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        async (pos) => {
-          const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords
-          const locationName = await reverseGeocode(lat, lng)
-
-          setLocation({
-            latitude: lat,
-            longitude: lng,
-            accuracy: acc,
-            name: locationName,
-          })
-        },
-        (err) => {
-          console.warn("Location watch error:", err)
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 30000,
-        },
-      )
-    } catch (err: any) {
-      console.error("Location error:", err)
-      setError(err.message || "Failed to get location")
-
-      // Provide fallback location for development
-      if (process.env.NODE_ENV === "development") {
-        const fallbackLocation: LocationData = {
-          latitude: 37.7749,
-          longitude: -122.4194,
-          accuracy: 1000,
-          name: "San Francisco",
+  const getCurrentLocation = useCallback((options?: PositionOptions): Promise<LocationData> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        const error = {
+          code: 0,
+          message: "Geolocation is not supported by this browser",
         }
-        setLocation(fallbackLocation)
+        setError(error)
+        reject(error)
+        return
       }
-    } finally {
-      setIsLoading(false)
+
+      setIsLoading(true)
+      setError(null)
+
+      const defaultOptions: PositionOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000, // 5 minutes
+        ...options,
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const locationData: LocationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          }
+
+          setLocation(locationData)
+          setIsLoading(false)
+          resolve(locationData)
+        },
+        (geoError) => {
+          const error: LocationError = {
+            code: geoError.code,
+            message: getErrorMessage(geoError.code),
+          }
+
+          setError(error)
+          setIsLoading(false)
+          reject(error)
+        },
+        defaultOptions,
+      )
+    })
+  }, [])
+
+  const watchLocation = useCallback((options?: PositionOptions): number => {
+    if (!navigator.geolocation) {
+      setError({
+        code: 0,
+        message: "Geolocation is not supported by this browser",
+      })
+      return -1
     }
-  }, [reverseGeocode])
 
-  useEffect(() => {
-    getCurrentLocation()
+    const defaultOptions: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000, // 1 minute for watch
+      ...options,
+    }
 
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
+    return navigator.geolocation.watchPosition(
+      (position) => {
+        const locationData: LocationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp,
+        }
+
+        setLocation(locationData)
+        setError(null)
+      },
+      (geoError) => {
+        const error: LocationError = {
+          code: geoError.code,
+          message: getErrorMessage(geoError.code),
+        }
+        setError(error)
+      },
+      defaultOptions,
+    )
+  }, [])
+
+  const clearWatch = useCallback((watchId: number) => {
+    if (navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId)
+    }
+  }, [])
+
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      if ("permissions" in navigator) {
+        const result = await navigator.permissions.query({ name: "geolocation" })
+        if (result.state === "granted") {
+          return true
+        }
       }
+
+      // Try to get location to trigger permission request
+      await getCurrentLocation({ timeout: 5000 })
+      return true
+    } catch (error) {
+      return false
     }
   }, [getCurrentLocation])
 
+  const getErrorMessage = (code: number): string => {
+    switch (code) {
+      case 1:
+        return "Location access denied by user"
+      case 2:
+        return "Location information unavailable"
+      case 3:
+        return "Location request timed out"
+      default:
+        return "An unknown location error occurred"
+    }
+  }
+
+  // Utility functions
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371 // Earth's radius in kilometers
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLon = ((lon2 - lon1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }, [])
+
+  const formatCoordinates = useCallback((lat: number, lng: number): string => {
+    const latDir = lat >= 0 ? "N" : "S"
+    const lngDir = lng >= 0 ? "E" : "W"
+    return `${Math.abs(lat).toFixed(6)}°${latDir}, ${Math.abs(lng).toFixed(6)}°${lngDir}`
+  }, [])
+
+  const isLocationStale = useCallback((timestamp: number, maxAge = 300000): boolean => {
+    return Date.now() - timestamp > maxAge
+  }, [])
+
   return {
     location,
-    isLoading,
     error,
+    isLoading,
+    permissionStatus,
     getCurrentLocation,
+    watchLocation,
+    clearWatch,
+    requestPermission,
+    calculateDistance,
+    formatCoordinates,
+    isLocationStale,
   }
 }
