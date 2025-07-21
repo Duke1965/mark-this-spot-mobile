@@ -12,54 +12,59 @@ export interface LocationData {
 
 export function useLocationServices() {
   const [location, setLocation] = useState<LocationData | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const locationFetchedRef = useRef(false)
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>()
-
-  // Stable reference to setLocation with debouncing
-  const debouncedSetLocation = useCallback((locationData: LocationData) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current)
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      setLocation(locationData)
-    }, 500) // Increased debounce time to 500ms for more stability
-  }, [])
+  const watchIdRef = useRef<number | null>(null)
 
   const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
     try {
-      // Use a fallback location name in case the API call fails
-      const fallbackName = `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Use Google's Geocoding API for better results
+      if (window.google && window.google.maps) {
+        const geocoder = new google.maps.Geocoder()
+        const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            if (status === "OK" && results) {
+              resolve(results)
+            } else {
+              reject(new Error("Geocoding failed"))
+            }
+          })
+        })
 
-      // Skip API call in development to reduce flickering from API rate limits
-      if (process.env.NODE_ENV === "development") {
-        return "San Francisco"
+        if (result.length > 0) {
+          // Extract meaningful location name
+          const addressComponents = result[0].address_components
+          const locality = addressComponents.find((c) => c.types.includes("locality"))
+          const sublocality = addressComponents.find((c) => c.types.includes("sublocality"))
+          const area = addressComponents.find((c) => c.types.includes("administrative_area_level_1"))
+
+          return locality?.long_name || sublocality?.long_name || area?.long_name || result[0].formatted_address
+        }
       }
 
+      // Fallback to free geocoding service
       const response = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
       )
 
       if (response.ok) {
         const data = await response.json()
-        return data.city || data.locality || data.principalSubdivision || fallbackName
+        return (
+          data.city || data.locality || data.principalSubdivision || `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        )
       }
 
-      return fallbackName
+      return `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.warn("Reverse geocoding failed:", error)
-      return "Unknown Location"
+      return `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }, [])
 
   const getCurrentLocation = useCallback(async () => {
-    // Skip if we've already fetched location once
-    if (locationFetchedRef.current) return
-
     if (!navigator.geolocation) {
-      setError("Geolocation not supported")
+      setError("Geolocation not supported by this browser")
+      setIsLoading(false)
       return
     }
 
@@ -67,29 +72,13 @@ export function useLocationServices() {
     setError(null)
 
     try {
-      // Use a timeout promise to handle geolocation timeout more gracefully
-      const timeoutPromise = new Promise<GeolocationPosition>((_, reject) => {
-        setTimeout(() => reject(new Error("Location timeout")), 5000)
-      })
-
-      const positionPromise = new Promise<GeolocationPosition>((resolve, reject) => {
+      // Get initial position
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 300000,
+          maximumAge: 60000,
         })
-      })
-
-      // Race between timeout and actual geolocation
-      const position = await Promise.race([positionPromise, timeoutPromise]).catch(() => {
-        // Fallback position for testing
-        return {
-          coords: {
-            latitude: 37.7749,
-            longitude: -122.4194,
-            accuracy: 100,
-          },
-        } as GeolocationPosition
       })
 
       const { latitude, longitude, accuracy } = position.coords
@@ -102,34 +91,55 @@ export function useLocationServices() {
         name,
       }
 
-      debouncedSetLocation(locationData)
-      locationFetchedRef.current = true
-    } catch (error: any) {
-      console.error("Location error:", error)
+      setLocation(locationData)
 
-      // Provide fallback location data instead of just an error
-      const fallbackLocation: LocationData = {
-        latitude: 37.7749,
-        longitude: -122.4194,
-        accuracy: 1000,
-        name: "San Francisco",
+      // Start watching position for real-time updates
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        async (pos) => {
+          const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords
+          const locationName = await reverseGeocode(lat, lng)
+
+          setLocation({
+            latitude: lat,
+            longitude: lng,
+            accuracy: acc,
+            name: locationName,
+          })
+        },
+        (err) => {
+          console.warn("Location watch error:", err)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 30000,
+        },
+      )
+    } catch (err: any) {
+      console.error("Location error:", err)
+      setError(err.message || "Failed to get location")
+
+      // Provide fallback location for development
+      if (process.env.NODE_ENV === "development") {
+        const fallbackLocation: LocationData = {
+          latitude: 37.7749,
+          longitude: -122.4194,
+          accuracy: 1000,
+          name: "San Francisco",
+        }
+        setLocation(fallbackLocation)
       }
-
-      debouncedSetLocation(fallbackLocation)
-      locationFetchedRef.current = true
     } finally {
       setIsLoading(false)
     }
-  }, [reverseGeocode, debouncedSetLocation])
+  }, [reverseGeocode])
 
   useEffect(() => {
-    // Only try to get location once on mount
     getCurrentLocation()
 
-    // Cleanup function
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current)
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }
   }, [getCurrentLocation])
