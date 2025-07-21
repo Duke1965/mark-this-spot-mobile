@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   title: "PINIT Enhanced - Location-Based Media Capture",
   description: "Mobile-first location-based media capture and storytelling app",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
