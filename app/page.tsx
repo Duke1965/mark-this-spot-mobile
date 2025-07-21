@@ -1,216 +1,108 @@
-"use client"
+import Image from "next/image"
 
-import { useState, useCallback } from "react"
-import { Camera } from "@/components/Camera"
-import { LocationDisplay } from "@/components/LocationDisplay"
-import { AudioRecorder } from "@/components/AudioRecorder"
-import { PinManager } from "@/components/PinManager"
-import { AIAssistant } from "@/components/AIAssistant"
-import { StoryMode } from "@/components/StoryMode"
-import { AdvancedEditor } from "@/components/AdvancedEditor"
-import { useLocationServices } from "@/hooks/useLocationServices"
-import { usePinStorage } from "@/hooks/usePinStorage"
-import { Sparkles, BookOpen, Edit3 } from "lucide-react"
-
-export type AppMode = "capture" | "story" | "editor"
-export type MediaType = "photo" | "video"
-
-export interface PinData {
-  id: string
-  title: string
-  mediaUrl: string
-  mediaType: MediaType
-  location: string
-  coordinates: { lat: number; lng: number }
-  timestamp: number
-  audioUrl?: string
-  effects: string[]
-  stickers: any[]
-  canvasData: any
-}
-
-export default function PINITApp() {
-  // Core state
-  const [mode, setMode] = useState<AppMode>("capture")
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<MediaType>("photo")
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [currentPin, setCurrentPin] = useState<PinData | null>(null)
-
-  // UI state
-  const [showAI, setShowAI] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-
-  // Editor state
-  const [effects, setEffects] = useState<string[]>([])
-  const [stickers, setStickers] = useState<any[]>([])
-  const [canvasData, setCanvasData] = useState<any>({})
-
-  // Hooks
-  const { location, isLoading: locationLoading } = useLocationServices()
-  const { pins, addPin, removePin, clearPins } = usePinStorage()
-
-  // Media capture handlers
-  const handlePhotoCapture = useCallback((photoUrl: string) => {
-    setMediaUrl(photoUrl)
-    setMediaType("photo")
-    console.log("📸 Photo captured")
-  }, [])
-
-  const handleVideoCapture = useCallback((videoUrl: string) => {
-    setMediaUrl(videoUrl)
-    setMediaType("video")
-    console.log("🎥 Video captured")
-  }, [])
-
-  const handleAudioRecorded = useCallback((audioUrl: string) => {
-    setAudioUrl(audioUrl)
-    console.log("🎵 Audio recorded")
-  }, [])
-
-  // Pin management
-  const createPin = useCallback(async () => {
-    if (!mediaUrl || !location) return null
-
-    const newPin: PinData = {
-      id: `pin-${Date.now()}`,
-      title: `Pin at ${location.name}`,
-      mediaUrl,
-      mediaType,
-      location: location.name,
-      coordinates: { lat: location.latitude, lng: location.longitude },
-      timestamp: Date.now(),
-      audioUrl,
-      effects,
-      stickers,
-      canvasData,
-    }
-
-    addPin(newPin)
-    setCurrentPin(newPin)
-    return newPin
-  }, [mediaUrl, location, mediaType, audioUrl, effects, stickers, canvasData, addPin])
-
-  const resetCapture = useCallback(() => {
-    setMediaUrl(null)
-    setAudioUrl(null)
-    setEffects([])
-    setStickers([])
-    setCanvasData({})
-    setCurrentPin(null)
-    setMode("capture")
-  }, [])
-
-  // AI Assistant commands
-  const handleAICommand = useCallback(
-    (command: string) => {
-      const cmd = command.toLowerCase()
-
-      if (cmd.includes("photo") || cmd.includes("picture")) {
-        // Simulate photo capture
-        handlePhotoCapture("/placeholder.svg?height=400&width=600&text=Photo")
-      } else if (cmd.includes("video") || cmd.includes("record")) {
-        // Simulate video capture
-        handleVideoCapture("/placeholder.svg?height=400&width=600&text=Video")
-      } else if (cmd.includes("story")) {
-        setMode("story")
-      } else if (cmd.includes("edit")) {
-        if (mediaUrl) setMode("editor")
-      }
-
-      setShowAI(false)
-    },
-    [handlePhotoCapture, handleVideoCapture, mediaUrl],
-  )
-
+export default function Home() {
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden">
-      {/* Header */}
-      <div className="bg-black/80 p-4 flex justify-between items-center z-10">
-        <LocationDisplay location={location} isLoading={locationLoading} />
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMode("story")}
-            className={`p-2 rounded-lg transition-colors ${
-              mode === "story" ? "bg-green-500" : "bg-white/20 hover:bg-white/30"
-            }`}
-            title="Story Mode"
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
+        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-100 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
+          Get started by editing&nbsp;
+          <code className="font-mono font-bold">app/page.tsx</code>
+        </p>
+        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
+          <a
+            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0 dark:invert"
+            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            <BookOpen size={20} />
-          </button>
-
-          {mediaUrl && (
-            <button
-              onClick={() => setMode("editor")}
-              className={`p-2 rounded-lg transition-colors ${
-                mode === "editor" ? "bg-purple-500" : "bg-white/20 hover:bg-white/30"
-              }`}
-              title="Advanced Editor"
-            >
-              <Edit3 size={20} />
-            </button>
-          )}
-
-          <button
-            onClick={() => setShowAI(!showAI)}
-            className={`p-2 rounded-lg transition-colors ${showAI ? "bg-green-500" : "bg-white/20 hover:bg-white/30"}`}
-            title="AI Assistant"
-          >
-            <Sparkles size={20} />
-          </button>
+            By <Image src="/vercel.svg" alt="Vercel Logo" className="dark:invert" width={100} height={24} priority />
+          </a>
         </div>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 relative">
-        {mode === "capture" && (
-          <>
-            <Camera onPhotoCapture={handlePhotoCapture} onVideoCapture={handleVideoCapture} />
-
-            <AudioRecorder
-              onAudioRecorded={handleAudioRecorded}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-            />
-
-            <PinManager
-              mediaUrl={mediaUrl}
-              mediaType={mediaType}
-              audioUrl={audioUrl}
-              onCreatePin={createPin}
-              onReset={resetCapture}
-              pins={pins}
-            />
-          </>
-        )}
-
-        {mode === "story" && (
-          <StoryMode pins={pins} onBackToCapture={() => setMode("capture")} onCreatePin={createPin} />
-        )}
-
-        {mode === "editor" && mediaUrl && (
-          <AdvancedEditor
-            mediaUrl={mediaUrl}
-            mediaType={mediaType}
-            location={location?.name || "Unknown Location"}
-            onBack={() => setMode("capture")}
-            onEffectsChange={setEffects}
-            onStickersChange={setStickers}
-            onCanvasChange={setCanvasData}
-          />
-        )}
+      <div className="bg-black/80 p-4 pb-6 flex justify-between items-center z-10 min-h-[80px]">
+        <p>Header</p>
       </div>
 
-      {/* AI Assistant */}
-      {showAI && <AIAssistant onCommand={handleAICommand} onClose={() => setShowAI(false)} />}
+      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] dark:before:bg-gradient-radial dark:before:from-white dark:before:to-transparent dark:after:from-sky-800 dark:after:via-blue-800 lg:static lg:h-auto lg:w-full lg:bg-none">
+        <Image
+          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
+          src="/next.svg"
+          alt="Next.js Logo"
+          width={180}
+          height={37}
+          priority
+        />
+      </div>
 
-      {/* Stats */}
-      {pins.length > 0 && (
-        <div className="absolute top-20 right-4 bg-black/80 text-white px-3 py-1 rounded-full text-sm font-bold z-10">
-          📌 {pins.length} Pin{pins.length !== 1 ? "s" : ""}
-        </div>
-      )}
-    </div>
+      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
+        <a
+          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            Docs{" "}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Find in-depth information about Next.js features and&nbsp;API.
+          </p>
+        </a>
+
+        <a
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            Learn{" "}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Learn about Next.js in an interactive course with&nbsp;quizzes!
+          </p>
+        </a>
+
+        <a
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            Templates{" "}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Discover and deploy boilerplate example Next.js&nbsp;projects.
+          </p>
+        </a>
+
+        <a
+          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            Deploy{" "}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Instantly deploy your Next.js site to a shareable URL with&nbsp;Vercel.
+          </p>
+        </a>
+      </div>
+    </main>
   )
 }
