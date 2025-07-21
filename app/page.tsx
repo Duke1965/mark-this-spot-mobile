@@ -9,6 +9,9 @@ import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { PinStoryMode } from "@/components/PinStoryMode"
 import { AIAssistant } from "@/components/AIAssistant"
+import { EnhancedLocationService } from "@/components/EnhancedLocationService"
+import { SmartThemeSelector } from "@/components/SmartThemeSelector"
+import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 
 export interface PinData {
   id: string
@@ -22,18 +25,28 @@ export interface PinData {
   title: string
   description?: string
   tags?: string[]
+  isRecommended?: boolean
 }
 
 export default function PINITApp() {
   // Core state
   const [currentScreen, setCurrentScreen] = useState<
-    "map" | "camera" | "platform-select" | "editor" | "story" | "library"
+    "map" | "camera" | "platform-select" | "editor" | "story" | "library" | "story-builder"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [isQuickPinning, setIsQuickPinning] = useState(false)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
+
+  const [showRecommendToggle, setShowRecommendToggle] = useState(false)
+  const [showNearbyPins, setShowNearbyPins] = useState(false)
+  const [discoveryMode, setDiscoveryMode] = useState(false)
+  const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
+
+  const [locationDetails, setLocationDetails] = useState<any>(null)
+  const [currentTheme, setCurrentTheme] = useState<any>(null)
+  const [showStoryBuilder, setShowStoryBuilder] = useState(false)
 
   // Media state
   const [capturedMedia, setCapturedMedia] = useState<{
@@ -209,6 +222,71 @@ export default function PINITApp() {
     [handleQuickPin],
   )
 
+  const handleRecommendPin = useCallback(
+    (pinId: string, isRecommended: boolean) => {
+      const updatedPins = pins.map((pin) =>
+        pin.id === pinId
+          ? { ...pin, isRecommended, tags: [...(pin.tags || []), ...(isRecommended ? ["recommended"] : [])] }
+          : pin,
+      )
+      // Update pins in storage
+      localStorage.setItem("pinit-pins", JSON.stringify(updatedPins))
+    },
+    [pins],
+  )
+
+  const generateShareableLink = useCallback((pin: PinData) => {
+    const baseUrl = window.location.origin
+    const pinData = encodeURIComponent(
+      JSON.stringify({
+        id: pin.id,
+        title: pin.title,
+        lat: pin.latitude,
+        lng: pin.longitude,
+        locationName: pin.locationName,
+      }),
+    )
+    return `${baseUrl}/shared-pin?data=${pinData}`
+  }, [])
+
+  const findNearbyPins = useCallback(async () => {
+    if (!location) return
+
+    // Simulate finding nearby pins (in real app, this would be an API call)
+    const mockNearbyPins: PinData[] = [
+      {
+        id: "nearby-1",
+        latitude: location.latitude + 0.001,
+        longitude: location.longitude + 0.001,
+        locationName: "Popular Coffee Shop",
+        mediaUrl: "/placeholder.svg?height=200&width=200",
+        mediaType: "photo",
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: "☕ Amazing Coffee Spot",
+        description: "Great local coffee with amazing pastries",
+        tags: ["food", "coffee", "recommended"],
+        isRecommended: true,
+      },
+      {
+        id: "nearby-2",
+        latitude: location.latitude - 0.002,
+        longitude: location.longitude + 0.001,
+        locationName: "Scenic Viewpoint",
+        mediaUrl: "/placeholder.svg?height=200&width=200",
+        mediaType: "photo",
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: "🏔️ Perfect View",
+        description: "Breathtaking sunset views",
+        tags: ["nature", "views", "recommended"],
+      },
+    ]
+
+    setNearbyPins(mockNearbyPins)
+    setShowNearbyPins(true)
+  }, [location])
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
@@ -243,6 +321,19 @@ export default function PINITApp() {
     return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
   }
 
+  if (currentScreen === "story-builder") {
+    return (
+      <PinStoryBuilder
+        pins={pins}
+        onBack={() => setCurrentScreen("library")}
+        onCreateStory={(selectedPins, storyTitle) => {
+          console.log("Story created:", storyTitle, selectedPins)
+          setCurrentScreen("library")
+        }}
+      />
+    )
+  }
+
   if (currentScreen === "library") {
     return (
       <div
@@ -269,19 +360,37 @@ export default function PINITApp() {
           }}
         >
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Pin Library</h1>
-          <button
-            onClick={() => setCurrentScreen("map")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            Back
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {pins.filter((p) => p.mediaUrl).length > 0 && (
+              <button
+                onClick={() => setCurrentScreen("story-builder")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: "#10B981",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                📖 Story
+              </button>
+            )}
+            <button
+              onClick={() => setCurrentScreen("map")}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Back
+            </button>
+          </div>
         </div>
 
         {/* Pins List */}
@@ -375,6 +484,57 @@ export default function PINITApp() {
           }}
         >
           <Sparkles size={24} />
+        </button>
+      </div>
+
+      {/* Enhanced Location Service */}
+      {location && (
+        <EnhancedLocationService
+          latitude={location.latitude}
+          longitude={location.longitude}
+          onLocationEnhanced={setLocationDetails}
+        />
+      )}
+
+      {/* Smart Theme Selector */}
+      {locationDetails && (
+        <SmartThemeSelector
+          locationCategory={locationDetails.category}
+          locationTypes={locationDetails.types}
+          onThemeSelected={setCurrentTheme}
+        />
+      )}
+
+      {/* Discovery Mode Toggle - Next to AI Assistant */}
+      <div
+        style={{
+          position: "absolute",
+          top: "1rem",
+          right: "5rem",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={() => {
+            setDiscoveryMode(!discoveryMode)
+            if (!discoveryMode) {
+              findNearbyPins()
+            } else {
+              setShowNearbyPins(false)
+            }
+          }}
+          style={{
+            padding: "0.75rem",
+            border: "none",
+            background: discoveryMode ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            borderRadius: "12px",
+            backdropFilter: "blur(10px)",
+            border: discoveryMode ? "2px solid #10B981" : "none",
+          }}
+        >
+          🌐
         </button>
       </div>
 
@@ -523,6 +683,92 @@ export default function PINITApp() {
           {pins.length} pins created
         </p>
       </div>
+
+      {/* Nearby Pins Discovery */}
+      {showNearbyPins && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "8rem",
+            left: "1rem",
+            right: "1rem",
+            background: "rgba(0,0,0,0.8)",
+            borderRadius: "1rem",
+            padding: "1rem",
+            backdropFilter: "blur(10px)",
+            maxHeight: "200px",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>🌐 Nearby Discoveries</h3>
+            <button
+              onClick={() => setShowNearbyPins(false)}
+              style={{
+                padding: "0.25rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "4px",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: "1rem", overflowX: "auto" }}>
+            {nearbyPins.map((pin) => (
+              <div
+                key={pin.id}
+                style={{
+                  minWidth: "150px",
+                  background: "rgba(255,255,255,0.1)",
+                  borderRadius: "0.5rem",
+                  padding: "0.75rem",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  // Add to user's pins
+                  addPin({ ...pin, id: Date.now().toString() })
+                  setShowNearbyPins(false)
+                }}
+              >
+                {pin.mediaUrl && (
+                  <img
+                    src={pin.mediaUrl || "/placeholder.svg"}
+                    alt={pin.title}
+                    style={{
+                      width: "100%",
+                      height: "80px",
+                      objectFit: "cover",
+                      borderRadius: "0.25rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  />
+                )}
+                <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", fontWeight: "bold" }}>{pin.title}</h4>
+                <p style={{ margin: 0, fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
+                {pin.isRecommended && (
+                  <div style={{ marginTop: "0.25rem" }}>
+                    <span
+                      style={{
+                        fontSize: "0.625rem",
+                        background: "#10B981",
+                        padding: "0.125rem 0.25rem",
+                        borderRadius: "0.25rem",
+                      }}
+                    >
+                      ⭐ Recommended
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation - Photo/Video/Library */}
       <div
