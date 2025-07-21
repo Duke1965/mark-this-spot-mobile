@@ -1,16 +1,14 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo } from "react"
 import { Camera, Sparkles, Book, Mic, MicOff, X } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { LocationDisplay } from "@/components/LocationDisplay"
 import { ReliableCamera } from "@/components/reliable-camera"
-// Ensure we're using the correct import path
 import { EnhancedAudio, type EnhancedAudioRef } from "@/components/enhanced-audio"
 import { AutoTitleGenerator } from "@/components/AutoTitleGenerator"
 import { PinStoryMode } from "@/components/PinStoryMode"
-import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { CanvasEditor } from "@/components/advanced-editor/canvas-editor"
 import { EffectsPanel } from "@/components/advanced-editor/effects-panel"
 import { StickersPanel } from "@/components/advanced-editor/stickers-panel"
@@ -55,9 +53,9 @@ export default function Home() {
 
   // Custom hooks
   const { location, isLoading } = useLocationServices()
-  const { pins, addPin, clearPins } = usePinStorage()
+  const { pins, addPin } = usePinStorage()
 
-  // Handle media capture
+  // Memoized handlers to prevent unnecessary re-renders
   const handlePhotoCapture = useCallback((photoUrl: string) => {
     setMediaUrl(photoUrl)
     setMediaType("photo")
@@ -68,12 +66,10 @@ export default function Home() {
     setMediaType("video")
   }, [])
 
-  // Handle audio recording
   const handleAudioRecorded = useCallback((url: string) => {
     setAudioUrl(url)
   }, [])
 
-  // Reset capture state
   const resetCapture = useCallback(() => {
     setMediaUrl(null)
     setAudioUrl(null)
@@ -83,7 +79,6 @@ export default function Home() {
     setCanvasData(null)
   }, [])
 
-  // Create a new pin
   const createPin = useCallback(async (): Promise<PinData | null> => {
     if (!mediaUrl || !location) return null
 
@@ -106,7 +101,6 @@ export default function Home() {
     return newPin
   }, [mediaUrl, location, currentTitle, mediaType, audioUrl, effects, stickers, canvasData, addPin, resetCapture])
 
-  // Toggle audio recording
   const toggleAudioRecording = useCallback(() => {
     if (isRecording) {
       audioRef.current?.stopRecording()
@@ -116,38 +110,29 @@ export default function Home() {
     setIsRecording(!isRecording)
   }, [isRecording])
 
-  // Switch to story mode
   const switchToStoryMode = useCallback(() => {
     setMode("story")
     resetCapture()
   }, [resetCapture])
 
-  // Switch to capture mode
   const switchToCaptureMode = useCallback(() => {
     setMode("capture")
     resetCapture()
   }, [resetCapture])
 
-  // Switch to edit mode
   const switchToEditMode = useCallback(() => {
     setMode("edit")
   }, [])
 
-  // Handle advanced edit tool selection
   const handleToolSelect = useCallback((tool: "canvas" | "effects" | "stickers" | "video" | "export") => {
     setAdvancedEditTool(tool)
   }, [])
 
-  // Generate postcard
   const generatePostcard = useCallback(async () => {
     if (!mediaUrl) return null
-
-    // In a real app, this would generate a postcard
-    // For now, we'll just return the media URL
     return mediaUrl
   }, [mediaUrl])
 
-  // Add pin to story
   const handleAddPinToStory = useCallback((pin: PinData) => {
     setCurrentStory((prev: any) => {
       if (!prev) {
@@ -166,6 +151,18 @@ export default function Home() {
       }
     })
   }, [])
+
+  // Memoized components to prevent unnecessary re-renders
+  const cameraComponent = useMemo(
+    () => (
+      <ReliableCamera
+        onPhotoCapture={handlePhotoCapture}
+        onVideoCapture={handleVideoCapture}
+        isRecording={isRecording}
+      />
+    ),
+    [handlePhotoCapture, handleVideoCapture, isRecording],
+  )
 
   return (
     <main className="flex flex-col h-screen bg-black text-white overflow-hidden">
@@ -207,13 +204,7 @@ export default function Home() {
       {mode === "capture" && (
         <div className="flex-1 relative">
           {/* Camera View */}
-          {!mediaUrl && (
-            <ReliableCamera
-              onPhotoCapture={handlePhotoCapture}
-              onVideoCapture={handleVideoCapture}
-              isRecording={isRecording}
-            />
-          )}
+          {!mediaUrl && cameraComponent}
 
           {/* Audio Recording */}
           <EnhancedAudio ref={audioRef} onAudioRecorded={handleAudioRecorded} isRecording={isRecording} />
@@ -382,19 +373,6 @@ export default function Home() {
                 stickers,
                 canvasData,
               }}
-            />
-          )}
-
-          {/* Quick Edit (shown when not in advanced edit) */}
-          {advancedEditTool === "quickedit" && (
-            <MobilePostcardEditor
-              mediaUrl={mediaUrl}
-              mediaType={mediaType}
-              location={location?.name || ""}
-              onBack={switchToCaptureMode}
-              onAdvancedEdit={() => setAdvancedEditTool("welcome")}
-              onEffectsChange={setEffects}
-              onStickersChange={setStickers}
             />
           )}
         </>
