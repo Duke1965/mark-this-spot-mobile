@@ -33,6 +33,7 @@ export default function PINITApp() {
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [isQuickPinning, setIsQuickPinning] = useState(false)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
+  const [locationName, setLocationName] = useState<string>("Getting location...")
 
   // Media state
   const [capturedMedia, setCapturedMedia] = useState<{
@@ -46,10 +47,40 @@ export default function PINITApp() {
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
   const { pins, addPin } = usePinStorage()
 
-  // Get current location on mount
+  // Add location name resolution
+  const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
+    try {
+      // Using a simple reverse geocoding approach
+      // In production, you'd use Google Maps API or similar
+      const response = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      )
+      const data = await response.json()
+
+      if (data.city && data.countryName) {
+        return `${data.city}, ${data.countryName}`
+      } else if (data.locality && data.countryName) {
+        return `${data.locality}, ${data.countryName}`
+      } else if (data.countryName) {
+        return data.countryName
+      }
+
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    } catch (error) {
+      console.error("Failed to get location name:", error)
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    }
+  }, [])
+
+  // Get current location on mount and resolve name
   useEffect(() => {
-    getCurrentLocation()
-  }, [getCurrentLocation])
+    getCurrentLocation().then(async (loc) => {
+      if (loc) {
+        const name = await getLocationName(loc.latitude, loc.longitude)
+        setLocationName(name)
+      }
+    })
+  }, [getCurrentLocation, getLocationName])
 
   // Quick Pin Function (Shazam-like)
   const handleQuickPin = useCallback(async () => {
@@ -326,19 +357,21 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "2rem",
-          right: "2rem",
+          top: "1rem",
+          right: "1rem",
+          zIndex: 10,
         }}
       >
         <button
           onClick={() => setShowAIAssistant(true)}
           style={{
             padding: "0.75rem",
-            borderRadius: "50%",
             border: "none",
             background: "rgba(255,255,255,0.2)",
             color: "white",
             cursor: "pointer",
+            borderRadius: "12px",
+            backdropFilter: "blur(10px)",
           }}
         >
           <Sparkles size={24} />
@@ -473,7 +506,7 @@ export default function PINITApp() {
             textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
         >
-          {location ? `📍 ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : "📍 Getting location..."}
+          📍 {locationName}
         </p>
       </div>
 
@@ -486,9 +519,9 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
-          background: "rgba(0,0,0,0.3)",
+          background: "rgba(0,0,0,0.2)",
           borderRadius: "2rem",
-          padding: "1rem",
+          padding: "1.5rem",
           backdropFilter: "blur(10px)",
         }}
       >
@@ -498,10 +531,9 @@ export default function PINITApp() {
             setCurrentScreen("camera")
           }}
           style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
+            padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
@@ -509,7 +541,7 @@ export default function PINITApp() {
             justifyContent: "center",
           }}
         >
-          <Camera size={24} />
+          <Camera size={28} />
         </button>
 
         <button
@@ -518,10 +550,9 @@ export default function PINITApp() {
             setCurrentScreen("camera")
           }}
           style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
+            padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
@@ -529,16 +560,15 @@ export default function PINITApp() {
             justifyContent: "center",
           }}
         >
-          <Video size={24} />
+          <Video size={28} />
         </button>
 
         <button
           onClick={() => setCurrentScreen("library")}
           style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
+            padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
@@ -546,7 +576,7 @@ export default function PINITApp() {
             justifyContent: "center",
           }}
         >
-          <Library size={24} />
+          <Library size={28} />
         </button>
       </div>
 
