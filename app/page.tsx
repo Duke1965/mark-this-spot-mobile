@@ -6,6 +6,7 @@ import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { LocationDisplay } from "@/components/LocationDisplay"
 import { ReliableCamera } from "@/components/reliable-camera"
+// Ensure we're using the correct import path
 import { EnhancedAudio, type EnhancedAudioRef } from "@/components/enhanced-audio"
 import { AutoTitleGenerator } from "@/components/AutoTitleGenerator"
 import { PinStoryMode } from "@/components/PinStoryMode"
