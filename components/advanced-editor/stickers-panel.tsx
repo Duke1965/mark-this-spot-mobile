@@ -88,7 +88,7 @@ export function StickersPanel({ onStickersChange, currentStickers, onBack }: Sti
     { id: "42", emoji: "🎊", category: "activities", name: "Confetti" },
     { id: "43", emoji: "🎈", category: "activities", name: "Balloon" },
     { id: "44", emoji: "🎁", category: "activities", name: "Gift" },
-    { id: "45", emoji: "🎵", category: "activities", name: "Music" },
+    { id: "45", emoji: "���", category: "activities", name: "Music" },
     { id: "46", emoji: "⚽", category: "activities", name: "Soccer" },
     { id: "47", emoji: "🏀", category: "activities", name: "Basketball" },
     { id: "48", emoji: "🎮", category: "activities", name: "Gaming" },
