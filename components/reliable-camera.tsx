@@ -14,6 +14,8 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const videoChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const initializationAttemptedRef = useRef(false)
 
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [isVideoMode, setIsVideoMode] = useState(false)
@@ -21,87 +23,88 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const [flashEnabled, setFlashEnabled] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [isCameraInitialized, setIsCameraInitialized] = useState(false)
+  const [isCameraReady, setIsCameraReady] = useState(false)
 
   const startCamera = useCallback(async () => {
+    // Prevent multiple initialization attempts
+    if (initializationAttemptedRef.current) return
+    initializationAttemptedRef.current = true
+
     try {
       setCameraError(null)
+      setIsCameraReady(false)
 
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
+      // Clean up existing stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
       }
 
-      // Use a mock camera if real camera fails
-      try {
-        const constraints: MediaStreamConstraints = {
-          video: {
-            facingMode,
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-          },
-          audio: isVideoMode,
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode,
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+        },
+        audio: false, // Don't request audio for camera stream
+      }
+
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = newStream
+      setStream(newStream)
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream
+
+        // Handle video loading properly
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current
+              .play()
+              .then(() => {
+                setIsCameraReady(true)
+                console.log(`📷 Camera ready - ${facingMode} facing, ${isVideoMode ? "video" : "photo"} mode`)
+              })
+              .catch((error) => {
+                console.error("Video play error:", error)
+                // Don't restart camera on play error, just mark as ready
+                setIsCameraReady(true)
+              })
+          }
         }
 
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints)
-        setStream(newStream)
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = newStream
-          await videoRef.current.play().catch((e) => console.error("Video play error:", e))
+        videoRef.current.onerror = (error) => {
+          console.error("Video element error:", error)
+          setIsCameraReady(true) // Still mark as ready to prevent infinite loops
         }
-
-        setIsCameraInitialized(true)
-        console.log(`📷 Camera started - ${facingMode} facing, ${isVideoMode ? "video" : "photo"} mode`)
-      } catch (err) {
-        console.error("Real camera error:", err)
-
-        // Create a mock video stream with a colored background
-        const canvas = document.createElement("canvas")
-        canvas.width = 1280
-        canvas.height = 720
-        const ctx = canvas.getContext("2d")
-        if (ctx) {
-          // Create a gradient background
-          const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
-          gradient.addColorStop(0, "#667eea")
-          gradient.addColorStop(1, "#764ba2")
-          ctx.fillStyle = gradient
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-          // Add text
-          ctx.fillStyle = "white"
-          ctx.font = "30px Arial"
-          ctx.textAlign = "center"
-          ctx.fillText("Camera simulation mode", canvas.width / 2, canvas.height / 2)
-        }
-
-        const mockStream = canvas.captureStream(30) as MediaStream
-        setStream(mockStream)
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = mockStream
-          await videoRef.current.play().catch((e) => console.error("Mock video play error:", e))
-        }
-
-        setIsCameraInitialized(true)
       }
     } catch (error) {
-      console.error("❌ Camera error:", error)
-      setCameraError("Failed to access camera. Please check permissions.")
+      console.error("❌ Camera access error:", error)
+      setCameraError("Camera access denied. Please allow camera permissions.")
+      setIsCameraReady(true) // Mark as ready even on error to prevent loops
     }
-  }, [facingMode, isVideoMode, stream])
+  }, [facingMode, isVideoMode])
 
+  // Initialize camera only once on mount
   useEffect(() => {
     startCamera()
+
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
       }
     }
-  }, [startCamera])
+  }, []) // Empty dependency array - only run once
+
+  // Handle facing mode changes
+  useEffect(() => {
+    if (initializationAttemptedRef.current && isCameraReady) {
+      initializationAttemptedRef.current = false
+      startCamera()
+    }
+  }, [facingMode, startCamera])
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isCameraInitialized) return
+    if (!videoRef.current || !canvasRef.current) return
 
     const video = videoRef.current
     const canvas = canvasRef.current
@@ -136,61 +139,11 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
       )
     } catch (err) {
       console.error("Error capturing photo:", err)
-
-      // Create a fallback photo
-      ctx.fillStyle = "#764ba2"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = "white"
-      ctx.font = "30px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("Photo simulation", canvas.width / 2, canvas.height / 2)
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const photoUrl = URL.createObjectURL(blob)
-            onPhotoCapture(photoUrl)
-          }
-        },
-        "image/jpeg",
-        0.9,
-      )
     }
-  }, [flashEnabled, onPhotoCapture, isCameraInitialized])
+  }, [flashEnabled, onPhotoCapture])
 
   const startVideoRecording = useCallback(() => {
-    if (!stream || !isCameraInitialized) {
-      // Create a mock video recording
-      setTimeout(() => {
-        const canvas = document.createElement("canvas")
-        canvas.width = 1280
-        canvas.height = 720
-        const ctx = canvas.getContext("2d")
-        if (ctx) {
-          ctx.fillStyle = "#764ba2"
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          ctx.fillStyle = "white"
-          ctx.font = "30px Arial"
-          ctx.textAlign = "center"
-          ctx.fillText("Video simulation", canvas.width / 2, canvas.height / 2)
-        }
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const videoUrl = URL.createObjectURL(blob)
-              onVideoCapture(videoUrl)
-            }
-          },
-          "image/jpeg",
-          0.9,
-        )
-        setIsVideoRecording(false)
-      }, 2000)
-
-      setIsVideoRecording(true)
-      return
-    }
+    if (!stream) return
 
     try {
       videoChunksRef.current = []
@@ -220,7 +173,7 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
     } catch (error) {
       console.error("❌ Video recording error:", error)
     }
-  }, [stream, onVideoCapture, isCameraInitialized])
+  }, [stream, onVideoCapture])
 
   const stopVideoRecording = useCallback(() => {
     if (mediaRecorderRef.current && isVideoRecording) {
@@ -248,33 +201,17 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
 
   if (cameraError) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: "1rem",
-          padding: "2rem",
-          color: "white",
-          textAlign: "center",
-        }}
-      >
-        <div style={{ fontSize: "3rem" }}>📷</div>
-        <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>Camera Access Required</h3>
-        <p style={{ margin: 0, opacity: 0.8 }}>{cameraError}</p>
+      <div className="flex-1 flex items-center justify-center flex-col gap-4 text-center p-8">
+        <div className="text-6xl">📷</div>
+        <h3 className="text-xl font-bold">Camera Access Required</h3>
+        <p className="opacity-80">{cameraError}</p>
         <button
-          onClick={startCamera}
-          style={{
-            padding: "0.75rem 1.5rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            background: "#3B82F6",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "bold",
+          onClick={() => {
+            initializationAttemptedRef.current = false
+            setCameraError(null)
+            startCamera()
           }}
+          className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg font-bold transition-colors"
         >
           Try Again
         </button>
@@ -283,47 +220,51 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
   }
 
   return (
-    <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+    <div className="flex-1 relative overflow-hidden bg-black">
+      {/* Camera Feed */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
       />
 
-      <canvas ref={canvasRef} style={{ display: "none" }} />
+      {/* Circular Viewfinder Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* Dark overlay with circular hole */}
+        <div
+          className="absolute inset-0 bg-black"
+          style={{
+            maskImage: "radial-gradient(circle at center, transparent 120px, black 140px)",
+            WebkitMaskImage: "radial-gradient(circle at center, transparent 120px, black 140px)",
+          }}
+        />
 
-      {/* Camera Controls Overlay */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "1rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-        }}
-      >
+        {/* Circular border with drop shadow */}
+        <div
+          className="w-60 h-60 rounded-full border-4 border-white/30"
+          style={{
+            boxShadow: "inset 0 0 20px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3)",
+          }}
+        />
+
+        {/* Center crosshair */}
+        <div className="absolute w-8 h-8 flex items-center justify-center">
+          <div className="w-full h-0.5 bg-white/50 absolute" />
+          <div className="h-full w-0.5 bg-white/50 absolute" />
+        </div>
+      </div>
+
+      {/* Camera Controls */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4">
         {/* Mode Toggle */}
         <button
           onClick={() => setIsVideoMode(!isVideoMode)}
-          style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: isVideoMode ? "rgba(239, 68, 68, 0.8)" : "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className={`p-3 rounded-full transition-all ${
+            isVideoMode ? "bg-red-500/80" : "bg-white/20"
+          } backdrop-blur-sm`}
           title={isVideoMode ? "Switch to Photo" : "Switch to Video"}
         >
           {isVideoMode ? <Camera size={20} /> : <Video size={20} />}
@@ -332,66 +273,30 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
         {/* Main Capture Button */}
         <button
           onClick={handleCaptureClick}
-          style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "50%",
-            border: isVideoRecording ? "4px solid #EF4444" : "4px solid white",
-            background: isVideoRecording ? "#EF4444" : isVideoMode ? "#EF4444" : "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transform: isVideoRecording ? "scale(0.9)" : "scale(1)",
-            transition: "all 0.3s ease",
-          }}
+          disabled={!isCameraReady}
+          className={`w-20 h-20 rounded-full border-4 transition-all ${
+            isVideoRecording
+              ? "border-red-500 bg-red-500 scale-90"
+              : isVideoMode
+                ? "border-red-500 bg-red-500/20"
+                : "border-white bg-white/20"
+          } backdrop-blur-sm disabled:opacity-50`}
         >
           {isVideoMode ? (
             isVideoRecording ? (
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  background: "white",
-                  borderRadius: "2px",
-                }}
-              />
+              <div className="w-6 h-6 bg-white rounded-sm mx-auto" />
             ) : (
-              <div
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  background: "white",
-                  borderRadius: "50%",
-                }}
-              />
+              <div className="w-8 h-8 bg-white rounded-full mx-auto" />
             )
           ) : (
-            <div
-              style={{
-                width: "60px",
-                height: "60px",
-                background: "#3B82F6",
-                borderRadius: "50%",
-              }}
-            />
+            <div className="w-16 h-16 bg-blue-500 rounded-full mx-auto" />
           )}
         </button>
 
         {/* Camera Flip */}
         <button
           onClick={toggleCamera}
-          style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className="p-3 rounded-full bg-white/20 backdrop-blur-sm transition-colors hover:bg-white/30"
           title="Flip Camera"
         >
           <RotateCcw size={20} />
@@ -399,30 +304,14 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
       </div>
 
       {/* Top Controls */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          display: "flex",
-          gap: "0.5rem",
-        }}
-      >
+      <div className="absolute top-6 right-6 flex gap-2">
         {/* Flash Toggle (Photo mode only) */}
         {!isVideoMode && (
           <button
             onClick={() => setFlashEnabled(!flashEnabled)}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "50%",
-              border: "none",
-              background: flashEnabled ? "rgba(255, 255, 0, 0.8)" : "rgba(255,255,255,0.2)",
-              color: flashEnabled ? "black" : "white",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className={`p-2 rounded-full transition-all ${
+              flashEnabled ? "bg-yellow-500/80" : "bg-white/20"
+            } backdrop-blur-sm`}
             title={flashEnabled ? "Disable Flash" : "Enable Flash"}
           >
             {flashEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
@@ -432,41 +321,23 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
 
       {/* Recording Indicator */}
       {isVideoRecording && (
-        <div
-          style={{
-            position: "absolute",
-            top: "1rem",
-            left: "1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.5rem 1rem",
-            background: "rgba(239, 68, 68, 0.9)",
-            borderRadius: "1rem",
-            color: "white",
-            fontSize: "0.875rem",
-            fontWeight: "bold",
-          }}
-        >
-          <div
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: "white",
-              animation: "pulse 1s infinite",
-            }}
-          />
-          REC
+        <div className="absolute top-6 left-6 flex items-center gap-2 bg-red-500/90 px-3 py-2 rounded-full backdrop-blur-sm">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <span className="text-sm font-bold">REC</span>
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 1; }
-        }
-      `}</style>
+      {/* Loading Indicator */}
+      {!isCameraReady && !cameraError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <span className="text-white/80">Starting camera...</span>
+          </div>
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   )
 }
