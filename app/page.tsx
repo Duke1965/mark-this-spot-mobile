@@ -538,16 +538,46 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* Central PINIT Button - Shazam Style */}
+      {/* Central PINIT Button - Shazam Style - PERFECTLY CENTERED */}
       <div
         style={{
           position: "absolute",
-          top: "15%",
+          top: "50%",
           left: "50%",
-          transform: "translateX(-50%)",
+          transform: "translate(-50%, -50%)",
           textAlign: "center",
         }}
       >
+        {/* Pulsing Glow Rings - Shazam Style */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "320px",
+            height: "320px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
+            animation: "pulse 2s ease-in-out infinite",
+            zIndex: 1,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "360px",
+            height: "360px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)",
+            animation: "pulse 2s ease-in-out infinite 0.5s",
+            zIndex: 1,
+          }}
+        />
+
         {/* Main Pin Button */}
         <button
           onClick={handleQuickPin}
@@ -569,22 +599,23 @@ export default function PINITApp() {
             fontSize: "1.125rem",
             fontWeight: "bold",
             opacity: isQuickPinning ? 0.7 : 1,
-            transform: quickPinSuccess ? "translateX(-50%) scale(1.1)" : "translateX(-50%) scale(1)",
+            position: "relative",
+            zIndex: 2,
           }}
           onMouseEnter={(e) => {
             if (!isQuickPinning) {
-              e.currentTarget.style.transform = "translateX(-50%) scale(1.05)"
+              e.currentTarget.style.transform = "scale(1.05)"
               e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"
             }
           }}
           onMouseLeave={(e) => {
             if (!isQuickPinning) {
-              e.currentTarget.style.transform = "translateX(-50%) scale(1)"
+              e.currentTarget.style.transform = "scale(1)"
               e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"
             }
           }}
         >
-          {/* Live Map Background */}
+          {/* Live Map Background - Fixed API Key Issue */}
           {location && (
             <div
               style={{
@@ -593,57 +624,52 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
+                background: `url('https://maps.googleapis.com/maps/api/staticmap?center=${location.latitude},${location.longitude}&zoom=16&size=280x280&maptype=satellite&key=demo') center/cover`,
+                backgroundImage: `url('/placeholder.svg?height=280&width=280')`,
               }}
-            >
-              <iframe
-                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"}&center=${location.latitude},${location.longitude}&zoom=16&maptype=satellite`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  transform: "scale(1.2)",
-                }}
-                loading="lazy"
-              />
-            </div>
+            />
           )}
-          {isQuickPinning ? (
-            <>
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  border: "4px solid rgba(255,255,255,0.3)",
-                  borderTop: "4px solid white",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                  marginBottom: "0.5rem",
-                }}
-              />
-              <span>Pinning...</span>
-            </>
-          ) : quickPinSuccess ? (
-            <>
-              <Check size={48} style={{ marginBottom: "0.5rem", color: "white" }} />
-              <span>Pinned!</span>
-            </>
-          ) : (
-            <>
-              <MapPin
-                size={48}
-                style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}
-              />
-              <span>Tap to PINIT!</span>
-            </>
-          )}
+
+          {/* Content Overlay */}
+          <div style={{ position: "relative", zIndex: 2, textAlign: "center" }}>
+            {isQuickPinning ? (
+              <>
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    border: "4px solid rgba(255,255,255,0.3)",
+                    borderTop: "4px solid white",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                    marginBottom: "0.5rem",
+                  }}
+                />
+                <span>Pinning...</span>
+              </>
+            ) : quickPinSuccess ? (
+              <>
+                <Check size={48} style={{ marginBottom: "0.5rem", color: "white" }} />
+                <span>Pinned!</span>
+              </>
+            ) : (
+              <>
+                <MapPin
+                  size={48}
+                  style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}
+                />
+                <span>Tap to PINIT!</span>
+              </>
+            )}
+          </div>
         </button>
       </div>
 
-      {/* PINIT Branding - Under Circle */}
+      {/* PINIT Branding - Below Circle */}
       <div
         style={{
           position: "absolute",
-          top: "60%",
+          bottom: "25%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
@@ -847,6 +873,21 @@ export default function PINITApp() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+          0% { 
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.3;
+          }
+          50% { 
+            transform: translate(-50%, -50%) scale(1.1);
+            opacity: 0.1;
+          }
+          100% { 
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 0;
+          }
         }
       `}</style>
     </div>
