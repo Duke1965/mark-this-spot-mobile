@@ -1,494 +1,398 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Play, Share, MapPin, Camera, Video } from "lucide-react"
-
-interface PinData {
-  id: string
-  title: string
-  mediaUrl: string
-  mediaType: "photo" | "video"
-  location: string
-  coordinates: { lat: number; lng: number }
-  timestamp: number
-  audioUrl?: string
-  effects: string[]
-  stickers: any[]
-  canvasData: any
-}
-
-interface StoryData {
-  id: string
-  title: string
-  pins: PinData[]
-  createdAt: number
-  isPublic: boolean
-}
+import { useState, useCallback, useEffect } from "react"
+import { ArrowLeft, Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Settings } from "lucide-react"
+import type { PinData } from "@/app/page"
 
 interface PinStoryModeProps {
-  currentStory: StoryData | null
-  savedPins: PinData[]
-  onAddPin: (pin: PinData) => void
-  onBackToCapture: () => void
-  onCreatePin: () => Promise<PinData | null>
+  pins: PinData[]
+  onBack: () => void
 }
 
-export function PinStoryMode({ currentStory, savedPins, onAddPin, onBackToCapture, onCreatePin }: PinStoryModeProps) {
-  const [selectedPins, setSelectedPins] = useState<string[]>([])
-  const [storyTitle, setStoryTitle] = useState(currentStory?.title || "")
+export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentPlayIndex, setCurrentPlayIndex] = useState(0)
+  const [isMuted, setIsMuted] = useState(false)
+  const [playbackSpeed, setPlaybackSpeed] = useState(3000) // 3 seconds per slide
+  const [showSettings, setShowSettings] = useState(false)
 
-  const handlePinSelect = useCallback((pinId: string) => {
-    setSelectedPins((prev) => (prev.includes(pinId) ? prev.filter((id) => id !== pinId) : [...prev, pinId]))
-  }, [])
+  // Filter pins that have media
+  const mediaPins = pins.filter((pin) => pin.mediaUrl)
+  const currentPin = mediaPins[currentIndex]
 
-  const handleAddSelectedPins = useCallback(() => {
-    selectedPins.forEach((pinId) => {
-      const pin = savedPins.find((p) => p.id === pinId)
-      if (pin) {
-        onAddPin(pin)
-      }
-    })
-    setSelectedPins([])
-  }, [selectedPins, savedPins, onAddPin])
-
-  const playStory = useCallback(() => {
-    if (!currentStory || currentStory.pins.length === 0) return
-
-    setIsPlaying(true)
-    setCurrentPlayIndex(0)
-
-    // Auto-advance through pins every 3 seconds
-    const interval = setInterval(() => {
-      setCurrentPlayIndex((prev) => {
-        if (prev >= currentStory.pins.length - 1) {
-          setIsPlaying(false)
-          clearInterval(interval)
-          return 0
-        }
-        return prev + 1
-      })
-    }, 3000)
-  }, [currentStory])
-
-  const shareStory = useCallback(() => {
-    if (!currentStory) return
-
-    const storyText = `Check out my Pin Story: "${currentStory.title}" with ${currentStory.pins.length} amazing moments! 📍✨`
-
-    if (navigator.share) {
-      navigator.share({
-        title: currentStory.title,
-        text: storyText,
-        url: window.location.href,
-      })
-    } else {
-      navigator.clipboard.writeText(storyText)
-      alert("Story description copied to clipboard!")
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isPlaying && mediaPins.length > 0) {
+      interval = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % mediaPins.length)
+      }, playbackSpeed)
     }
-  }, [currentStory])
+    return () => clearInterval(interval)
+  }, [isPlaying, mediaPins.length, playbackSpeed])
+
+  const handlePlayPause = useCallback(() => {
+    setIsPlaying(!isPlaying)
+  }, [isPlaying])
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % mediaPins.length)
+  }, [mediaPins.length])
+
+  const handlePrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + mediaPins.length) % mediaPins.length)
+  }, [mediaPins.length])
+
+  const handleMute = useCallback(() => {
+    setIsMuted(!isMuted)
+  }, [isMuted])
+
+  if (mediaPins.length === 0) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "#000000",
+          color: "white",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📖</div>
+          <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.5rem" }}>No Stories Yet</h2>
+          <p style={{ margin: "0 0 2rem 0", opacity: 0.7 }}>
+            Create some pins with photos or videos to build your story collection!
+          </p>
+          <button
+            onClick={onBack}
+            style={{
+              padding: "0.75rem 1.5rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "#3B82F6",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: "bold",
+            }}
+          >
+            Back to Map
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
       style={{
-        flex: 1,
-        padding: "1rem",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "#000000",
         color: "white",
         display: "flex",
         flexDirection: "column",
-        gap: "1rem",
-        overflowY: "auto",
       }}
     >
-      {/* Story Header */}
+      {/* Header */}
       <div
         style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "1rem",
-          padding: "1.5rem",
-          border: "1px solid rgba(255,255,255,0.2)",
+          position: "absolute",
+          top: "1rem",
+          left: "1rem",
+          right: "1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          zIndex: 10,
+          background: "rgba(0,0,0,0.5)",
+          borderRadius: "0.5rem",
+          padding: "0.75rem",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-          <div style={{ fontSize: "2rem" }}>📖</div>
-          <div style={{ flex: 1 }}>
-            <input
-              type="text"
-              value={storyTitle}
-              onChange={(e) => setStoryTitle(e.target.value)}
-              placeholder="Story Title"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                borderRadius: "0.5rem",
-                border: "1px solid rgba(255,255,255,0.3)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                fontSize: "1.125rem",
-                fontWeight: "bold",
-              }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.875rem", opacity: 0.8 }}>
-          <span>{currentStory?.pins.length || 0} pins</span>
-          <span>•</span>
-          <span>Created {currentStory ? new Date(currentStory.createdAt).toLocaleDateString() : "today"}</span>
-        </div>
-      </div>
-
-      {/* Story Controls */}
-      <div style={{ display: "flex", gap: "0.75rem" }}>
         <button
-          onClick={playStory}
-          disabled={!currentStory || currentStory.pins.length === 0}
+          onClick={onBack}
           style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            padding: "0.75rem",
-            borderRadius: "0.5rem",
+            padding: "0.5rem",
+            borderRadius: "50%",
             border: "none",
-            background: isPlaying ? "#EF4444" : "#10B981",
+            background: "rgba(255,255,255,0.2)",
             color: "white",
-            cursor: currentStory && currentStory.pins.length > 0 ? "pointer" : "not-allowed",
-            fontWeight: "bold",
-            opacity: currentStory && currentStory.pins.length > 0 ? 1 : 0.5,
+            cursor: "pointer",
           }}
         >
-          <Play size={16} />
-          {isPlaying ? "Playing..." : "Play Story"}
+          <ArrowLeft size={20} />
         </button>
 
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold" }}>Story Mode</h2>
+          <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+            {currentIndex + 1} of {mediaPins.length}
+          </p>
+        </div>
+
         <button
-          onClick={shareStory}
-          disabled={!currentStory || currentStory.pins.length === 0}
+          onClick={() => setShowSettings(!showSettings)}
           style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            padding: "0.75rem",
-            borderRadius: "0.5rem",
+            padding: "0.5rem",
+            borderRadius: "50%",
             border: "none",
-            background: "#3B82F6",
+            background: "rgba(255,255,255,0.2)",
             color: "white",
-            cursor: currentStory && currentStory.pins.length > 0 ? "pointer" : "not-allowed",
-            fontWeight: "bold",
-            opacity: currentStory && currentStory.pins.length > 0 ? 1 : 0.5,
+            cursor: "pointer",
           }}
         >
-          <Share size={16} />
-          Share Story
+          <Settings size={20} />
         </button>
       </div>
 
-      {/* Story Preview/Player */}
-      {isPlaying && currentStory && currentStory.pins.length > 0 && (
+      {/* Settings Panel */}
+      {showSettings && (
         <div
           style={{
-            background: "rgba(0,0,0,0.8)",
-            borderRadius: "1rem",
+            position: "absolute",
+            top: "5rem",
+            right: "1rem",
+            background: "rgba(0,0,0,0.9)",
+            borderRadius: "0.5rem",
             padding: "1rem",
-            textAlign: "center",
+            zIndex: 20,
+            minWidth: "200px",
           }}
         >
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>Playback Settings</h3>
+
           <div style={{ marginBottom: "1rem" }}>
-            <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>
-              {currentPlayIndex + 1} of {currentStory.pins.length}
-            </span>
+            <label style={{ display: "block", fontSize: "0.75rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+              Speed: {playbackSpeed / 1000}s per slide
+            </label>
+            <input
+              type="range"
+              min="1000"
+              max="10000"
+              step="500"
+              value={playbackSpeed}
+              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
           </div>
 
-          {currentStory.pins[currentPlayIndex] && (
-            <div>
-              {currentStory.pins[currentPlayIndex].mediaType === "photo" ? (
-                <img
-                  src={currentStory.pins[currentPlayIndex].mediaUrl || "/placeholder.svg"}
-                  alt={currentStory.pins[currentPlayIndex].title}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "300px",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1rem",
-                  }}
-                />
-              ) : (
-                <video
-                  src={currentStory.pins[currentPlayIndex].mediaUrl}
-                  autoPlay
-                  muted
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "300px",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1rem",
-                  }}
-                />
-              )}
-
-              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.125rem" }}>
-                {currentStory.pins[currentPlayIndex].title}
-              </h3>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  fontSize: "0.875rem",
-                  opacity: 0.8,
-                }}
-              >
-                <MapPin size={14} />
-                <span>{currentStory.pins[currentPlayIndex].location}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Current Story Pins */}
-      {currentStory && currentStory.pins.length > 0 && !isPlaying && (
-        <div>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>
-            📌 Story Pins ({currentStory.pins.length})
-          </h3>
-
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.75rem" }}
-          >
-            {currentStory.pins.map((pin, index) => (
-              <div
-                key={pin.id}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  borderRadius: "0.75rem",
-                  padding: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  position: "relative",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "0.5rem",
-                    left: "0.5rem",
-                    background: "rgba(0,0,0,0.7)",
-                    borderRadius: "50%",
-                    width: "24px",
-                    height: "24px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.75rem",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {index + 1}
-                </div>
-
-                {pin.mediaType === "photo" ? (
-                  <img
-                    src={pin.mediaUrl || "/placeholder.svg"}
-                    alt={pin.title}
-                    style={{
-                      width: "100%",
-                      height: "100px",
-                      objectFit: "cover",
-                      borderRadius: "0.5rem",
-                      marginBottom: "0.5rem",
-                    }}
-                  />
-                ) : (
-                  <video
-                    src={pin.mediaUrl}
-                    style={{
-                      width: "100%",
-                      height: "100px",
-                      objectFit: "cover",
-                      borderRadius: "0.5rem",
-                      marginBottom: "0.5rem",
-                    }}
-                    muted
-                  />
-                )}
-
-                <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>{pin.title}</h4>
-
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", opacity: 0.8 }}
-                >
-                  <MapPin size={12} />
-                  <span>{pin.location}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Add Pins Section */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold" }}>📱 Available Pins ({savedPins.length})</h3>
-
-          {selectedPins.length > 0 && (
-            <button
-              onClick={handleAddSelectedPins}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "0.5rem",
-                border: "none",
-                background: "#10B981",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: "bold",
-              }}
-            >
-              Add {selectedPins.length} Pin{selectedPins.length > 1 ? "s" : ""}
-            </button>
-          )}
-        </div>
-
-        {savedPins.length === 0 ? (
-          <div
+          <button
+            onClick={() => setShowSettings(false)}
             style={{
-              background: "rgba(255,255,255,0.1)",
-              borderRadius: "0.75rem",
-              padding: "2rem",
-              textAlign: "center",
-              border: "2px dashed rgba(255,255,255,0.3)",
+              width: "100%",
+              padding: "0.5rem",
+              borderRadius: "0.25rem",
+              border: "none",
+              background: "#3B82F6",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
             }}
           >
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📍</div>
-            <p style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "bold" }}>No pins yet!</p>
-            <p style={{ margin: "0 0 1.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
-              Go back to capture mode and create your first pin
-            </p>
-            <button
-              onClick={onBackToCapture}
+            Done
+          </button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+        }}
+      >
+        {currentPin && (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+            }}
+          >
+            {currentPin.mediaType === "photo" ? (
+              <img
+                src={currentPin.mediaUrl || "/placeholder.svg"}
+                alt={currentPin.title}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <video
+                src={currentPin.mediaUrl || undefined}
+                autoPlay
+                muted={isMuted}
+                loop
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                }}
+              />
+            )}
+
+            {/* Pin Info Overlay */}
+            <div
               style={{
-                padding: "0.75rem 1.5rem",
+                position: "absolute",
+                bottom: "6rem",
+                left: "1rem",
+                right: "1rem",
+                background: "rgba(0,0,0,0.7)",
                 borderRadius: "0.5rem",
-                border: "none",
-                background: "#3B82F6",
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
+                padding: "1rem",
+                backdropFilter: "blur(10px)",
               }}
             >
-              Start Capturing
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.75rem" }}
-          >
-            {savedPins.map((pin) => (
-              <div
-                key={pin.id}
-                onClick={() => handlePinSelect(pin.id)}
-                style={{
-                  background: selectedPins.includes(pin.id) ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)",
-                  borderRadius: "0.75rem",
-                  padding: "0.75rem",
-                  border: selectedPins.includes(pin.id) ? "2px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  position: "relative",
-                }}
-              >
-                {selectedPins.includes(pin.id) && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "0.5rem",
-                      right: "0.5rem",
-                      background: "#10B981",
-                      borderRadius: "50%",
-                      width: "20px",
-                      height: "20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    ✓
-                  </div>
-                )}
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.125rem", fontWeight: "bold" }}>{currentPin.title}</h3>
+              <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>📍 {currentPin.locationName}</p>
+              {currentPin.description && (
+                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem" }}>{currentPin.description}</p>
+              )}
+              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
+                {new Date(currentPin.timestamp).toLocaleDateString()} at{" "}
+                {new Date(currentPin.timestamp).toLocaleTimeString()}
+              </p>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  {pin.mediaType === "photo" ? <Camera size={14} /> : <Video size={14} />}
-                  <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-                    {new Date(pin.timestamp).toLocaleDateString()}
-                  </span>
-                </div>
-
-                {pin.mediaType === "photo" ? (
-                  <img
-                    src={pin.mediaUrl || "/placeholder.svg"}
-                    alt={pin.title}
+              {/* Audio Player */}
+              {currentPin.audioUrl && (
+                <div style={{ marginTop: "0.75rem" }}>
+                  <audio
+                    src={currentPin.audioUrl}
+                    controls
                     style={{
                       width: "100%",
-                      height: "80px",
-                      objectFit: "cover",
-                      borderRadius: "0.5rem",
-                      marginBottom: "0.5rem",
+                      height: "32px",
+                      background: "rgba(255,255,255,0.1)",
+                      borderRadius: "0.25rem",
                     }}
                   />
-                ) : (
-                  <video
-                    src={pin.mediaUrl}
-                    style={{
-                      width: "100%",
-                      height: "80px",
-                      objectFit: "cover",
-                      borderRadius: "0.5rem",
-                      marginBottom: "0.5rem",
-                    }}
-                    muted
-                  />
-                )}
-
-                <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>{pin.title}</h4>
-
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", opacity: 0.8 }}
-                >
-                  <MapPin size={12} />
-                  <span>{pin.location}</span>
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* Progress Bar */}
       <div
         style={{
-          background: "rgba(59, 130, 246, 0.1)",
-          border: "1px solid rgba(59, 130, 246, 0.3)",
-          borderRadius: "0.75rem",
-          padding: "1rem",
+          position: "absolute",
+          bottom: "4.5rem",
+          left: "1rem",
+          right: "1rem",
+          height: "4px",
+          background: "rgba(255,255,255,0.3)",
+          borderRadius: "2px",
+          overflow: "hidden",
         }}
       >
-        <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>💡 Story Tips</h4>
-        <ul style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.75rem", opacity: 0.9 }}>
-          <li>Select multiple pins to add them to your story</li>
-          <li>Pins will play in the order they were added</li>
-          <li>Use the play button to preview your story</li>
-          <li>Share your completed story with friends</li>
-          <li>Stories are automatically saved as you build them</li>
-        </ul>
+        <div
+          style={{
+            width: `${((currentIndex + 1) / mediaPins.length) * 100}%`,
+            height: "100%",
+            background: "#10B981",
+            transition: "width 0.3s ease",
+          }}
+        />
+      </div>
+
+      {/* Controls */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "1rem",
+          left: "1rem",
+          right: "1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "1rem",
+          background: "rgba(0,0,0,0.7)",
+          borderRadius: "2rem",
+          padding: "1rem",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <button
+          onClick={handlePrevious}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <SkipBack size={20} />
+        </button>
+
+        <button
+          onClick={handlePlayPause}
+          style={{
+            padding: "1rem",
+            borderRadius: "50%",
+            border: "none",
+            background: isPlaying ? "#EF4444" : "#10B981",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+        </button>
+
+        <button
+          onClick={handleNext}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <SkipForward size={20} />
+        </button>
+
+        {currentPin?.mediaType === "video" && (
+          <button
+            onClick={handleMute}
+            style={{
+              padding: "0.75rem",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+        )}
       </div>
     </div>
   )
