@@ -1,495 +1,690 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
-import { Camera, BookOpen, Sparkles, ArrowLeft, FileImage, MapPin } from "lucide-react"
-import { ReliableCamera } from "@/components/reliable-camera"
-import { PinStoryMode } from "@/components/PinStoryMode"
-import { AutoTitleGenerator } from "@/components/AutoTitleGenerator"
-import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
-import { AIAssistant } from "@/components/AIAssistant"
-import { EnhancedAudio } from "@/components/enhanced-audio"
-import { LocationDisplay } from "@/components/LocationDisplay"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { Camera, Video, Mic, MicOff, MapPin, Library, Sparkles, Play } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
-
-export type MediaType = "photo" | "video"
+import { ReliableCamera } from "@/components/reliable-camera"
+import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
+import { PinStoryMode } from "@/components/PinStoryMode"
+import { AutoTitleGenerator } from "@/components/AutoTitleGenerator"
+import { AIAssistant } from "@/components/AIAssistant"
+import { EnhancedAudio } from "@/components/enhanced-audio"
 
 export interface PinData {
   id: string
+  latitude: number
+  longitude: number
+  locationName: string
+  mediaUrl: string | null
+  mediaType: "photo" | "video" | null
+  audioUrl: string | null
+  timestamp: string
   title: string
-  mediaUrl: string
-  mediaType: MediaType
-  location: string
-  coordinates: { lat: number; lng: number }
-  timestamp: number
-  audioUrl?: string
-  effects: string[]
-  stickers: any[]
-  canvasData: any
   description?: string
   tags?: string[]
 }
 
-export interface StoryData {
-  id: string
-  title: string
-  pins: PinData[]
-  createdAt: number
-  isPublic: boolean
-}
-
-export default function Home() {
-  const { location, isLoading: locationLoading, error: locationError } = useLocationServices()
-  const { pins, addPin, removePin, updatePin } = usePinStorage()
-
-  const [currentScreen, setCurrentScreen] = useState<"main" | "capture" | "editor" | "story" | "library">("main")
-  const [capturedMedia, setCapturedMedia] = useState<{ url: string; type: MediaType } | null>(null)
-  const [selectedPin, setSelectedPin] = useState<PinData | null>(null)
-  const [currentStory, setCurrentStory] = useState<StoryData | null>(null)
-  const [showAIAssistant, setShowAIAssistant] = useState(false)
+export default function PINITApp() {
+  // Core state
+  const [currentScreen, setCurrentScreen] = useState<"map" | "camera" | "editor" | "story" | "library">("map")
+  const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [isRecordingAudio, setIsRecordingAudio] = useState(false)
+  const [showAIAssistant, setShowAIAssistant] = useState(false)
+  const [activeTab, setActiveTab] = useState<"pins" | "photos" | "videos" | "postcards">("pins")
+
+  // Media state
+  const [capturedMedia, setCapturedMedia] = useState<{
+    url: string
+    type: "photo" | "video"
+    location: string
+  } | null>(null)
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null)
-  const [currentTitle, setCurrentTitle] = useState("")
+  const [generatedTitle, setGeneratedTitle] = useState<string>("")
 
-  const audioRecorderRef = useRef<any>(null)
+  // Hooks
+  const { location, getCurrentLocation, isLoading: locationLoading, error: locationError } = useLocationServices()
+  const { pins, addPin } = usePinStorage()
+  const audioRef = useRef<any>(null)
 
-  const handleMediaCapture = useCallback((mediaUrl: string, mediaType: MediaType) => {
-    setCapturedMedia({ url: mediaUrl, type: mediaType })
-    setCurrentScreen("editor")
+  // Voice recognition state
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  // Get current location on mount
+  useEffect(() => {
+    getCurrentLocation()
+  }, [getCurrentLocation])
+
+  // Voice recognition setup
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = false
+      recognitionRef.current.interimResults = false
+      recognitionRef.current.lang = "en-US"
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript.toLowerCase()
+        console.log("🎤 Voice command:", transcript)
+
+        if (transcript.includes("pin it") || transcript.includes("pin this")) {
+          handleQuickPin()
+        } else if (transcript.includes("take photo") || transcript.includes("photo")) {
+          setCameraMode("photo")
+          setCurrentScreen("camera")
+        } else if (transcript.includes("record video") || transcript.includes("video")) {
+          setCameraMode("video")
+          setCurrentScreen("camera")
+        } else if (transcript.includes("story mode") || transcript.includes("stories")) {
+          setCurrentScreen("story")
+        }
+
+        setIsListening(false)
+      }
+
+      recognitionRef.current.onerror = () => {
+        setIsListening(false)
+      }
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false)
+      }
+    }
   }, [])
 
-  const handleCreatePin = useCallback(async (): Promise<PinData | null> => {
-    if (!capturedMedia || !location) return null
-
-    const newPin: PinData = {
-      id: Date.now().toString(),
-      title: currentTitle || `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${location.name}`,
-      mediaUrl: capturedMedia.url,
-      mediaType: capturedMedia.type,
-      location: location.name,
-      coordinates: { lat: location.latitude, lng: location.longitude },
-      timestamp: Date.now(),
-      audioUrl: currentAudioUrl || undefined,
-      effects: [],
-      stickers: [],
-      canvasData: null,
+  const startVoiceRecognition = useCallback(() => {
+    if (recognitionRef.current && !isListening) {
+      setIsListening(true)
+      recognitionRef.current.start()
     }
+  }, [isListening])
 
-    addPin(newPin)
+  const handleQuickPin = useCallback(async () => {
+    try {
+      const currentLocation = await getCurrentLocation()
+      const locationName = `Location ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
 
-    // Reset capture state
-    setCapturedMedia(null)
-    setCurrentAudioUrl(null)
-    setCurrentTitle("")
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        locationName,
+        mediaUrl: null,
+        mediaType: null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `📍 Quick Pin - ${locationName}`,
+        description: "Quick pin created via voice command",
+        tags: ["voice", "quick-pin"],
+      }
 
-    return newPin
-  }, [capturedMedia, location, currentTitle, currentAudioUrl, addPin])
+      addPin(newPin)
+      console.log("📍 Quick pin created:", newPin)
+    } catch (error) {
+      console.error("❌ Failed to create quick pin:", error)
+    }
+  }, [getCurrentLocation, addPin])
+
+  const handleCameraCapture = useCallback(
+    (mediaUrl: string, type: "photo" | "video") => {
+      if (!location) return
+
+      const locationName = `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+
+      setCapturedMedia({
+        url: mediaUrl,
+        type,
+        location: locationName,
+      })
+
+      // Start audio recording automatically after capture
+      if (audioRef.current) {
+        setIsRecordingAudio(true)
+        audioRef.current.startRecording()
+      }
+
+      setCurrentScreen("editor")
+    },
+    [location],
+  )
+
+  const handleAudioRecorded = useCallback((audioUrl: string) => {
+    setCurrentAudioUrl(audioUrl)
+    setIsRecordingAudio(false)
+    console.log("🎤 Audio recorded:", audioUrl)
+  }, [])
+
+  const handleSavePin = useCallback(
+    (postcardData?: any) => {
+      if (!capturedMedia || !location) return
+
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: location.latitude,
+        longitude: location.longitude,
+        locationName: capturedMedia.location,
+        mediaUrl: capturedMedia.url,
+        mediaType: capturedMedia.type,
+        audioUrl: currentAudioUrl,
+        timestamp: new Date().toISOString(),
+        title: generatedTitle || `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${capturedMedia.location}`,
+        description: postcardData?.text || "",
+        tags: ["captured"],
+      }
+
+      addPin(newPin)
+      console.log("💾 Pin saved:", newPin)
+
+      // Reset state
+      setCapturedMedia(null)
+      setCurrentAudioUrl(null)
+      setGeneratedTitle("")
+      setCurrentScreen("map")
+    },
+    [capturedMedia, location, currentAudioUrl, generatedTitle, addPin],
+  )
 
   const handleAICommand = useCallback((command: string) => {
     const lowerCommand = command.toLowerCase()
 
-    if (lowerCommand.includes("photo") || lowerCommand.includes("picture")) {
-      setCurrentScreen("capture")
+    if (lowerCommand.includes("photo")) {
+      setCameraMode("photo")
+      setCurrentScreen("camera")
+    } else if (lowerCommand.includes("video")) {
+      setCameraMode("video")
+      setCurrentScreen("camera")
     } else if (lowerCommand.includes("story")) {
       setCurrentScreen("story")
-    } else if (lowerCommand.includes("library") || lowerCommand.includes("pins")) {
+    } else if (lowerCommand.includes("library")) {
       setCurrentScreen("library")
-    } else if (lowerCommand.includes("back") || lowerCommand.includes("home")) {
-      setCurrentScreen("main")
     }
 
     setShowAIAssistant(false)
   }, [])
 
-  const handleStartAudioRecording = useCallback(() => {
-    if (audioRecorderRef.current) {
-      audioRecorderRef.current.startRecording()
-      setIsRecordingAudio(true)
+  const renderLibraryContent = () => {
+    const savedPostcards = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
+
+    switch (activeTab) {
+      case "pins":
+        return (
+          <div style={{ padding: "1rem" }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "white" }}>Your Pins ({pins.length})</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "1rem" }}>
+              {pins.map((pin) => (
+                <div
+                  key={pin.id}
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    borderRadius: "0.5rem",
+                    padding: "1rem",
+                    color: "white",
+                  }}
+                >
+                  {pin.mediaUrl && (
+                    <div style={{ marginBottom: "0.5rem" }}>
+                      {pin.mediaType === "photo" ? (
+                        <img
+                          src={pin.mediaUrl || "/placeholder.svg"}
+                          alt={pin.title}
+                          style={{
+                            width: "100%",
+                            height: "80px",
+                            objectFit: "cover",
+                            borderRadius: "0.25rem",
+                          }}
+                        />
+                      ) : (
+                        <video
+                          src={pin.mediaUrl}
+                          style={{
+                            width: "100%",
+                            height: "80px",
+                            objectFit: "cover",
+                            borderRadius: "0.25rem",
+                          }}
+                          muted
+                        />
+                      )}
+                    </div>
+                  )}
+                  <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem" }}>{pin.title}</h4>
+                  <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                    {new Date(pin.timestamp).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case "photos":
+        const photos = pins.filter((pin) => pin.mediaType === "photo")
+        return (
+          <div style={{ padding: "1rem" }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "white" }}>Photos ({photos.length})</h3>
+            <div
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "0.5rem" }}
+            >
+              {photos.map((pin) => (
+                <img
+                  key={pin.id}
+                  src={pin.mediaUrl || "/placeholder.svg"}
+                  alt={pin.title}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    objectFit: "cover",
+                    borderRadius: "0.25rem",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )
+
+      case "videos":
+        const videos = pins.filter((pin) => pin.mediaType === "video")
+        return (
+          <div style={{ padding: "1rem" }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "white" }}>Videos ({videos.length})</h3>
+            <div
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "0.5rem" }}
+            >
+              {videos.map((pin) => (
+                <video
+                  key={pin.id}
+                  src={pin.mediaUrl || undefined}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    objectFit: "cover",
+                    borderRadius: "0.25rem",
+                  }}
+                  muted
+                />
+              ))}
+            </div>
+          </div>
+        )
+
+      case "postcards":
+        return (
+          <div style={{ padding: "1rem" }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "white" }}>Postcards ({savedPostcards.length})</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "1rem" }}>
+              {savedPostcards.map((postcard: any) => (
+                <div
+                  key={postcard.id}
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    borderRadius: "0.5rem",
+                    overflow: "hidden",
+                    color: "white",
+                  }}
+                >
+                  <img
+                    src={postcard.canvasDataUrl || "/placeholder.svg"}
+                    alt={postcard.text}
+                    style={{
+                      width: "100%",
+                      height: "120px",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <div style={{ padding: "0.75rem" }}>
+                    <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem" }}>{postcard.text}</p>
+                    <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                      {new Date(postcard.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      default:
+        return null
     }
-  }, [])
+  }
 
-  const handleStopAudioRecording = useCallback(() => {
-    if (audioRecorderRef.current) {
-      audioRecorderRef.current.stopRecording()
-      setIsRecordingAudio(false)
-    }
-  }, [])
+  // Screen rendering
+  if (currentScreen === "camera") {
+    return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
+  }
 
-  const handleAudioRecorded = useCallback((audioUrl: string) => {
-    setCurrentAudioUrl(audioUrl)
-    console.log("🎵 Audio recorded:", audioUrl)
-  }, [])
+  if (currentScreen === "editor" && capturedMedia) {
+    return (
+      <>
+        <MobilePostcardEditor
+          mediaUrl={capturedMedia.url}
+          mediaType={capturedMedia.type}
+          platform="instagram-post"
+          dimensions={{ width: 1080, height: 1080 }}
+          locationName={capturedMedia.location}
+          onSave={handleSavePin}
+          onClose={() => setCurrentScreen("map")}
+        />
+        <AutoTitleGenerator
+          mediaUrl={capturedMedia.url}
+          location={capturedMedia.location}
+          mediaType={capturedMedia.type}
+          onTitleGenerated={setGeneratedTitle}
+        />
+      </>
+    )
+  }
 
-  const handleTitleGenerated = useCallback((title: string) => {
-    setCurrentTitle(title)
-  }, [])
+  if (currentScreen === "story") {
+    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
+  }
 
+  if (currentScreen === "library") {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(0,0,0,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            color: "white",
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Library</h1>
+          <button
+            onClick={() => setCurrentScreen("map")}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            Back
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div
+          style={{
+            display: "flex",
+            background: "rgba(0,0,0,0.2)",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          {[
+            { id: "pins", label: "Pins", icon: "📍" },
+            { id: "photos", label: "Photos", icon: "📸" },
+            { id: "videos", label: "Videos", icon: "🎥" },
+            { id: "postcards", label: "Postcards", icon: "📮" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{
+                flex: 1,
+                padding: "1rem",
+                border: "none",
+                background: activeTab === tab.id ? "rgba(255,255,255,0.2)" : "transparent",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                borderBottom: activeTab === tab.id ? "2px solid #10B981" : "none",
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto" }}>{renderLibraryContent()}</div>
+      </div>
+    )
+  }
+
+  // Main map screen
   return (
     <div
       style={{
         position: "fixed",
         top: 0,
         left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%)",
-        color: "white",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        overflow: "hidden",
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        padding: "2rem",
       }}
     >
-      {/* Main Screen */}
-      {currentScreen === "main" && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Header */}
-          <div style={{ padding: "2rem 2rem 1rem 2rem", textAlign: "center" }}>
-            <LocationDisplay location={location} isLoading={locationLoading} />
-          </div>
-
-          {/* Central PINIT Interface */}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-            <div
-              style={{
-                width: "280px",
-                height: "280px",
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                border: "2px solid rgba(255,255,255,0.2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                position: "relative",
-              }}
-              onClick={() => setCurrentScreen("capture")}
-            >
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📍</div>
-                <div style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>TAP TO</div>
-                <div style={{ fontSize: "2rem", fontWeight: "bold" }}>PINIT</div>
-              </div>
-
-              {/* Pulse animation */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: "-10px",
-                  borderRadius: "50%",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  animation: "pulse 2s infinite",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Branding */}
-          <div style={{ textAlign: "center", padding: "1rem 2rem" }}>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: "900", margin: "0 0 0.5rem 0" }}>PINIT</h1>
-            <p style={{ fontSize: "1.125rem", opacity: 0.8, margin: 0 }}>Pin It. Find It. Share It.</p>
-          </div>
-
-          {/* Navigation */}
-          <div style={{ padding: "2rem", display: "flex", justifyContent: "center", gap: "3rem" }}>
-            <button
-              onClick={() => setCurrentScreen("capture")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                color: "rgba(255,255,255,0.7)",
-                cursor: "pointer",
-                transition: "color 0.3s ease",
-              }}
-            >
-              <Camera size={24} />
-              <span style={{ fontSize: "0.875rem" }}>Capture</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentScreen("story")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                color: "rgba(255,255,255,0.7)",
-                cursor: "pointer",
-                transition: "color 0.3s ease",
-              }}
-            >
-              <BookOpen size={24} />
-              <span style={{ fontSize: "0.875rem" }}>Stories</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentScreen("library")}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "1rem",
-                border: "none",
-                background: "transparent",
-                color: "rgba(255,255,255,0.7)",
-                cursor: "pointer",
-                transition: "color 0.3s ease",
-              }}
-            >
-              <FileImage size={24} />
-              <span style={{ fontSize: "0.875rem" }}>Library</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Capture Screen */}
-      {currentScreen === "capture" && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <ReliableCamera
-            onPhotoCapture={(photoUrl) => handleMediaCapture(photoUrl, "photo")}
-            onVideoCapture={(videoUrl) => handleMediaCapture(videoUrl, "video")}
-            isRecording={isRecordingAudio}
-          />
-
-          {/* Back Button */}
-          <button
-            onClick={() => setCurrentScreen("main")}
-            style={{
-              position: "absolute",
-              top: "2rem",
-              left: "2rem",
-              padding: "0.75rem",
-              borderRadius: "50%",
-              border: "none",
-              background: "rgba(0,0,0,0.5)",
-              color: "white",
-              cursor: "pointer",
-              zIndex: 10,
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-        </div>
-      )}
-
-      {/* Editor Screen */}
-      {currentScreen === "editor" && capturedMedia && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <AutoTitleGenerator
-            mediaUrl={capturedMedia.url}
-            location={location?.name}
-            mediaType={capturedMedia.type}
-            onTitleGenerated={handleTitleGenerated}
-          />
-
-          <MobilePostcardEditor
-            mediaUrl={capturedMedia.url}
-            mediaType={capturedMedia.type}
-            location={location?.name || "Unknown Location"}
-            onBack={() => setCurrentScreen("capture")}
-            onAdvancedEdit={() => {
-              // Switch to advanced editor
-            }}
-            onEffectsChange={(effects) => {
-              console.log("Effects changed:", effects)
-            }}
-            onStickersChange={(stickers) => {
-              console.log("Stickers changed:", stickers)
-            }}
-          />
-        </div>
-      )}
-
-      {/* Story Screen */}
-      {currentScreen === "story" && (
-        <PinStoryMode
-          currentStory={currentStory}
-          savedPins={pins}
-          onAddPin={(pin) => {
-            if (currentStory) {
-              setCurrentStory({
-                ...currentStory,
-                pins: [...currentStory.pins, pin],
-              })
-            } else {
-              setCurrentStory({
-                id: Date.now().toString(),
-                title: "My Story",
-                pins: [pin],
-                createdAt: Date.now(),
-                isPublic: false,
-              })
-            }
-          }}
-          onBackToCapture={() => setCurrentScreen("capture")}
-          onCreatePin={handleCreatePin}
-        />
-      )}
-
-      {/* Library Screen */}
-      {currentScreen === "library" && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "2rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-            <button
-              onClick={() => setCurrentScreen("main")}
-              style={{
-                padding: "0.5rem",
-                borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <h2 style={{ fontSize: "1.5rem", margin: 0 }}>📚 Pin Library</h2>
-          </div>
-
-          {pins.length === 0 ? (
-            <div
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}
-            >
-              <div>
-                <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📍</div>
-                <h3 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>No pins yet!</h3>
-                <p style={{ opacity: 0.8, marginBottom: "2rem" }}>Start capturing moments to build your collection</p>
-                <button
-                  onClick={() => setCurrentScreen("capture")}
-                  style={{
-                    padding: "1rem 2rem",
-                    borderRadius: "0.5rem",
-                    border: "none",
-                    background: "#3B82F6",
-                    color: "white",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Start Capturing
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: "1rem", overflowY: "auto" }}>
-              {pins.map((pin) => (
-                <div
-                  key={pin.id}
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    borderRadius: "1rem",
-                    padding: "1rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "80px",
-                      height: "60px",
-                      borderRadius: "0.5rem",
-                      overflow: "hidden",
-                      background: "rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    {pin.mediaType === "photo" ? (
-                      <img
-                        src={pin.mediaUrl || "/placeholder.svg"}
-                        alt={pin.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <video src={pin.mediaUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted />
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{pin.title}</h4>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        fontSize: "0.875rem",
-                        opacity: 0.8,
-                      }}
-                    >
-                      <MapPin size={14} />
-                      <span>{pin.location}</span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.25rem" }}>
-                      {new Date(pin.timestamp).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => removePin(pin.id)}
-                    style={{
-                      padding: "0.5rem",
-                      borderRadius: "0.5rem",
-                      border: "none",
-                      background: "rgba(239, 68, 68, 0.2)",
-                      color: "#EF4444",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* AI Assistant */}
-      {showAIAssistant && <AIAssistant onCommand={handleAICommand} onClose={() => setShowAIAssistant(false)} />}
-
-      {/* Enhanced Audio Recorder */}
-      <EnhancedAudio ref={audioRecorderRef} onAudioRecorded={handleAudioRecorded} isRecording={isRecordingAudio} />
-
-      {/* AI Assistant Trigger */}
-      <button
-        onClick={() => setShowAIAssistant(true)}
+      {/* Header */}
+      <div
         style={{
-          position: "fixed",
-          bottom: "2rem",
+          position: "absolute",
+          top: "2rem",
+          left: "2rem",
           right: "2rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: "bold" }}>PINIT</h1>
+          <p style={{ margin: 0, opacity: 0.8, fontSize: "0.875rem" }}>
+            {location
+              ? `📍 ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+              : "📍 Getting location..."}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowAIAssistant(true)}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <Sparkles size={24} />
+        </button>
+      </div>
+
+      {/* Central Map Circle */}
+      <div
+        style={{
+          width: "280px",
+          height: "280px",
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.1)",
+          border: "3px solid rgba(255,255,255,0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+        }}
+        onClick={handleQuickPin}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+          e.currentTarget.style.transform = "scale(1.05)"
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+          e.currentTarget.style.transform = "scale(1)"
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <MapPin size={48} style={{ marginBottom: "1rem" }} />
+          <p style={{ margin: 0, fontSize: "1.125rem", fontWeight: "bold" }}>Tap to PIN IT!</p>
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.875rem", opacity: 0.8 }}>{pins.length} pins created</p>
+        </div>
+
+        {/* Pin indicators around circle */}
+        {pins.slice(0, 8).map((pin, index) => {
+          const angle = index * 45 * (Math.PI / 180)
+          const radius = 150
+          const x = Math.cos(angle) * radius
+          const y = Math.sin(angle) * radius
+
+          return (
+            <div
+              key={pin.id}
+              style={{
+                position: "absolute",
+                left: `calc(50% + ${x}px - 8px)`,
+                top: `calc(50% + ${y}px - 8px)`,
+                width: "16px",
+                height: "16px",
+                borderRadius: "50%",
+                background: pin.mediaUrl ? "#10B981" : "#6B7280",
+                border: "2px solid white",
+                animation: "pulse 2s infinite",
+              }}
+            />
+          )
+        })}
+      </div>
+
+      {/* Voice Command Button */}
+      <button
+        onClick={startVoiceRecognition}
+        style={{
+          position: "absolute",
+          bottom: "8rem",
+          left: "50%",
+          transform: "translateX(-50%)",
           width: "60px",
           height: "60px",
           borderRadius: "50%",
           border: "none",
-          background: "linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)",
+          background: isListening ? "#EF4444" : "rgba(255,255,255,0.2)",
           color: "white",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-          zIndex: 100,
+          transition: "all 0.3s ease",
         }}
       >
-        <Sparkles size={24} />
+        {isListening ? <MicOff size={24} /> : <Mic size={24} />}
       </button>
+
+      {/* Bottom Navigation */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "2rem",
+          left: "2rem",
+          right: "2rem",
+          display: "flex",
+          justifyContent: "space-around",
+          background: "rgba(0,0,0,0.3)",
+          borderRadius: "2rem",
+          padding: "1rem",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <button
+          onClick={() => {
+            setCameraMode("photo")
+            setCurrentScreen("camera")
+          }}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <Camera size={24} />
+        </button>
+
+        <button
+          onClick={() => {
+            setCameraMode("video")
+            setCurrentScreen("camera")
+          }}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <Video size={24} />
+        </button>
+
+        <button
+          onClick={() => setCurrentScreen("story")}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <Play size={24} />
+        </button>
+
+        <button
+          onClick={() => setCurrentScreen("library")}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          <Library size={24} />
+        </button>
+      </div>
+
+      {/* Enhanced Audio Component */}
+      <EnhancedAudio ref={audioRef} onAudioRecorded={handleAudioRecorded} isRecording={isRecordingAudio} />
+
+      {/* AI Assistant Modal */}
+      {showAIAssistant && <AIAssistant onCommand={handleAICommand} onClose={() => setShowAIAssistant(false)} />}
 
       <style jsx>{`
         @keyframes pulse {
-          0% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.05); }
-          100% { opacity: 1; transform: scale(1); }
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 0.4; }
         }
       `}</style>
     </div>
