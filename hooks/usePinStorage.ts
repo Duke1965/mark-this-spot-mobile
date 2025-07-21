@@ -1,7 +1,22 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { PinData } from "@/app/page"
+
+export interface PinData {
+  id: string
+  title: string
+  mediaUrl: string
+  mediaType: "photo" | "video"
+  location: string
+  coordinates: { lat: number; lng: number }
+  timestamp: number
+  audioUrl?: string
+  effects: string[]
+  stickers: any[]
+  canvasData: any
+  description?: string
+  tags?: string[]
+}
 
 export function usePinStorage() {
   const [pins, setPins] = useState<PinData[]>([])
