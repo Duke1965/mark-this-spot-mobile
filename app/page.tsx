@@ -471,7 +471,7 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -480,27 +480,14 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
-      {/* Header */}
+      {/* AI Assistant Button - Top Right */}
       <div
         style={{
           position: "absolute",
           top: "2rem",
-          left: "2rem",
           right: "2rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
-        <div>
-          <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: "bold" }}>PINIT</h1>
-          <p style={{ margin: 0, opacity: 0.8, fontSize: "0.875rem" }}>
-            {location
-              ? `📍 ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
-              : "📍 Getting location..."}
-          </p>
-        </div>
-
         <button
           onClick={() => setShowAIAssistant(true)}
           style={{
@@ -516,35 +503,86 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* Central Map Circle */}
+      {/* Central Map Circle - Higher Position */}
       <div
         style={{
+          position: "absolute",
+          top: "25%",
+          left: "50%",
+          transform: "translateX(-50%)",
           width: "280px",
           height: "280px",
           borderRadius: "50%",
-          background: "rgba(255,255,255,0.1)",
-          border: "3px solid rgba(255,255,255,0.3)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
+          border: "4px solid rgba(255,255,255,0.8)",
+          overflow: "hidden",
           cursor: "pointer",
           transition: "all 0.3s ease",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
         }}
         onClick={handleQuickPin}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.2)"
-          e.currentTarget.style.transform = "scale(1.05)"
+          e.currentTarget.style.transform = "translateX(-50%) scale(1.05)"
+          e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-          e.currentTarget.style.transform = "scale(1)"
+          e.currentTarget.style.transform = "translateX(-50%) scale(1)"
+          e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"
         }}
       >
-        <div style={{ textAlign: "center" }}>
-          <MapPin size={48} style={{ marginBottom: "1rem" }} />
-          <p style={{ margin: 0, fontSize: "1.125rem", fontWeight: "bold" }}>Tap to PIN IT!</p>
-          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.875rem", opacity: 0.8 }}>{pins.length} pins created</p>
+        {/* Live Map Background */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: location
+              ? `radial-gradient(circle at center, rgba(59,130,246,0.3) 0%, rgba(59,130,246,0.1) 70%, transparent 100%), 
+           conic-gradient(from 0deg at 50% 50%, #10B981 0deg, #3B82F6 120deg, #8B5CF6 240deg, #10B981 360deg)`
+              : "linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)",
+            opacity: 0.8,
+          }}
+        />
+
+        {/* Center Content */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            background: "rgba(0,0,0,0.2)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
+          <MapPin
+            size={48}
+            style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}
+          />
+          <p
+            style={{
+              margin: 0,
+              fontSize: "1.125rem",
+              fontWeight: "bold",
+              color: "white",
+              textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+            }}
+          >
+            Tap to PINIT!
+          </p>
+          <p
+            style={{
+              margin: "0.25rem 0 0 0",
+              fontSize: "0.875rem",
+              opacity: 0.9,
+              color: "white",
+              textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+            }}
+          >
+            {pins.length} pins created
+          </p>
         </div>
 
         {/* Pin indicators around circle */}
@@ -567,10 +605,45 @@ export default function PINITApp() {
                 background: pin.mediaUrl ? "#10B981" : "#6B7280",
                 border: "2px solid white",
                 animation: "pulse 2s infinite",
+                zIndex: 3,
               }}
             />
           )
         })}
+      </div>
+
+      {/* PINIT Branding - Under Circle */}
+      <div
+        style={{
+          position: "absolute",
+          top: "60%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          textAlign: "center",
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "3rem",
+            fontWeight: "bold",
+            color: "white",
+            textShadow: "0 4px 8px rgba(0,0,0,0.3)",
+          }}
+        >
+          PINIT
+        </h1>
+        <p
+          style={{
+            margin: "0.5rem 0 0 0",
+            opacity: 0.9,
+            fontSize: "1rem",
+            color: "white",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+          }}
+        >
+          {location ? `📍 ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : "📍 Getting location..."}
+        </p>
       </div>
 
       {/* Voice Command Button */}
@@ -578,7 +651,7 @@ export default function PINITApp() {
         onClick={startVoiceRecognition}
         style={{
           position: "absolute",
-          bottom: "8rem",
+          bottom: "12rem",
           left: "50%",
           transform: "translateX(-50%)",
           width: "60px",
@@ -592,6 +665,7 @@ export default function PINITApp() {
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.3s ease",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
         }}
       >
         {isListening ? <MicOff size={24} /> : <Mic size={24} />}
