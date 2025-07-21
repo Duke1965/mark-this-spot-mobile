@@ -382,7 +382,7 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "25%",
+          top: "15%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
@@ -397,14 +397,7 @@ export default function PINITApp() {
             height: "280px",
             borderRadius: "50%",
             border: "4px solid rgba(255,255,255,0.8)",
-            background: isQuickPinning
-              ? "radial-gradient(circle, rgba(16,185,129,0.8) 0%, rgba(16,185,129,0.4) 70%, transparent 100%)"
-              : quickPinSuccess
-                ? "radial-gradient(circle, rgba(34,197,94,0.8) 0%, rgba(34,197,94,0.4) 70%, transparent 100%)"
-                : location
-                  ? `radial-gradient(circle at center, rgba(59,130,246,0.3) 0%, rgba(59,130,246,0.1) 70%, transparent 100%), 
-           conic-gradient(from 0deg at 50% 50%, #10B981 0deg, #3B82F6 120deg, #8B5CF6 240deg, #10B981 360deg)`
-                  : "linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)",
+            background: "transparent",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
             boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
@@ -431,6 +424,29 @@ export default function PINITApp() {
             }
           }}
         >
+          {/* Live Map Background */}
+          {location && (
+            <div
+              style={{
+                position: "absolute",
+                inset: "4px",
+                borderRadius: "50%",
+                overflow: "hidden",
+                zIndex: 1,
+              }}
+            >
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"}&center=${location.latitude},${location.longitude}&zoom=16&maptype=satellite`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  transform: "scale(1.2)",
+                }}
+                loading="lazy"
+              />
+            </div>
+          )}
           {isQuickPinning ? (
             <>
               <div
@@ -461,19 +477,6 @@ export default function PINITApp() {
             </>
           )}
         </button>
-
-        {/* Pin Count */}
-        <p
-          style={{
-            margin: "1rem 0 0 0",
-            fontSize: "0.875rem",
-            opacity: 0.9,
-            color: "white",
-            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-          }}
-        >
-          {pins.length} pins created
-        </p>
       </div>
 
       {/* PINIT Branding - Under Circle */}
@@ -508,6 +511,17 @@ export default function PINITApp() {
         >
           📍 {locationName}
         </p>
+        <p
+          style={{
+            margin: "0.25rem 0 0 0",
+            fontSize: "0.875rem",
+            opacity: 0.7,
+            color: "white",
+            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+          }}
+        >
+          {pins.length} pins created
+        </p>
       </div>
 
       {/* Bottom Navigation - Photo/Video/Library */}
@@ -519,10 +533,10 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
-          background: "rgba(0,0,0,0.2)",
+          background: "transparent",
           borderRadius: "2rem",
           padding: "1.5rem",
-          backdropFilter: "blur(10px)",
+          backdropFilter: "none",
         }}
       >
         <button
