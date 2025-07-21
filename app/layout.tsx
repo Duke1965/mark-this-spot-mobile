@@ -3,9 +3,9 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "PINIT Enhanced - Location-Based Media Capture",
-  description: "Mobile-first location-based media capture and storytelling app",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  title: "PINIT - Pin It. Find It. Share It.",
+  description: "Location-based discovery and sharing app",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 }
 
 export default function RootLayout({
