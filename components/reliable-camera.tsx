@@ -45,7 +45,7 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
         },
-        audio: false, // Don't request audio for camera stream
+        audio: false,
       }
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -65,8 +65,8 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
                 console.log(`📷 Camera ready - ${facingMode} facing, ${isVideoMode ? "video" : "photo"} mode`)
               })
               .catch((error) => {
-                console.error("Video play error:", error)
-                // Don't restart camera on play error, just mark as ready
+                console.warn("Video play warning:", error)
+                // Still mark as ready since camera stream is available
                 setIsCameraReady(true)
               })
           }
@@ -74,13 +74,13 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
 
         videoRef.current.onerror = (error) => {
           console.error("Video element error:", error)
-          setIsCameraReady(true) // Still mark as ready to prevent infinite loops
+          setIsCameraReady(true)
         }
       }
     } catch (error) {
       console.error("❌ Camera access error:", error)
       setCameraError("Camera access denied. Please allow camera permissions.")
-      setIsCameraReady(true) // Mark as ready even on error to prevent loops
+      setIsCameraReady(true)
     }
   }, [facingMode, isVideoMode])
 
@@ -93,7 +93,7 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
     }
-  }, []) // Empty dependency array - only run once
+  }, [])
 
   // Handle facing mode changes
   useEffect(() => {
@@ -220,51 +220,179 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
   }
 
   return (
-    <div className="flex-1 relative overflow-hidden bg-black">
-      {/* Camera Feed */}
+    <div className="flex-1 relative overflow-hidden">
+      {/* Camera Feed - Full Background */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          transform: facingMode === "user" ? "scaleX(-1)" : "none",
+          zIndex: 1,
+        }}
       />
 
       {/* Circular Viewfinder Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        {/* Dark overlay with circular hole */}
-        <div
-          className="absolute inset-0 bg-black"
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2,
+          pointerEvents: "none",
+        }}
+      >
+        {/* Dark overlay with hole cut out */}
+        <svg
+          width="100%"
+          height="100%"
           style={{
-            maskImage: "radial-gradient(circle at center, transparent 120px, black 140px)",
-            WebkitMaskImage: "radial-gradient(circle at center, transparent 120px, black 140px)",
+            position: "absolute",
+            top: 0,
+            left: 0,
           }}
-        />
-
-        {/* Circular border with drop shadow */}
-        <div
-          className="w-60 h-60 rounded-full border-4 border-white/30"
-          style={{
-            boxShadow: "inset 0 0 20px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3)",
-          }}
-        />
+        >
+          <defs>
+            <mask id="hole">
+              <rect width="100%" height="100%" fill="white" />
+              <circle cx="50%" cy="50%" r="150" fill="black" />
+            </mask>
+            <filter id="shadow">
+              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="black" floodOpacity="0.5" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#hole)" />
+          <circle
+            cx="50%"
+            cy="50%"
+            r="150"
+            fill="none"
+            stroke="rgba(255,255,255,0.3)"
+            strokeWidth="3"
+            filter="url(#shadow)"
+          />
+        </svg>
 
         {/* Center crosshair */}
-        <div className="absolute w-8 h-8 flex items-center justify-center">
-          <div className="w-full h-0.5 bg-white/50 absolute" />
-          <div className="h-full w-0.5 bg-white/50 absolute" />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "30px",
+            height: "30px",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "0",
+              right: "0",
+              height: "1px",
+              background: "rgba(255,255,255,0.6)",
+              transform: "translateY(-50%)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "0",
+              bottom: "0",
+              width: "1px",
+              background: "rgba(255,255,255,0.6)",
+              transform: "translateX(-50%)",
+            }}
+          />
         </div>
+
+        {/* Corner guides */}
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(50% - 120px)",
+            left: "calc(50% - 120px)",
+            width: "20px",
+            height: "20px",
+            borderTop: "2px solid rgba(255,255,255,0.4)",
+            borderLeft: "2px solid rgba(255,255,255,0.4)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(50% - 120px)",
+            right: "calc(50% - 120px)",
+            width: "20px",
+            height: "20px",
+            borderTop: "2px solid rgba(255,255,255,0.4)",
+            borderRight: "2px solid rgba(255,255,255,0.4)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(50% - 120px)",
+            left: "calc(50% - 120px)",
+            width: "20px",
+            height: "20px",
+            borderBottom: "2px solid rgba(255,255,255,0.4)",
+            borderLeft: "2px solid rgba(255,255,255,0.4)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(50% - 120px)",
+            right: "calc(50% - 120px)",
+            width: "20px",
+            height: "20px",
+            borderBottom: "2px solid rgba(255,255,255,0.4)",
+            borderRight: "2px solid rgba(255,255,255,0.4)",
+          }}
+        />
       </div>
 
       {/* Camera Controls */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4">
+      <div
+        style={{
+          position: "absolute",
+          bottom: "1.5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          zIndex: 10,
+        }}
+      >
         {/* Mode Toggle */}
         <button
           onClick={() => setIsVideoMode(!isVideoMode)}
-          className={`p-3 rounded-full transition-all ${
-            isVideoMode ? "bg-red-500/80" : "bg-white/20"
-          } backdrop-blur-sm`}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: isVideoMode ? "rgba(239, 68, 68, 0.8)" : "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: "blur(10px)",
+          }}
           title={isVideoMode ? "Switch to Photo" : "Switch to Video"}
         >
           {isVideoMode ? <Camera size={20} /> : <Video size={20} />}
@@ -274,29 +402,69 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
         <button
           onClick={handleCaptureClick}
           disabled={!isCameraReady}
-          className={`w-20 h-20 rounded-full border-4 transition-all ${
-            isVideoRecording
-              ? "border-red-500 bg-red-500 scale-90"
-              : isVideoMode
-                ? "border-red-500 bg-red-500/20"
-                : "border-white bg-white/20"
-          } backdrop-blur-sm disabled:opacity-50`}
+          style={{
+            width: "80px",
+            height: "80px",
+            borderRadius: "50%",
+            border: isVideoRecording ? "4px solid #EF4444" : "4px solid white",
+            background: isVideoRecording ? "#EF4444" : isVideoMode ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.2)",
+            cursor: isCameraReady ? "pointer" : "not-allowed",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: isVideoRecording ? "scale(0.9)" : "scale(1)",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(10px)",
+            opacity: isCameraReady ? 1 : 0.5,
+          }}
         >
           {isVideoMode ? (
             isVideoRecording ? (
-              <div className="w-6 h-6 bg-white rounded-sm mx-auto" />
+              <div
+                style={{
+                  width: "20px",
+                  height: "20px",
+                  background: "white",
+                  borderRadius: "2px",
+                }}
+              />
             ) : (
-              <div className="w-8 h-8 bg-white rounded-full mx-auto" />
+              <div
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  background: "white",
+                  borderRadius: "50%",
+                }}
+              />
             )
           ) : (
-            <div className="w-16 h-16 bg-blue-500 rounded-full mx-auto" />
+            <div
+              style={{
+                width: "60px",
+                height: "60px",
+                background: "#3B82F6",
+                borderRadius: "50%",
+              }}
+            />
           )}
         </button>
 
         {/* Camera Flip */}
         <button
           onClick={toggleCamera}
-          className="p-3 rounded-full bg-white/20 backdrop-blur-sm transition-colors hover:bg-white/30"
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: "blur(10px)",
+          }}
           title="Flip Camera"
         >
           <RotateCcw size={20} />
@@ -304,14 +472,32 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
       </div>
 
       {/* Top Controls */}
-      <div className="absolute top-6 right-6 flex gap-2">
+      <div
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          right: "1.5rem",
+          display: "flex",
+          gap: "0.5rem",
+          zIndex: 10,
+        }}
+      >
         {/* Flash Toggle (Photo mode only) */}
         {!isVideoMode && (
           <button
             onClick={() => setFlashEnabled(!flashEnabled)}
-            className={`p-2 rounded-full transition-all ${
-              flashEnabled ? "bg-yellow-500/80" : "bg-white/20"
-            } backdrop-blur-sm`}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "50%",
+              border: "none",
+              background: flashEnabled ? "rgba(255, 255, 0, 0.8)" : "rgba(255,255,255,0.2)",
+              color: flashEnabled ? "black" : "white",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backdropFilter: "blur(10px)",
+            }}
             title={flashEnabled ? "Disable Flash" : "Enable Flash"}
           >
             {flashEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
@@ -321,23 +507,81 @@ export function ReliableCamera({ onPhotoCapture, onVideoCapture, isRecording }: 
 
       {/* Recording Indicator */}
       {isVideoRecording && (
-        <div className="absolute top-6 left-6 flex items-center gap-2 bg-red-500/90 px-3 py-2 rounded-full backdrop-blur-sm">
-          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-          <span className="text-sm font-bold">REC</span>
+        <div
+          style={{
+            position: "absolute",
+            top: "1.5rem",
+            left: "1.5rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            background: "rgba(239, 68, 68, 0.9)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            color: "white",
+            fontSize: "0.875rem",
+            fontWeight: "bold",
+            backdropFilter: "blur(10px)",
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              width: "8px",
+              height: "8px",
+              background: "white",
+              borderRadius: "50%",
+              animation: "pulse 1s infinite",
+            }}
+          />
+          REC
         </div>
       )}
 
       {/* Loading Indicator */}
       {!isCameraReady && !cameraError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            <span className="text-white/80">Starting camera...</span>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.8)",
+            zIndex: 20,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderTop: "2px solid white",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>Starting camera...</span>
           </div>
         </div>
       )}
 
-      <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
