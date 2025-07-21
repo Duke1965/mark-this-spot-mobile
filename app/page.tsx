@@ -1,239 +1,106 @@
 "use client"
 
-import { useState, useRef, useCallback, useMemo } from "react"
-import { Camera, Mic, MicOff, X } from "lucide-react"
-import { useLocationServices } from "@/hooks/useLocationServices"
-import { usePinStorage } from "@/hooks/usePinStorage"
-import { LocationDisplay } from "@/components/LocationDisplay"
-import { SimpleCamera } from "@/components/simple-camera"
-import { EnhancedAudio, type EnhancedAudioRef } from "@/components/enhanced-audio"
-
-export type MediaType = "photo" | "video"
-
-export interface PinData {
-  id: string
-  title: string
-  mediaUrl: string
-  mediaType: MediaType
-  location: string
-  coordinates: { lat: number; lng: number }
-  timestamp: number
-  audioUrl?: string
-  effects: string[]
-  stickers: any[]
-  canvasData: any
-}
+import { useState } from "react"
+import { MapPin, Camera, VolumeX, Volume2, Navigation } from "lucide-react"
 
 export default function Home() {
-  // State
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<MediaType>("photo")
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [isRecording, setIsRecording] = useState(false)
-  const [currentTitle, setCurrentTitle] = useState<string>("")
-  const [effects, setEffects] = useState<string[]>([])
-  const [stickers, setStickers] = useState<any[]>([])
-  const [canvasData, setCanvasData] = useState<any>(null)
-
-  // Refs
-  const audioRef = useRef<EnhancedAudioRef>(null)
-
-  // Custom hooks
-  const { location, isLoading } = useLocationServices()
-  const { pins, addPin } = usePinStorage()
-
-  // Memoized handlers to prevent unnecessary re-renders
-  const handlePhotoCapture = useCallback((photoUrl: string) => {
-    setMediaUrl(photoUrl)
-    setMediaType("photo")
-  }, [])
-
-  const handleVideoCapture = useCallback((videoUrl: string) => {
-    setMediaUrl(videoUrl)
-    setMediaType("video")
-  }, [])
-
-  const handleAudioRecorded = useCallback((url: string) => {
-    setAudioUrl(url)
-  }, [])
-
-  const resetCapture = useCallback(() => {
-    setMediaUrl(null)
-    setAudioUrl(null)
-    setCurrentTitle("")
-    setEffects([])
-    setStickers([])
-    setCanvasData(null)
-  }, [])
-
-  const createPin = useCallback(async (): Promise<PinData | null> => {
-    if (!mediaUrl || !location) return null
-
-    const newPin: PinData = {
-      id: `pin-${Date.now()}`,
-      title: currentTitle || `${mediaType === "photo" ? "Photo" : "Video"} from ${location.name}`,
-      mediaUrl,
-      mediaType,
-      location: location.name,
-      coordinates: { lat: location.latitude, lng: location.longitude },
-      timestamp: Date.now(),
-      audioUrl: audioUrl || undefined,
-      effects,
-      stickers,
-      canvasData,
-    }
-
-    addPin(newPin)
-    resetCapture()
-    return newPin
-  }, [mediaUrl, location, currentTitle, mediaType, audioUrl, effects, stickers, canvasData, addPin, resetCapture])
-
-  const toggleAudioRecording = useCallback(() => {
-    if (isRecording) {
-      audioRef.current?.stopRecording()
-    } else {
-      audioRef.current?.startRecording()
-    }
-    setIsRecording(!isRecording)
-  }, [isRecording])
-
-  // Memoized components to prevent unnecessary re-renders
-  const cameraComponent = useMemo(
-    () => (
-      <SimpleCamera onPhotoCapture={handlePhotoCapture} onVideoCapture={handleVideoCapture} isRecording={isRecording} />
-    ),
-    [handlePhotoCapture, handleVideoCapture, isRecording],
-  )
+  const [isMuted, setIsMuted] = useState(false)
 
   return (
-    <main className="flex flex-col h-screen bg-black text-white overflow-hidden">
-      {/* App Header */}
-      <header className="bg-black/80 p-4 pb-6 flex justify-between items-center z-10 min-h-[80px]">
-        <div className="flex items-center gap-2">
-          <div className="bg-gradient-to-r from-purple-600 to-blue-500 p-2 rounded-lg">
-            <Camera size={24} />
+    <main className="flex flex-col h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 text-white overflow-hidden">
+      {/* Header */}
+      <header className="bg-black/20 backdrop-blur-sm p-4 flex justify-between items-center z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-r from-red-500 to-pink-500 p-2 rounded-lg">
+            <MapPin size={24} />
           </div>
-          <h1 className="text-xl font-bold">PINIT</h1>
+          <h1 className="text-2xl font-bold">PINIT</h1>
         </div>
 
         <div className="flex items-center gap-4">
-          <LocationDisplay location={location} isLoading={isLoading} />
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 relative flex items-center justify-center">
-        {/* Circular Viewfinder */}
-        <div className="relative w-[80vw] max-w-[400px] h-[80vw] max-h-[400px]">
-          <div className="absolute inset-0 rounded-full overflow-hidden">
-            {/* Camera View */}
-            {!mediaUrl && cameraComponent}
+      <div className="flex-1 flex flex-col items-center justify-center relative">
+        {/* Circular Map Container */}
+        <div className="relative w-[85vw] max-w-[400px] h-[85vw] max-h-[400px]">
+          <div className="absolute inset-0 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl bg-gradient-to-br from-blue-500 to-purple-600">
+            <div className="w-full h-full flex items-center justify-center text-white">
+              <div className="text-center">
+                <div className="text-4xl mb-2">🗺️</div>
+                <div className="text-sm">Loading Maps...</div>
+              </div>
+            </div>
           </div>
 
-          {/* Location Name */}
-          {location && (
-            <div className="absolute bottom-[-40px] left-0 w-full text-center text-sm opacity-80">
-              📍 {location.name}
+          {/* Pulse Animation Ring */}
+          <div className="absolute inset-0 rounded-full border-2 border-blue-400/50 animate-ping" />
+
+          {/* Location Crosshair */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="w-8 h-8 relative">
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 transform -translate-y-1/2" />
+              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500 transform -translate-x-1/2" />
+              <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-red-500 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
             </div>
-          )}
-
-          {/* Audio Recording */}
-          <EnhancedAudio ref={audioRef} onAudioRecorded={handleAudioRecorded} isRecording={isRecording} />
-
-          {/* Audio Control Button */}
-          {!mediaUrl && (
-            <button
-              onMouseDown={toggleAudioRecording}
-              onMouseUp={toggleAudioRecording}
-              onTouchStart={toggleAudioRecording}
-              onTouchEnd={toggleAudioRecording}
-              className={`absolute top-2 right-2 p-2 rounded-full transition-all z-10 ${
-                isRecording ? "bg-red-500 scale-110" : "bg-white/20 hover:bg-white/30"
-              }`}
-              title="Hold to record audio"
-            >
-              {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
-            </button>
-          )}
-
-          {/* Camera Button */}
-          {!mediaUrl && (
-            <button
-              onClick={() => {
-                const video = document.querySelector("video")
-                if (video) {
-                  // If video is playing, capture a video
-                  ;(cameraComponent.props.onVideoCapture as any)("video_url") // Replace "video_url" with actual video capture logic
-                } else {
-                  // Otherwise, capture a photo
-                  ;(cameraComponent.props.onPhotoCapture as any)("photo_url") // Replace "photo_url" with actual photo capture logic
-                }
-              }}
-              className="absolute bottom-[-100px] left-1/2 -translate-x-1/2 p-4 bg-white text-black rounded-full shadow-lg hover:scale-110 transition-transform"
-            >
-              <Camera size={24} />
-            </button>
-          )}
+          </div>
         </div>
+
+        {/* Location Name */}
+        <div className="mt-6 text-center">
+          <div className="flex items-center justify-center gap-2 text-white">
+            <MapPin size={16} className="text-red-500" />
+            <span className="text-lg font-semibold">Getting location...</span>
+          </div>
+          <div className="text-sm text-white/70 mt-1">Enable location services for full experience</div>
+        </div>
+
+        {/* Main PIN IT Button */}
+        <button
+          onClick={() => alert("📍 Location pinned! (Demo mode)")}
+          className="mt-8 px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 transform"
+        >
+          📍 PIN THIS SPOT!
+        </button>
+
+        {/* Secondary Actions */}
+        <div className="mt-6 flex gap-4">
+          <button
+            onClick={() => alert("📷 Camera coming soon!")}
+            className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+            title="Take Photo/Video"
+          >
+            <Camera size={24} className="text-white" />
+          </button>
+
+          <button
+            onClick={() => alert("📚 Library coming soon!")}
+            className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-colors relative"
+            title="View Saved Pins"
+          >
+            <Navigation size={24} className="text-white" />
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              0
+            </div>
+          </button>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="mt-4 text-center text-white/60 text-sm">Ready to start discovering amazing places!</div>
       </div>
 
-      {/* Media Preview & Pin Creation */}
-      {mediaUrl && (
-        <div className="absolute inset-0 flex flex-col">
-          {/* Preview */}
-          <div className="flex-1 flex items-center justify-center bg-black">
-            {mediaType === "photo" ? (
-              <img
-                src={mediaUrl || "/placeholder.svg"}
-                alt="Captured"
-                className="max-w-full max-h-full object-contain"
-              />
-            ) : (
-              <video src={mediaUrl} className="max-w-full max-h-full object-contain" controls autoPlay muted />
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="bg-black/90 p-4 flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800">
-                {mediaType === "photo" ? (
-                  <img src={mediaUrl || "/placeholder.svg"} alt="Captured" className="w-full h-full object-cover" />
-                ) : (
-                  <video src={mediaUrl} className="w-full h-full object-cover" muted />
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="font-bold">{mediaType === "photo" ? "📸 Photo" : "🎥 Video"} Captured</div>
-                {audioUrl && (
-                  <div className="text-sm opacity-80 flex items-center gap-1">
-                    🎵 Audio recorded
-                    <audio src={audioUrl} controls className="h-6 w-24" />
-                  </div>
-                )}
-                <div className="text-xs opacity-60">{location ? `📍 ${location.name}` : "Location unavailable"}</div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={createPin}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
-              >
-                Save Pin
-              </button>
-
-              <button
-                onClick={resetCapture}
-                className="bg-white/20 hover:bg-white/30 text-white py-3 px-4 rounded-lg flex items-center justify-center transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Development Info */}
+      <div className="fixed bottom-4 left-4 bg-black/50 text-white p-2 rounded text-xs">
+        PINIT Demo Mode | Next.js 15 | Ready to explore! 🚀
+      </div>
     </main>
   )
 }
