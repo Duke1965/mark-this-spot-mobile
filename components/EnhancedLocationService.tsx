@@ -1,131 +1,62 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-
-interface LocationDetails {
-  name: string
-  category: string
-  vicinity: string
-  rating?: number
-  priceLevel?: number
-  types: string[]
-  placeId?: string
-}
+import { useEffect, useState } from "react"
 
 interface EnhancedLocationServiceProps {
   latitude: number
   longitude: number
-  onLocationEnhanced: (details: LocationDetails) => void
+  onLocationEnhanced: (details: any) => void
 }
 
 export function EnhancedLocationService({ latitude, longitude, onLocationEnhanced }: EnhancedLocationServiceProps) {
-  const [isLoading, setIsLoading] = useState(false)
-
-  const enhanceLocation = useCallback(async () => {
-    setIsLoading(true)
-
-    try {
-      // First try Google Places API (if available)
-      if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=50&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
-        )
-
-        if (response.ok) {
-          const data = await response.json()
-          if (data.results && data.results.length > 0) {
-            const place = data.results[0]
-            const details: LocationDetails = {
-              name: place.name,
-              category: place.types[0]?.replace(/_/g, " ") || "location",
-              vicinity: place.vicinity || "",
-              rating: place.rating,
-              priceLevel: place.price_level,
-              types: place.types,
-              placeId: place.place_id,
-            }
-            onLocationEnhanced(details)
-            setIsLoading(false)
-            return
-          }
-        }
-      }
-
-      // Fallback to reverse geocoding
-      const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // Determine category based on location data
-        let category = "location"
-        if (data.locality?.toLowerCase().includes("beach")) category = "beach"
-        else if (data.locality?.toLowerCase().includes("park")) category = "nature"
-        else if (data.locality?.toLowerCase().includes("mall") || data.locality?.toLowerCase().includes("shop"))
-          category = "shopping"
-        else if (data.city) category = "city"
-
-        const details: LocationDetails = {
-          name: data.locality || data.city || `${data.latitude?.toFixed(4)}, ${data.longitude?.toFixed(4)}`,
-          category,
-          vicinity: `${data.city || ""}, ${data.countryName || ""}`.trim().replace(/^,\s*/, ""),
-          types: [category],
-        }
-
-        onLocationEnhanced(details)
-      }
-    } catch (error) {
-      console.error("Failed to enhance location:", error)
-      // Fallback to basic location
-      onLocationEnhanced({
-        name: `Location ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-        category: "location",
-        vicinity: "Unknown area",
-        types: ["location"],
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [latitude, longitude, onLocationEnhanced])
+  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
-    enhanceLocation()
-  }, [enhanceLocation])
+    const enhanceLocation = async () => {
+      if (isProcessing) return
+      setIsProcessing(true)
 
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: "5rem",
-          right: "1rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          color: "white",
-          fontSize: "0.875rem",
-          background: "rgba(0,0,0,0.5)",
-          padding: "0.5rem 1rem",
-          borderRadius: "0.5rem",
-          backdropFilter: "blur(10px)",
-        }}
-      >
-        <div
-          style={{
-            width: "16px",
-            height: "16px",
-            border: "2px solid rgba(255,255,255,0.3)",
-            borderTop: "2px solid white",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        Enhancing location...
-      </div>
-    )
+      try {
+        // Simulate enhanced location detection
+        // In production, this would use Google Places API or similar
+        const mockLocationDetails = {
+          category: detectLocationCategory(latitude, longitude),
+          types: ["establishment", "point_of_interest"],
+          name: "Current Location",
+          vicinity: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          rating: Math.random() * 2 + 3, // 3-5 rating
+          priceLevel: Math.floor(Math.random() * 4) + 1, // 1-4 price level
+        }
+
+        onLocationEnhanced(mockLocationDetails)
+      } catch (error) {
+        console.error("Failed to enhance location:", error)
+      } finally {
+        setIsProcessing(false)
+      }
+    }
+
+    enhanceLocation()
+  }, [latitude, longitude, onLocationEnhanced, isProcessing])
+
+  // This component doesn't render anything visible
+  return null
+}
+
+function detectLocationCategory(lat: number, lng: number): string {
+  // Simple heuristic based on coordinates
+  // In production, this would use actual location data
+
+  // Coastal areas (simplified)
+  if (Math.abs(lat) < 60 && (lng < -100 || lng > 100)) {
+    return "beach"
   }
 
-  return null
+  // Urban areas (simplified - near major cities)
+  if (Math.abs(lat) > 30 && Math.abs(lat) < 60) {
+    return "urban"
+  }
+
+  // Default to nature
+  return "nature"
 }
