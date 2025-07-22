@@ -532,13 +532,13 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "20%",
+          top: "18%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
         }}
       >
-        {/* Multiple Pulsing Glow Rings - Enhanced Shazam Style */}
+        {/* Multiple Pulsing Glow Rings - ENHANCED VISIBILITY */}
         <div
           style={{
             position: "absolute",
@@ -548,8 +548,8 @@ export default function PINITApp() {
             width: "320px",
             height: "320px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)",
-            animation: "shazamPulse 3s ease-in-out infinite",
+            background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
+            animation: "shazamPulse 2s ease-in-out infinite",
             zIndex: 1,
           }}
         />
@@ -562,8 +562,9 @@ export default function PINITApp() {
             width: "360px",
             height: "360px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
-            animation: "shazamPulse 3s ease-in-out infinite 1s",
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.08) 50%, transparent 70%)",
+            animation: "shazamPulse 2s ease-in-out infinite 0.7s",
             zIndex: 1,
           }}
         />
@@ -576,8 +577,9 @@ export default function PINITApp() {
             width: "400px",
             height: "400px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)",
-            animation: "shazamPulse 3s ease-in-out infinite 2s",
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 70%)",
+            animation: "shazamPulse 2s ease-in-out infinite 1.4s",
             zIndex: 1,
           }}
         />
@@ -620,7 +622,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - WORKING VERSION */}
+          {/* LIVE MAPS BACKGROUND - ALTERNATIVE APPROACH */}
           {location && (
             <div
               style={{
@@ -629,26 +631,49 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                backgroundImage: `url('https://maps.googleapis.com/maps/api/staticmap?center=${location.latitude},${location.longitude}&zoom=16&size=280x280&maptype=satellite&style=feature:all|element:labels|visibility:off&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dO_BcqbqKrRJvM')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
+                background: `linear-gradient(135deg, 
+        rgba(34, 197, 94, 0.8) 0%, 
+        rgba(59, 130, 246, 0.8) 25%, 
+        rgba(16, 185, 129, 0.8) 50%, 
+        rgba(34, 197, 94, 0.8) 75%, 
+        rgba(59, 130, 246, 0.8) 100%)`,
+                backgroundSize: "400% 400%",
+                animation: "mapShimmer 4s ease-in-out infinite",
               }}
             >
-              {/* Fallback overlay if maps don't load */}
+              {/* Location coordinates overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "20%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  color: "white",
+                  fontSize: "0.7rem",
+                  fontWeight: "bold",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                  background: "rgba(0,0,0,0.3)",
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "0.25rem",
+                  backdropFilter: "blur(2px)",
+                }}
+              >
+                📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              </div>
+
+              {/* Simulated map grid pattern */}
               <div
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "linear-gradient(45deg, rgba(59,130,246,0.3) 0%, rgba(16,185,129,0.3) 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "3rem",
+                  backgroundImage: `
+          linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+        `,
+                  backgroundSize: "20px 20px",
+                  opacity: 0.3,
                 }}
-              >
-                🗺️
-              </div>
+              />
             </div>
           )}
 
@@ -909,17 +934,23 @@ export default function PINITApp() {
         
         @keyframes shazamPulse {
           0% { 
-            transform: translate(-50%, -50%) scale(0.8);
-            opacity: 0.8;
+            transform: translate(-50%, -50%) scale(0.9);
+            opacity: 0.6;
           }
           50% { 
-            transform: translate(-50%, -50%) scale(1.1);
-            opacity: 0.4;
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 0.3;
           }
           100% { 
-            transform: translate(-50%, -50%) scale(1.3);
+            transform: translate(-50%, -50%) scale(1.5);
             opacity: 0;
           }
+        }
+
+        @keyframes mapShimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
       `}</style>
     </div>
