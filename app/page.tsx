@@ -27,6 +27,30 @@ export interface PinData {
   description?: string
   tags?: string[]
   isRecommended?: boolean
+  googlePlaceId?: string
+  rating?: number
+  priceLevel?: number
+  types?: string[]
+}
+
+interface GooglePlace {
+  place_id: string
+  name: string
+  geometry: {
+    location: {
+      lat: number
+      lng: number
+    }
+  }
+  rating?: number
+  price_level?: number
+  types: string[]
+  vicinity?: string
+  photos?: Array<{
+    photo_reference: string
+    height: number
+    width: number
+  }>
 }
 
 export default function PINITApp() {
@@ -44,6 +68,7 @@ export default function PINITApp() {
   const [showNearbyPins, setShowNearbyPins] = useState(false)
   const [discoveryMode, setDiscoveryMode] = useState(false)
   const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
 
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
@@ -114,6 +139,142 @@ export default function PINITApp() {
         console.error("Failed to get location:", err)
       },
     )
+  }, [])
+
+  // Google Places API Integration
+  const fetchNearbyPlaces = useCallback(async (lat: number, lng: number): Promise<PinData[]> => {
+    try {
+      setIsLoadingPlaces(true)
+      console.log("🌐 Fetching real places from Google Places API...")
+
+      // Google Places Nearby Search API
+      const radius = 1000 // 1km radius
+      const types = [
+        "tourist_attraction",
+        "restaurant",
+        "cafe",
+        "museum",
+        "park",
+        "shopping_mall",
+        "art_gallery",
+        "amusement_park",
+        "zoo",
+        "aquarium",
+      ]
+
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
+        "|",
+      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
+      // Note: In production, this should be called from a server-side API route
+      // to avoid exposing the API key. For demo purposes, we'll use a proxy or mock data
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch places")
+      }
+
+      const data = await response.json()
+      const places: GooglePlace[] = data.results || []
+
+      console.log(`📍 Found ${places.length} real places nearby!`)
+
+      // Transform Google Places to PinData format
+      const transformedPins: PinData[] = places.slice(0, 6).map((place) => {
+        // Generate appropriate emoji based on place type
+        const getPlaceEmoji = (types: string[]): string => {
+          if (types.includes("restaurant")) return "🍽️"
+          if (types.includes("cafe")) return "☕"
+          if (types.includes("tourist_attraction")) return "🏛️"
+          if (types.includes("museum")) return "🏛️"
+          if (types.includes("park")) return "🌳"
+          if (types.includes("shopping_mall")) return "🛍️"
+          if (types.includes("art_gallery")) return "🎨"
+          if (types.includes("amusement_park")) return "🎢"
+          if (types.includes("zoo")) return "🦁"
+          if (types.includes("aquarium")) return "🐠"
+          return "📍"
+        }
+
+        // Generate description based on rating and types
+        const generateDescription = (place: GooglePlace): string => {
+          const rating = place.rating ? `${place.rating}⭐` : ""
+          const priceLevel = place.price_level ? "💰".repeat(place.price_level) : ""
+          const type = place.types[0]?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Place"
+
+          return `${type} ${rating} ${priceLevel}`.trim()
+        }
+
+        // Generate photo URL if available
+        const getPhotoUrl = (place: GooglePlace): string | null => {
+          if (place.photos && place.photos.length > 0) {
+            const photoRef = place.photos[0].photo_reference
+            return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          }
+          return `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(place.name)}`
+        }
+
+        return {
+          id: `google-${place.place_id}`,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          locationName: place.vicinity || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          mediaUrl: getPhotoUrl(place),
+          mediaType: "photo" as const,
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: `${getPlaceEmoji(place.types)} ${place.name}`,
+          description: generateDescription(place),
+          tags: ["google-places", "recommended", ...place.types.slice(0, 3).map((type) => type.replace(/_/g, "-"))],
+          isRecommended: true,
+          googlePlaceId: place.place_id,
+          rating: place.rating,
+          priceLevel: place.price_level,
+          types: place.types,
+        }
+      })
+
+      console.log("✅ Transformed places:", transformedPins)
+      return transformedPins
+    } catch (error) {
+      console.error("❌ Failed to fetch Google Places:", error)
+
+      // Fallback to enhanced mock data if API fails
+      return [
+        {
+          id: "fallback-1",
+          latitude: lat + 0.001,
+          longitude: lng + 0.001,
+          locationName: "Nearby Area",
+          mediaUrl: "/placeholder.svg?height=200&width=200&text=Coffee%20Shop",
+          mediaType: "photo",
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: "☕ Local Coffee Spot",
+          description: "Popular local cafe with great reviews",
+          tags: ["fallback", "coffee", "recommended"],
+          isRecommended: true,
+          rating: 4.5,
+        },
+        {
+          id: "fallback-2",
+          latitude: lat - 0.002,
+          longitude: lng + 0.001,
+          locationName: "Scenic Area",
+          mediaUrl: "/placeholder.svg?height=200&width=200&text=Viewpoint",
+          mediaType: "photo",
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: "🏔️ Beautiful Viewpoint",
+          description: "Perfect spot for photos and relaxation",
+          tags: ["fallback", "nature", "views", "recommended"],
+          isRecommended: true,
+          rating: 4.8,
+        },
+      ]
+    } finally {
+      setIsLoadingPlaces(false)
+    }
   }, [])
 
   // Quick Pin Function (Shazam-like)
@@ -307,44 +468,16 @@ export default function PINITApp() {
     return `${baseUrl}/shared-pin?data=${pinData}`
   }, [])
 
+  // ENHANCED: Real Google Places Integration
   const findNearbyPins = useCallback(async () => {
     if (!location) return
 
-    // Simulate finding nearby pins (in real app, this would be an API call)
-    const mockNearbyPins: PinData[] = [
-      {
-        id: "nearby-1",
-        latitude: location.latitude + 0.001,
-        longitude: location.longitude + 0.001,
-        locationName: "Popular Coffee Shop",
-        mediaUrl: "/placeholder.svg?height=200&width=200",
-        mediaType: "photo",
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: "☕ Amazing Coffee Spot",
-        description: "Great local coffee with amazing pastries",
-        tags: ["food", "coffee", "recommended"],
-        isRecommended: true,
-      },
-      {
-        id: "nearby-2",
-        latitude: location.latitude - 0.002,
-        longitude: location.longitude + 0.001,
-        locationName: "Scenic Viewpoint",
-        mediaUrl: "/placeholder.svg?height=200&width=200",
-        mediaType: "photo",
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: "🏔️ Perfect View",
-        description: "Breathtaking sunset views",
-        tags: ["nature", "views", "recommended"],
-      },
-    ]
-
-    setNearbyPins(mockNearbyPins)
+    console.log("🌐 Discovering real nearby places...")
+    const realPlaces = await fetchNearbyPlaces(location.latitude, location.longitude)
+    setNearbyPins(realPlaces)
     setShowNearbyPins(true)
     setLastActivity("discovery")
-  }, [location])
+  }, [location, fetchNearbyPlaces])
 
   // Screen rendering
   if (currentScreen === "camera") {
@@ -902,7 +1035,7 @@ export default function PINITApp() {
         </p>
       </div>
 
-      {/* Nearby Pins Discovery */}
+      {/* ENHANCED: Real Google Places Discovery Panel */}
       {showNearbyPins && (
         <div
           style={{
@@ -910,16 +1043,19 @@ export default function PINITApp() {
             bottom: "8rem",
             left: "1rem",
             right: "1rem",
-            background: "rgba(0,0,0,0.8)",
+            background: "rgba(0,0,0,0.9)",
             borderRadius: "1rem",
             padding: "1rem",
             backdropFilter: "blur(10px)",
             maxHeight: "200px",
             overflowY: "auto",
+            border: "2px solid #10B981",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>🌐 Nearby Discoveries</h3>
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
+              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
+            </h3>
             <button
               onClick={() => setShowNearbyPins(false)}
               style={{
@@ -940,12 +1076,13 @@ export default function PINITApp() {
               <div
                 key={pin.id}
                 style={{
-                  minWidth: "150px",
+                  minWidth: "160px",
                   background: "rgba(255,255,255,0.1)",
                   borderRadius: "0.5rem",
                   padding: "0.75rem",
                   color: "white",
                   cursor: "pointer",
+                  border: pin.googlePlaceId ? "1px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
                 }}
                 onClick={() => {
                   // Add to user's pins
@@ -967,21 +1104,38 @@ export default function PINITApp() {
                   />
                 )}
                 <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", fontWeight: "bold" }}>{pin.title}</h4>
-                <p style={{ margin: 0, fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
-                {pin.isRecommended && (
-                  <div style={{ marginTop: "0.25rem" }}>
+                <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
+                {pin.rating && (
+                  <div style={{ fontSize: "0.625rem", color: "#F59E0B", marginBottom: "0.25rem" }}>
+                    {"⭐".repeat(Math.floor(pin.rating))} {pin.rating}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                  {pin.googlePlaceId && (
                     <span
                       style={{
-                        fontSize: "0.625rem",
+                        fontSize: "0.5rem",
                         background: "#10B981",
                         padding: "0.125rem 0.25rem",
                         borderRadius: "0.25rem",
                       }}
                     >
-                      ⭐ Recommended
+                      🌐 Google
                     </span>
-                  </div>
-                )}
+                  )}
+                  {pin.isRecommended && (
+                    <span
+                      style={{
+                        fontSize: "0.5rem",
+                        background: "#F59E0B",
+                        padding: "0.125rem 0.25rem",
+                        borderRadius: "0.25rem",
+                      }}
+                    >
+                      ⭐ Top
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
