@@ -640,7 +640,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - IMPROVED VERSION */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - CLEAN VERSION */}
           {(userLocation || location) && (
             <div
               style={{
@@ -716,24 +716,16 @@ export default function PINITApp() {
             </div>
           )}
 
-          {/* Content Overlay - REDUCED SIZE to show map behind */}
+          {/* Content Overlay - REMOVED DARK BACKGROUND */}
           <div
             style={{
               position: "relative",
               zIndex: 2,
               textAlign: "center",
-              background: "rgba(0,0,0,0.3)",
-              borderRadius: "50%",
-              padding: "0.8rem",
-              backdropFilter: "blur(1px)",
-              width: "120px",
-              height: "120px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              margin: "auto",
-              marginTop: "80px",
             }}
           >
             {isQuickPinning ? (
@@ -749,12 +741,32 @@ export default function PINITApp() {
                     marginBottom: "0.5rem",
                   }}
                 />
-                <span>Pinning...</span>
+                <span
+                  style={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+                    background: "rgba(0,0,0,0.5)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Pinning...
+                </span>
               </>
             ) : quickPinSuccess ? (
               <>
                 <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
-                <span>Pinned!</span>
+                <span
+                  style={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+                    background: "rgba(0,0,0,0.5)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Pinned!
+                </span>
               </>
             ) : (
               <>
@@ -762,7 +774,17 @@ export default function PINITApp() {
                   size={48}
                   style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))" }}
                 />
-                <span style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>Tap to PINIT!</span>
+                <span
+                  style={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+                    background: "rgba(0,0,0,0.5)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Tap to PINIT!
+                </span>
               </>
             )}
           </div>
