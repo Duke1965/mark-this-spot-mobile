@@ -640,7 +640,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - STATIC MAPS API */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - IMPROVED VERSION */}
           {(userLocation || location) && (
             <div
               style={{
@@ -649,16 +649,15 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
+                background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
               }}
             >
               <img
                 src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                  userLocation?.latitude || location?.latitude || -33.9249
+                  userLocation?.latitude || location?.latitude || -25.7479
                 },${
-                  userLocation?.longitude || location?.longitude || 18.4241
-                }&zoom=16&size=280x280&maptype=satellite&style=feature:all|element:labels|visibility:off&key=${
-                  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"
-                }`}
+                  userLocation?.longitude || location?.longitude || 28.2293
+                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
@@ -666,48 +665,75 @@ export default function PINITApp() {
                   objectFit: "cover",
                   filter: "contrast(1.1) saturate(1.2)",
                 }}
+                onLoad={(e) => {
+                  console.log("Map loaded successfully")
+                }}
                 onError={(e) => {
-                  // Fallback to a different map service if Google Maps fails
-                  e.currentTarget.src = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${
-                    userLocation?.longitude || location?.longitude || 18.4241
-                  },${
-                    userLocation?.latitude || location?.latitude || -33.9249
-                  },16,0/280x280@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`
+                  console.log("Google Maps failed, trying alternative...")
+                  // Try OpenStreetMap tile service as fallback
+                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
+                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
+                  )}/${Math.floor(
+                    ((1 -
+                      Math.log(
+                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
+                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
+                      ) /
+                        Math.PI) /
+                      2) *
+                      Math.pow(2, 16),
+                  )}.png`
+
+                  // If that also fails, show a nice gradient background
+                  setTimeout(() => {
+                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                      e.currentTarget.style.display = "none"
+                    }
+                  }, 2000)
                 }}
               />
 
-              {/* Location coordinates overlay - kept for reference */}
+              {/* Minimal location overlay - positioned at top */}
               <div
                 style={{
                   position: "absolute",
-                  top: "20%",
+                  top: "10%",
                   left: "50%",
                   transform: "translateX(-50%)",
                   color: "white",
-                  fontSize: "0.7rem",
+                  fontSize: "0.6rem",
                   fontWeight: "bold",
                   textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  background: "rgba(0,0,0,0.5)",
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "0.25rem",
+                  background: "rgba(0,0,0,0.4)",
+                  padding: "0.2rem 0.4rem",
+                  borderRadius: "0.2rem",
                   backdropFilter: "blur(2px)",
                   pointerEvents: "none",
                 }}
               >
-                📍 Live Map
+                📍 Live
               </div>
             </div>
           )}
-          {/* Content Overlay with better contrast */}
+
+          {/* Content Overlay - REDUCED SIZE to show map behind */}
           <div
             style={{
               position: "relative",
               zIndex: 2,
               textAlign: "center",
-              background: "rgba(0,0,0,0.4)",
+              background: "rgba(0,0,0,0.3)",
               borderRadius: "50%",
-              padding: "1rem",
-              backdropFilter: "blur(2px)",
+              padding: "0.8rem",
+              backdropFilter: "blur(1px)",
+              width: "120px",
+              height: "120px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "auto",
+              marginTop: "80px",
             }}
           >
             {isQuickPinning ? (
