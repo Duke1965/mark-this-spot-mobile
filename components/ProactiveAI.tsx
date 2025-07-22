@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { MapPin, Camera, BookOpen, Sparkles, X, Clock, Navigation } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { X } from "lucide-react"
 
 interface ProactiveAIProps {
   userLocation: { latitude: number; longitude: number } | null
@@ -13,326 +13,391 @@ interface ProactiveAIProps {
 
 interface Suggestion {
   id: string
-  type: "location" | "story" | "photo" | "time" | "pattern"
+  type: "location" | "time" | "pattern" | "content" | "social"
   title: string
-  message: string
+  description: string
   action: string
   data?: any
   priority: number
+  icon: string
+  color: string
   timestamp: number
 }
 
 export function ProactiveAI({ userLocation, pins, isMoving, lastActivity, onSuggestionAction }: ProactiveAIProps) {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [activeSuggestion, setActiveSuggestion] = useState<Suggestion | null>(null)
-  const [suggestionHistory, setSuggestionHistory] = useState<string[]>([])
-  const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null)
-  const movementTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
+  const [lastLocationCheck, setLastLocationCheck] = useState<{ lat: number; lng: number; time: number } | null>(null)
 
-  // Smart suggestion generation based on context
-  const generateSuggestion = useCallback((): Suggestion | null => {
+  // Generate contextual suggestions based on current state
+  const generateSuggestions = useCallback(() => {
     const now = Date.now()
-    const hour = new Date().getHours()
-
-    // Avoid spam - don't show same type of suggestion within 5 minutes
-    const recentSuggestions = suggestionHistory.filter((s) => now - Number.parseInt(s.split("-")[1]) < 300000)
+    const currentHour = new Date().getHours()
+    const newSuggestions: Suggestion[] = []
 
     // 1. LOCATION-BASED SUGGESTIONS
-    if (userLocation && lastLocationRef.current) {
-      const distance = calculateDistance(
-        lastLocationRef.current.latitude,
-        lastLocationRef.current.longitude,
-        userLocation.latitude,
-        userLocation.longitude,
-      )
-
-      // User moved significant distance (>100m) and stopped
-      if (distance > 0.1 && !isMoving && !recentSuggestions.some((s) => s.startsWith("location"))) {
-        return {
-          id: `location-${now}`,
+    if (userLocation && !isMoving) {
+      // Check if user has moved significantly since last check
+      if (
+        !lastLocationCheck ||
+        Math.abs(userLocation.latitude - lastLocationCheck.lat) > 0.001 ||
+        Math.abs(userLocation.longitude - lastLocationCheck.lng) > 0.001
+      ) {
+        newSuggestions.push({
+          id: "location-pin-worthy",
           type: "location",
-          title: "📍 Pin-Worthy Spot Detected!",
-          message: "You've moved to a new location. This could be worth pinning!",
+          title: "📍 Pin-worthy spot detected!",
+          description: "This looks like a great place to remember",
           action: "quick-pin",
           priority: 8,
+          icon: "📍",
+          color: "#10B981",
           timestamp: now,
-        }
+        })
+
+        setLastLocationCheck({ lat: userLocation.latitude, lng: userLocation.longitude, time: now })
       }
     }
 
-    // 2. GOLDEN HOUR PHOTO SUGGESTIONS
-    if ((hour >= 6 && hour <= 8) || (hour >= 17 && hour <= 19)) {
-      if (!recentSuggestions.some((s) => s.startsWith("photo"))) {
-        return {
-          id: `photo-${now}`,
-          type: "photo",
-          title: "✨ Perfect Golden Hour!",
-          message: "The lighting is magical right now - perfect for photos!",
+    // 2. TIME-BASED SUGGESTIONS
+    // Golden hour photography (6-8am, 5-7pm)
+    if ((currentHour >= 6 && currentHour <= 8) || (currentHour >= 17 && currentHour <= 19)) {
+      if (!dismissedSuggestions.has("golden-hour")) {
+        newSuggestions.push({
+          id: "golden-hour",
+          type: "time",
+          title: "✨ Perfect golden hour lighting!",
+          description: "Ideal time for stunning photos",
           action: "open-camera",
           data: { mode: "photo" },
           priority: 7,
+          icon: "✨",
+          color: "#F59E0B",
           timestamp: now,
-        }
+        })
       }
     }
 
-    // 3. STORY CREATION SUGGESTIONS
-    if (pins.length >= 3 && !recentSuggestions.some((s) => s.startsWith("story"))) {
-      const recentPins = pins.filter((p) => {
-        const pinTime = new Date(p.timestamp).getTime()
-        return now - pinTime < 86400000 // Last 24 hours
-      })
-
-      if (recentPins.length >= 3) {
-        return {
-          id: `story-${now}`,
-          type: "story",
-          title: "📖 Create Your Story!",
-          message: `You've collected ${recentPins.length} pins today. Want to turn them into a story?`,
-          action: "create-story",
-          data: { pins: recentPins },
+    // Lunch discovery (11am-2pm)
+    if (currentHour >= 11 && currentHour <= 14) {
+      if (!dismissedSuggestions.has("lunch-discovery")) {
+        newSuggestions.push({
+          id: "lunch-discovery",
+          type: "time",
+          title: "🍽️ Lunch break discovery time!",
+          description: "Find great nearby restaurants",
+          action: "discovery-mode",
           priority: 6,
+          icon: "🍽️",
+          color: "#EF4444",
           timestamp: now,
-        }
+        })
       }
     }
 
-    // 4. TIME-BASED ACTIVITY SUGGESTIONS
-    if (hour >= 12 && hour <= 14 && !recentSuggestions.some((s) => s.startsWith("time"))) {
-      return {
-        id: `time-${now}`,
-        type: "time",
-        title: "🍽️ Lunch Break Discovery",
-        message: "Perfect time to discover local lunch spots nearby!",
-        action: "discovery-mode",
-        priority: 5,
+    // 3. PATTERN-BASED SUGGESTIONS
+    // Story creation when user has 3+ pins with media
+    const pinsWithMedia = pins.filter((p) => p.mediaUrl)
+    if (pinsWithMedia.length >= 3 && !dismissedSuggestions.has("create-story")) {
+      newSuggestions.push({
+        id: "create-story",
+        type: "pattern",
+        title: "📖 Ready to create your story?",
+        description: `Turn your ${pinsWithMedia.length} pins into a beautiful story`,
+        action: "create-story",
+        priority: 7,
+        icon: "📖",
+        color: "#8B5CF6",
         timestamp: now,
-      }
+      })
     }
 
-    // 5. PATTERN RECOGNITION
-    if (pins.length > 0 && !recentSuggestions.some((s) => s.startsWith("pattern"))) {
-      const lastPin = pins[pins.length - 1]
-      const timeSinceLastPin = now - new Date(lastPin.timestamp).getTime()
-
-      // User hasn't pinned in a while but is active
-      if (timeSinceLastPin > 3600000 && isMoving) {
-        // 1 hour
-        return {
-          id: `pattern-${now}`,
-          type: "pattern",
-          title: "🎯 Ready for Another Pin?",
-          message: "You've been exploring! Found anything worth pinning?",
-          action: "suggest-pin",
-          priority: 4,
-          timestamp: now,
-        }
-      }
+    // Encourage more pinning after first pin
+    if (pins.length === 1 && !dismissedSuggestions.has("encourage-pinning")) {
+      newSuggestions.push({
+        id: "encourage-pinning",
+        type: "pattern",
+        title: "🎯 Great start! Pin another spot?",
+        description: "Build your collection of memorable places",
+        action: "suggest-pin",
+        priority: 5,
+        icon: "🎯",
+        color: "#06B6D4",
+        timestamp: now,
+      })
     }
 
-    return null
-  }, [userLocation, pins, isMoving, suggestionHistory])
+    // 4. CONTENT SUGGESTIONS
+    // Video suggestion during interesting times
+    if (currentHour >= 16 && currentHour <= 20 && !dismissedSuggestions.has("video-time")) {
+      newSuggestions.push({
+        id: "video-time",
+        type: "content",
+        title: "🎥 Perfect time for video content!",
+        description: "Capture the evening atmosphere",
+        action: "open-camera",
+        data: { mode: "video" },
+        priority: 6,
+        icon: "🎥",
+        color: "#EC4899",
+        timestamp: now,
+      })
+    }
 
-  // Monitor for suggestion triggers
+    // 5. ACTIVITY-BASED SUGGESTIONS
+    // Suggest discovery after camera use
+    if (lastActivity.includes("camera") && !dismissedSuggestions.has("post-camera-discovery")) {
+      newSuggestions.push({
+        id: "post-camera-discovery",
+        type: "social",
+        title: "🌐 Discover more nearby gems?",
+        description: "Find other photo-worthy spots around here",
+        action: "discovery-mode",
+        priority: 6,
+        icon: "🌐",
+        color: "#10B981",
+        timestamp: now,
+      })
+    }
+
+    // Sort by priority and take top suggestion
+    const sortedSuggestions = newSuggestions.sort((a, b) => b.priority - a.priority)
+    setSuggestions(sortedSuggestions)
+
+    // Show highest priority suggestion if not already showing one
+    if (sortedSuggestions.length > 0 && !activeSuggestion) {
+      setActiveSuggestion(sortedSuggestions[0])
+    }
+  }, [userLocation, pins, isMoving, lastActivity, dismissedSuggestions, lastLocationCheck, activeSuggestion])
+
+  // Run suggestion generation periodically
   useEffect(() => {
-    if (!activeSuggestion) {
-      const suggestion = generateSuggestion()
-      if (suggestion) {
-        setActiveSuggestion(suggestion)
-        setSuggestionHistory((prev) => [...prev, `${suggestion.type}-${suggestion.timestamp}`])
-      }
-    }
-  }, [userLocation, isMoving, pins.length, generateSuggestion, activeSuggestion])
+    generateSuggestions()
 
-  // Update last location reference
-  useEffect(() => {
-    if (userLocation) {
-      lastLocationRef.current = userLocation
-    }
-  }, [userLocation])
+    const interval = setInterval(generateSuggestions, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [generateSuggestions])
 
   // Auto-dismiss suggestions after 10 seconds
   useEffect(() => {
     if (activeSuggestion) {
-      const timeout = setTimeout(() => {
+      const timer = setTimeout(() => {
         setActiveSuggestion(null)
       }, 10000)
 
-      return () => clearTimeout(timeout)
+      return () => clearTimeout(timer)
     }
   }, [activeSuggestion])
 
+  // Handle suggestion action
   const handleSuggestionAction = useCallback(
-    (action: string, data?: any) => {
-      onSuggestionAction(action, data)
+    (suggestion: Suggestion) => {
+      console.log("🤖 Proactive AI: User accepted suggestion:", suggestion.title)
+      onSuggestionAction(suggestion.action, suggestion.data)
       setActiveSuggestion(null)
+
+      // Mark as dismissed to prevent immediate re-showing
+      setDismissedSuggestions((prev) => new Set([...prev, suggestion.id]))
+
+      // Clear dismissal after 5 minutes to allow re-suggestions
+      setTimeout(() => {
+        setDismissedSuggestions((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(suggestion.id)
+          return newSet
+        })
+      }, 300000)
     },
     [onSuggestionAction],
   )
 
-  const dismissSuggestion = useCallback(() => {
+  // Handle suggestion dismissal
+  const handleDismiss = useCallback((suggestion: Suggestion) => {
+    console.log("🤖 Proactive AI: User dismissed suggestion:", suggestion.title)
     setActiveSuggestion(null)
+    setDismissedSuggestions((prev) => new Set([...prev, suggestion.id]))
+
+    // Clear dismissal after 10 minutes for less intrusive suggestions
+    setTimeout(() => {
+      setDismissedSuggestions((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(suggestion.id)
+        return newSet
+      })
+    }, 600000)
   }, [])
 
-  // Helper function to calculate distance
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371 // Earth's radius in km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180
-    const dLon = ((lon2 - lon1) * Math.PI) / 180
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
-
+  // Don't render if no active suggestion
   if (!activeSuggestion) return null
-
-  const getSuggestionIcon = (type: string) => {
-    switch (type) {
-      case "location":
-        return <MapPin size={24} />
-      case "photo":
-        return <Camera size={24} />
-      case "story":
-        return <BookOpen size={24} />
-      case "time":
-        return <Clock size={24} />
-      case "pattern":
-        return <Navigation size={24} />
-      default:
-        return <Sparkles size={24} />
-    }
-  }
-
-  const getSuggestionColor = (type: string) => {
-    switch (type) {
-      case "location":
-        return "#10B981"
-      case "photo":
-        return "#F59E0B"
-      case "story":
-        return "#8B5CF6"
-      case "time":
-        return "#3B82F6"
-      case "pattern":
-        return "#EF4444"
-      default:
-        return "#6B7280"
-    }
-  }
 
   return (
     <div
       style={{
         position: "fixed",
-        top: "5rem",
-        left: "1rem",
-        right: "1rem",
-        zIndex: 50,
-        pointerEvents: "auto",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 1000,
+        maxWidth: "320px",
+        width: "90%",
       }}
     >
-      {/* Smart Suggestion Card */}
+      {/* Suggestion Card */}
       <div
         style={{
-          background: "rgba(0,0,0,0.9)",
+          background: "rgba(0, 0, 0, 0.95)",
           borderRadius: "1rem",
-          padding: "1rem",
+          padding: "1.5rem",
           color: "white",
-          backdropFilter: "blur(10px)",
-          border: `2px solid ${getSuggestionColor(activeSuggestion.type)}`,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-          animation: "slideInFromTop 0.5s ease-out",
+          backdropFilter: "blur(20px)",
+          border: `2px solid ${activeSuggestion.color}`,
+          boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px ${activeSuggestion.color}40`,
+          animation: "slideInScale 0.3s ease-out",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-          {/* Icon */}
-          <div
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{
+                fontSize: "1.5rem",
+                background: activeSuggestion.color,
+                borderRadius: "50%",
+                width: "2.5rem",
+                height: "2.5rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {activeSuggestion.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: "0.75rem", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                AI Suggestion
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => handleDismiss(activeSuggestion)}
             style={{
-              padding: "0.5rem",
+              background: "rgba(255, 255, 255, 0.1)",
+              border: "none",
               borderRadius: "50%",
-              background: getSuggestionColor(activeSuggestion.type),
-              color: "white",
+              width: "2rem",
+              height: "2rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              flexShrink: 0,
+              color: "white",
+              cursor: "pointer",
             }}
           >
-            {getSuggestionIcon(activeSuggestion.type)}
-          </div>
+            <X size={16} />
+          </button>
+        </div>
 
-          {/* Content */}
-          <div style={{ flex: 1 }}>
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem", fontWeight: "bold" }}>{activeSuggestion.title}</h3>
-            <p style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", opacity: 0.9 }}>{activeSuggestion.message}</p>
+        {/* Content */}
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem", fontWeight: "bold" }}>{activeSuggestion.title}</h3>
+          <p style={{ margin: 0, fontSize: "0.9rem", opacity: 0.8, lineHeight: 1.4 }}>{activeSuggestion.description}</p>
+        </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={() => handleSuggestionAction(activeSuggestion.action, activeSuggestion.data)}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: getSuggestionColor(activeSuggestion.type),
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "bold",
-                }}
-              >
-                {activeSuggestion.action === "quick-pin" && "📍 Pin It!"}
-                {activeSuggestion.action === "open-camera" && "📸 Take Photo"}
-                {activeSuggestion.action === "create-story" && "📖 Create Story"}
-                {activeSuggestion.action === "discovery-mode" && "🌐 Discover"}
-                {activeSuggestion.action === "suggest-pin" && "🎯 Pin Something"}
-              </button>
-
-              <button
-                onClick={dismissSuggestion}
-                style={{
-                  padding: "0.5rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  cursor: "pointer",
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button
+            onClick={() => handleSuggestionAction(activeSuggestion)}
+            style={{
+              flex: 1,
+              background: activeSuggestion.color,
+              border: "none",
+              borderRadius: "0.5rem",
+              padding: "0.75rem 1rem",
+              color: "white",
+              fontWeight: "bold",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-1px)"
+              e.currentTarget.style.boxShadow = `0 4px 12px ${activeSuggestion.color}40`
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)"
+              e.currentTarget.style.boxShadow = "none"
+            }}
+          >
+            {getActionText(activeSuggestion.action)}
+          </button>
+          <button
+            onClick={() => handleDismiss(activeSuggestion)}
+            style={{
+              background: "rgba(255, 255, 255, 0.1)",
+              border: "none",
+              borderRadius: "0.5rem",
+              padding: "0.75rem 1rem",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+            }}
+          >
+            Later
+          </button>
         </div>
 
         {/* Priority Indicator */}
         <div
           style={{
             position: "absolute",
-            top: "0.5rem",
-            right: "0.5rem",
-            width: "8px",
-            height: "8px",
+            top: "-2px",
+            right: "-2px",
+            background: activeSuggestion.color,
             borderRadius: "50%",
-            background: getSuggestionColor(activeSuggestion.type),
-            opacity: activeSuggestion.priority / 10,
+            width: "1.5rem",
+            height: "1.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.7rem",
+            fontWeight: "bold",
           }}
-        />
+        >
+          {activeSuggestion.priority}
+        </div>
       </div>
 
       <style jsx>{`
-        @keyframes slideInFromTop {
+        @keyframes slideInScale {
           0% {
-            transform: translateY(-100%);
             opacity: 0;
+            transform: translate(-50%, -50%) scale(0.8);
           }
           100% {
-            transform: translateY(0);
             opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
           }
         }
       `}</style>
     </div>
   )
+}
+
+// Helper function to get action button text
+function getActionText(action: string): string {
+  switch (action) {
+    case "quick-pin":
+      return "📍 Pin It!"
+    case "open-camera":
+      return "📸 Open Camera"
+    case "create-story":
+      return "📖 Create Story"
+    case "discovery-mode":
+      return "🌐 Discover"
+    case "suggest-pin":
+      return "💡 Show Me"
+    default:
+      return "✨ Let's Go!"
+  }
 }
