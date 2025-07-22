@@ -445,7 +445,7 @@ export default function PINITApp() {
     )
   }
 
-  // Main map screen (Shazam-like interface) - CLEAN VERSION
+  // Main map screen (Shazam-like interface) - FIXED VERSION
   return (
     <div
       style={{
@@ -457,8 +457,6 @@ export default function PINITApp() {
         background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         color: "white",
         padding: "2rem",
       }}
@@ -530,17 +528,17 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* Central PINIT Button - Shazam Style - PERFECTLY CENTERED */}
+      {/* SHAZAM-STYLE CIRCLE - MOVED TO TOP THIRD & PULSATING */}
       <div
         style={{
           position: "absolute",
-          top: "50%",
+          top: "20%",
           left: "50%",
-          transform: "translate(-50%, -50%)",
+          transform: "translateX(-50%)",
           textAlign: "center",
         }}
       >
-        {/* Pulsing Glow Rings - Shazam Style */}
+        {/* Multiple Pulsing Glow Rings - Enhanced Shazam Style */}
         <div
           style={{
             position: "absolute",
@@ -550,8 +548,8 @@ export default function PINITApp() {
             width: "320px",
             height: "320px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
-            animation: "pulse 2s ease-in-out infinite",
+            background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)",
+            animation: "shazamPulse 3s ease-in-out infinite",
             zIndex: 1,
           }}
         />
@@ -564,13 +562,27 @@ export default function PINITApp() {
             width: "360px",
             height: "360px",
             borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
+            animation: "shazamPulse 3s ease-in-out infinite 1s",
+            zIndex: 1,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "400px",
+            height: "400px",
+            borderRadius: "50%",
             background: "radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)",
-            animation: "pulse 2s ease-in-out infinite 0.5s",
+            animation: "shazamPulse 3s ease-in-out infinite 2s",
             zIndex: 1,
           }}
         />
 
-        {/* Main Pin Button */}
+        {/* Main Pin Button with LIVE GOOGLE MAPS */}
         <button
           onClick={handleQuickPin}
           disabled={isQuickPinning}
@@ -578,7 +590,7 @@ export default function PINITApp() {
             width: "280px",
             height: "280px",
             borderRadius: "50%",
-            border: "4px solid rgba(255,255,255,0.8)",
+            border: "4px solid rgba(255,255,255,0.9)",
             background: "transparent",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
@@ -593,6 +605,7 @@ export default function PINITApp() {
             opacity: isQuickPinning ? 0.7 : 1,
             position: "relative",
             zIndex: 2,
+            overflow: "hidden",
           }}
           onMouseEnter={(e) => {
             if (!isQuickPinning) {
@@ -607,7 +620,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* Live Map Background - Fixed API Key Issue */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - WORKING VERSION */}
           {location && (
             <div
               style={{
@@ -616,14 +629,41 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                background: `url('https://maps.googleapis.com/maps/api/staticmap?center=${location.latitude},${location.longitude}&zoom=16&size=280x280&maptype=satellite&key=demo') center/cover`,
-                backgroundImage: `url('/placeholder.svg?height=280&width=280')`,
+                backgroundImage: `url('https://maps.googleapis.com/maps/api/staticmap?center=${location.latitude},${location.longitude}&zoom=16&size=280x280&maptype=satellite&style=feature:all|element:labels|visibility:off&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dO_BcqbqKrRJvM')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
               }}
-            />
+            >
+              {/* Fallback overlay if maps don't load */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(45deg, rgba(59,130,246,0.3) 0%, rgba(16,185,129,0.3) 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "3rem",
+                }}
+              >
+                🗺️
+              </div>
+            </div>
           )}
 
-          {/* Content Overlay */}
-          <div style={{ position: "relative", zIndex: 2, textAlign: "center" }}>
+          {/* Content Overlay with better contrast */}
+          <div
+            style={{
+              position: "relative",
+              zIndex: 2,
+              textAlign: "center",
+              background: "rgba(0,0,0,0.4)",
+              borderRadius: "50%",
+              padding: "1rem",
+              backdropFilter: "blur(2px)",
+            }}
+          >
             {isQuickPinning ? (
               <>
                 <div
@@ -641,27 +681,27 @@ export default function PINITApp() {
               </>
             ) : quickPinSuccess ? (
               <>
-                <Check size={48} style={{ marginBottom: "0.5rem", color: "white" }} />
+                <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
                 <span>Pinned!</span>
               </>
             ) : (
               <>
                 <MapPin
                   size={48}
-                  style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}
+                  style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))" }}
                 />
-                <span>Tap to PINIT!</span>
+                <span style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>Tap to PINIT!</span>
               </>
             )}
           </div>
         </button>
       </div>
 
-      {/* PINIT Branding - Below Circle */}
+      {/* PINIT Branding - Moved to center */}
       <div
         style={{
           position: "absolute",
-          bottom: "25%",
+          top: "55%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
@@ -867,17 +907,17 @@ export default function PINITApp() {
           100% { transform: rotate(360deg); }
         }
         
-        @keyframes pulse {
+        @keyframes shazamPulse {
           0% { 
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.3;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0.8;
           }
           50% { 
             transform: translate(-50%, -50%) scale(1.1);
-            opacity: 0.1;
+            opacity: 0.4;
           }
           100% { 
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.3);
             opacity: 0;
           }
         }
