@@ -13,6 +13,8 @@ import { AIAssistant } from "@/components/AIAssistant"
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
+import { RecommendationsHub } from "@/components/RecommendationsHub"
+import { PlaceNavigation } from "@/components/PlaceNavigation"
 
 export interface PinData {
   id: string
@@ -54,10 +56,33 @@ interface GooglePlace {
   }>
 }
 
+interface Recommendation {
+  id: string
+  type: string
+  title: string
+  description: string
+  action: string
+  data?: any
+  priority: number
+  color: string
+  isAISuggestion?: boolean
+  timestamp: number
+  category: string
+  isCompleted?: boolean
+}
+
 export default function PINITApp() {
   // Core state
   const [currentScreen, setCurrentScreen] = useState<
-    "map" | "camera" | "platform-select" | "editor" | "story" | "library" | "story-builder"
+    | "map"
+    | "camera"
+    | "platform-select"
+    | "editor"
+    | "story"
+    | "library"
+    | "story-builder"
+    | "recommendations"
+    | "place-navigation"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
@@ -70,7 +95,7 @@ export default function PINITApp() {
   const [discoveryMode, setDiscoveryMode] = useState(false)
   const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
-  const [aiRecommendations, setAiRecommendations] = useState<any[]>([])
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
 
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
@@ -92,6 +117,9 @@ export default function PINITApp() {
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
   const { pins, addPin } = usePinStorage()
   const motionData = useMotionDetection()
+
+  const [selectedPlace, setSelectedPlace] = useState<any>(null)
+  const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
 
   // Add location name resolution
   const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
@@ -443,10 +471,42 @@ export default function PINITApp() {
     [handleQuickPin],
   )
 
-  // Handle AI recommendations
-  const handleAIRecommendations = useCallback((recommendations: any[]) => {
-    console.log("🤖 AI generated recommendations:", recommendations)
-    setAiRecommendations((prev) => [...prev, ...recommendations])
+  // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
+  const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
+    console.log("🤖 AI generated recommendations:", newRecommendations)
+    setRecommendations((prev) => {
+      // Avoid duplicates by checking IDs
+      const existingIds = new Set(prev.map((r) => r.id))
+      const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
+      return [...prev, ...uniqueRecommendations]
+    })
+  }, [])
+
+  // Handle notification tap - GO TO RECOMMENDATIONS PAGE
+  const handleNotificationTap = useCallback(() => {
+    console.log("🤖 Opening recommendations hub")
+    setCurrentScreen("recommendations")
+  }, [])
+
+  // Handle recommendation actions
+  const handleRecommendationAction = useCallback(
+    (action: string, data?: any) => {
+      console.log("🎯 Taking recommendation action:", action, data)
+      handleProactiveSuggestion(action, data)
+      // Go back to map after action
+      setCurrentScreen("map")
+    },
+    [handleProactiveSuggestion],
+  )
+
+  // Handle recommendation dismiss
+  const handleRecommendationDismiss = useCallback((id: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== id))
+  }, [])
+
+  // Handle recommendation complete
+  const handleRecommendationComplete = useCallback((id: string) => {
+    setRecommendations((prev) => prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r)))
   }, [])
 
   const handleRecommendPin = useCallback(
@@ -476,19 +536,74 @@ export default function PINITApp() {
     return `${baseUrl}/shared-pin?data=${pinData}`
   }, [])
 
-  // ENHANCED: Real Google Places Integration + AI Recommendations
+  // ENHANCED: Real Google Places Integration
   const findNearbyPins = useCallback(async () => {
     if (!location) return
 
     console.log("🌐 Discovering real nearby places...")
     const realPlaces = await fetchNearbyPlaces(location.latitude, location.longitude)
-
-    // Combine Google Places with AI recommendations
-    const combinedRecommendations = [...realPlaces, ...aiRecommendations]
-    setNearbyPins(combinedRecommendations)
+    setNearbyPins(realPlaces)
     setShowNearbyPins(true)
     setLastActivity("discovery")
-  }, [location, fetchNearbyPlaces, aiRecommendations])
+  }, [location, fetchNearbyPlaces])
+
+  // Handle place navigation from recommendations
+  const handlePlaceNavigation = useCallback((place: any) => {
+    console.log("🗺️ Opening place navigation for:", place.title)
+    setSelectedPlace(place)
+    setCurrentScreen("place-navigation")
+  }, [])
+
+  // Handle save for later
+  const handleSaveForLater = useCallback((place: any) => {
+    console.log("🔖 Saving place for later:", place.title)
+    setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
+    setCurrentScreen("recommendations")
+  }, [])
+
+  // Handle navigation start
+  const handleStartNavigation = useCallback((place: any) => {
+    console.log("🧭 Starting navigation to:", place.title)
+    // Navigation is handled within the PlaceNavigation component
+  }, [])
+
+  // Handle arrival
+  const handleArrival = useCallback(
+    (place: any, shouldSave: boolean) => {
+      console.log("🎯 Arrived at:", place.title, "Save:", shouldSave)
+
+      if (shouldSave) {
+        // Create a new pin from the place
+        const newPin: PinData = {
+          id: Date.now().toString(),
+          latitude: place.latitude,
+          longitude: place.longitude,
+          locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
+          mediaUrl: place.mediaUrl || null,
+          mediaType: place.mediaUrl ? "photo" : null,
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: place.title,
+          description: place.description || `Visited ${place.title}`,
+          tags: ["visited", "recommended", ...(place.types || []).slice(0, 3)],
+          isRecommended: true,
+          googlePlaceId: place.googlePlaceId,
+          rating: place.rating,
+          priceLevel: place.priceLevel,
+          types: place.types,
+        }
+
+        addPin(newPin)
+        console.log("📍 Place saved as pin:", newPin)
+      }
+
+      // Go back to map
+      setCurrentScreen("map")
+      setSelectedPlace(null)
+      setLastActivity("place-visited")
+    },
+    [addPin],
+  )
 
   // Screen rendering
   if (currentScreen === "camera") {
@@ -536,6 +651,34 @@ export default function PINITApp() {
           setCurrentScreen("library")
           setLastActivity("story-created")
         }}
+      />
+    )
+  }
+
+  // NEW RECOMMENDATIONS HUB SCREEN
+  if (currentScreen === "recommendations") {
+    return (
+      <RecommendationsHub
+        recommendations={recommendations}
+        onBack={() => setCurrentScreen("map")}
+        onActionTaken={handleRecommendationAction}
+        onRecommendationDismiss={handleRecommendationDismiss}
+        onRecommendationComplete={handleRecommendationComplete}
+        onPlaceNavigation={handlePlaceNavigation}
+      />
+    )
+  }
+
+  // NEW PLACE NAVIGATION SCREEN
+  if (currentScreen === "place-navigation" && selectedPlace) {
+    return (
+      <PlaceNavigation
+        place={selectedPlace}
+        userLocation={userLocation}
+        onBack={() => setCurrentScreen("recommendations")}
+        onSaveForLater={handleSaveForLater}
+        onNavigate={handleStartNavigation}
+        onArrived={handleArrival}
       />
     )
   }
@@ -666,7 +809,7 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
-      {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style */}
+      {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
         pins={pins}
@@ -674,6 +817,7 @@ export default function PINITApp() {
         lastActivity={lastActivity}
         onSuggestionAction={handleProactiveSuggestion}
         onRecommendationGenerated={handleAIRecommendations}
+        onNotificationTap={handleNotificationTap}
       />
 
       {/* AI Assistant Button - Top Right */}
@@ -740,6 +884,56 @@ export default function PINITApp() {
           }}
         >
           🌐
+        </button>
+      </div>
+
+      {/* NEW: Recommendations Button - Next to Discovery */}
+      <div
+        style={{
+          position: "absolute",
+          top: "1rem",
+          right: "9rem",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={() => setCurrentScreen("recommendations")}
+          style={{
+            padding: "0.75rem",
+            border: "none",
+            background:
+              recommendations.filter((r) => !r.isCompleted).length > 0
+                ? "rgba(30,58,138,0.8)"
+                : "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            borderRadius: "12px",
+            backdropFilter: "blur(10px)",
+            position: "relative",
+          }}
+        >
+          🤖{/* Notification Badge */}
+          {recommendations.filter((r) => !r.isCompleted).length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                background: "#EF4444",
+                color: "white",
+                borderRadius: "50%",
+                width: "20px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+              }}
+            >
+              {recommendations.filter((r) => !r.isCompleted).length}
+            </div>
+          )}
         </button>
       </div>
 
@@ -1047,7 +1241,7 @@ export default function PINITApp() {
         </p>
       </div>
 
-      {/* ENHANCED: Real Google Places + AI Recommendations Discovery Panel */}
+      {/* ENHANCED: Real Google Places Discovery Panel */}
       {showNearbyPins && (
         <div
           style={{
@@ -1066,7 +1260,7 @@ export default function PINITApp() {
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
             <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
-              🌐 Discoveries & AI Suggestions {isLoadingPlaces && "⏳"}
+              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
             </h3>
             <button
               onClick={() => setShowNearbyPins(false)}
@@ -1094,11 +1288,7 @@ export default function PINITApp() {
                   padding: "0.75rem",
                   color: "white",
                   cursor: "pointer",
-                  border: pin.isAISuggestion
-                    ? "1px solid #8B5CF6"
-                    : pin.googlePlaceId
-                      ? "1px solid #10B981"
-                      : "1px solid rgba(255,255,255,0.2)",
+                  border: pin.googlePlaceId ? "1px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
                 }}
                 onClick={() => {
                   // Add to user's pins
@@ -1127,18 +1317,6 @@ export default function PINITApp() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-                  {pin.isAISuggestion && (
-                    <span
-                      style={{
-                        fontSize: "0.5rem",
-                        background: "#8B5CF6",
-                        padding: "0.125rem 0.25rem",
-                        borderRadius: "0.25rem",
-                      }}
-                    >
-                      🤖 AI
-                    </span>
-                  )}
                   {pin.googlePlaceId && (
                     <span
                       style={{
