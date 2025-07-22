@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 interface EnhancedLocationServiceProps {
   latitude: number
@@ -9,54 +9,38 @@ interface EnhancedLocationServiceProps {
 }
 
 export function EnhancedLocationService({ latitude, longitude, onLocationEnhanced }: EnhancedLocationServiceProps) {
-  const [isProcessing, setIsProcessing] = useState(false)
-
   useEffect(() => {
     const enhanceLocation = async () => {
-      if (isProcessing) return
-      setIsProcessing(true)
-
       try {
         // Simulate enhanced location detection
         // In production, this would use Google Places API or similar
         const mockLocationDetails = {
-          category: detectLocationCategory(latitude, longitude),
+          category: "urban", // urban, nature, beach, restaurant, tourist
           types: ["establishment", "point_of_interest"],
           name: "Current Location",
           vicinity: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-          rating: Math.random() * 2 + 3, // 3-5 rating
-          priceLevel: Math.floor(Math.random() * 4) + 1, // 1-4 price level
+          rating: 4.2,
+          priceLevel: 2,
+        }
+
+        // Determine category based on coordinates (simplified logic)
+        if (latitude > -34 && latitude < -33 && longitude > 18 && longitude < 19) {
+          mockLocationDetails.category = "urban"
+        } else if (Math.abs(latitude) < 10) {
+          mockLocationDetails.category = "beach"
+        } else {
+          mockLocationDetails.category = "nature"
         }
 
         onLocationEnhanced(mockLocationDetails)
       } catch (error) {
         console.error("Failed to enhance location:", error)
-      } finally {
-        setIsProcessing(false)
       }
     }
 
     enhanceLocation()
-  }, [latitude, longitude, onLocationEnhanced, isProcessing])
+  }, [latitude, longitude, onLocationEnhanced])
 
-  // This component doesn't render anything visible
+  // This component is invisible - it just provides data
   return null
-}
-
-function detectLocationCategory(lat: number, lng: number): string {
-  // Simple heuristic based on coordinates
-  // In production, this would use actual location data
-
-  // Coastal areas (simplified)
-  if (Math.abs(lat) < 60 && (lng < -100 || lng > 100)) {
-    return "beach"
-  }
-
-  // Urban areas (simplified - near major cities)
-  if (Math.abs(lat) > 30 && Math.abs(lat) < 60) {
-    return "urban"
-  }
-
-  // Default to nature
-  return "nature"
 }
