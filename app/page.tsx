@@ -640,7 +640,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - REAL IFRAME */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - STATIC MAPS API */}
           {(userLocation || location) && (
             <div
               style={{
@@ -651,21 +651,28 @@ export default function PINITApp() {
                 zIndex: 1,
               }}
             >
-              <iframe
-                width="100%"
-                height="100%"
-                loading="lazy"
-                allowFullScreen
-                src={`https://www.google.com/maps/embed/v1/view?key=${
-                  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"
-                }&center=${userLocation?.latitude || location?.latitude || -33.9249},${
+              <img
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
+                  userLocation?.latitude || location?.latitude || -33.9249
+                },${
                   userLocation?.longitude || location?.longitude || 18.4241
-                }&zoom=16&maptype=satellite`}
+                }&zoom=16&size=280x280&maptype=satellite&style=feature:all|element:labels|visibility:off&key=${
+                  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"
+                }`}
+                alt="Live Map"
                 style={{
                   width: "100%",
                   height: "100%",
-                  border: "none",
+                  objectFit: "cover",
                   filter: "contrast(1.1) saturate(1.2)",
+                }}
+                onError={(e) => {
+                  // Fallback to a different map service if Google Maps fails
+                  e.currentTarget.src = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${
+                    userLocation?.longitude || location?.longitude || 18.4241
+                  },${
+                    userLocation?.latitude || location?.latitude || -33.9249
+                  },16,0/280x280@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`
                 }}
               />
 
