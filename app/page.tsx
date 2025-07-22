@@ -704,10 +704,8 @@ export default function PINITApp() {
                   fontSize: "0.6rem",
                   fontWeight: "bold",
                   textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  background: "rgba(0,0,0,0.4)",
                   padding: "0.2rem 0.4rem",
                   borderRadius: "0.2rem",
-                  backdropFilter: "blur(2px)",
                   pointerEvents: "none",
                 }}
               >
@@ -745,7 +743,6 @@ export default function PINITApp() {
                   style={{
                     color: "white",
                     textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    background: "rgba(0,0,0,0.5)",
                     padding: "0.25rem 0.5rem",
                     borderRadius: "0.25rem",
                   }}
@@ -760,7 +757,6 @@ export default function PINITApp() {
                   style={{
                     color: "white",
                     textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    background: "rgba(0,0,0,0.5)",
                     padding: "0.25rem 0.5rem",
                     borderRadius: "0.25rem",
                   }}
@@ -778,7 +774,6 @@ export default function PINITApp() {
                   style={{
                     color: "white",
                     textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    background: "rgba(0,0,0,0.5)",
                     padding: "0.25rem 0.5rem",
                     borderRadius: "0.25rem",
                   }}
