@@ -532,7 +532,7 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "18%",
+          top: "16%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
