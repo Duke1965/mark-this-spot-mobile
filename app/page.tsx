@@ -31,6 +31,7 @@ export interface PinData {
   rating?: number
   priceLevel?: number
   types?: string[]
+  isAISuggestion?: boolean
 }
 
 interface GooglePlace {
@@ -69,6 +70,7 @@ export default function PINITApp() {
   const [discoveryMode, setDiscoveryMode] = useState(false)
   const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([])
 
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
@@ -441,6 +443,12 @@ export default function PINITApp() {
     [handleQuickPin],
   )
 
+  // Handle AI recommendations
+  const handleAIRecommendations = useCallback((recommendations: any[]) => {
+    console.log("🤖 AI generated recommendations:", recommendations)
+    setAiRecommendations((prev) => [...prev, ...recommendations])
+  }, [])
+
   const handleRecommendPin = useCallback(
     (pinId: string, isRecommended: boolean) => {
       const updatedPins = pins.map((pin) =>
@@ -468,16 +476,19 @@ export default function PINITApp() {
     return `${baseUrl}/shared-pin?data=${pinData}`
   }, [])
 
-  // ENHANCED: Real Google Places Integration
+  // ENHANCED: Real Google Places Integration + AI Recommendations
   const findNearbyPins = useCallback(async () => {
     if (!location) return
 
     console.log("🌐 Discovering real nearby places...")
     const realPlaces = await fetchNearbyPlaces(location.latitude, location.longitude)
-    setNearbyPins(realPlaces)
+
+    // Combine Google Places with AI recommendations
+    const combinedRecommendations = [...realPlaces, ...aiRecommendations]
+    setNearbyPins(combinedRecommendations)
     setShowNearbyPins(true)
     setLastActivity("discovery")
-  }, [location, fetchNearbyPlaces])
+  }, [location, fetchNearbyPlaces, aiRecommendations])
 
   // Screen rendering
   if (currentScreen === "camera") {
@@ -639,7 +650,7 @@ export default function PINITApp() {
     )
   }
 
-  // Main map screen (Shazam-like interface) - ENHANCED WITH PROACTIVE AI
+  // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   return (
     <div
       style={{
@@ -655,13 +666,14 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
-      {/* PROACTIVE AI COMPONENT - THE MAGIC HAPPENS HERE! */}
+      {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style */}
       <ProactiveAI
         userLocation={userLocation}
         pins={pins}
         isMoving={motionData.isMoving}
         lastActivity={lastActivity}
         onSuggestionAction={handleProactiveSuggestion}
+        onRecommendationGenerated={handleAIRecommendations}
       />
 
       {/* AI Assistant Button - Top Right */}
@@ -1035,7 +1047,7 @@ export default function PINITApp() {
         </p>
       </div>
 
-      {/* ENHANCED: Real Google Places Discovery Panel */}
+      {/* ENHANCED: Real Google Places + AI Recommendations Discovery Panel */}
       {showNearbyPins && (
         <div
           style={{
@@ -1054,7 +1066,7 @@ export default function PINITApp() {
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
             <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
-              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
+              🌐 Discoveries & AI Suggestions {isLoadingPlaces && "⏳"}
             </h3>
             <button
               onClick={() => setShowNearbyPins(false)}
@@ -1082,7 +1094,11 @@ export default function PINITApp() {
                   padding: "0.75rem",
                   color: "white",
                   cursor: "pointer",
-                  border: pin.googlePlaceId ? "1px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
+                  border: pin.isAISuggestion
+                    ? "1px solid #8B5CF6"
+                    : pin.googlePlaceId
+                      ? "1px solid #10B981"
+                      : "1px solid rgba(255,255,255,0.2)",
                 }}
                 onClick={() => {
                   // Add to user's pins
@@ -1111,6 +1127,18 @@ export default function PINITApp() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                  {pin.isAISuggestion && (
+                    <span
+                      style={{
+                        fontSize: "0.5rem",
+                        background: "#8B5CF6",
+                        padding: "0.125rem 0.25rem",
+                        borderRadius: "0.25rem",
+                      }}
+                    >
+                      🤖 AI
+                    </span>
+                  )}
                   {pin.googlePlaceId && (
                     <span
                       style={{
