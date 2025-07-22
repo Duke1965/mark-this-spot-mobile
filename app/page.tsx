@@ -1,7 +1,20 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Camera, Video, Library, Sparkles, MapPin, Check } from "lucide-react"
+import {
+  Camera,
+  Video,
+  Library,
+  Sparkles,
+  MapPin,
+  Check,
+  ArrowLeft,
+  Play,
+  Star,
+  ImageIcon,
+  Edit3,
+  Share2,
+} from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
@@ -102,20 +115,19 @@ export default function PINITApp() {
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
   const [lastActivity, setLastActivity] = useState<string>("app-start")
 
+  // Library state
+  const [libraryTab, setLibraryTab] = useState<"photos" | "videos" | "pins" | "recommendations">("photos")
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState<PinData | null>(null)
+
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
-  // Media state
-  const [capturedMedia, setCapturedMedia] = useState<{
-    url: string
-    type: "photo" | "video"
-    location: string
-  } | null>(null)
+  // Media state - UPDATED for new workflow
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
   // Hooks
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
-  const { pins, addPin } = usePinStorage()
+  const { pins, addPin, updatePin } = usePinStorage()
   const motionData = useMotionDetection()
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
@@ -360,58 +372,79 @@ export default function PINITApp() {
     }
   }, [getCurrentLocation, addPin, isQuickPinning])
 
+  // NEW WORKFLOW: Camera capture saves directly to library
   const handleCameraCapture = useCallback(
-    (mediaUrl: string, type: "photo" | "video") => {
+    async (mediaUrl: string, type: "photo" | "video") => {
       if (!location) return
 
-      const locationName = `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+      const resolvedLocationName = await getLocationName(location.latitude, location.longitude)
 
-      setCapturedMedia({
-        url: mediaUrl,
-        type,
-        location: locationName,
-      })
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: location.latitude,
+        longitude: location.longitude,
+        locationName: resolvedLocationName,
+        mediaUrl: mediaUrl,
+        mediaType: type,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `${type === "photo" ? "📸" : "🎥"} ${type.charAt(0).toUpperCase() + type.slice(1)} Capture`,
+        description: `Captured at ${resolvedLocationName}`,
+        tags: ["captured", type],
+      }
+
+      addPin(newPin)
+      console.log("💾 Media saved to library:", newPin)
 
       setLastActivity(`camera-${type}`)
-      // Go to platform selection
-      setCurrentScreen("platform-select")
+      // Go back to map, media is now in library
+      setCurrentScreen("map")
     },
-    [location],
+    [location, addPin, getLocationName],
   )
+
+  // NEW: Handle library item selection for editing/sharing
+  const handleLibraryItemSelect = useCallback((item: PinData) => {
+    if (item.mediaUrl && item.mediaType) {
+      console.log("📝 Opening item for editing/sharing:", item.title)
+      setSelectedLibraryItem(item)
+      setCurrentScreen("platform-select")
+    }
+  }, [])
 
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
     setCurrentScreen("editor")
   }, [])
 
-  const handleSavePin = useCallback(
-    (postcardData?: any) => {
-      if (!capturedMedia || !location) return
+  // NEW: Handle save or send from editor
+  const handleSaveOrSend = useCallback(
+    (postcardData?: any, action: "save" | "send" = "save") => {
+      if (!selectedLibraryItem) return
 
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: location.latitude,
-        longitude: location.longitude,
-        locationName: capturedMedia.location,
-        mediaUrl: capturedMedia.url,
-        mediaType: capturedMedia.type,
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
-        description: postcardData?.text || "",
-        tags: ["social-media", selectedPlatform],
+      if (action === "save") {
+        // Update the existing library item
+        const updatedPin: PinData = {
+          ...selectedLibraryItem,
+          title: `${selectedLibraryItem.mediaType === "photo" ? "📸" : "🎥"} ${selectedPlatform} ${action === "save" ? "Edit" : "Post"}`,
+          description: postcardData?.text || selectedLibraryItem.description,
+          tags: [...(selectedLibraryItem.tags || []), "edited", selectedPlatform],
+        }
+
+        updatePin(updatedPin)
+        console.log("💾 Updated library item:", updatedPin)
+      } else {
+        // Handle sending/sharing logic here
+        console.log("📤 Sending to platform:", selectedPlatform, postcardData)
       }
 
-      addPin(newPin)
-      console.log("💾 Pin saved:", newPin)
-
-      setLastActivity("pin-saved")
-      // Reset state and go back to map
-      setCapturedMedia(null)
+      setLastActivity("item-edited")
+      // Reset state and go back to library
+      setSelectedLibraryItem(null)
       setSelectedPlatform("")
-      setCurrentScreen("map")
+      setCurrentScreen("library")
     },
-    [capturedMedia, location, selectedPlatform, addPin],
+    [selectedLibraryItem, selectedPlatform, updatePin],
   )
 
   const handleAICommand = useCallback(
@@ -605,32 +638,57 @@ export default function PINITApp() {
     [addPin],
   )
 
+  // Filter pins by category for library
+  const getFilteredContent = useCallback(() => {
+    switch (libraryTab) {
+      case "photos":
+        return pins.filter((pin) => pin.mediaType === "photo")
+      case "videos":
+        return pins.filter((pin) => pin.mediaType === "video")
+      case "pins":
+        return pins.filter((pin) => !pin.mediaType) // Pins without media
+      case "recommendations":
+        return pins.filter((pin) => pin.isRecommended || pin.googlePlaceId)
+      default:
+        return pins
+    }
+  }, [pins, libraryTab])
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
   }
 
-  if (currentScreen === "platform-select" && capturedMedia) {
+  // NEW: Platform select now uses selected library item
+  if (currentScreen === "platform-select" && selectedLibraryItem) {
     return (
       <SocialPlatformSelector
-        mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type}
+        mediaUrl={selectedLibraryItem.mediaUrl!}
+        mediaType={selectedLibraryItem.mediaType!}
         onPlatformSelect={handlePlatformSelect}
-        onBack={() => setCurrentScreen("map")}
+        onBack={() => {
+          setSelectedLibraryItem(null)
+          setCurrentScreen("library")
+        }}
       />
     )
   }
 
-  if (currentScreen === "editor" && capturedMedia && selectedPlatform) {
+  // NEW: Editor now uses selected library item
+  if (currentScreen === "editor" && selectedLibraryItem && selectedPlatform) {
     return (
       <MobilePostcardEditor
-        mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type}
+        mediaUrl={selectedLibraryItem.mediaUrl!}
+        mediaType={selectedLibraryItem.mediaType!}
         platform={selectedPlatform}
         dimensions={getPlatformDimensions(selectedPlatform)}
-        locationName={capturedMedia.location}
-        onSave={handleSavePin}
-        onClose={() => setCurrentScreen("map")}
+        locationName={selectedLibraryItem.locationName}
+        onSave={(postcardData) => handleSaveOrSend(postcardData, "save")}
+        onClose={() => {
+          setSelectedLibraryItem(null)
+          setSelectedPlatform("")
+          setCurrentScreen("library")
+        }}
         locationDetails={locationDetails}
         currentTheme={currentTheme}
       />
@@ -683,7 +741,14 @@ export default function PINITApp() {
     )
   }
 
+  // ENHANCED CATEGORIZED LIBRARY
   if (currentScreen === "library") {
+    const filteredContent = getFilteredContent()
+    const photosCount = pins.filter((p) => p.mediaType === "photo").length
+    const videosCount = pins.filter((p) => p.mediaType === "video").length
+    const pinsCount = pins.filter((p) => !p.mediaType).length
+    const recommendationsCount = pins.filter((p) => p.isRecommended || p.googlePlaceId).length
+
     return (
       <div
         style={{
@@ -706,9 +771,34 @@ export default function PINITApp() {
             alignItems: "center",
             justifyContent: "space-between",
             color: "white",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
           }}
         >
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Pin Library</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              style={{
+                padding: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Library</h1>
+              <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
+                {filteredContent.length} items in {libraryTab}
+              </p>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: "0.5rem" }}>
             {pins.filter((p) => p.mediaUrl).length > 0 && (
               <button
@@ -726,68 +816,372 @@ export default function PINITApp() {
                 📖 Story
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(0,0,0,0.2)",
+            overflowX: "auto",
+          }}
+        >
+          <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
             <button
-              onClick={() => setCurrentScreen("map")}
+              onClick={() => setLibraryTab("photos")}
               style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "0.5rem",
+                padding: "0.75rem 1rem",
                 border: "none",
-                background: "rgba(255,255,255,0.2)",
+                background: libraryTab === "photos" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
                 color: "white",
                 cursor: "pointer",
+                borderRadius: "1rem",
+                fontSize: "0.875rem",
+                fontWeight: libraryTab === "photos" ? "bold" : "normal",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
               }}
             >
-              Back
+              <ImageIcon size={16} />
+              Photos ({photosCount})
+            </button>
+
+            <button
+              onClick={() => setLibraryTab("videos")}
+              style={{
+                padding: "0.75rem 1rem",
+                border: "none",
+                background: libraryTab === "videos" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "1rem",
+                fontSize: "0.875rem",
+                fontWeight: libraryTab === "videos" ? "bold" : "normal",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <Play size={16} />
+              Videos ({videosCount})
+            </button>
+
+            <button
+              onClick={() => setLibraryTab("pins")}
+              style={{
+                padding: "0.75rem 1rem",
+                border: "none",
+                background: libraryTab === "pins" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "1rem",
+                fontSize: "0.875rem",
+                fontWeight: libraryTab === "pins" ? "bold" : "normal",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <MapPin size={16} />
+              Pins ({pinsCount})
+            </button>
+
+            <button
+              onClick={() => setLibraryTab("recommendations")}
+              style={{
+                padding: "0.75rem 1rem",
+                border: "none",
+                background: libraryTab === "recommendations" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "1rem",
+                fontSize: "0.875rem",
+                fontWeight: libraryTab === "recommendations" ? "bold" : "normal",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <Star size={16} />
+              Recommended ({recommendationsCount})
             </button>
           </div>
         </div>
 
-        {/* Pins List */}
+        {/* Content Area */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-          {pins.length === 0 ? (
-            <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
-              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📍</div>
-              <h2>No Pins Yet</h2>
-              <p>Start pinning locations to build your collection!</p>
+          {filteredContent.length === 0 ? (
+            <div style={{ textAlign: "center", color: "white", padding: "3rem 1rem" }}>
+              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>
+                {libraryTab === "photos" && "📸"}
+                {libraryTab === "videos" && "🎥"}
+                {libraryTab === "pins" && "📍"}
+                {libraryTab === "recommendations" && "⭐"}
+              </div>
+              <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "1.5rem" }}>
+                No {libraryTab.charAt(0).toUpperCase() + libraryTab.slice(1)} Yet
+              </h2>
+              <p style={{ margin: 0, opacity: 0.7 }}>
+                {libraryTab === "photos" && "Take some photos to see them here!"}
+                {libraryTab === "videos" && "Record some videos to see them here!"}
+                {libraryTab === "pins" && "Create some pins to see them here!"}
+                {libraryTab === "recommendations" && "Discover recommended places to see them here!"}
+              </p>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              {pins.map((pin) => (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  libraryTab === "photos" || libraryTab === "videos" ? "repeat(auto-fill, minmax(150px, 1fr))" : "1fr",
+                gap: "1rem",
+              }}
+            >
+              {filteredContent.map((item) => (
                 <div
-                  key={pin.id}
+                  key={item.id}
                   style={{
                     background: "rgba(255,255,255,0.1)",
-                    borderRadius: "0.5rem",
-                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    overflow: "hidden",
                     color: "white",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    border: item.isRecommended ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,0.1)",
+                    position: "relative",
+                  }}
+                  onClick={() => handleLibraryItemSelect(item)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)"
+                    e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)"
+                    e.currentTarget.style.boxShadow = "none"
                   }}
                 >
-                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem", fontWeight: "bold" }}>{pin.title}</h3>
-                  <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>📍 {pin.locationName}</p>
-                  <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
-                    {new Date(pin.timestamp).toLocaleDateString()} at {new Date(pin.timestamp).toLocaleTimeString()}
-                  </p>
-                  {pin.tags && (
-                    <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                      {pin.tags.map((tag, index) => (
-                        <span
-                          key={index}
+                  {/* Media Preview */}
+                  {item.mediaUrl && (
+                    <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
+                      {item.mediaType === "video" ? (
+                        <div
                           style={{
-                            padding: "0.25rem 0.5rem",
-                            background: "rgba(255,255,255,0.2)",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
+                            width: "100%",
+                            height: "100%",
+                            background: `url(${item.mediaUrl}) center/cover`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
-                          #{tag}
-                        </span>
-                      ))}
+                          <div
+                            style={{
+                              background: "rgba(0,0,0,0.7)",
+                              borderRadius: "50%",
+                              padding: "1rem",
+                              color: "white",
+                            }}
+                          >
+                            <Play size={24} />
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={item.mediaUrl || "/placeholder.svg"}
+                          alt={item.title}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      )}
+
+                      {/* Edit/Share Overlay for Media Items */}
+                      {(item.mediaType === "photo" || item.mediaType === "video") && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "0.5rem",
+                            right: "0.5rem",
+                            display: "flex",
+                            gap: "0.25rem",
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "rgba(0,0,0,0.7)",
+                              borderRadius: "50%",
+                              padding: "0.5rem",
+                              color: "white",
+                            }}
+                          >
+                            <Edit3 size={14} />
+                          </div>
+                          <div
+                            style={{
+                              background: "rgba(0,0,0,0.7)",
+                              borderRadius: "50%",
+                              padding: "0.5rem",
+                              color: "white",
+                            }}
+                          >
+                            <Share2 size={14} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommended Badge */}
+                      {item.isRecommended && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "0.5rem",
+                            right: "0.5rem",
+                            background: "#F59E0B",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          ⭐ Recommended
+                        </div>
+                      )}
+
+                      {/* Google Places Badge */}
+                      {item.googlePlaceId && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "0.5rem",
+                            left: "0.5rem",
+                            background: "#10B981",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🌐 Google
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* Content Info */}
+                  <div style={{ padding: libraryTab === "photos" || libraryTab === "videos" ? "0.75rem" : "1rem" }}>
+                    <h3
+                      style={{
+                        margin: "0 0 0.5rem 0",
+                        fontSize: libraryTab === "photos" || libraryTab === "videos" ? "0.875rem" : "1rem",
+                        fontWeight: "bold",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {item.title}
+                    </h3>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                        marginBottom: "0.5rem",
+                        fontSize: "0.75rem",
+                        opacity: 0.8,
+                      }}
+                    >
+                      <MapPin size={12} />
+                      <span>{item.locationName}</span>
+                    </div>
+
+                    {item.rating && (
+                      <div style={{ fontSize: "0.75rem", color: "#F59E0B", marginBottom: "0.5rem" }}>
+                        {"⭐".repeat(Math.floor(item.rating))} {item.rating}
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                      {new Date(item.timestamp).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </div>
+
+                    {item.description && libraryTab !== "photos" && libraryTab !== "videos" && (
+                      <p
+                        style={{
+                          margin: "0.5rem 0 0 0",
+                          fontSize: "0.75rem",
+                          opacity: 0.7,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {item.description}
+                      </p>
+                    )}
+
+                    {/* Tags */}
+                    {item.tags && item.tags.length > 0 && (
+                      <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                        {item.tags.slice(0, 3).map((tag, index) => (
+                          <span
+                            key={index}
+                            style={{
+                              padding: "0.125rem 0.375rem",
+                              background: "rgba(255,255,255,0.2)",
+                              borderRadius: "0.375rem",
+                              fontSize: "0.625rem",
+                            }}
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                        {item.tags.length > 3 && (
+                          <span
+                            style={{
+                              padding: "0.125rem 0.375rem",
+                              background: "rgba(255,255,255,0.2)",
+                              borderRadius: "0.375rem",
+                              fontSize: "0.625rem",
+                            }}
+                          >
+                            +{item.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+
+        {/* Bottom Stats */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(0,0,0,0.3)",
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            textAlign: "center",
+            fontSize: "0.875rem",
+            opacity: 0.7,
+            color: "white",
+          }}
+        >
+          📸 {photosCount} photos • 🎥 {videosCount} videos • 📍 {pinsCount} pins • ⭐ {recommendationsCount}{" "}
+          recommended
         </div>
       </div>
     )
