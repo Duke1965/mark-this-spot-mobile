@@ -10,7 +10,6 @@ import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { PinStoryMode } from "@/components/PinStoryMode"
 import { AIAssistant } from "@/components/AIAssistant"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
-import { SmartThemeSelector } from "@/components/SmartThemeSelector"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 
 export interface PinData {
@@ -313,6 +312,8 @@ export default function PINITApp() {
         locationName={capturedMedia.location}
         onSave={handleSavePin}
         onClose={() => setCurrentScreen("map")}
+        locationDetails={locationDetails}
+        currentTheme={currentTheme}
       />
     )
   }
@@ -444,7 +445,7 @@ export default function PINITApp() {
     )
   }
 
-  // Main map screen (Shazam-like interface)
+  // Main map screen (Shazam-like interface) - CLEAN VERSION
   return (
     <div
       style={{
@@ -487,21 +488,12 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* Enhanced Location Service */}
+      {/* Enhanced Location Service - Hidden but working */}
       {location && (
         <EnhancedLocationService
           latitude={location.latitude}
           longitude={location.longitude}
           onLocationEnhanced={setLocationDetails}
-        />
-      )}
-
-      {/* Smart Theme Selector */}
-      {locationDetails && (
-        <SmartThemeSelector
-          locationCategory={locationDetails.category}
-          locationTypes={locationDetails.types}
-          onThemeSelected={setCurrentTheme}
         />
       )}
 
