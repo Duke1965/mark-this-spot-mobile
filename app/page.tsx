@@ -47,6 +47,9 @@ export default function PINITApp() {
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
 
+  // Add this new state for user location
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+
   // Media state
   const [capturedMedia, setCapturedMedia] = useState<{
     url: string
@@ -93,6 +96,21 @@ export default function PINITApp() {
       }
     })
   }, [getCurrentLocation, getLocationName])
+
+  // Add this useEffect right after the existing useEffect for location name
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        })
+      },
+      (err) => {
+        console.error("Failed to get location:", err)
+      },
+    )
+  }, [])
 
   // Quick Pin Function (Shazam-like)
   const handleQuickPin = useCallback(async () => {
@@ -622,8 +640,8 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE MAPS BACKGROUND - ALTERNATIVE APPROACH */}
-          {location && (
+          {/* LIVE GOOGLE MAPS BACKGROUND - REAL IFRAME */}
+          {(userLocation || location) && (
             <div
               style={{
                 position: "absolute",
@@ -631,17 +649,27 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                background: `linear-gradient(135deg, 
-        rgba(34, 197, 94, 0.8) 0%, 
-        rgba(59, 130, 246, 0.8) 25%, 
-        rgba(16, 185, 129, 0.8) 50%, 
-        rgba(34, 197, 94, 0.8) 75%, 
-        rgba(59, 130, 246, 0.8) 100%)`,
-                backgroundSize: "400% 400%",
-                animation: "mapShimmer 4s ease-in-out infinite",
               }}
             >
-              {/* Location coordinates overlay */}
+              <iframe
+                width="100%"
+                height="100%"
+                loading="lazy"
+                allowFullScreen
+                src={`https://www.google.com/maps/embed/v1/view?key=${
+                  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "demo"
+                }&center=${userLocation?.latitude || location?.latitude || -33.9249},${
+                  userLocation?.longitude || location?.longitude || 18.4241
+                }&zoom=16&maptype=satellite`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  filter: "contrast(1.1) saturate(1.2)",
+                }}
+              />
+
+              {/* Location coordinates overlay - kept for reference */}
               <div
                 style={{
                   position: "absolute",
@@ -652,31 +680,17 @@ export default function PINITApp() {
                   fontSize: "0.7rem",
                   fontWeight: "bold",
                   textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  background: "rgba(0,0,0,0.3)",
+                  background: "rgba(0,0,0,0.5)",
                   padding: "0.25rem 0.5rem",
                   borderRadius: "0.25rem",
                   backdropFilter: "blur(2px)",
+                  pointerEvents: "none",
                 }}
               >
-                📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                📍 Live Map
               </div>
-
-              {/* Simulated map grid pattern */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-        `,
-                  backgroundSize: "20px 20px",
-                  opacity: 0.3,
-                }}
-              />
             </div>
           )}
-
           {/* Content Overlay with better contrast */}
           <div
             style={{
