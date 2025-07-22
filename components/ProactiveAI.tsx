@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { X } from "lucide-react"
 
 interface ProactiveAIProps {
   userLocation: { latitude: number; longitude: number } | null
@@ -9,6 +8,7 @@ interface ProactiveAIProps {
   isMoving: boolean
   lastActivity: string
   onSuggestionAction: (action: string, data?: any) => void
+  onRecommendationGenerated: (recommendations: any[]) => void
 }
 
 interface Suggestion {
@@ -24,17 +24,32 @@ interface Suggestion {
   timestamp: number
 }
 
-export function ProactiveAI({ userLocation, pins, isMoving, lastActivity, onSuggestionAction }: ProactiveAIProps) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
-  const [activeSuggestion, setActiveSuggestion] = useState<Suggestion | null>(null)
+interface TopNotification {
+  id: string
+  message: string
+  icon: string
+  color: string
+  timestamp: number
+}
+
+export function ProactiveAI({
+  userLocation,
+  pins,
+  isMoving,
+  lastActivity,
+  onSuggestionAction,
+  onRecommendationGenerated,
+}: ProactiveAIProps) {
+  const [topNotification, setTopNotification] = useState<TopNotification | null>(null)
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
   const [lastLocationCheck, setLastLocationCheck] = useState<{ lat: number; lng: number; time: number } | null>(null)
+  const [pendingRecommendations, setPendingRecommendations] = useState<any[]>([])
 
-  // Generate contextual suggestions based on current state
+  // Generate contextual suggestions and recommendations
   const generateSuggestions = useCallback(() => {
     const now = Date.now()
     const currentHour = new Date().getHours()
-    const newSuggestions: Suggestion[] = []
+    const recommendations: any[] = []
 
     // 1. LOCATION-BASED SUGGESTIONS
     if (userLocation && !isMoving) {
@@ -44,17 +59,30 @@ export function ProactiveAI({ userLocation, pins, isMoving, lastActivity, onSugg
         Math.abs(userLocation.latitude - lastLocationCheck.lat) > 0.001 ||
         Math.abs(userLocation.longitude - lastLocationCheck.lng) > 0.001
       ) {
-        newSuggestions.push({
-          id: "location-pin-worthy",
-          type: "location",
-          title: "📍 Pin-worthy spot detected!",
-          description: "This looks like a great place to remember",
-          action: "quick-pin",
-          priority: 8,
-          icon: "📍",
-          color: "#10B981",
-          timestamp: now,
-        })
+        if (!dismissedSuggestions.has("location-pin-worthy")) {
+          // Show subtle notification
+          setTopNotification({
+            id: "location-pin-worthy",
+            message: "📍 Pin-worthy spot detected nearby!",
+            icon: "📍",
+            color: "#10B981",
+            timestamp: now,
+          })
+
+          // Add to recommendations for discovery panel
+          recommendations.push({
+            id: `suggestion-${now}`,
+            type: "ai-suggestion",
+            title: "📍 Current Location",
+            description: "AI detected this as a pin-worthy spot",
+            action: "quick-pin",
+            priority: 8,
+            color: "#10B981",
+            isAISuggestion: true,
+          })
+
+          setDismissedSuggestions((prev) => new Set([...prev, "location-pin-worthy"]))
+        }
 
         setLastLocationCheck({ lat: userLocation.latitude, lng: userLocation.longitude, time: now })
       }
@@ -64,35 +92,53 @@ export function ProactiveAI({ userLocation, pins, isMoving, lastActivity, onSugg
     // Golden hour photography (6-8am, 5-7pm)
     if ((currentHour >= 6 && currentHour <= 8) || (currentHour >= 17 && currentHour <= 19)) {
       if (!dismissedSuggestions.has("golden-hour")) {
-        newSuggestions.push({
+        setTopNotification({
           id: "golden-hour",
-          type: "time",
-          title: "✨ Perfect golden hour lighting!",
-          description: "Ideal time for stunning photos",
-          action: "open-camera",
-          data: { mode: "photo" },
-          priority: 7,
+          message: "✨ Perfect golden hour for photos!",
           icon: "✨",
           color: "#F59E0B",
           timestamp: now,
         })
+
+        recommendations.push({
+          id: `golden-hour-${now}`,
+          type: "ai-suggestion",
+          title: "✨ Golden Hour Photography",
+          description: "Perfect lighting conditions detected",
+          action: "open-camera",
+          data: { mode: "photo" },
+          priority: 7,
+          color: "#F59E0B",
+          isAISuggestion: true,
+        })
+
+        setDismissedSuggestions((prev) => new Set([...prev, "golden-hour"]))
       }
     }
 
     // Lunch discovery (11am-2pm)
     if (currentHour >= 11 && currentHour <= 14) {
       if (!dismissedSuggestions.has("lunch-discovery")) {
-        newSuggestions.push({
+        setTopNotification({
           id: "lunch-discovery",
-          type: "time",
-          title: "🍽️ Lunch break discovery time!",
-          description: "Find great nearby restaurants",
-          action: "discovery-mode",
-          priority: 6,
+          message: "🍽️ Great time to discover lunch spots!",
           icon: "🍽️",
           color: "#EF4444",
           timestamp: now,
         })
+
+        recommendations.push({
+          id: `lunch-${now}`,
+          type: "ai-suggestion",
+          title: "🍽️ Lunch Break Discovery",
+          description: "Find great restaurants nearby",
+          action: "discovery-mode",
+          priority: 6,
+          color: "#EF4444",
+          isAISuggestion: true,
+        })
+
+        setDismissedSuggestions((prev) => new Set([...prev, "lunch-discovery"]))
       }
     }
 
@@ -100,304 +146,186 @@ export function ProactiveAI({ userLocation, pins, isMoving, lastActivity, onSugg
     // Story creation when user has 3+ pins with media
     const pinsWithMedia = pins.filter((p) => p.mediaUrl)
     if (pinsWithMedia.length >= 3 && !dismissedSuggestions.has("create-story")) {
-      newSuggestions.push({
+      setTopNotification({
         id: "create-story",
-        type: "pattern",
-        title: "📖 Ready to create your story?",
-        description: `Turn your ${pinsWithMedia.length} pins into a beautiful story`,
-        action: "create-story",
-        priority: 7,
+        message: `📖 Ready to create a story from ${pinsWithMedia.length} pins?`,
         icon: "📖",
         color: "#8B5CF6",
         timestamp: now,
       })
+
+      recommendations.push({
+        id: `story-${now}`,
+        type: "ai-suggestion",
+        title: "📖 Create Your Story",
+        description: `Turn your ${pinsWithMedia.length} pins into a beautiful story`,
+        action: "create-story",
+        priority: 7,
+        color: "#8B5CF6",
+        isAISuggestion: true,
+      })
+
+      setDismissedSuggestions((prev) => new Set([...prev, "create-story"]))
     }
 
     // Encourage more pinning after first pin
     if (pins.length === 1 && !dismissedSuggestions.has("encourage-pinning")) {
-      newSuggestions.push({
+      setTopNotification({
         id: "encourage-pinning",
-        type: "pattern",
-        title: "🎯 Great start! Pin another spot?",
-        description: "Build your collection of memorable places",
-        action: "suggest-pin",
-        priority: 5,
+        message: "🎯 Great start! Ready to pin another spot?",
         icon: "🎯",
         color: "#06B6D4",
         timestamp: now,
       })
+
+      recommendations.push({
+        id: `encourage-${now}`,
+        type: "ai-suggestion",
+        title: "🎯 Build Your Collection",
+        description: "Great start! Pin more memorable places",
+        action: "suggest-pin",
+        priority: 5,
+        color: "#06B6D4",
+        isAISuggestion: true,
+      })
+
+      setDismissedSuggestions((prev) => new Set([...prev, "encourage-pinning"]))
     }
 
     // 4. CONTENT SUGGESTIONS
     // Video suggestion during interesting times
     if (currentHour >= 16 && currentHour <= 20 && !dismissedSuggestions.has("video-time")) {
-      newSuggestions.push({
+      setTopNotification({
         id: "video-time",
-        type: "content",
-        title: "🎥 Perfect time for video content!",
-        description: "Capture the evening atmosphere",
-        action: "open-camera",
-        data: { mode: "video" },
-        priority: 6,
+        message: "🎥 Perfect evening atmosphere for video!",
         icon: "🎥",
         color: "#EC4899",
         timestamp: now,
       })
-    }
 
-    // 5. ACTIVITY-BASED SUGGESTIONS
-    // Suggest discovery after camera use
-    if (lastActivity.includes("camera") && !dismissedSuggestions.has("post-camera-discovery")) {
-      newSuggestions.push({
-        id: "post-camera-discovery",
-        type: "social",
-        title: "🌐 Discover more nearby gems?",
-        description: "Find other photo-worthy spots around here",
-        action: "discovery-mode",
+      recommendations.push({
+        id: `video-${now}`,
+        type: "ai-suggestion",
+        title: "🎥 Evening Video Content",
+        description: "Capture the perfect evening atmosphere",
+        action: "open-camera",
+        data: { mode: "video" },
         priority: 6,
-        icon: "🌐",
-        color: "#10B981",
-        timestamp: now,
+        color: "#EC4899",
+        isAISuggestion: true,
       })
+
+      setDismissedSuggestions((prev) => new Set([...prev, "video-time"]))
     }
 
-    // Sort by priority and take top suggestion
-    const sortedSuggestions = newSuggestions.sort((a, b) => b.priority - a.priority)
-    setSuggestions(sortedSuggestions)
-
-    // Show highest priority suggestion if not already showing one
-    if (sortedSuggestions.length > 0 && !activeSuggestion) {
-      setActiveSuggestion(sortedSuggestions[0])
+    // Send recommendations to parent component for discovery panel
+    if (recommendations.length > 0) {
+      setPendingRecommendations((prev) => [...prev, ...recommendations])
+      onRecommendationGenerated(recommendations)
     }
-  }, [userLocation, pins, isMoving, lastActivity, dismissedSuggestions, lastLocationCheck, activeSuggestion])
+
+    // Clear dismissed suggestions after 10 minutes to allow re-suggestions
+    setTimeout(() => {
+      setDismissedSuggestions(new Set())
+    }, 600000)
+  }, [userLocation, pins, isMoving, lastActivity, dismissedSuggestions, lastLocationCheck, onRecommendationGenerated])
 
   // Run suggestion generation periodically
   useEffect(() => {
     generateSuggestions()
 
-    const interval = setInterval(generateSuggestions, 30000) // Check every 30 seconds
+    const interval = setInterval(generateSuggestions, 60000) // Check every minute (less frequent)
     return () => clearInterval(interval)
   }, [generateSuggestions])
 
-  // Auto-dismiss suggestions after 10 seconds
+  // Auto-dismiss top notifications after 4 seconds
   useEffect(() => {
-    if (activeSuggestion) {
+    if (topNotification) {
       const timer = setTimeout(() => {
-        setActiveSuggestion(null)
-      }, 10000)
+        setTopNotification(null)
+      }, 4000) // Shorter duration for less distraction
 
       return () => clearTimeout(timer)
     }
-  }, [activeSuggestion])
+  }, [topNotification])
 
-  // Handle suggestion action
-  const handleSuggestionAction = useCallback(
-    (suggestion: Suggestion) => {
-      console.log("🤖 Proactive AI: User accepted suggestion:", suggestion.title)
-      onSuggestionAction(suggestion.action, suggestion.data)
-      setActiveSuggestion(null)
+  // Handle notification tap (optional quick action)
+  const handleNotificationTap = useCallback(() => {
+    if (topNotification) {
+      // For now, just dismiss and let user use discovery panel
+      setTopNotification(null)
+      console.log("🤖 User tapped notification - check discovery panel for details")
+    }
+  }, [topNotification])
 
-      // Mark as dismissed to prevent immediate re-showing
-      setDismissedSuggestions((prev) => new Set([...prev, suggestion.id]))
-
-      // Clear dismissal after 5 minutes to allow re-suggestions
-      setTimeout(() => {
-        setDismissedSuggestions((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(suggestion.id)
-          return newSet
-        })
-      }, 300000)
-    },
-    [onSuggestionAction],
-  )
-
-  // Handle suggestion dismissal
-  const handleDismiss = useCallback((suggestion: Suggestion) => {
-    console.log("🤖 Proactive AI: User dismissed suggestion:", suggestion.title)
-    setActiveSuggestion(null)
-    setDismissedSuggestions((prev) => new Set([...prev, suggestion.id]))
-
-    // Clear dismissal after 10 minutes for less intrusive suggestions
-    setTimeout(() => {
-      setDismissedSuggestions((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(suggestion.id)
-        return newSet
-      })
-    }, 600000)
-  }, [])
-
-  // Don't render if no active suggestion
-  if (!activeSuggestion) return null
+  // Don't render if no active notification
+  if (!topNotification) return null
 
   return (
     <div
       style={{
         position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        zIndex: 1000,
-        maxWidth: "320px",
-        width: "90%",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        pointerEvents: "auto",
       }}
     >
-      {/* Suggestion Card */}
+      {/* WhatsApp-style Top Notification Bar */}
       <div
+        onClick={handleNotificationTap}
         style={{
-          background: "rgba(0, 0, 0, 0.95)",
-          borderRadius: "1rem",
-          padding: "1.5rem",
+          background: `linear-gradient(135deg, ${topNotification.color}E6, ${topNotification.color}CC)`,
           color: "white",
-          backdropFilter: "blur(20px)",
-          border: `2px solid ${activeSuggestion.color}`,
-          boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px ${activeSuggestion.color}40`,
-          animation: "slideInScale 0.3s ease-out",
+          padding: "0.75rem 1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          cursor: "pointer",
+          backdropFilter: "blur(10px)",
+          borderBottom: `2px solid ${topNotification.color}`,
+          animation: "slideDownFade 0.3s ease-out",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
         }}
       >
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <div
-              style={{
-                fontSize: "1.5rem",
-                background: activeSuggestion.color,
-                borderRadius: "50%",
-                width: "2.5rem",
-                height: "2.5rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {activeSuggestion.icon}
-            </div>
-            <div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                AI Suggestion
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => handleDismiss(activeSuggestion)}
-            style={{
-              background: "rgba(255, 255, 255, 0.1)",
-              border: "none",
-              borderRadius: "50%",
-              width: "2rem",
-              height: "2rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem", fontWeight: "bold" }}>{activeSuggestion.title}</h3>
-          <p style={{ margin: 0, fontSize: "0.9rem", opacity: 0.8, lineHeight: 1.4 }}>{activeSuggestion.description}</p>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button
-            onClick={() => handleSuggestionAction(activeSuggestion)}
-            style={{
-              flex: 1,
-              background: activeSuggestion.color,
-              border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.75rem 1rem",
-              color: "white",
-              fontWeight: "bold",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-1px)"
-              e.currentTarget.style.boxShadow = `0 4px 12px ${activeSuggestion.color}40`
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)"
-              e.currentTarget.style.boxShadow = "none"
-            }}
-          >
-            {getActionText(activeSuggestion.action)}
-          </button>
-          <button
-            onClick={() => handleDismiss(activeSuggestion)}
-            style={{
-              background: "rgba(255, 255, 255, 0.1)",
-              border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.75rem 1rem",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-            }}
-          >
-            Later
-          </button>
-        </div>
-
-        {/* Priority Indicator */}
+        {/* Icon */}
         <div
           style={{
-            position: "absolute",
-            top: "-2px",
-            right: "-2px",
-            background: activeSuggestion.color,
-            borderRadius: "50%",
-            width: "1.5rem",
-            height: "1.5rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.7rem",
-            fontWeight: "bold",
+            fontSize: "1.2rem",
+            flexShrink: 0,
           }}
         >
-          {activeSuggestion.priority}
+          {topNotification.icon}
         </div>
+
+        {/* Message */}
+        <div style={{ flex: 1, fontSize: "0.9rem", fontWeight: "500" }}>{topNotification.message}</div>
+
+        {/* Subtle indicator */}
+        <div
+          style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.8)",
+            flexShrink: 0,
+          }}
+        />
       </div>
 
       <style jsx>{`
-        @keyframes slideInScale {
+        @keyframes slideDownFade {
           0% {
+            transform: translateY(-100%);
             opacity: 0;
-            transform: translate(-50%, -50%) scale(0.8);
           }
           100% {
+            transform: translateY(0);
             opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
           }
         }
       `}</style>
     </div>
   )
-}
-
-// Helper function to get action button text
-function getActionText(action: string): string {
-  switch (action) {
-    case "quick-pin":
-      return "📍 Pin It!"
-    case "open-camera":
-      return "📸 Open Camera"
-    case "create-story":
-      return "📖 Create Story"
-    case "discovery-mode":
-      return "🌐 Discover"
-    case "suggest-pin":
-      return "💡 Show Me"
-    default:
-      return "✨ Let's Go!"
-  }
 }
