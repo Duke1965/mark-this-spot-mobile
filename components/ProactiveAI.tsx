@@ -9,6 +9,7 @@ interface ProactiveAIProps {
   lastActivity: string
   onSuggestionAction: (action: string, data?: any) => void
   onRecommendationGenerated: (recommendations: any[]) => void
+  onNotificationTap: () => void
 }
 
 interface Suggestion {
@@ -39,6 +40,7 @@ export function ProactiveAI({
   lastActivity,
   onSuggestionAction,
   onRecommendationGenerated,
+  onNotificationTap,
 }: ProactiveAIProps) {
   const [topNotification, setTopNotification] = useState<TopNotification | null>(null)
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
@@ -60,16 +62,16 @@ export function ProactiveAI({
         Math.abs(userLocation.longitude - lastLocationCheck.lng) > 0.001
       ) {
         if (!dismissedSuggestions.has("location-pin-worthy")) {
-          // Show subtle notification
+          // Show subtle notification with DARK BLUE theme
           setTopNotification({
             id: "location-pin-worthy",
             message: "📍 Pin-worthy spot detected nearby!",
             icon: "📍",
-            color: "#10B981",
+            color: "#1e3a8a", // Dark blue
             timestamp: now,
           })
 
-          // Add to recommendations for discovery panel
+          // Add to recommendations for dedicated page
           recommendations.push({
             id: `suggestion-${now}`,
             type: "ai-suggestion",
@@ -77,8 +79,10 @@ export function ProactiveAI({
             description: "AI detected this as a pin-worthy spot",
             action: "quick-pin",
             priority: 8,
-            color: "#10B981",
+            color: "#1e3a8a",
             isAISuggestion: true,
+            timestamp: now,
+            category: "Location Discovery",
           })
 
           setDismissedSuggestions((prev) => new Set([...prev, "location-pin-worthy"]))
@@ -96,7 +100,7 @@ export function ProactiveAI({
           id: "golden-hour",
           message: "✨ Perfect golden hour for photos!",
           icon: "✨",
-          color: "#F59E0B",
+          color: "#1e3a8a", // Dark blue
           timestamp: now,
         })
 
@@ -108,8 +112,10 @@ export function ProactiveAI({
           action: "open-camera",
           data: { mode: "photo" },
           priority: 7,
-          color: "#F59E0B",
+          color: "#1e3a8a",
           isAISuggestion: true,
+          timestamp: now,
+          category: "Photography",
         })
 
         setDismissedSuggestions((prev) => new Set([...prev, "golden-hour"]))
@@ -123,7 +129,7 @@ export function ProactiveAI({
           id: "lunch-discovery",
           message: "🍽️ Great time to discover lunch spots!",
           icon: "🍽️",
-          color: "#EF4444",
+          color: "#1e3a8a", // Dark blue
           timestamp: now,
         })
 
@@ -134,8 +140,10 @@ export function ProactiveAI({
           description: "Find great restaurants nearby",
           action: "discovery-mode",
           priority: 6,
-          color: "#EF4444",
+          color: "#1e3a8a",
           isAISuggestion: true,
+          timestamp: now,
+          category: "Food & Dining",
         })
 
         setDismissedSuggestions((prev) => new Set([...prev, "lunch-discovery"]))
@@ -150,7 +158,7 @@ export function ProactiveAI({
         id: "create-story",
         message: `📖 Ready to create a story from ${pinsWithMedia.length} pins?`,
         icon: "📖",
-        color: "#8B5CF6",
+        color: "#1e3a8a", // Dark blue
         timestamp: now,
       })
 
@@ -161,8 +169,10 @@ export function ProactiveAI({
         description: `Turn your ${pinsWithMedia.length} pins into a beautiful story`,
         action: "create-story",
         priority: 7,
-        color: "#8B5CF6",
+        color: "#1e3a8a",
         isAISuggestion: true,
+        timestamp: now,
+        category: "Content Creation",
       })
 
       setDismissedSuggestions((prev) => new Set([...prev, "create-story"]))
@@ -174,7 +184,7 @@ export function ProactiveAI({
         id: "encourage-pinning",
         message: "🎯 Great start! Ready to pin another spot?",
         icon: "🎯",
-        color: "#06B6D4",
+        color: "#1e3a8a", // Dark blue
         timestamp: now,
       })
 
@@ -185,8 +195,10 @@ export function ProactiveAI({
         description: "Great start! Pin more memorable places",
         action: "suggest-pin",
         priority: 5,
-        color: "#06B6D4",
+        color: "#1e3a8a",
         isAISuggestion: true,
+        timestamp: now,
+        category: "Getting Started",
       })
 
       setDismissedSuggestions((prev) => new Set([...prev, "encourage-pinning"]))
@@ -199,7 +211,7 @@ export function ProactiveAI({
         id: "video-time",
         message: "🎥 Perfect evening atmosphere for video!",
         icon: "🎥",
-        color: "#EC4899",
+        color: "#1e3a8a", // Dark blue
         timestamp: now,
       })
 
@@ -211,14 +223,16 @@ export function ProactiveAI({
         action: "open-camera",
         data: { mode: "video" },
         priority: 6,
-        color: "#EC4899",
+        color: "#1e3a8a",
         isAISuggestion: true,
+        timestamp: now,
+        category: "Video Content",
       })
 
       setDismissedSuggestions((prev) => new Set([...prev, "video-time"]))
     }
 
-    // Send recommendations to parent component for discovery panel
+    // Send recommendations to parent component for dedicated recommendations page
     if (recommendations.length > 0) {
       setPendingRecommendations((prev) => [...prev, ...recommendations])
       onRecommendationGenerated(recommendations)
@@ -249,14 +263,14 @@ export function ProactiveAI({
     }
   }, [topNotification])
 
-  // Handle notification tap (optional quick action)
+  // Handle notification tap - navigate to recommendations page
   const handleNotificationTap = useCallback(() => {
     if (topNotification) {
-      // For now, just dismiss and let user use discovery panel
+      console.log("🤖 User tapped notification - opening recommendations page")
+      onNotificationTap()
       setTopNotification(null)
-      console.log("🤖 User tapped notification - check discovery panel for details")
     }
-  }, [topNotification])
+  }, [topNotification, onNotificationTap])
 
   // Don't render if no active notification
   if (!topNotification) return null
@@ -272,7 +286,7 @@ export function ProactiveAI({
         pointerEvents: "auto",
       }}
     >
-      {/* WhatsApp-style Top Notification Bar */}
+      {/* WhatsApp-style Top Notification Bar - DARK BLUE THEME */}
       <div
         onClick={handleNotificationTap}
         style={{
@@ -301,6 +315,17 @@ export function ProactiveAI({
 
         {/* Message */}
         <div style={{ flex: 1, fontSize: "0.9rem", fontWeight: "500" }}>{topNotification.message}</div>
+
+        {/* Tap indicator */}
+        <div
+          style={{
+            fontSize: "0.75rem",
+            opacity: 0.8,
+            flexShrink: 0,
+          }}
+        >
+          Tap to view
+        </div>
 
         {/* Subtle indicator */}
         <div
