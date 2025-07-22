@@ -4,11 +4,13 @@ import { useState, useCallback, useEffect } from "react"
 import { Camera, Video, Library, Sparkles, MapPin, Check } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
+import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { PinStoryMode } from "@/components/PinStoryMode"
 import { AIAssistant } from "@/components/AIAssistant"
+import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 
@@ -46,6 +48,7 @@ export default function PINITApp() {
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
+  const [lastActivity, setLastActivity] = useState<string>("app-start")
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -61,6 +64,7 @@ export default function PINITApp() {
   // Hooks
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
   const { pins, addPin } = usePinStorage()
+  const motionData = useMotionDetection()
 
   // Add location name resolution
   const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
@@ -117,6 +121,7 @@ export default function PINITApp() {
     if (isQuickPinning) return
 
     setIsQuickPinning(true)
+    setLastActivity("quick-pin")
 
     try {
       const currentLocation = await getCurrentLocation()
@@ -176,6 +181,7 @@ export default function PINITApp() {
         location: locationName,
       })
 
+      setLastActivity(`camera-${type}`)
       // Go to platform selection
       setCurrentScreen("platform-select")
     },
@@ -208,6 +214,7 @@ export default function PINITApp() {
       addPin(newPin)
       console.log("💾 Pin saved:", newPin)
 
+      setLastActivity("pin-saved")
       // Reset state and go back to map
       setCapturedMedia(null)
       setSelectedPlatform("")
@@ -235,6 +242,40 @@ export default function PINITApp() {
       }
 
       setShowAIAssistant(false)
+      setLastActivity("ai-command")
+    },
+    [handleQuickPin],
+  )
+
+  // Handle proactive AI suggestions
+  const handleProactiveSuggestion = useCallback(
+    (action: string, data?: any) => {
+      console.log("🤖 Proactive AI suggestion:", action, data)
+
+      switch (action) {
+        case "quick-pin":
+          handleQuickPin()
+          break
+        case "open-camera":
+          setCameraMode(data?.mode || "photo")
+          setCurrentScreen("camera")
+          break
+        case "create-story":
+          setCurrentScreen("story-builder")
+          break
+        case "discovery-mode":
+          setDiscoveryMode(true)
+          findNearbyPins()
+          break
+        case "suggest-pin":
+          // Show AI assistant with pin suggestion
+          setShowAIAssistant(true)
+          break
+        default:
+          console.log("Unknown proactive suggestion:", action)
+      }
+
+      setLastActivity(`proactive-${action}`)
     },
     [handleQuickPin],
   )
@@ -302,6 +343,7 @@ export default function PINITApp() {
 
     setNearbyPins(mockNearbyPins)
     setShowNearbyPins(true)
+    setLastActivity("discovery")
   }, [location])
 
   // Screen rendering
@@ -348,6 +390,7 @@ export default function PINITApp() {
         onCreateStory={(selectedPins, storyTitle) => {
           console.log("Story created:", storyTitle, selectedPins)
           setCurrentScreen("library")
+          setLastActivity("story-created")
         }}
       />
     )
@@ -463,7 +506,7 @@ export default function PINITApp() {
     )
   }
 
-  // Main map screen (Shazam-like interface) - FIXED VERSION
+  // Main map screen (Shazam-like interface) - ENHANCED WITH PROACTIVE AI
   return (
     <div
       style={{
@@ -479,6 +522,15 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
+      {/* PROACTIVE AI COMPONENT - THE MAGIC HAPPENS HERE! */}
+      <ProactiveAI
+        userLocation={userLocation}
+        pins={pins}
+        isMoving={motionData.isMoving}
+        lastActivity={lastActivity}
+        onSuggestionAction={handleProactiveSuggestion}
+      />
+
       {/* AI Assistant Button - Top Right */}
       <div
         style={{
@@ -545,6 +597,25 @@ export default function PINITApp() {
           🌐
         </button>
       </div>
+
+      {/* Motion Status Indicator (Debug) */}
+      {motionData.isMoving && (
+        <div
+          style={{
+            position: "absolute",
+            top: "1rem",
+            left: "1rem",
+            background: "rgba(16,185,129,0.8)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            fontSize: "0.75rem",
+            fontWeight: "bold",
+            zIndex: 10,
+          }}
+        >
+          🚶‍♂️ Moving ({motionData.speed.toFixed(1)} km/h)
+        </div>
+      )}
 
       {/* SHAZAM-STYLE CIRCLE - MOVED TO TOP THIRD & PULSATING */}
       <div
