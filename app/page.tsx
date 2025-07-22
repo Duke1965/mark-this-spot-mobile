@@ -340,18 +340,26 @@ export default function PINITApp() {
       ]
       const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
 
+      // Get Google Street View image for the pin
+      const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x400&location=${currentLocation.latitude},${currentLocation.longitude}&heading=0&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
+      // Fallback to static map if Street View fails
+      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${currentLocation.latitude},${currentLocation.longitude}&zoom=17&size=400x400&maptype=satellite&markers=color:red%7C${currentLocation.latitude},${currentLocation.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
         locationName: `${aiLocationName} (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
-        mediaUrl: null,
-        mediaType: null,
+        mediaUrl: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+          ? streetViewUrl
+          : `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(aiLocationName)}`,
+        mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
         description: `Quick pin created at ${new Date().toLocaleTimeString()}`,
-        tags: ["quick-pin", "ai-generated"],
+        tags: ["quick-pin", "ai-generated", "street-view"],
       }
 
       addPin(newPin)
@@ -364,7 +372,7 @@ export default function PINITApp() {
         setQuickPinSuccess(false)
       }, 2000)
 
-      console.log("📍 Quick pin created:", newPin)
+      console.log("📍 Quick pin created with Google image:", newPin)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
     } finally {
@@ -405,10 +413,16 @@ export default function PINITApp() {
 
   // NEW: Handle library item selection for editing/sharing
   const handleLibraryItemSelect = useCallback((item: PinData) => {
-    if (item.mediaUrl && item.mediaType) {
-      console.log("📝 Opening item for editing/sharing:", item.title)
-      setSelectedLibraryItem(item)
+    console.log("📝 Opening item for editing/sharing:", item.title)
+    setSelectedLibraryItem(item)
+
+    // If it has media or is a pin with an image, go to platform select
+    if (item.mediaUrl) {
       setCurrentScreen("platform-select")
+    } else {
+      // For pins without media, we could show a different flow or add media
+      console.log("📍 Pin without media - could add photo/video option here")
+      setCurrentScreen("platform-select") // Still allow sharing as a location card
     }
   }, [])
 
@@ -927,7 +941,7 @@ export default function PINITApp() {
               <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "1.5rem" }}>
                 No {libraryTab.charAt(0).toUpperCase() + libraryTab.slice(1)} Yet
               </h2>
-              <p style={{ margin: 0, opacity: 0.7 }}>
+              <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
                 {libraryTab === "photos" && "Take some photos to see them here!"}
                 {libraryTab === "videos" && "Record some videos to see them here!"}
                 {libraryTab === "pins" && "Create some pins to see them here!"}
@@ -966,116 +980,138 @@ export default function PINITApp() {
                     e.currentTarget.style.boxShadow = "none"
                   }}
                 >
-                  {/* Media Preview */}
-                  {item.mediaUrl && (
-                    <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
-                      {item.mediaType === "video" ? (
+                  {/* Media Preview - ENHANCED FOR ALL ITEMS */}
+                  <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
+                    {item.mediaType === "video" ? (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          background: `url(${item.mediaUrl || "/placeholder.svg?height=200&width=200&text=Video"}) center/cover`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
                         <div
                           style={{
-                            width: "100%",
-                            height: "100%",
-                            background: `url(${item.mediaUrl}) center/cover`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <div
-                            style={{
-                              background: "rgba(0,0,0,0.7)",
-                              borderRadius: "50%",
-                              padding: "1rem",
-                              color: "white",
-                            }}
-                          >
-                            <Play size={24} />
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={item.mediaUrl || "/placeholder.svg"}
-                          alt={item.title}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      )}
-
-                      {/* Edit/Share Overlay for Media Items */}
-                      {(item.mediaType === "photo" || item.mediaType === "video") && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "0.5rem",
-                            right: "0.5rem",
-                            display: "flex",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          <div
-                            style={{
-                              background: "rgba(0,0,0,0.7)",
-                              borderRadius: "50%",
-                              padding: "0.5rem",
-                              color: "white",
-                            }}
-                          >
-                            <Edit3 size={14} />
-                          </div>
-                          <div
-                            style={{
-                              background: "rgba(0,0,0,0.7)",
-                              borderRadius: "50%",
-                              padding: "0.5rem",
-                              color: "white",
-                            }}
-                          >
-                            <Share2 size={14} />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Recommended Badge */}
-                      {item.isRecommended && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: "0.5rem",
-                            right: "0.5rem",
-                            background: "#F59E0B",
+                            background: "rgba(0,0,0,0.7)",
+                            borderRadius: "50%",
+                            padding: "1rem",
                             color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
                           }}
                         >
-                          ⭐ Recommended
+                          <Play size={24} />
                         </div>
-                      )}
+                      </div>
+                    ) : (
+                      <img
+                        src={
+                          item.mediaUrl ||
+                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim())}`
+                        }
+                        alt={item.title}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                        onError={(e) => {
+                          // Fallback to placeholder if image fails to load
+                          e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim())}`
+                        }}
+                      />
+                    )}
 
-                      {/* Google Places Badge */}
-                      {item.googlePlaceId && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: "0.5rem",
-                            left: "0.5rem",
-                            background: "#10B981",
-                            color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          🌐 Google
-                        </div>
-                      )}
+                    {/* Edit/Share Overlay for ALL Items */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "0.5rem",
+                        right: "0.5rem",
+                        display: "flex",
+                        gap: "0.25rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: "rgba(0,0,0,0.7)",
+                          borderRadius: "50%",
+                          padding: "0.5rem",
+                          color: "white",
+                        }}
+                      >
+                        <Edit3 size={14} />
+                      </div>
+                      <div
+                        style={{
+                          background: "rgba(0,0,0,0.7)",
+                          borderRadius: "50%",
+                          padding: "0.5rem",
+                          color: "white",
+                        }}
+                      >
+                        <Share2 size={14} />
+                      </div>
                     </div>
-                  )}
+
+                    {/* Recommended Badge */}
+                    {item.isRecommended && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "0.5rem",
+                          right: "0.5rem",
+                          background: "#F59E0B",
+                          color: "white",
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "1rem",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        ⭐ Recommended
+                      </div>
+                    )}
+
+                    {/* Google Places Badge */}
+                    {item.googlePlaceId && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "0.5rem",
+                          left: "0.5rem",
+                          background: "#10B981",
+                          color: "white",
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "1rem",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        🌐 Google
+                      </div>
+                    )}
+
+                    {/* Street View Badge for Quick Pins */}
+                    {item.tags?.includes("street-view") && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "0.5rem",
+                          left: "0.5rem",
+                          background: "#3B82F6",
+                          color: "white",
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "1rem",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        🗺️ Street View
+                      </div>
+                    )}
+                  </div>
 
                   {/* Content Info */}
                   <div style={{ padding: libraryTab === "photos" || libraryTab === "videos" ? "0.75rem" : "1rem" }}>
@@ -1123,7 +1159,7 @@ export default function PINITApp() {
                         style={{
                           margin: "0.5rem 0 0 0",
                           fontSize: "0.75rem",
-                          opacity: 0.7,
+                          opacity: "0.7",
                           lineHeight: 1.3,
                         }}
                       >
