@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 interface SmartThemeSelectorProps {
   locationCategory: string
@@ -8,146 +8,81 @@ interface SmartThemeSelectorProps {
   onThemeSelected: (theme: any) => void
 }
 
-interface Theme {
-  name: string
-  colors: {
-    primary: string
-    secondary: string
-    accent: string
-  }
-  emoji: string
-}
-
-const THEMES: Record<string, Theme> = {
+const themes = {
+  urban: {
+    name: "Urban Style",
+    colors: {
+      primary: "#4F46E5",
+      secondary: "#7C3AED",
+      accent: "#06B6D4",
+    },
+    fonts: {
+      heading: "Inter, sans-serif",
+      body: "Inter, sans-serif",
+    },
+    filters: "contrast(1.1) saturate(1.2)",
+  },
   beach: {
     name: "Beach Vibes",
     colors: {
       primary: "#0EA5E9",
-      secondary: "#38BDF8",
-      accent: "#FDE047",
+      secondary: "#F59E0B",
+      accent: "#10B981",
     },
-    emoji: "🏖️",
-  },
-  urban: {
-    name: "Urban Style",
-    colors: {
-      primary: "#6366F1",
-      secondary: "#8B5CF6",
-      accent: "#EC4899",
+    fonts: {
+      heading: "Poppins, sans-serif",
+      body: "Poppins, sans-serif",
     },
-    emoji: "🏙️",
+    filters: "brightness(1.1) saturate(1.3) hue-rotate(10deg)",
   },
   nature: {
     name: "Nature Escape",
     colors: {
-      primary: "#10B981",
-      secondary: "#34D399",
-      accent: "#FCD34D",
+      primary: "#059669",
+      secondary: "#DC2626",
+      accent: "#F59E0B",
     },
-    emoji: "🌲",
+    fonts: {
+      heading: "Merriweather, serif",
+      body: "Open Sans, sans-serif",
+    },
+    filters: "saturate(1.4) contrast(1.1)",
+  },
+  restaurant: {
+    name: "Foodie",
+    colors: {
+      primary: "#DC2626",
+      secondary: "#F59E0B",
+      accent: "#059669",
+    },
+    fonts: {
+      heading: "Playfair Display, serif",
+      body: "Lato, sans-serif",
+    },
+    filters: "warmth(1.2) saturate(1.3)",
+  },
+  tourist: {
+    name: "Adventure",
+    colors: {
+      primary: "#7C2D12",
+      secondary: "#EA580C",
+      accent: "#0EA5E9",
+    },
+    fonts: {
+      heading: "Montserrat, sans-serif",
+      body: "Source Sans Pro, sans-serif",
+    },
+    filters: "contrast(1.2) brightness(1.05)",
   },
 }
 
 export function SmartThemeSelector({ locationCategory, locationTypes, onThemeSelected }: SmartThemeSelectorProps) {
-  const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null)
-  const [showSelector, setShowSelector] = useState(false)
-
   useEffect(() => {
-    // Auto-select theme based on location
-    const theme = THEMES[locationCategory] || THEMES.nature
-    setSelectedTheme(theme)
-    onThemeSelected(theme)
-  }, [locationCategory, onThemeSelected])
+    // Auto-select theme based on location category
+    const selectedTheme = themes[locationCategory as keyof typeof themes] || themes.urban
+    onThemeSelected(selectedTheme)
+  }, [locationCategory, locationTypes, onThemeSelected])
 
-  if (!selectedTheme) return null
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "1rem",
-        left: "1rem",
-        zIndex: 10,
-      }}
-    >
-      <div
-        style={{
-          background: "rgba(0,0,0,0.7)",
-          borderRadius: "12px",
-          padding: "0.75rem 1rem",
-          backdropFilter: "blur(10px)",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          cursor: "pointer",
-        }}
-        onClick={() => setShowSelector(!showSelector)}
-      >
-        <span style={{ fontSize: "1.25rem" }}>{selectedTheme.emoji}</span>
-        <div>
-          <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{selectedTheme.name}</div>
-          <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>Auto-selected</div>
-        </div>
-        <button
-          style={{
-            background: "rgba(255,255,255,0.2)",
-            border: "none",
-            borderRadius: "6px",
-            padding: "0.25rem 0.5rem",
-            color: "white",
-            fontSize: "0.75rem",
-            cursor: "pointer",
-          }}
-        >
-          Change
-        </button>
-      </div>
-
-      {showSelector && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            marginTop: "0.5rem",
-            background: "rgba(0,0,0,0.8)",
-            borderRadius: "12px",
-            padding: "1rem",
-            backdropFilter: "blur(10px)",
-            minWidth: "200px",
-          }}
-        >
-          {Object.entries(THEMES).map(([key, theme]) => (
-            <div
-              key={key}
-              style={{
-                padding: "0.5rem",
-                borderRadius: "8px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "white",
-                background: selectedTheme.name === theme.name ? "rgba(255,255,255,0.2)" : "transparent",
-              }}
-              onClick={() => {
-                setSelectedTheme(theme)
-                onThemeSelected(theme)
-                setShowSelector(false)
-              }}
-            >
-              <span style={{ fontSize: "1.25rem" }}>{theme.emoji}</span>
-              <div>
-                <div style={{ fontSize: "0.875rem", fontWeight: "bold" }}>{theme.name}</div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-                  {key === locationCategory ? "Recommended" : "Available"}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  // This component is invisible - it just provides theme data
+  return null
 }
