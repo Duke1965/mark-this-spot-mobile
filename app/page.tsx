@@ -14,6 +14,10 @@ import {
   ImageIcon,
   Edit3,
   Share2,
+  Eye,
+  Bookmark,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
@@ -118,6 +122,7 @@ export default function PINITApp() {
   // Library state
   const [libraryTab, setLibraryTab] = useState<"photos" | "videos" | "pins" | "recommendations">("photos")
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<PinData | null>(null)
+  const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -426,6 +431,49 @@ export default function PINITApp() {
     }
   }, [])
 
+  // NEW: Handle card actions (View, Edit, Share, Pin, Save)
+  const handleCardAction = useCallback(
+    (item: PinData, action: "view" | "edit" | "share" | "pin" | "save") => {
+      console.log(`🎯 Card action: ${action} on ${item.title}`)
+
+      switch (action) {
+        case "view":
+          // Show detailed view (could be a modal or new screen)
+          setSelectedLibraryItem(item)
+          // For now, just expand the card
+          setExpandedCard(expandedCard === item.id ? null : item.id)
+          break
+
+        case "edit":
+          setSelectedLibraryItem(item)
+          setCurrentScreen("platform-select")
+          break
+
+        case "share":
+          setSelectedLibraryItem(item)
+          setCurrentScreen("platform-select")
+          break
+
+        case "pin":
+          // Add to pins if not already there
+          if (!pins.find((p) => p.id === item.id)) {
+            addPin(item)
+            console.log("📍 Added to pins:", item.title)
+          }
+          break
+
+        case "save":
+          // Save for later functionality
+          setSavedForLaterPlaces((prev) => [...prev, { ...item, savedAt: Date.now() }])
+          console.log("🔖 Saved for later:", item.title)
+          break
+      }
+
+      setLastActivity(`card-${action}`)
+    },
+    [expandedCard, pins, addPin],
+  )
+
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
     setCurrentScreen("editor")
@@ -636,7 +684,7 @@ export default function PINITApp() {
           isRecommended: true,
           googlePlaceId: place.googlePlaceId,
           rating: place.rating,
-          priceLevel: place.priceLevel,
+          priceLevel: place.price_level,
           types: place.types,
         }
 
@@ -755,7 +803,7 @@ export default function PINITApp() {
     )
   }
 
-  // ENHANCED CATEGORIZED LIBRARY
+  // ENHANCED UNIFORM LIBRARY WITH RECTANGULAR CARDS
   if (currentScreen === "library") {
     const filteredContent = getFilteredContent()
     const photosCount = pins.filter((p) => p.mediaType === "photo").length
@@ -928,7 +976,7 @@ export default function PINITApp() {
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* Content Area - UNIFORM RECTANGULAR CARDS */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
           {filteredContent.length === 0 ? (
             <div style={{ textAlign: "center", color: "white", padding: "3rem 1rem" }}>
@@ -952,8 +1000,7 @@ export default function PINITApp() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  libraryTab === "photos" || libraryTab === "videos" ? "repeat(auto-fill, minmax(150px, 1fr))" : "1fr",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
                 gap: "1rem",
               }}
             >
@@ -965,12 +1012,11 @@ export default function PINITApp() {
                     borderRadius: "0.75rem",
                     overflow: "hidden",
                     color: "white",
-                    cursor: "pointer",
                     transition: "all 0.2s ease",
                     border: item.isRecommended ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,0.1)",
                     position: "relative",
+                    cursor: "pointer",
                   }}
-                  onClick={() => handleLibraryItemSelect(item)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-2px)"
                     e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
@@ -980,7 +1026,7 @@ export default function PINITApp() {
                     e.currentTarget.style.boxShadow = "none"
                   }}
                 >
-                  {/* Media Preview - ENHANCED FOR ALL ITEMS */}
+                  {/* UNIFORM IMAGE CONTAINER */}
                   <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
                     {item.mediaType === "video" ? (
                       <div
@@ -1008,7 +1054,7 @@ export default function PINITApp() {
                       <img
                         src={
                           item.mediaUrl ||
-                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim())}`
+                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim()) || "/placeholder.svg"}`
                         }
                         alt={item.title}
                         style={{
@@ -1023,7 +1069,7 @@ export default function PINITApp() {
                       />
                     )}
 
-                    {/* Edit/Share Overlay for ALL Items */}
+                    {/* UNIFORM ACTION BUTTONS - TOP RIGHT */}
                     <div
                       style={{
                         position: "absolute",
@@ -1033,29 +1079,74 @@ export default function PINITApp() {
                         gap: "0.25rem",
                       }}
                     >
-                      <div
+                      {/* View Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCardAction(item, "view")
+                        }}
                         style={{
                           background: "rgba(0,0,0,0.7)",
+                          border: "none",
                           borderRadius: "50%",
                           padding: "0.5rem",
                           color: "white",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
+                        title="View Details"
+                      >
+                        <Eye size={14} />
+                      </button>
+
+                      {/* Edit Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCardAction(item, "edit")
+                        }}
+                        style={{
+                          background: "rgba(0,0,0,0.7)",
+                          border: "none",
+                          borderRadius: "50%",
+                          padding: "0.5rem",
+                          color: "white",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title="Edit"
                       >
                         <Edit3 size={14} />
-                      </div>
-                      <div
+                      </button>
+
+                      {/* Share Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCardAction(item, "share")
+                        }}
                         style={{
                           background: "rgba(0,0,0,0.7)",
+                          border: "none",
                           borderRadius: "50%",
                           padding: "0.5rem",
                           color: "white",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
+                        title="Share"
                       >
                         <Share2 size={14} />
-                      </div>
+                      </button>
                     </div>
 
-                    {/* Recommended Badge */}
+                    {/* UNIFORM BADGES - BOTTOM CORNERS */}
                     {item.isRecommended && (
                       <div
                         style={{
@@ -1074,7 +1165,6 @@ export default function PINITApp() {
                       </div>
                     )}
 
-                    {/* Google Places Badge */}
                     {item.googlePlaceId && (
                       <div
                         style={{
@@ -1093,7 +1183,6 @@ export default function PINITApp() {
                       </div>
                     )}
 
-                    {/* Street View Badge for Quick Pins */}
                     {item.tags?.includes("street-view") && (
                       <div
                         style={{
@@ -1113,12 +1202,12 @@ export default function PINITApp() {
                     )}
                   </div>
 
-                  {/* Content Info */}
-                  <div style={{ padding: libraryTab === "photos" || libraryTab === "videos" ? "0.75rem" : "1rem" }}>
+                  {/* UNIFORM CONTENT INFO */}
+                  <div style={{ padding: "0.75rem" }}>
                     <h3
                       style={{
                         margin: "0 0 0.5rem 0",
-                        fontSize: libraryTab === "photos" || libraryTab === "videos" ? "0.875rem" : "1rem",
+                        fontSize: "0.875rem",
                         fontWeight: "bold",
                         lineHeight: 1.2,
                       }}
@@ -1146,7 +1235,7 @@ export default function PINITApp() {
                       </div>
                     )}
 
-                    <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
                       {new Date(item.timestamp).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -1154,23 +1243,72 @@ export default function PINITApp() {
                       })}
                     </div>
 
-                    {item.description && libraryTab !== "photos" && libraryTab !== "videos" && (
-                      <p
+                    {/* EXPANDABLE DETAILS */}
+                    {expandedCard === item.id && (
+                      <div
                         style={{
-                          margin: "0.5rem 0 0 0",
+                          marginTop: "0.5rem",
+                          padding: "0.5rem",
+                          background: "rgba(255,255,255,0.1)",
+                          borderRadius: "0.5rem",
                           fontSize: "0.75rem",
-                          opacity: "0.7",
-                          lineHeight: 1.3,
                         }}
                       >
-                        {item.description}
-                      </p>
+                        {item.description && (
+                          <p style={{ margin: "0 0 0.5rem 0", lineHeight: 1.3 }}>{item.description}</p>
+                        )}
+
+                        {/* ACTION BUTTONS IN EXPANDED VIEW */}
+                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                          <button
+                            onClick={() => handleCardAction(item, "pin")}
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              border: "none",
+                              background: "#EF4444",
+                              color: "white",
+                              borderRadius: "0.25rem",
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            <MapPin size={12} />
+                            Pin It
+                          </button>
+
+                          <button
+                            onClick={() => handleCardAction(item, "save")}
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              border: "none",
+                              background: "#8B5CF6",
+                              color: "white",
+                              borderRadius: "0.25rem",
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            <Bookmark size={12} />
+                            Save
+                          </button>
+                        </div>
+                      </div>
                     )}
 
-                    {/* Tags */}
+                    {/* UNIFORM TAGS */}
                     {item.tags && item.tags.length > 0 && (
                       <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-                        {item.tags.slice(0, 3).map((tag, index) => (
+                        {item.tags.slice(0, 2).map((tag, index) => (
                           <span
                             key={index}
                             style={{
@@ -1183,7 +1321,7 @@ export default function PINITApp() {
                             #{tag}
                           </span>
                         ))}
-                        {item.tags.length > 3 && (
+                        {item.tags.length > 2 && (
                           <span
                             style={{
                               padding: "0.125rem 0.375rem",
@@ -1192,11 +1330,43 @@ export default function PINITApp() {
                               fontSize: "0.625rem",
                             }}
                           >
-                            +{item.tags.length - 3}
+                            +{item.tags.length - 2}
                           </span>
                         )}
                       </div>
                     )}
+
+                    {/* EXPAND/COLLAPSE BUTTON */}
+                    <button
+                      onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
+                      style={{
+                        width: "100%",
+                        marginTop: "0.5rem",
+                        padding: "0.25rem",
+                        border: "none",
+                        background: "rgba(255,255,255,0.1)",
+                        color: "white",
+                        borderRadius: "0.25rem",
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.25rem",
+                      }}
+                    >
+                      {expandedCard === item.id ? (
+                        <>
+                          <ChevronUp size={12} />
+                          Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={12} />
+                          More
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               ))}
