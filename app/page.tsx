@@ -1015,390 +1015,396 @@ export default function PINITApp() {
                 gap: "1rem",
               }}
             >
-              {filteredContent.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    borderRadius: "0.75rem",
-                    overflow: "hidden",
-                    color: "white",
-                    transition: "all 0.2s ease",
-                    border: item.isRecommended ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,0.1)",
-                    position: "relative",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-2px)"
-                    e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)"
-                    e.currentTarget.style.boxShadow = "none"
-                  }}
-                >
-                  {/* UNIFORM IMAGE CONTAINER - ENHANCED FOR GOOGLE IMAGES */}
-                  <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
-                    {item.mediaType === "video" ? (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          background: `url(${item.mediaUrl || "/placeholder.svg?height=200&width=200&text=Video"}) center/cover`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
+              {filteredContent.map((item) => {
+                // FIXED: Create fallback URL outside of JSX to prevent flickering
+                const fallbackImageUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(
+                  item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim() || "Image",
+                )}`
+
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: "rgba(255,255,255,0.1)",
+                      borderRadius: "0.75rem",
+                      overflow: "hidden",
+                      color: "white",
+                      transition: "all 0.2s ease",
+                      border: item.isRecommended ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,0.1)",
+                      position: "relative",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)"
+                      e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)"
+                      e.currentTarget.style.boxShadow = "none"
+                    }}
+                  >
+                    {/* UNIFORM IMAGE CONTAINER - FIXED ERROR HANDLING */}
+                    <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
+                      {item.mediaType === "video" ? (
                         <div
                           style={{
-                            background: "rgba(0,0,0,0.7)",
-                            borderRadius: "50%",
-                            padding: "1rem",
-                            color: "white",
+                            width: "100%",
+                            height: "100%",
+                            background: `url(${item.mediaUrl || fallbackImageUrl}) center/cover`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
-                          <Play size={24} />
+                          <div
+                            style={{
+                              background: "rgba(0,0,0,0.7)",
+                              borderRadius: "50%",
+                              padding: "1rem",
+                              color: "white",
+                            }}
+                          >
+                            <Play size={24} />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <img
-                        src={
-                          item.mediaUrl ||
-                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim()) || "/placeholder.svg"}`
-                        }
-                        alt={item.title}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                        onError={(e) => {
-                          // Enhanced fallback for Google images
-                          console.log("Image failed to load:", item.mediaUrl)
-                          e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim())}`
-                        }}
-                        onLoad={() => {
-                          console.log("✅ Image loaded successfully:", item.title)
-                        }}
-                      />
-                    )}
+                      ) : (
+                        <img
+                          src={item.mediaUrl || fallbackImageUrl}
+                          alt={item.title}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                          onError={(e) => {
+                            // FIXED: Add null check to prevent the error
+                            if (e.currentTarget && e.currentTarget.src !== fallbackImageUrl) {
+                              console.log("🖼️ Image failed, using fallback:", item.title)
+                              e.currentTarget.src = fallbackImageUrl
+                            }
+                          }}
+                          onLoad={() => {
+                            console.log("✅ Image loaded successfully:", item.title)
+                          }}
+                        />
+                      )}
 
-                    {/* UNIFORM ACTION BUTTONS - TOP RIGHT */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "0.5rem",
-                        right: "0.5rem",
-                        display: "flex",
-                        gap: "0.25rem",
-                      }}
-                    >
-                      {/* View Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCardAction(item, "view")
-                        }}
-                        style={{
-                          background: "rgba(0,0,0,0.7)",
-                          border: "none",
-                          borderRadius: "50%",
-                          padding: "0.5rem",
-                          color: "white",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        title="View Details"
-                      >
-                        <Eye size={14} />
-                      </button>
-
-                      {/* Edit Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCardAction(item, "edit")
-                        }}
-                        style={{
-                          background: "rgba(0,0,0,0.7)",
-                          border: "none",
-                          borderRadius: "50%",
-                          padding: "0.5rem",
-                          color: "white",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        title="Edit"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-
-                      {/* Share Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCardAction(item, "share")
-                        }}
-                        style={{
-                          background: "rgba(0,0,0,0.7)",
-                          border: "none",
-                          borderRadius: "50%",
-                          padding: "0.5rem",
-                          color: "white",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        title="Share"
-                      >
-                        <Share2 size={14} />
-                      </button>
-                    </div>
-
-                    {/* UNIFORM BADGES - BOTTOM CORNERS */}
-                    {item.isRecommended && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "0.5rem",
-                          right: "0.5rem",
-                          background: "#F59E0B",
-                          color: "white",
-                          padding: "0.25rem 0.5rem",
-                          borderRadius: "1rem",
-                          fontSize: "0.75rem",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        ⭐ Recommended
-                      </div>
-                    )}
-
-                    {item.googlePlaceId && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "0.5rem",
-                          left: "0.5rem",
-                          background: "#10B981",
-                          color: "white",
-                          padding: "0.25rem 0.5rem",
-                          borderRadius: "1rem",
-                          fontSize: "0.75rem",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        🌐 Google
-                      </div>
-                    )}
-
-                    {item.tags?.includes("street-view") && (
+                      {/* UNIFORM ACTION BUTTONS - TOP RIGHT */}
                       <div
                         style={{
                           position: "absolute",
                           top: "0.5rem",
-                          left: "0.5rem",
-                          background: "#3B82F6",
-                          color: "white",
-                          padding: "0.25rem 0.5rem",
-                          borderRadius: "1rem",
-                          fontSize: "0.75rem",
-                          fontWeight: "bold",
+                          right: "0.5rem",
+                          display: "flex",
+                          gap: "0.25rem",
                         }}
                       >
-                        🗺️ Street View
+                        {/* View Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCardAction(item, "view")
+                          }}
+                          style={{
+                            background: "rgba(0,0,0,0.7)",
+                            border: "none",
+                            borderRadius: "50%",
+                            padding: "0.5rem",
+                            color: "white",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                        </button>
+
+                        {/* Edit Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCardAction(item, "edit")
+                          }}
+                          style={{
+                            background: "rgba(0,0,0,0.7)",
+                            border: "none",
+                            borderRadius: "50%",
+                            padding: "0.5rem",
+                            color: "white",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title="Edit"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+
+                        {/* Share Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCardAction(item, "share")
+                          }}
+                          style={{
+                            background: "rgba(0,0,0,0.7)",
+                            border: "none",
+                            borderRadius: "50%",
+                            padding: "0.5rem",
+                            color: "white",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title="Share"
+                        >
+                          <Share2 size={14} />
+                        </button>
                       </div>
-                    )}
-                  </div>
 
-                  {/* UNIFORM CONTENT INFO */}
-                  <div style={{ padding: "0.75rem" }}>
-                    <h3
-                      style={{
-                        margin: "0 0 0.5rem 0",
-                        fontSize: "0.875rem",
-                        fontWeight: "bold",
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {item.title}
-                    </h3>
+                      {/* UNIFORM BADGES - BOTTOM CORNERS */}
+                      {item.isRecommended && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "0.5rem",
+                            right: "0.5rem",
+                            background: "#F59E0B",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          ⭐ Recommended
+                        </div>
+                      )}
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.25rem",
-                        marginBottom: "0.5rem",
-                        fontSize: "0.75rem",
-                        opacity: 0.8,
-                      }}
-                    >
-                      <MapPin size={12} />
-                      <span>{item.locationName}</span>
+                      {item.googlePlaceId && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "0.5rem",
+                            left: "0.5rem",
+                            background: "#10B981",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🌐 Google
+                        </div>
+                      )}
+
+                      {item.tags?.includes("street-view") && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "0.5rem",
+                            left: "0.5rem",
+                            background: "#3B82F6",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🗺️ Street View
+                        </div>
+                      )}
                     </div>
 
-                    {item.rating && (
-                      <div style={{ fontSize: "0.75rem", color: "#F59E0B", marginBottom: "0.5rem" }}>
-                        {"⭐".repeat(Math.floor(item.rating))} {item.rating}
-                      </div>
-                    )}
+                    {/* UNIFORM CONTENT INFO */}
+                    <div style={{ padding: "0.75rem" }}>
+                      <h3
+                        style={{
+                          margin: "0 0 0.5rem 0",
+                          fontSize: "0.875rem",
+                          fontWeight: "bold",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {item.title}
+                      </h3>
 
-                    <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
-                      {new Date(item.timestamp).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </div>
-
-                    {/* EXPANDABLE DETAILS */}
-                    {expandedCard === item.id && (
                       <div
                         style={{
-                          marginTop: "0.5rem",
-                          padding: "0.5rem",
-                          background: "rgba(255,255,255,0.1)",
-                          borderRadius: "0.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                          marginBottom: "0.5rem",
                           fontSize: "0.75rem",
+                          opacity: 0.8,
                         }}
                       >
-                        {item.description && (
-                          <p style={{ margin: "0 0 0.5rem 0", lineHeight: 1.3 }}>{item.description}</p>
-                        )}
+                        <MapPin size={12} />
+                        <span>{item.locationName}</span>
+                      </div>
 
-                        {/* GOOGLE PLACE DETAILS */}
-                        {item.googlePlaceId && (
-                          <div style={{ marginBottom: "0.5rem" }}>
-                            <div style={{ fontSize: "0.625rem", opacity: 0.8, marginBottom: "0.25rem" }}>
-                              🌐 Google Place ID: {item.googlePlaceId.slice(0, 20)}...
-                            </div>
-                            {item.types && item.types.length > 0 && (
-                              <div style={{ fontSize: "0.625rem", opacity: 0.8 }}>
-                                📍 Types: {item.types.slice(0, 2).join(", ")}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* ACTION BUTTONS IN EXPANDED VIEW */}
-                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                          <button
-                            onClick={() => handleCardAction(item, "pin")}
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              border: "none",
-                              background: "#EF4444",
-                              color: "white",
-                              borderRadius: "0.25rem",
-                              fontSize: "0.75rem",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: "0.25rem",
-                            }}
-                          >
-                            <MapPin size={12} />
-                            Pin It
-                          </button>
-
-                          <button
-                            onClick={() => handleCardAction(item, "save")}
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              border: "none",
-                              background: "#8B5CF6",
-                              color: "white",
-                              borderRadius: "0.25rem",
-                              fontSize: "0.75rem",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: "0.25rem",
-                            }}
-                          >
-                            <Bookmark size={12} />
-                            Save
-                          </button>
+                      {item.rating && (
+                        <div style={{ fontSize: "0.75rem", color: "#F59E0B", marginBottom: "0.5rem" }}>
+                          {"⭐".repeat(Math.floor(item.rating))} {item.rating}
                         </div>
-                      </div>
-                    )}
-
-                    {/* UNIFORM TAGS */}
-                    {item.tags && item.tags.length > 0 && (
-                      <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-                        {item.tags.slice(0, 2).map((tag, index) => (
-                          <span
-                            key={index}
-                            style={{
-                              padding: "0.125rem 0.375rem",
-                              background: "rgba(255,255,255,0.2)",
-                              borderRadius: "0.375rem",
-                              fontSize: "0.625rem",
-                            }}
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                        {item.tags.length > 2 && (
-                          <span
-                            style={{
-                              padding: "0.125rem 0.375rem",
-                              background: "rgba(255,255,255,0.2)",
-                              borderRadius: "0.375rem",
-                              fontSize: "0.625rem",
-                            }}
-                          >
-                            +{item.tags.length - 2}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* EXPAND/COLLAPSE BUTTON */}
-                    <button
-                      onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
-                      style={{
-                        width: "100%",
-                        marginTop: "0.5rem",
-                        padding: "0.25rem",
-                        border: "none",
-                        background: "rgba(255,255,255,0.1)",
-                        color: "white",
-                        borderRadius: "0.25rem",
-                        fontSize: "0.75rem",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.25rem",
-                      }}
-                    >
-                      {expandedCard === item.id ? (
-                        <>
-                          <ChevronUp size={12} />
-                          Less
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown size={12} />
-                          More
-                        </>
                       )}
-                    </button>
+
+                      <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
+                        {new Date(item.timestamp).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+
+                      {/* EXPANDABLE DETAILS */}
+                      {expandedCard === item.id && (
+                        <div
+                          style={{
+                            marginTop: "0.5rem",
+                            padding: "0.5rem",
+                            background: "rgba(255,255,255,0.1)",
+                            borderRadius: "0.5rem",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          {item.description && (
+                            <p style={{ margin: "0 0 0.5rem 0", lineHeight: 1.3 }}>{item.description}</p>
+                          )}
+
+                          {/* GOOGLE PLACE DETAILS */}
+                          {item.googlePlaceId && (
+                            <div style={{ marginBottom: "0.5rem" }}>
+                              <div style={{ fontSize: "0.625rem", opacity: 0.8, marginBottom: "0.25rem" }}>
+                                🌐 Google Place ID: {item.googlePlaceId.slice(0, 20)}...
+                              </div>
+                              {item.types && item.types.length > 0 && (
+                                <div style={{ fontSize: "0.625rem", opacity: 0.8 }}>
+                                  📍 Types: {item.types.slice(0, 2).join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* ACTION BUTTONS IN EXPANDED VIEW */}
+                          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                            <button
+                              onClick={() => handleCardAction(item, "pin")}
+                              style={{
+                                flex: 1,
+                                padding: "0.5rem",
+                                border: "none",
+                                background: "#EF4444",
+                                color: "white",
+                                borderRadius: "0.25rem",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "0.25rem",
+                              }}
+                            >
+                              <MapPin size={12} />
+                              Pin It
+                            </button>
+
+                            <button
+                              onClick={() => handleCardAction(item, "save")}
+                              style={{
+                                flex: 1,
+                                padding: "0.5rem",
+                                border: "none",
+                                background: "#8B5CF6",
+                                color: "white",
+                                borderRadius: "0.25rem",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "0.25rem",
+                              }}
+                            >
+                              <Bookmark size={12} />
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* UNIFORM TAGS */}
+                      {item.tags && item.tags.length > 0 && (
+                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                          {item.tags.slice(0, 2).map((tag, index) => (
+                            <span
+                              key={index}
+                              style={{
+                                padding: "0.125rem 0.375rem",
+                                background: "rgba(255,255,255,0.2)",
+                                borderRadius: "0.375rem",
+                                fontSize: "0.625rem",
+                              }}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                          {item.tags.length > 2 && (
+                            <span
+                              style={{
+                                padding: "0.125rem 0.375rem",
+                                background: "rgba(255,255,255,0.2)",
+                                borderRadius: "0.375rem",
+                                fontSize: "0.625rem",
+                              }}
+                            >
+                              +{item.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* EXPAND/COLLAPSE BUTTON */}
+                      <button
+                        onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
+                        style={{
+                          width: "100%",
+                          marginTop: "0.5rem",
+                          padding: "0.25rem",
+                          border: "none",
+                          background: "rgba(255,255,255,0.1)",
+                          color: "white",
+                          borderRadius: "0.25rem",
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.25rem",
+                        }}
+                      >
+                        {expandedCard === item.id ? (
+                          <>
+                            <ChevronUp size={12} />
+                            Less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown size={12} />
+                            More
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
