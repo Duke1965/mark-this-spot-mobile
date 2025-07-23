@@ -1,25 +1,25 @@
 {
   "name": "PINIT - Pin Your Moments",
   "short_name": "PINIT",
-  "description": "Pin your favorite locations and moments with photos, videos, and memories",
+  "description": "Discover, capture, and pin your favorite moments and places",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#1e3a8a",
-  "theme_color": "#3730a3",
+  "background_color": "#1e40af",
+  "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
-  "categories": ["travel", "photography", "social", "lifestyle"],
+  "categories": ["travel", "photography", "lifestyle"],
   "lang": "en",
   "dir": "ltr",
+  "scope": "/",
   "icons": [
     {
-      "src": "/placeholder.svg?height=192&width=192&text=📍",
+      "src": "/placeholder.svg?height=192&width=192",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "/placeholder.svg?height=512&width=512&text=📍",
+      "src": "/placeholder.svg?height=512&width=512",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -33,7 +33,7 @@
       "url": "/?action=quick-pin",
       "icons": [
         {
-          "src": "/placeholder.svg?height=96&width=96&text=📍",
+          "src": "/placeholder.svg?height=96&width=96",
           "sizes": "96x96",
           "type": "image/svg+xml"
         }
@@ -42,11 +42,11 @@
     {
       "name": "Camera",
       "short_name": "Camera",
-      "description": "Open camera to capture a moment",
+      "description": "Open camera to capture moments",
       "url": "/?action=camera",
       "icons": [
         {
-          "src": "/placeholder.svg?height=96&width=96&text=📸",
+          "src": "/placeholder.svg?height=96&width=96",
           "sizes": "96x96",
           "type": "image/svg+xml"
         }
@@ -56,7 +56,7 @@
   "share_target": {
     "action": "/shared-place",
     "method": "POST",
-    "enctype": "application/x-www-form-urlencoded",
+    "enctype": "multipart/form-data",
     "params": {
       "title": "title",
       "text": "text",
@@ -67,15 +67,6 @@
     {
       "protocol": "web+pinit",
       "url": "/shared-place/view?url=%s"
-    }
-  ],
-  "file_handlers": [
-    {
-      "action": "/",
-      "accept": {
-        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-        "video/*": [".mp4", ".webm", ".mov"]
-      }
     }
   ]
 }
