@@ -1714,27 +1714,30 @@ export default function PINITApp() {
                   console.log("Map loaded successfully")
                 }}
                 onError={(e) => {
-                  console.log("Google Maps failed, trying alternative...")
-                  // Try OpenStreetMap tile service as fallback
-                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
-                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
-                  )}/${Math.floor(
-                    ((1 -
-                      Math.log(
-                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
-                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
-                      ) /
-                        Math.PI) /
-                      2) *
-                      Math.pow(2, 16),
-                  )}.png`
+                  // FIXED: Add null check to prevent the error
+                  if (e.currentTarget) {
+                    console.log("Google Maps failed, trying alternative...")
+                    // Try OpenStreetMap tile service as fallback
+                    e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
+                      (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
+                    )}/${Math.floor(
+                      ((1 -
+                        Math.log(
+                          Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
+                            1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
+                        ) /
+                          Math.PI) /
+                        2) *
+                        Math.pow(2, 16),
+                    )}.png`
 
-                  // If that also fails, show a nice gradient background
-                  setTimeout(() => {
-                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
-                      e.currentTarget.style.display = "none"
-                    }
-                  }, 2000)
+                    // If that also fails, show a nice gradient background
+                    setTimeout(() => {
+                      if (e.currentTarget && e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                        e.currentTarget.style.display = "none"
+                      }
+                    }, 2000)
+                  }
                 }}
               />
 
@@ -1941,6 +1944,12 @@ export default function PINITApp() {
                       objectFit: "cover",
                       borderRadius: "0.25rem",
                       marginBottom: "0.5rem",
+                    }}
+                    onError={(e) => {
+                      // FIXED: Add null check here too
+                      if (e.currentTarget) {
+                        e.currentTarget.src = "/placeholder.svg"
+                      }
                     }}
                   />
                 )}
