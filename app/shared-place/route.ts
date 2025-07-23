@@ -2,58 +2,62 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📤 Received Web Share Target POST request")
-
-    // Get form data from the Web Share Target
     const formData = await request.formData()
+    const title = formData.get("title") as string
+    const text = formData.get("text") as string
+    const url = formData.get("url") as string
 
-    const title = (formData.get("title") as string) || ""
-    const text = (formData.get("text") as string) || ""
-    const url = (formData.get("url") as string) || ""
+    console.log("📍 Web Share Target received:", { title, text, url })
 
-    console.log("📊 Share data received:", { title, text, url })
+    // Extract place information from the shared data
+    const placeName = title || "Shared Place"
+    const placeUrl = url || ""
+    const coordinates = { lat: 0, lng: 0 }
 
-    // Validate that we have some data
-    if (!title && !text && !url) {
-      console.error("❌ No share data received")
-      return NextResponse.redirect(new URL("/shared-place/view?error=no_data", request.url))
+    // Try to extract coordinates from Google Maps URL
+    if (url && url.includes("google.com/maps")) {
+      const coordMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+      if (coordMatch) {
+        coordinates.lat = Number.parseFloat(coordMatch[1])
+        coordinates.lng = Number.parseFloat(coordMatch[2])
+      }
     }
 
-    // Validate that this looks like a Google Maps URL
-    if (url && !url.includes("google.com") && !url.includes("maps.app.goo.gl")) {
-      console.error("❌ Invalid URL format:", url)
-      return NextResponse.redirect(new URL("/shared-place/view?error=invalid_url", request.url))
+    // Create a new pin entry (you might want to save this to a database)
+    const sharedPlace = {
+      id: Date.now().toString(),
+      title: placeName,
+      description: text || "Shared from Google Maps",
+      coordinates,
+      url: placeUrl,
+      timestamp: Date.now(),
+      tags: ["shared", "maps"],
     }
 
-    // Create query parameters for the view page
-    const params = new URLSearchParams()
-    if (title) params.set("title", title)
-    if (text) params.set("text", text)
-    if (url) params.set("url", url)
+    // Redirect to the view page with the place data
+    const viewUrl = new URL("/shared-place/view", request.url)
+    viewUrl.searchParams.set("title", placeName)
+    viewUrl.searchParams.set("description", text || "Shared from Google Maps")
+    viewUrl.searchParams.set("url", placeUrl)
+    viewUrl.searchParams.set("lat", coordinates.lat.toString())
+    viewUrl.searchParams.set("lng", coordinates.lng.toString())
 
-    console.log("✅ Redirecting to view page with params")
-
-    // Redirect to the view page with the extracted data
-    return NextResponse.redirect(new URL(`/shared-place/view?${params.toString()}`, request.url))
+    return NextResponse.redirect(viewUrl)
   } catch (error) {
-    console.error("❌ Error processing share data:", error)
-    return NextResponse.redirect(new URL("/shared-place/view?error=processing_failed", request.url))
+    console.error("❌ Error processing shared place:", error)
+
+    // Fallback redirect to main app
+    const fallbackUrl = new URL("/", request.url)
+    fallbackUrl.searchParams.set("error", "share-failed")
+    return NextResponse.redirect(fallbackUrl)
   }
 }
 
 export async function GET(request: NextRequest) {
-  // Handle direct GET requests (fallback)
-  console.log("📥 Received GET request to shared-place route")
+  // Handle direct access to the route
+  const url = new URL("/shared-place/view", request.url)
+  url.searchParams.set("title", "Direct Access")
+  url.searchParams.set("description", "This page is for handling shared places from other apps")
 
-  const { searchParams } = new URL(request.url)
-  const title = searchParams.get("title") || ""
-  const text = searchParams.get("text") || ""
-  const url = searchParams.get("url") || ""
-
-  if (!title && !text && !url) {
-    return NextResponse.redirect(new URL("/shared-place/view?error=no_data", request.url))
-  }
-
-  // Redirect to view page with the same params
-  return NextResponse.redirect(new URL(`/shared-place/view?${searchParams.toString()}`, request.url))
+  return NextResponse.redirect(url)
 }
