@@ -3,12 +3,29 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Camera, MapPin, Library, Settings, Plus, Search, Filter, X, CheckCircle } from "lucide-react"
-import CameraCapture from "@/components/CameraCapture"
-import PinLibrary from "@/components/PinLibrary"
-import GoogleMapsView from "@/components/GoogleMapsView"
-import LocationDisplay from "@/components/LocationDisplay"
+import { CameraCapture } from "@/components/CameraCapture"
+import { PinLibrary } from "@/components/PinLibrary"
+import { GoogleMapsView } from "@/components/GoogleMapsView"
+import { LocationDisplay } from "@/components/LocationDisplay"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useLocationServices } from "@/hooks/useLocationServices"
+
+export type MediaType = "photo" | "video"
+
+export interface PinData {
+  id: string
+  title: string
+  description?: string
+  location: string
+  coordinates: {
+    lat: number
+    lng: number
+  }
+  timestamp: number
+  mediaUrl?: string
+  mediaType?: MediaType
+  tags?: string[]
+}
 
 export default function PinitApp() {
   const searchParams = useSearchParams()
@@ -21,7 +38,7 @@ export default function PinitApp() {
   const [successMessage, setSuccessMessage] = useState("")
 
   const { pins, addPin, deletePin, updatePin } = usePinStorage()
-  const { currentLocation, locationName, requestLocation } = useLocationServices()
+  const { location, isLoading, error, requestLocation } = useLocationServices()
 
   // Handle shared place success notification
   useEffect(() => {
@@ -54,19 +71,32 @@ export default function PinitApp() {
     }
   }, [searchParams, requestLocation])
 
-  const handleAddPin = (pinData: any) => {
-    addPin(pinData)
-    console.log("📌 Pin added:", pinData)
+  const handleCapture = (mediaUrl: string, mediaType: MediaType) => {
+    if (!location) {
+      console.error("No location available for pin")
+      return
+    }
+
+    const newPin: PinData = {
+      id: Date.now().toString(),
+      title: `Pin at ${location.name}`,
+      location: location.name,
+      coordinates: {
+        lat: location.latitude,
+        lng: location.longitude,
+      },
+      timestamp: Date.now(),
+      mediaUrl,
+      mediaType,
+      tags: ["captured"],
+    }
+
+    addPin(newPin)
+    setActiveTab("library")
   }
 
-  const handleDeletePin = (pinId: string) => {
-    deletePin(pinId)
-    console.log("🗑️ Pin deleted:", pinId)
-  }
-
-  const handleUpdatePin = (pinId: string, updates: any) => {
-    updatePin(pinId, updates)
-    console.log("✏️ Pin updated:", pinId, updates)
+  const handlePinSelect = (pin: PinData) => {
+    console.log("Pin selected:", pin)
   }
 
   const filteredPins = pins.filter((pin) => {
@@ -74,7 +104,7 @@ export default function PinitApp() {
       !searchQuery ||
       pin.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       pin.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pin.locationName?.toLowerCase().includes(searchQuery.toLowerCase())
+      pin.location?.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesFilters = selectedFilters.length === 0 || selectedFilters.some((filter) => pin.tags?.includes(filter))
 
@@ -216,29 +246,22 @@ export default function PinitApp() {
       )}
 
       {/* Location Display */}
-      <LocationDisplay
-        currentLocation={currentLocation}
-        locationName={locationName}
-        onRequestLocation={requestLocation}
-      />
+      <LocationDisplay location={location} isLoading={isLoading} error={error} onRequestLocation={requestLocation} />
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === "camera" && (
-          <CameraCapture onCapture={handleAddPin} currentLocation={currentLocation} locationName={locationName} />
+          <CameraCapture onCapture={handleCapture} onBack={() => setActiveTab("library")} location={location} />
         )}
         {activeTab === "library" && (
           <PinLibrary
             pins={filteredPins}
-            onDeletePin={handleDeletePin}
-            onUpdatePin={handleUpdatePin}
-            searchQuery={searchQuery}
-            selectedFilters={selectedFilters}
+            onBack={() => setActiveTab("camera")}
+            onPinSelect={handlePinSelect}
+            onPinUpdate={updatePin}
           />
         )}
-        {activeTab === "map" && (
-          <GoogleMapsView pins={pins} currentLocation={currentLocation} onAddPin={handleAddPin} />
-        )}
+        {activeTab === "map" && <GoogleMapsView location={location} isLoading={isLoading} error={error} />}
       </div>
 
       {/* Bottom Navigation */}
