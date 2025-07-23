@@ -267,7 +267,7 @@ export default function PINITApp() {
           longitude: place.geometry.location.lng,
           locationName: place.vicinity || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
           mediaUrl: getPhotoUrl(place),
-          mediaType: "photo" as const,
+          mediaType: null, // CHANGED: Don't set as "photo" so it appears in Pins/Recommendations tabs
           audioUrl: null,
           timestamp: new Date().toISOString(),
           title: `${getPlaceEmoji(place.types)} ${place.name}`,
@@ -294,7 +294,7 @@ export default function PINITApp() {
           longitude: lng + 0.001,
           locationName: "Nearby Area",
           mediaUrl: "/placeholder.svg?height=200&width=200&text=Coffee%20Shop",
-          mediaType: "photo",
+          mediaType: null, // CHANGED: Don't set as "photo"
           audioUrl: null,
           timestamp: new Date().toISOString(),
           title: "☕ Local Coffee Spot",
@@ -309,7 +309,7 @@ export default function PINITApp() {
           longitude: lng + 0.001,
           locationName: "Scenic Area",
           mediaUrl: "/placeholder.svg?height=200&width=200&text=Viewpoint",
-          mediaType: "photo",
+          mediaType: null, // CHANGED: Don't set as "photo"
           audioUrl: null,
           timestamp: new Date().toISOString(),
           title: "🏔️ Beautiful Viewpoint",
@@ -359,7 +359,7 @@ export default function PINITApp() {
         mediaUrl: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
           ? streetViewUrl
           : `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(aiLocationName)}`,
-        mediaType: "photo",
+        mediaType: null, // CHANGED: Don't set as "photo" so it appears in Pins tab
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
@@ -398,7 +398,7 @@ export default function PINITApp() {
         longitude: location.longitude,
         locationName: resolvedLocationName,
         mediaUrl: mediaUrl,
-        mediaType: type,
+        mediaType: type, // KEEP: Camera captures should have mediaType
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `${type === "photo" ? "📸" : "🎥"} ${type.charAt(0).toUpperCase() + type.slice(1)} Capture`,
@@ -675,7 +675,7 @@ export default function PINITApp() {
           longitude: place.longitude,
           locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
           mediaUrl: place.mediaUrl || null,
-          mediaType: place.mediaUrl ? "photo" : null,
+          mediaType: place.mediaUrl ? null : null, // CHANGED: Keep as location pin, not photo
           audioUrl: null,
           timestamp: new Date().toISOString(),
           title: place.title,
@@ -684,7 +684,7 @@ export default function PINITApp() {
           isRecommended: true,
           googlePlaceId: place.googlePlaceId,
           rating: place.rating,
-          priceLevel: place.price_level,
+          priceLevel: place.priceLevel,
           types: place.types,
         }
 
@@ -700,7 +700,7 @@ export default function PINITApp() {
     [addPin],
   )
 
-  // Filter pins by category for library
+  // UPDATED: Filter pins by category for library - FIXED LOGIC
   const getFilteredContent = useCallback(() => {
     switch (libraryTab) {
       case "photos":
@@ -708,7 +708,13 @@ export default function PINITApp() {
       case "videos":
         return pins.filter((pin) => pin.mediaType === "video")
       case "pins":
-        return pins.filter((pin) => !pin.mediaType) // Pins without media
+        // UPDATED: Include location pins (no mediaType) AND pins with images but not camera captures
+        return pins.filter(
+          (pin) =>
+            !pin.mediaType || // Traditional pins without media type
+            (pin.mediaUrl && pin.tags?.includes("quick-pin")) || // Quick pins with Street View
+            (pin.mediaUrl && pin.tags?.includes("google-places")), // Google Places pins
+        )
       case "recommendations":
         return pins.filter((pin) => pin.isRecommended || pin.googlePlaceId)
       default:
@@ -808,7 +814,12 @@ export default function PINITApp() {
     const filteredContent = getFilteredContent()
     const photosCount = pins.filter((p) => p.mediaType === "photo").length
     const videosCount = pins.filter((p) => p.mediaType === "video").length
-    const pinsCount = pins.filter((p) => !p.mediaType).length
+    const pinsCount = pins.filter(
+      (p) =>
+        !p.mediaType ||
+        (p.mediaUrl && p.tags?.includes("quick-pin")) ||
+        (p.mediaUrl && p.tags?.includes("google-places")),
+    ).length
     const recommendationsCount = pins.filter((p) => p.isRecommended || p.googlePlaceId).length
 
     return (
@@ -1026,7 +1037,7 @@ export default function PINITApp() {
                     e.currentTarget.style.boxShadow = "none"
                   }}
                 >
-                  {/* UNIFORM IMAGE CONTAINER */}
+                  {/* UNIFORM IMAGE CONTAINER - ENHANCED FOR GOOGLE IMAGES */}
                   <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
                     {item.mediaType === "video" ? (
                       <div
@@ -1054,7 +1065,7 @@ export default function PINITApp() {
                       <img
                         src={
                           item.mediaUrl ||
-                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim()) || "/placeholder.svg"}`
+                          `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim()) || "/placeholder.svg"}`
                         }
                         alt={item.title}
                         style={{
@@ -1063,8 +1074,12 @@ export default function PINITApp() {
                           objectFit: "cover",
                         }}
                         onError={(e) => {
-                          // Fallback to placeholder if image fails to load
-                          e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥]/gu, "").trim())}`
+                          // Enhanced fallback for Google images
+                          console.log("Image failed to load:", item.mediaUrl)
+                          e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim())}`
+                        }}
+                        onLoad={() => {
+                          console.log("✅ Image loaded successfully:", item.title)
                         }}
                       />
                     )}
@@ -1256,6 +1271,20 @@ export default function PINITApp() {
                       >
                         {item.description && (
                           <p style={{ margin: "0 0 0.5rem 0", lineHeight: 1.3 }}>{item.description}</p>
+                        )}
+
+                        {/* GOOGLE PLACE DETAILS */}
+                        {item.googlePlaceId && (
+                          <div style={{ marginBottom: "0.5rem" }}>
+                            <div style={{ fontSize: "0.625rem", opacity: 0.8, marginBottom: "0.25rem" }}>
+                              🌐 Google Place ID: {item.googlePlaceId.slice(0, 20)}...
+                            </div>
+                            {item.types && item.types.length > 0 && (
+                              <div style={{ fontSize: "0.625rem", opacity: 0.8 }}>
+                                📍 Types: {item.types.slice(0, 2).join(", ")}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* ACTION BUTTONS IN EXPANDED VIEW */}
