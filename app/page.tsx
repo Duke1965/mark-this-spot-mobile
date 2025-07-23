@@ -18,6 +18,8 @@ import {
   Bookmark,
   ChevronDown,
   ChevronUp,
+  CheckCircle,
+  X,
 } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
@@ -32,6 +34,7 @@ import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
+import { useSearchParams } from "next/navigation"
 
 export interface PinData {
   id: string
@@ -89,6 +92,11 @@ interface Recommendation {
 }
 
 export default function PINITApp() {
+  // Get URL params for shared place success
+  const searchParams = useSearchParams()
+  const sharedSuccess = searchParams.get("shared")
+  const sharedPlace = searchParams.get("place")
+
   // Core state
   const [currentScreen, setCurrentScreen] = useState<
     | "map"
@@ -130,6 +138,9 @@ export default function PINITApp() {
   // Media state - UPDATED for new workflow
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
+  // NEW: Shared place success notification
+  const [showSharedSuccess, setShowSharedSuccess] = useState(false)
+
   // Hooks
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
   const { pins, addPin, updatePin } = usePinStorage()
@@ -137,6 +148,17 @@ export default function PINITApp() {
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
+
+  // Check for shared place success on mount
+  useEffect(() => {
+    if (sharedSuccess === "success" && sharedPlace) {
+      setShowSharedSuccess(true)
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        setShowSharedSuccess(false)
+      }, 5000)
+    }
+  }, [sharedSuccess, sharedPlace])
 
   // Add location name resolution
   const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
@@ -1220,6 +1242,25 @@ export default function PINITApp() {
                           🗺️ Street View
                         </div>
                       )}
+
+                      {/* NEW: Shared from Google Maps badge */}
+                      {item.tags?.includes("shared") && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "0.5rem",
+                            left: "0.5rem",
+                            background: "#8B5CF6",
+                            color: "white",
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "1rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          📤 Shared
+                        </div>
+                      )}
                     </div>
 
                     {/* UNIFORM CONTENT INFO */}
@@ -1444,6 +1485,53 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
+      {/* NEW: Shared Place Success Notification */}
+      {showSharedSuccess && sharedPlace && (
+        <div
+          style={{
+            position: "absolute",
+            top: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(16,185,129,0.95)",
+            color: "white",
+            padding: "1rem 1.5rem",
+            borderRadius: "1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            zIndex: 20,
+            boxShadow: "0 8px 25px rgba(0,0,0,0.3)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            maxWidth: "90%",
+          }}
+        >
+          <CheckCircle size={24} style={{ color: "white" }} />
+          <div>
+            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>✅ Added to Recommendations!</div>
+            <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>{decodeURIComponent(sharedPlace)}</div>
+          </div>
+          <button
+            onClick={() => setShowSharedSuccess(false)}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              border: "none",
+              borderRadius: "50%",
+              width: "2rem",
+              height: "2rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
