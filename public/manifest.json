@@ -1,7 +1,7 @@
 {
-  "name": "PINIT - Location Memory App",
+  "name": "PINIT - Pin Your Moments",
   "short_name": "PINIT",
-  "description": "Remember every place with AI-powered location pinning",
+  "description": "Capture, pin, and share your favorite places and moments",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e3a8a",
@@ -29,7 +29,7 @@
       "url": "url"
     }
   },
-  "categories": ["travel", "navigation", "lifestyle"],
+  "categories": ["travel", "social", "photography"],
   "shortcuts": [
     {
       "name": "Quick Pin",
@@ -39,6 +39,19 @@
       "icons": [
         {
           "src": "/placeholder.svg?height=96&width=96&text=📍",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Camera",
+      "short_name": "Camera",
+      "description": "Open camera to capture a moment",
+      "url": "/?action=camera",
+      "icons": [
+        {
+          "src": "/placeholder.svg?height=96&width=96&text=📸",
           "sizes": "96x96",
           "type": "image/svg+xml"
         }
