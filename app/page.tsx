@@ -1,849 +1,206 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import {
-  Camera,
-  Video,
-  Library,
-  Sparkles,
-  MapPin,
-  Check,
-  ArrowLeft,
-  Play,
-  Star,
-  ImageIcon,
-  Edit3,
-  Share2,
-  Eye,
-  Bookmark,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle,
-  X,
-} from "lucide-react"
-import { useLocationServices } from "@/hooks/useLocationServices"
-import { usePinStorage } from "@/hooks/usePinStorage"
-import { useMotionDetection } from "@/hooks/useMotionDetection"
-import { ReliableCamera } from "@/components/reliable-camera"
-import { SocialPlatformSelector } from "@/components/social-platform-selector"
-import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
-import { PinStoryMode } from "@/components/PinStoryMode"
-import { AIAssistant } from "@/components/AIAssistant"
-import { ProactiveAI } from "@/components/ProactiveAI"
-import { EnhancedLocationService } from "@/components/EnhancedLocationService"
-import { PinStoryBuilder } from "@/components/PinStoryBuilder"
-import { RecommendationsHub } from "@/components/RecommendationsHub"
-import { PlaceNavigation } from "@/components/PlaceNavigation"
-import { useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Plus, ExternalLink, Navigation } from "lucide-react"
 
-export interface PinData {
-  id: string
-  latitude: number
-  longitude: number
-  locationName: string
-  mediaUrl: string | null
-  mediaType: "photo" | "video" | null
-  audioUrl: string | null
-  timestamp: string
+interface SharedPlaceData {
   title: string
-  description?: string
-  tags?: string[]
-  isRecommended?: boolean
-  googlePlaceId?: string
-  rating?: number
-  priceLevel?: number
-  types?: string[]
-  isAISuggestion?: boolean
+  url: string
+  text: string
+  extractedData: {
+    placeName: string
+    knowledgeGraphId?: string
+    searchQuery: string
+    coordinates?: { lat: number; lng: number }
+    placeId?: string
+  }
 }
 
-interface GooglePlace {
-  place_id: string
-  name: string
-  geometry: {
-    location: {
-      lat: number
-      lng: number
+export default function SharedPlacePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [sharedData, setSharedData] = useState<SharedPlaceData | null>(null)
+  const [isProcessing, setIsProcessing] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
+
+  useEffect(() => {
+    // Handle both GET (URL params) and POST (form data) requests
+    const handleSharedData = async () => {
+      try {
+        // First try to get data from URL params (GET request)
+        const title = searchParams.get("title") || ""
+        const url = searchParams.get("url") || ""
+        const text = searchParams.get("text") || ""
+
+        // If no URL params, try to get from POST data (this would be handled server-side in production)
+        if (!title && !url && !text) {
+          // For demo purposes, we'll simulate POST data handling
+          // In a real app, this would be handled by a server action or API route
+          setError("No shared data received")
+          setIsProcessing(false)
+          return
+        }
+
+        // Parse the Google Maps share data
+        const extractedData = parseGoogleMapsShare(title, url, text)
+
+        setSharedData({
+          title,
+          url,
+          text,
+          extractedData,
+        })
+      } catch (err) {
+        console.error("Error processing shared data:", err)
+        setError("Failed to process shared data")
+      } finally {
+        setIsProcessing(false)
+      }
+    }
+
+    handleSharedData()
+  }, [searchParams])
+
+  const parseGoogleMapsShare = (title: string, url: string, text: string) => {
+    console.log("🔍 Parsing Google Maps share:", { title, url, text })
+
+    // Extract place name (usually in title or first line of text)
+    let placeName = title || "Unknown Place"
+    if (!placeName && text) {
+      const lines = text.split("\n")
+      placeName = lines[0] || "Unknown Place"
+    }
+
+    // Extract Knowledge Graph ID from URL
+    const kgMatch = url.match(/kgmid=([^&]+)/)
+    const knowledgeGraphId = kgMatch ? decodeURIComponent(kgMatch[1]) : undefined
+
+    // Extract search query
+    const qMatch = url.match(/q=([^&]+)/)
+    const searchQuery = qMatch ? decodeURIComponent(qMatch[1].replace(/\+/g, " ")) : placeName
+
+    // Try to extract coordinates if present (from various Google Maps URL formats)
+    let coordinates: { lat: number; lng: number } | undefined
+
+    // Format 1: @lat,lng
+    const coordMatch1 = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (coordMatch1) {
+      coordinates = {
+        lat: Number.parseFloat(coordMatch1[1]),
+        lng: Number.parseFloat(coordMatch1[2]),
+      }
+    }
+
+    // Format 2: ll=lat,lng
+    const coordMatch2 = url.match(/ll=(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (!coordinates && coordMatch2) {
+      coordinates = {
+        lat: Number.parseFloat(coordMatch2[1]),
+        lng: Number.parseFloat(coordMatch2[2]),
+      }
+    }
+
+    // Extract place ID if present
+    const placeIdMatch = url.match(/place_id:([^&]+)/)
+    const placeId = placeIdMatch ? placeIdMatch[1] : undefined
+
+    return {
+      placeName: placeName.trim(),
+      knowledgeGraphId,
+      searchQuery: searchQuery.trim(),
+      coordinates,
+      placeId,
     }
   }
-  rating?: number
-  price_level?: number
-  types: string[]
-  vicinity?: string
-  photos?: Array<{
-    photo_reference: string
-    height: number
-    width: number
-  }>
-}
 
-interface Recommendation {
-  id: string
-  type: string
-  title: string
-  description: string
-  action: string
-  data?: any
-  priority: number
-  color: string
-  isAISuggestion?: boolean
-  timestamp: number
-  category: string
-  isCompleted?: boolean
-}
+  const addToRecommendations = async () => {
+    if (!sharedData) return
 
-export default function PINITApp() {
-  // Get URL params for shared place success
-  const searchParams = useSearchParams()
-  const sharedSuccess = searchParams.get("shared")
-  const sharedPlace = searchParams.get("place")
+    setIsAdding(true)
 
-  // Core state
-  const [currentScreen, setCurrentScreen] = useState<
-    | "map"
-    | "camera"
-    | "platform-select"
-    | "editor"
-    | "story"
-    | "library"
-    | "story-builder"
-    | "recommendations"
-    | "place-navigation"
-  >("map")
-  const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
-  const [showAIAssistant, setShowAIAssistant] = useState(false)
-  const [isQuickPinning, setIsQuickPinning] = useState(false)
-  const [quickPinSuccess, setQuickPinSuccess] = useState(false)
-  const [locationName, setLocationName] = useState<string>("Getting location...")
-
-  const [showRecommendToggle, setShowRecommendToggle] = useState(false)
-  const [showNearbyPins, setShowNearbyPins] = useState(false)
-  const [discoveryMode, setDiscoveryMode] = useState(false)
-  const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
-  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
-
-  const [locationDetails, setLocationDetails] = useState<any>(null)
-  const [currentTheme, setCurrentTheme] = useState<any>(null)
-  const [showStoryBuilder, setShowStoryBuilder] = useState(false)
-  const [lastActivity, setLastActivity] = useState<string>("app-start")
-
-  // Library state
-  const [libraryTab, setLibraryTab] = useState<"photos" | "videos" | "pins" | "recommendations">("photos")
-  const [selectedLibraryItem, setSelectedLibraryItem] = useState<PinData | null>(null)
-  const [expandedCard, setExpandedCard] = useState<string | null>(null)
-
-  // Add this new state for user location
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-
-  // Media state - UPDATED for new workflow
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("")
-
-  // NEW: Shared place success notification
-  const [showSharedSuccess, setShowSharedSuccess] = useState(false)
-
-  // Hooks
-  const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
-  const { pins, addPin, updatePin } = usePinStorage()
-  const motionData = useMotionDetection()
-
-  const [selectedPlace, setSelectedPlace] = useState<any>(null)
-  const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
-
-  // Check for shared place success on mount
-  useEffect(() => {
-    if (sharedSuccess === "success" && sharedPlace) {
-      setShowSharedSuccess(true)
-      // Auto-hide after 5 seconds
-      setTimeout(() => {
-        setShowSharedSuccess(false)
-      }, 5000)
-    }
-  }, [sharedSuccess, sharedPlace])
-
-  // Add location name resolution
-  const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
     try {
-      // Using a simple reverse geocoding approach
-      // In production, you'd use Google Maps API or similar
-      const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-      )
-      const data = await response.json()
-
-      if (data.city && data.countryName) {
-        return `${data.city}, ${data.countryName}`
-      } else if (data.locality && data.countryName) {
-        return `${data.locality}, ${data.countryName}`
-      } else if (data.countryName) {
-        return data.countryName
+      // Get additional place details if we have coordinates
+      let placeDetails = null
+      if (sharedData.extractedData.coordinates) {
+        placeDetails = await fetchPlaceDetails(sharedData.extractedData.coordinates)
       }
 
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Create recommendation object
+      const recommendation = {
+        id: `shared-${Date.now()}`,
+        latitude: sharedData.extractedData.coordinates?.lat || 0,
+        longitude: sharedData.extractedData.coordinates?.lng || 0,
+        locationName: placeDetails?.vicinity || sharedData.extractedData.searchQuery || "Unknown Location",
+        mediaUrl: placeDetails?.photoUrl || null,
+        mediaType: null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `📍 ${sharedData.extractedData.placeName}`,
+        description: `Shared from Google Maps • ${sharedData.extractedData.searchQuery}`,
+        tags: ["shared", "google-maps", "recommended"],
+        isRecommended: true,
+        googlePlaceId: sharedData.extractedData.placeId,
+        rating: placeDetails?.rating,
+        priceLevel: placeDetails?.priceLevel,
+        types: placeDetails?.types || [],
+        isAISuggestion: false,
+        sharedData: {
+          originalUrl: sharedData.url,
+          knowledgeGraphId: sharedData.extractedData.knowledgeGraphId,
+          sharedAt: Date.now(),
+        },
+      }
+
+      // Save to localStorage (in a real app, this would be an API call)
+      const existingPins = JSON.parse(localStorage.getItem("pinit-pins") || "[]")
+      const updatedPins = [recommendation, ...existingPins]
+      localStorage.setItem("pinit-pins", JSON.stringify(updatedPins))
+
+      console.log("✅ Added shared place to recommendations:", recommendation)
+
+      // Redirect to main app with success message
+      router.push("/?shared=success&place=" + encodeURIComponent(sharedData.extractedData.placeName))
     } catch (error) {
-      console.error("Failed to get location name:", error)
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      console.error("❌ Failed to add shared place:", error)
+      setError("Failed to add place to recommendations")
+    } finally {
+      setIsAdding(false)
     }
-  }, [])
+  }
 
-  // Get current location on mount and resolve name
-  useEffect(() => {
-    getCurrentLocation().then(async (loc) => {
-      if (loc) {
-        const name = await getLocationName(loc.latitude, loc.longitude)
-        setLocationName(name)
-      }
-    })
-  }, [getCurrentLocation, getLocationName])
-
-  // Add this useEffect right after the existing useEffect for location name
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        })
-      },
-      (err) => {
-        console.error("Failed to get location:", err)
-      },
-    )
-  }, [])
-
-  // Google Places API Integration
-  const fetchNearbyPlaces = useCallback(async (lat: number, lng: number): Promise<PinData[]> => {
+  const fetchPlaceDetails = async (coordinates: { lat: number; lng: number }) => {
     try {
-      setIsLoadingPlaces(true)
-      console.log("🌐 Fetching real places from Google Places API...")
-
-      // Google Places Nearby Search API
-      const radius = 1000 // 1km radius
-      const types = [
-        "tourist_attraction",
-        "restaurant",
-        "cafe",
-        "museum",
-        "park",
-        "shopping_mall",
-        "art_gallery",
-        "amusement_park",
-        "zoo",
-        "aquarium",
-      ]
-
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-        "|",
-      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      // Note: In production, this should be called from a server-side API route
-      // to avoid exposing the API key. For demo purposes, we'll use a proxy or mock data
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}`)
+      // Use our existing places API to get more details
+      const response = await fetch(`/api/places?lat=${coordinates.lat}&lng=${coordinates.lng}&radius=50`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch places")
+        throw new Error("Places API request failed")
       }
 
       const data = await response.json()
-      const places: GooglePlace[] = data.results || []
 
-      console.log(`📍 Found ${places.length} real places nearby!`)
-
-      // Transform Google Places to PinData format
-      const transformedPins: PinData[] = places.slice(0, 6).map((place) => {
-        // Generate appropriate emoji based on place type
-        const getPlaceEmoji = (types: string[]): string => {
-          if (types.includes("restaurant")) return "🍽️"
-          if (types.includes("cafe")) return "☕"
-          if (types.includes("tourist_attraction")) return "🏛️"
-          if (types.includes("museum")) return "🏛️"
-          if (types.includes("park")) return "🌳"
-          if (types.includes("shopping_mall")) return "🛍️"
-          if (types.includes("art_gallery")) return "🎨"
-          if (types.includes("amusement_park")) return "🎢"
-          if (types.includes("zoo")) return "🦁"
-          if (types.includes("aquarium")) return "🐠"
-          return "📍"
-        }
-
-        // Generate description based on rating and types
-        const generateDescription = (place: GooglePlace): string => {
-          const rating = place.rating ? `${place.rating}⭐` : ""
-          const priceLevel = place.price_level ? "💰".repeat(place.price_level) : ""
-          const type = place.types[0]?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Place"
-
-          return `${type} ${rating} ${priceLevel}`.trim()
-        }
-
-        // Generate photo URL if available
-        const getPhotoUrl = (place: GooglePlace): string | null => {
-          if (place.photos && place.photos.length > 0) {
-            const photoRef = place.photos[0].photo_reference
-            return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          }
-          return `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(place.name)}`
-        }
-
+      // Find the closest place (this is a simplified approach)
+      if (data.results && data.results.length > 0) {
+        const place = data.results[0]
         return {
-          id: `google-${place.place_id}`,
-          latitude: place.geometry.location.lat,
-          longitude: place.geometry.location.lng,
-          locationName: place.vicinity || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-          mediaUrl: getPhotoUrl(place),
-          mediaType: null, // CHANGED: Don't set as "photo" so it appears in Pins/Recommendations tabs
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: `${getPlaceEmoji(place.types)} ${place.name}`,
-          description: generateDescription(place),
-          tags: ["google-places", "recommended", ...place.types.slice(0, 3).map((type) => type.replace(/_/g, "-"))],
-          isRecommended: true,
-          googlePlaceId: place.place_id,
+          vicinity: place.vicinity || `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`,
+          photoUrl: place.photos?.[0]
+            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            : null,
           rating: place.rating,
           priceLevel: place.price_level,
-          types: place.types,
+          types: place.types || [],
         }
-      })
-
-      console.log("✅ Transformed places:", transformedPins)
-      return transformedPins
+      }
     } catch (error) {
-      console.error("❌ Failed to fetch Google Places:", error)
-
-      // Fallback to enhanced mock data if API fails
-      return [
-        {
-          id: "fallback-1",
-          latitude: lat + 0.001,
-          longitude: lng + 0.001,
-          locationName: "Nearby Area",
-          mediaUrl: "/placeholder.svg?height=200&width=200&text=Coffee%20Shop",
-          mediaType: null, // CHANGED: Don't set as "photo"
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: "☕ Local Coffee Spot",
-          description: "Popular local cafe with great reviews",
-          tags: ["fallback", "coffee", "recommended"],
-          isRecommended: true,
-          rating: 4.5,
-        },
-        {
-          id: "fallback-2",
-          latitude: lat - 0.002,
-          longitude: lng + 0.001,
-          locationName: "Scenic Area",
-          mediaUrl: "/placeholder.svg?height=200&width=200&text=Viewpoint",
-          mediaType: null, // CHANGED: Don't set as "photo"
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: "🏔️ Beautiful Viewpoint",
-          description: "Perfect spot for photos and relaxation",
-          tags: ["fallback", "nature", "views", "recommended"],
-          isRecommended: true,
-          rating: 4.8,
-        },
-      ]
-    } finally {
-      setIsLoadingPlaces(false)
+      console.error("Failed to fetch place details:", error)
     }
-  }, [])
-
-  // Quick Pin Function (Shazam-like)
-  const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
-
-    setIsQuickPinning(true)
-    setLastActivity("quick-pin")
-
-    try {
-      const currentLocation = await getCurrentLocation()
-
-      // Generate AI location name (simplified for demo)
-      const locationNames = [
-        "Beautiful Scenic Spot",
-        "Hidden Gem Location",
-        "Amazing Discovery",
-        "Perfect Photo Spot",
-        "Memorable Place",
-        "Stunning Viewpoint",
-      ]
-      const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
-
-      // Get Google Street View image for the pin
-      const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x400&location=${currentLocation.latitude},${currentLocation.longitude}&heading=0&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      // Fallback to static map if Street View fails
-      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${currentLocation.latitude},${currentLocation.longitude}&zoom=17&size=400x400&maptype=satellite&markers=color:red%7C${currentLocation.latitude},${currentLocation.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        locationName: `${aiLocationName} (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
-        mediaUrl: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-          ? streetViewUrl
-          : `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(aiLocationName)}`,
-        mediaType: null, // CHANGED: Don't set as "photo" so it appears in Pins tab
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: `📍 ${aiLocationName}`,
-        description: `Quick pin created at ${new Date().toLocaleTimeString()}`,
-        tags: ["quick-pin", "ai-generated", "street-view"],
-      }
-
-      addPin(newPin)
-
-      // Show success feedback
-      setQuickPinSuccess(true)
-
-      // Auto-hide success after 2 seconds
-      setTimeout(() => {
-        setQuickPinSuccess(false)
-      }, 2000)
-
-      console.log("📍 Quick pin created with Google image:", newPin)
-    } catch (error) {
-      console.error("❌ Failed to create quick pin:", error)
-    } finally {
-      setIsQuickPinning(false)
-    }
-  }, [getCurrentLocation, addPin, isQuickPinning])
-
-  // NEW WORKFLOW: Camera capture saves directly to library
-  const handleCameraCapture = useCallback(
-    async (mediaUrl: string, type: "photo" | "video") => {
-      if (!location) return
-
-      const resolvedLocationName = await getLocationName(location.latitude, location.longitude)
-
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: location.latitude,
-        longitude: location.longitude,
-        locationName: resolvedLocationName,
-        mediaUrl: mediaUrl,
-        mediaType: type, // KEEP: Camera captures should have mediaType
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: `${type === "photo" ? "📸" : "🎥"} ${type.charAt(0).toUpperCase() + type.slice(1)} Capture`,
-        description: `Captured at ${resolvedLocationName}`,
-        tags: ["captured", type],
-      }
-
-      addPin(newPin)
-      console.log("💾 Media saved to library:", newPin)
-
-      setLastActivity(`camera-${type}`)
-      // Go back to map, media is now in library
-      setCurrentScreen("map")
-    },
-    [location, addPin, getLocationName],
-  )
-
-  // NEW: Handle library item selection for editing/sharing
-  const handleLibraryItemSelect = useCallback((item: PinData) => {
-    console.log("📝 Opening item for editing/sharing:", item.title)
-    setSelectedLibraryItem(item)
-
-    // If it has media or is a pin with an image, go to platform select
-    if (item.mediaUrl) {
-      setCurrentScreen("platform-select")
-    } else {
-      // For pins without media, we could show a different flow or add media
-      console.log("📍 Pin without media - could add photo/video option here")
-      setCurrentScreen("platform-select") // Still allow sharing as a location card
-    }
-  }, [])
-
-  // NEW: Handle card actions (View, Edit, Share, Pin, Save)
-  const handleCardAction = useCallback(
-    (item: PinData, action: "view" | "edit" | "share" | "pin" | "save") => {
-      console.log(`🎯 Card action: ${action} on ${item.title}`)
-
-      switch (action) {
-        case "view":
-          // Show detailed view (could be a modal or new screen)
-          setSelectedLibraryItem(item)
-          // For now, just expand the card
-          setExpandedCard(expandedCard === item.id ? null : item.id)
-          break
-
-        case "edit":
-          setSelectedLibraryItem(item)
-          setCurrentScreen("platform-select")
-          break
-
-        case "share":
-          setSelectedLibraryItem(item)
-          setCurrentScreen("platform-select")
-          break
-
-        case "pin":
-          // Add to pins if not already there
-          if (!pins.find((p) => p.id === item.id)) {
-            addPin(item)
-            console.log("📍 Added to pins:", item.title)
-          }
-          break
-
-        case "save":
-          // Save for later functionality
-          setSavedForLaterPlaces((prev) => [...prev, { ...item, savedAt: Date.now() }])
-          console.log("🔖 Saved for later:", item.title)
-          break
-      }
-
-      setLastActivity(`card-${action}`)
-    },
-    [expandedCard, pins, addPin],
-  )
-
-  const handlePlatformSelect = useCallback((platform: string) => {
-    setSelectedPlatform(platform)
-    setCurrentScreen("editor")
-  }, [])
-
-  // NEW: Handle save or send from editor
-  const handleSaveOrSend = useCallback(
-    (postcardData?: any, action: "save" | "send" = "save") => {
-      if (!selectedLibraryItem) return
-
-      if (action === "save") {
-        // Update the existing library item
-        const updatedPin: PinData = {
-          ...selectedLibraryItem,
-          title: `${selectedLibraryItem.mediaType === "photo" ? "📸" : "🎥"} ${selectedPlatform} ${action === "save" ? "Edit" : "Post"}`,
-          description: postcardData?.text || selectedLibraryItem.description,
-          tags: [...(selectedLibraryItem.tags || []), "edited", selectedPlatform],
-        }
-
-        updatePin(updatedPin)
-        console.log("💾 Updated library item:", updatedPin)
-      } else {
-        // Handle sending/sharing logic here
-        console.log("📤 Sending to platform:", selectedPlatform, postcardData)
-      }
-
-      setLastActivity("item-edited")
-      // Reset state and go back to library
-      setSelectedLibraryItem(null)
-      setSelectedPlatform("")
-      setCurrentScreen("library")
-    },
-    [selectedLibraryItem, selectedPlatform, updatePin],
-  )
-
-  const handleAICommand = useCallback(
-    (command: string) => {
-      const lowerCommand = command.toLowerCase()
-
-      if (lowerCommand.includes("pin") || lowerCommand.includes("mark")) {
-        handleQuickPin()
-      } else if (lowerCommand.includes("photo")) {
-        setCameraMode("photo")
-        setCurrentScreen("camera")
-      } else if (lowerCommand.includes("video")) {
-        setCameraMode("video")
-        setCurrentScreen("camera")
-      } else if (lowerCommand.includes("story")) {
-        setCurrentScreen("story")
-      } else if (lowerCommand.includes("library")) {
-        setCurrentScreen("library")
-      }
-
-      setShowAIAssistant(false)
-      setLastActivity("ai-command")
-    },
-    [handleQuickPin],
-  )
-
-  // Handle proactive AI suggestions
-  const handleProactiveSuggestion = useCallback(
-    (action: string, data?: any) => {
-      console.log("🤖 Proactive AI suggestion:", action, data)
-
-      switch (action) {
-        case "quick-pin":
-          handleQuickPin()
-          break
-        case "open-camera":
-          setCameraMode(data?.mode || "photo")
-          setCurrentScreen("camera")
-          break
-        case "create-story":
-          setCurrentScreen("story-builder")
-          break
-        case "discovery-mode":
-          setDiscoveryMode(true)
-          findNearbyPins()
-          break
-        case "suggest-pin":
-          // Show AI assistant with pin suggestion
-          setShowAIAssistant(true)
-          break
-        default:
-          console.log("Unknown proactive suggestion:", action)
-      }
-
-      setLastActivity(`proactive-${action}`)
-    },
-    [handleQuickPin],
-  )
-
-  // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
-  const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
-    console.log("🤖 AI generated recommendations:", newRecommendations)
-    setRecommendations((prev) => {
-      // Avoid duplicates by checking IDs
-      const existingIds = new Set(prev.map((r) => r.id))
-      const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
-      return [...prev, ...uniqueRecommendations]
-    })
-  }, [])
-
-  // Handle notification tap - GO TO RECOMMENDATIONS PAGE
-  const handleNotificationTap = useCallback(() => {
-    console.log("🤖 Opening recommendations hub")
-    setCurrentScreen("recommendations")
-  }, [])
-
-  // Handle recommendation actions
-  const handleRecommendationAction = useCallback(
-    (action: string, data?: any) => {
-      console.log("🎯 Taking recommendation action:", action, data)
-      handleProactiveSuggestion(action, data)
-      // Go back to map after action
-      setCurrentScreen("map")
-    },
-    [handleProactiveSuggestion],
-  )
-
-  // Handle recommendation dismiss
-  const handleRecommendationDismiss = useCallback((id: string) => {
-    setRecommendations((prev) => prev.filter((r) => r.id !== id))
-  }, [])
-
-  // Handle recommendation complete
-  const handleRecommendationComplete = useCallback((id: string) => {
-    setRecommendations((prev) => prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r)))
-  }, [])
-
-  const handleRecommendPin = useCallback(
-    (pinId: string, isRecommended: boolean) => {
-      const updatedPins = pins.map((pin) =>
-        pin.id === pinId
-          ? { ...pin, isRecommended, tags: [...(pin.tags || []), ...(isRecommended ? ["recommended"] : [])] }
-          : pin,
-      )
-      // Update pins in storage
-      localStorage.setItem("pinit-pins", JSON.stringify(updatedPins))
-    },
-    [pins],
-  )
-
-  const generateShareableLink = useCallback((pin: PinData) => {
-    const baseUrl = window.location.origin
-    const pinData = encodeURIComponent(
-      JSON.stringify({
-        id: pin.id,
-        title: pin.title,
-        lat: pin.latitude,
-        lng: pin.longitude,
-        locationName: pin.locationName,
-      }),
-    )
-    return `${baseUrl}/shared-pin?data=${pinData}`
-  }, [])
-
-  // ENHANCED: Real Google Places Integration
-  const findNearbyPins = useCallback(async () => {
-    if (!location) return
-
-    console.log("🌐 Discovering real nearby places...")
-    const realPlaces = await fetchNearbyPlaces(location.latitude, location.longitude)
-    setNearbyPins(realPlaces)
-    setShowNearbyPins(true)
-    setLastActivity("discovery")
-  }, [location, fetchNearbyPlaces])
-
-  // Handle place navigation from recommendations
-  const handlePlaceNavigation = useCallback((place: any) => {
-    console.log("🗺️ Opening place navigation for:", place.title)
-    setSelectedPlace(place)
-    setCurrentScreen("place-navigation")
-  }, [])
-
-  // Handle save for later
-  const handleSaveForLater = useCallback((place: any) => {
-    console.log("🔖 Saving place for later:", place.title)
-    setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
-    setCurrentScreen("recommendations")
-  }, [])
-
-  // Handle navigation start
-  const handleStartNavigation = useCallback((place: any) => {
-    console.log("🧭 Starting navigation to:", place.title)
-    // Navigation is handled within the PlaceNavigation component
-  }, [])
-
-  // Handle arrival
-  const handleArrival = useCallback(
-    (place: any, shouldSave: boolean) => {
-      console.log("🎯 Arrived at:", place.title, "Save:", shouldSave)
-
-      if (shouldSave) {
-        // Create a new pin from the place
-        const newPin: PinData = {
-          id: Date.now().toString(),
-          latitude: place.latitude,
-          longitude: place.longitude,
-          locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
-          mediaUrl: place.mediaUrl || null,
-          mediaType: place.mediaUrl ? null : null, // CHANGED: Keep as location pin, not photo
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: place.title,
-          description: place.description || `Visited ${place.title}`,
-          tags: ["visited", "recommended", ...(place.types || []).slice(0, 3)],
-          isRecommended: true,
-          googlePlaceId: place.googlePlaceId,
-          rating: place.rating,
-          priceLevel: place.priceLevel,
-          types: place.types,
-        }
-
-        addPin(newPin)
-        console.log("📍 Place saved as pin:", newPin)
-      }
-
-      // Go back to map
-      setCurrentScreen("map")
-      setSelectedPlace(null)
-      setLastActivity("place-visited")
-    },
-    [addPin],
-  )
-
-  // UPDATED: Filter pins by category for library - FIXED LOGIC
-  const getFilteredContent = useCallback(() => {
-    switch (libraryTab) {
-      case "photos":
-        return pins.filter((pin) => pin.mediaType === "photo")
-      case "videos":
-        return pins.filter((pin) => pin.mediaType === "video")
-      case "pins":
-        // UPDATED: Include location pins (no mediaType) AND pins with images but not camera captures
-        return pins.filter(
-          (pin) =>
-            !pin.mediaType || // Traditional pins without media type
-            (pin.mediaUrl && pin.tags?.includes("quick-pin")) || // Quick pins with Street View
-            (pin.mediaUrl && pin.tags?.includes("google-places")), // Google Places pins
-        )
-      case "recommendations":
-        return pins.filter((pin) => pin.isRecommended || pin.googlePlaceId)
-      default:
-        return pins
-    }
-  }, [pins, libraryTab])
-
-  // Screen rendering
-  if (currentScreen === "camera") {
-    return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
+    return null
   }
 
-  // NEW: Platform select now uses selected library item
-  if (currentScreen === "platform-select" && selectedLibraryItem) {
-    return (
-      <SocialPlatformSelector
-        mediaUrl={selectedLibraryItem.mediaUrl!}
-        mediaType={selectedLibraryItem.mediaType!}
-        onPlatformSelect={handlePlatformSelect}
-        onBack={() => {
-          setSelectedLibraryItem(null)
-          setCurrentScreen("library")
-        }}
-      />
-    )
-  }
-
-  // NEW: Editor now uses selected library item
-  if (currentScreen === "editor" && selectedLibraryItem && selectedPlatform) {
-    return (
-      <MobilePostcardEditor
-        mediaUrl={selectedLibraryItem.mediaUrl!}
-        mediaType={selectedLibraryItem.mediaType!}
-        platform={selectedPlatform}
-        dimensions={getPlatformDimensions(selectedPlatform)}
-        locationName={selectedLibraryItem.locationName}
-        onSave={(postcardData) => handleSaveOrSend(postcardData, "save")}
-        onClose={() => {
-          setSelectedLibraryItem(null)
-          setSelectedPlatform("")
-          setCurrentScreen("library")
-        }}
-        locationDetails={locationDetails}
-        currentTheme={currentTheme}
-      />
-    )
-  }
-
-  if (currentScreen === "story") {
-    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
-  }
-
-  if (currentScreen === "story-builder") {
-    return (
-      <PinStoryBuilder
-        pins={pins}
-        onBack={() => setCurrentScreen("library")}
-        onCreateStory={(selectedPins, storyTitle) => {
-          console.log("Story created:", storyTitle, selectedPins)
-          setCurrentScreen("library")
-          setLastActivity("story-created")
-        }}
-      />
-    )
-  }
-
-  // NEW RECOMMENDATIONS HUB SCREEN
-  if (currentScreen === "recommendations") {
-    return (
-      <RecommendationsHub
-        recommendations={recommendations}
-        onBack={() => setCurrentScreen("map")}
-        onActionTaken={handleRecommendationAction}
-        onRecommendationDismiss={handleRecommendationDismiss}
-        onRecommendationComplete={handleRecommendationComplete}
-        onPlaceNavigation={handlePlaceNavigation}
-      />
-    )
-  }
-
-  // NEW PLACE NAVIGATION SCREEN
-  if (currentScreen === "place-navigation" && selectedPlace) {
-    return (
-      <PlaceNavigation
-        place={selectedPlace}
-        userLocation={userLocation}
-        onBack={() => setCurrentScreen("recommendations")}
-        onSaveForLater={handleSaveForLater}
-        onNavigate={handleStartNavigation}
-        onArrived={handleArrival}
-      />
-    )
-  }
-
-  // ENHANCED UNIFORM LIBRARY WITH RECTANGULAR CARDS
-  if (currentScreen === "library") {
-    const filteredContent = getFilteredContent()
-    const photosCount = pins.filter((p) => p.mediaType === "photo").length
-    const videosCount = pins.filter((p) => p.mediaType === "video").length
-    const pinsCount = pins.filter(
-      (p) =>
-        !p.mediaType ||
-        (p.mediaUrl && p.tags?.includes("quick-pin")) ||
-        (p.mediaUrl && p.tags?.includes("google-places")),
-    ).length
-    const recommendationsCount = pins.filter((p) => p.isRecommended || p.googlePlaceId).length
-
+  if (isProcessing) {
     return (
       <div
         style={{
@@ -854,622 +211,75 @@ export default function PINITApp() {
           bottom: 0,
           background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
           display: "flex",
-          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "rgba(0,0,0,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            color: "white",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <button
-              onClick={() => setCurrentScreen("map")}
-              style={{
-                padding: "0.5rem",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Library</h1>
-              <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
-                {filteredContent.length} items in {libraryTab}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {pins.filter((p) => p.mediaUrl).length > 0 && (
-              <button
-                onClick={() => setCurrentScreen("story-builder")}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: "#10B981",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                📖 Story
-              </button>
-            )}
-          </div>
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              border: "4px solid rgba(255,255,255,0.3)",
+              borderTop: "4px solid white",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 1rem",
+            }}
+          />
+          <p>Processing shared place...</p>
         </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
 
-        {/* Category Tabs */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "rgba(0,0,0,0.2)",
-            overflowX: "auto",
-          }}
-        >
-          <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
-            <button
-              onClick={() => setLibraryTab("photos")}
-              style={{
-                padding: "0.75rem 1rem",
-                border: "none",
-                background: libraryTab === "photos" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "1rem",
-                fontSize: "0.875rem",
-                fontWeight: libraryTab === "photos" ? "bold" : "normal",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <ImageIcon size={16} />
-              Photos ({photosCount})
-            </button>
-
-            <button
-              onClick={() => setLibraryTab("videos")}
-              style={{
-                padding: "0.75rem 1rem",
-                border: "none",
-                background: libraryTab === "videos" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "1rem",
-                fontSize: "0.875rem",
-                fontWeight: libraryTab === "videos" ? "bold" : "normal",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <Play size={16} />
-              Videos ({videosCount})
-            </button>
-
-            <button
-              onClick={() => setLibraryTab("pins")}
-              style={{
-                padding: "0.75rem 1rem",
-                border: "none",
-                background: libraryTab === "pins" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "1rem",
-                fontSize: "0.875rem",
-                fontWeight: libraryTab === "pins" ? "bold" : "normal",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <MapPin size={16} />
-              Pins ({pinsCount})
-            </button>
-
-            <button
-              onClick={() => setLibraryTab("recommendations")}
-              style={{
-                padding: "0.75rem 1rem",
-                border: "none",
-                background: libraryTab === "recommendations" ? "#1e3a8a" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "1rem",
-                fontSize: "0.875rem",
-                fontWeight: libraryTab === "recommendations" ? "bold" : "normal",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <Star size={16} />
-              Recommended ({recommendationsCount})
-            </button>
-          </div>
-        </div>
-
-        {/* Content Area - UNIFORM RECTANGULAR CARDS */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-          {filteredContent.length === 0 ? (
-            <div style={{ textAlign: "center", color: "white", padding: "3rem 1rem" }}>
-              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>
-                {libraryTab === "photos" && "📸"}
-                {libraryTab === "videos" && "🎥"}
-                {libraryTab === "pins" && "📍"}
-                {libraryTab === "recommendations" && "⭐"}
-              </div>
-              <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "1.5rem" }}>
-                No {libraryTab.charAt(0).toUpperCase() + libraryTab.slice(1)} Yet
-              </h2>
-              <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>
-                {libraryTab === "photos" && "Take some photos to see them here!"}
-                {libraryTab === "videos" && "Record some videos to see them here!"}
-                {libraryTab === "pins" && "Create some pins to see them here!"}
-                {libraryTab === "recommendations" && "Discover recommended places to see them here!"}
-              </p>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {filteredContent.map((item) => {
-                // FIXED: Create fallback URL outside of JSX to prevent flickering
-                const fallbackImageUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(
-                  item.title.replace(/[📍📸🎥🍽️☕🏛️🌳🛍️🎨🎢🦁🐠]/gu, "").trim() || "Image",
-                )}`
-
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      background: "rgba(255,255,255,0.1)",
-                      borderRadius: "0.75rem",
-                      overflow: "hidden",
-                      color: "white",
-                      transition: "all 0.2s ease",
-                      border: item.isRecommended ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,0.1)",
-                      position: "relative",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)"
-                      e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)"
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)"
-                      e.currentTarget.style.boxShadow = "none"
-                    }}
-                  >
-                    {/* UNIFORM IMAGE CONTAINER - FIXED ERROR HANDLING */}
-                    <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
-                      {item.mediaType === "video" ? (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            background: `url(${item.mediaUrl || fallbackImageUrl}) center/cover`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <div
-                            style={{
-                              background: "rgba(0,0,0,0.7)",
-                              borderRadius: "50%",
-                              padding: "1rem",
-                              color: "white",
-                            }}
-                          >
-                            <Play size={24} />
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={item.mediaUrl || fallbackImageUrl}
-                          alt={item.title}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            // FIXED: Add null check to prevent the error
-                            if (e.currentTarget && e.currentTarget.src !== fallbackImageUrl) {
-                              console.log("🖼️ Image failed, using fallback:", item.title)
-                              e.currentTarget.src = fallbackImageUrl
-                            }
-                          }}
-                          onLoad={() => {
-                            console.log("✅ Image loaded successfully:", item.title)
-                          }}
-                        />
-                      )}
-
-                      {/* UNIFORM ACTION BUTTONS - TOP RIGHT */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "0.5rem",
-                          right: "0.5rem",
-                          display: "flex",
-                          gap: "0.25rem",
-                        }}
-                      >
-                        {/* View Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleCardAction(item, "view")
-                          }}
-                          style={{
-                            background: "rgba(0,0,0,0.7)",
-                            border: "none",
-                            borderRadius: "50%",
-                            padding: "0.5rem",
-                            color: "white",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          title="View Details"
-                        >
-                          <Eye size={14} />
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleCardAction(item, "edit")
-                          }}
-                          style={{
-                            background: "rgba(0,0,0,0.7)",
-                            border: "none",
-                            borderRadius: "50%",
-                            padding: "0.5rem",
-                            color: "white",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          title="Edit"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-
-                        {/* Share Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleCardAction(item, "share")
-                          }}
-                          style={{
-                            background: "rgba(0,0,0,0.7)",
-                            border: "none",
-                            borderRadius: "50%",
-                            padding: "0.5rem",
-                            color: "white",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          title="Share"
-                        >
-                          <Share2 size={14} />
-                        </button>
-                      </div>
-
-                      {/* UNIFORM BADGES - BOTTOM CORNERS */}
-                      {item.isRecommended && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: "0.5rem",
-                            right: "0.5rem",
-                            background: "#F59E0B",
-                            color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          ⭐ Recommended
-                        </div>
-                      )}
-
-                      {item.googlePlaceId && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: "0.5rem",
-                            left: "0.5rem",
-                            background: "#10B981",
-                            color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          🌐 Google
-                        </div>
-                      )}
-
-                      {item.tags?.includes("street-view") && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "0.5rem",
-                            left: "0.5rem",
-                            background: "#3B82F6",
-                            color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          🗺️ Street View
-                        </div>
-                      )}
-
-                      {/* NEW: Shared from Google Maps badge */}
-                      {item.tags?.includes("shared") && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "0.5rem",
-                            left: "0.5rem",
-                            background: "#8B5CF6",
-                            color: "white",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "1rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          📤 Shared
-                        </div>
-                      )}
-                    </div>
-
-                    {/* UNIFORM CONTENT INFO */}
-                    <div style={{ padding: "0.75rem" }}>
-                      <h3
-                        style={{
-                          margin: "0 0 0.5rem 0",
-                          fontSize: "0.875rem",
-                          fontWeight: "bold",
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {item.title}
-                      </h3>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                          marginBottom: "0.5rem",
-                          fontSize: "0.75rem",
-                          opacity: 0.8,
-                        }}
-                      >
-                        <MapPin size={12} />
-                        <span>{item.locationName}</span>
-                      </div>
-
-                      {item.rating && (
-                        <div style={{ fontSize: "0.75rem", color: "#F59E0B", marginBottom: "0.5rem" }}>
-                          {"⭐".repeat(Math.floor(item.rating))} {item.rating}
-                        </div>
-                      )}
-
-                      <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>
-                        {new Date(item.timestamp).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </div>
-
-                      {/* EXPANDABLE DETAILS */}
-                      {expandedCard === item.id && (
-                        <div
-                          style={{
-                            marginTop: "0.5rem",
-                            padding: "0.5rem",
-                            background: "rgba(255,255,255,0.1)",
-                            borderRadius: "0.5rem",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {item.description && (
-                            <p style={{ margin: "0 0 0.5rem 0", lineHeight: 1.3 }}>{item.description}</p>
-                          )}
-
-                          {/* GOOGLE PLACE DETAILS */}
-                          {item.googlePlaceId && (
-                            <div style={{ marginBottom: "0.5rem" }}>
-                              <div style={{ fontSize: "0.625rem", opacity: 0.8, marginBottom: "0.25rem" }}>
-                                🌐 Google Place ID: {item.googlePlaceId.slice(0, 20)}...
-                              </div>
-                              {item.types && item.types.length > 0 && (
-                                <div style={{ fontSize: "0.625rem", opacity: 0.8 }}>
-                                  📍 Types: {item.types.slice(0, 2).join(", ")}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* ACTION BUTTONS IN EXPANDED VIEW */}
-                          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                            <button
-                              onClick={() => handleCardAction(item, "pin")}
-                              style={{
-                                flex: 1,
-                                padding: "0.5rem",
-                                border: "none",
-                                background: "#EF4444",
-                                color: "white",
-                                borderRadius: "0.25rem",
-                                fontSize: "0.75rem",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "0.25rem",
-                              }}
-                            >
-                              <MapPin size={12} />
-                              Pin It
-                            </button>
-
-                            <button
-                              onClick={() => handleCardAction(item, "save")}
-                              style={{
-                                flex: 1,
-                                padding: "0.5rem",
-                                border: "none",
-                                background: "#8B5CF6",
-                                color: "white",
-                                borderRadius: "0.25rem",
-                                fontSize: "0.75rem",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "0.25rem",
-                              }}
-                            >
-                              <Bookmark size={12} />
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* UNIFORM TAGS */}
-                      {item.tags && item.tags.length > 0 && (
-                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-                          {item.tags.slice(0, 2).map((tag, index) => (
-                            <span
-                              key={index}
-                              style={{
-                                padding: "0.125rem 0.375rem",
-                                background: "rgba(255,255,255,0.2)",
-                                borderRadius: "0.375rem",
-                                fontSize: "0.625rem",
-                              }}
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                          {item.tags.length > 2 && (
-                            <span
-                              style={{
-                                padding: "0.125rem 0.375rem",
-                                background: "rgba(255,255,255,0.2)",
-                                borderRadius: "0.375rem",
-                                fontSize: "0.625rem",
-                              }}
-                            >
-                              +{item.tags.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* EXPAND/COLLAPSE BUTTON */}
-                      <button
-                        onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
-                        style={{
-                          width: "100%",
-                          marginTop: "0.5rem",
-                          padding: "0.25rem",
-                          border: "none",
-                          background: "rgba(255,255,255,0.1)",
-                          color: "white",
-                          borderRadius: "0.25rem",
-                          fontSize: "0.75rem",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.25rem",
-                        }}
-                      >
-                        {expandedCard === item.id ? (
-                          <>
-                            <ChevronUp size={12} />
-                            Less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown size={12} />
-                            More
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Stats */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "rgba(0,0,0,0.3)",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
-            textAlign: "center",
-            fontSize: "0.875rem",
-            opacity: 0.7,
-            color: "white",
-          }}
-        >
-          📸 {photosCount} photos • 🎥 {videosCount} videos • 📍 {pinsCount} pins • ⭐ {recommendationsCount}{" "}
-          recommended
+  if (error) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          padding: "2rem",
+        }}
+      >
+        <div style={{ textAlign: "center", maxWidth: "400px" }}>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>❌</div>
+          <h2 style={{ margin: "0 0 1rem 0" }}>Oops!</h2>
+          <p style={{ margin: "0 0 2rem 0", opacity: 0.8 }}>{error}</p>
+          <button
+            onClick={() => router.push("/")}
+            style={{
+              padding: "0.75rem 1.5rem",
+              background: "#3B82F6",
+              border: "none",
+              borderRadius: "0.5rem",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            Go to PINIT
+          </button>
         </div>
       </div>
     )
   }
 
-  // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   return (
     <div
       style={{
@@ -1478,724 +288,227 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
-        padding: "2rem",
       }}
     >
-      {/* NEW: Shared Place Success Notification */}
-      {showSharedSuccess && sharedPlace && (
-        <div
-          style={{
-            position: "absolute",
-            top: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(16,185,129,0.95)",
-            color: "white",
-            padding: "1rem 1.5rem",
-            borderRadius: "1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            zIndex: 20,
-            boxShadow: "0 8px 25px rgba(0,0,0,0.3)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            maxWidth: "90%",
-          }}
-        >
-          <CheckCircle size={24} style={{ color: "white" }} />
-          <div>
-            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>✅ Added to Recommendations!</div>
-            <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>{decodeURIComponent(sharedPlace)}</div>
-          </div>
-          <button
-            onClick={() => setShowSharedSuccess(false)}
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              border: "none",
-              borderRadius: "50%",
-              width: "2rem",
-              height: "2rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
-      <ProactiveAI
-        userLocation={userLocation}
-        pins={pins}
-        isMoving={motionData.isMoving}
-        lastActivity={lastActivity}
-        onSuggestionAction={handleProactiveSuggestion}
-        onRecommendationGenerated={handleAIRecommendations}
-        onNotificationTap={handleNotificationTap}
-      />
-
-      {/* AI Assistant Button - Top Right */}
+      {/* Header */}
       <div
         style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          zIndex: 10,
+          padding: "1rem",
+          background: "rgba(0,0,0,0.3)",
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
         }}
       >
         <button
-          onClick={() => setShowAIAssistant(true)}
+          onClick={() => router.push("/")}
           style={{
-            padding: "0.75rem",
+            padding: "0.5rem",
             border: "none",
             background: "rgba(255,255,255,0.2)",
             color: "white",
             cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <Sparkles size={24} />
-        </button>
-      </div>
-
-      {/* Enhanced Location Service - Hidden but working */}
-      {location && (
-        <EnhancedLocationService
-          latitude={location.latitude}
-          longitude={location.longitude}
-          onLocationEnhanced={setLocationDetails}
-        />
-      )}
-
-      {/* Discovery Mode Toggle - Next to AI Assistant */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "5rem",
-          zIndex: 10,
-        }}
-      >
-        <button
-          onClick={() => {
-            setDiscoveryMode(!discoveryMode)
-            if (!discoveryMode) {
-              findNearbyPins()
-            } else {
-              setShowNearbyPins(false)
-            }
-          }}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: discoveryMode ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-            border: discoveryMode ? "2px solid #10B981" : "none",
-          }}
-        >
-          🌐
-        </button>
-      </div>
-
-      {/* NEW: Recommendations Button - Next to Discovery */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "9rem",
-          zIndex: 10,
-        }}
-      >
-        <button
-          onClick={() => setCurrentScreen("recommendations")}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background:
-              recommendations.filter((r) => !r.isCompleted).length > 0
-                ? "rgba(30,58,138,0.8)"
-                : "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-            position: "relative",
-          }}
-        >
-          🤖{/* Notification Badge */}
-          {recommendations.filter((r) => !r.isCompleted).length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "-4px",
-                right: "-4px",
-                background: "#EF4444",
-                color: "white",
-                borderRadius: "50%",
-                width: "20px",
-                height: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.75rem",
-                fontWeight: "bold",
-              }}
-            >
-              {recommendations.filter((r) => !r.isCompleted).length}
-            </div>
-          )}
-        </button>
-      </div>
-
-      {/* Motion Status Indicator (Debug) */}
-      {motionData.isMoving && (
-        <div
-          style={{
-            position: "absolute",
-            top: "1rem",
-            left: "1rem",
-            background: "rgba(16,185,129,0.8)",
-            padding: "0.5rem 1rem",
-            borderRadius: "1rem",
-            fontSize: "0.75rem",
-            fontWeight: "bold",
-            zIndex: 10,
-          }}
-        >
-          🚶‍♂️ Moving ({motionData.speed.toFixed(1)} km/h)
-        </div>
-      )}
-
-      {/* SHAZAM-STYLE CIRCLE - MOVED TO TOP THIRD & PULSATING */}
-      <div
-        style={{
-          position: "absolute",
-          top: "16%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          textAlign: "center",
-        }}
-      >
-        {/* Multiple Pulsing Glow Rings - ENHANCED VISIBILITY */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "320px",
-            height: "320px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite",
-            zIndex: 1,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "360px",
-            height: "360px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.08) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite 0.7s",
-            zIndex: 1,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "400px",
-            height: "400px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite 1.4s",
-            zIndex: 1,
-          }}
-        />
-
-        {/* Main Pin Button with LIVE GOOGLE MAPS */}
-        <button
-          onClick={handleQuickPin}
-          disabled={isQuickPinning}
-          style={{
-            width: "280px",
-            height: "280px",
-            borderRadius: "50%",
-            border: "4px solid rgba(255,255,255,0.9)",
-            background: "transparent",
-            cursor: isQuickPinning ? "not-allowed" : "pointer",
-            transition: "all 0.3s ease",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            borderRadius: "8px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flexDirection: "column",
-            color: "white",
-            fontSize: "1.125rem",
-            fontWeight: "bold",
-            opacity: isQuickPinning ? 0.7 : 1,
-            position: "relative",
-            zIndex: 2,
-            overflow: "hidden",
-          }}
-          onMouseEnter={(e) => {
-            if (!isQuickPinning) {
-              e.currentTarget.style.transform = "scale(1.05)"
-              e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isQuickPinning) {
-              e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"
-            }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - CLEAN VERSION */}
-          {(userLocation || location) && (
-            <div
-              style={{
-                position: "absolute",
-                inset: "4px",
-                borderRadius: "50%",
-                overflow: "hidden",
-                zIndex: 1,
-                background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
-              }}
-            >
-              <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                  userLocation?.latitude || location?.latitude || -25.7479
-                },${
-                  userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
-                alt="Live Map"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  filter: "contrast(1.1) saturate(1.2)",
-                }}
-                onLoad={(e) => {
-                  console.log("Map loaded successfully")
-                }}
-                onError={(e) => {
-                  // FIXED: Add null check to prevent the error
-                  if (e.currentTarget) {
-                    console.log("Google Maps failed, trying alternative...")
-                    // Try OpenStreetMap tile service as fallback
-                    e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
-                      (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
-                    )}/${Math.floor(
-                      ((1 -
-                        Math.log(
-                          Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
-                            1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
-                        ) /
-                          Math.PI) /
-                        2) *
-                        Math.pow(2, 16),
-                    )}.png`
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📍 Shared Place</h1>
+          <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.7 }}>From Google Maps</p>
+        </div>
+      </div>
 
-                    // If that also fails, show a nice gradient background
-                    setTimeout(() => {
-                      if (e.currentTarget && e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
-                        e.currentTarget.style.display = "none"
-                      }
-                    }, 2000)
-                  }
-                }}
-              />
-
-              {/* Minimal location overlay - positioned at top */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "10%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  color: "white",
-                  fontSize: "0.6rem",
-                  fontWeight: "bold",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  padding: "0.2rem 0.4rem",
-                  borderRadius: "0.2rem",
-                  pointerEvents: "none",
-                }}
-              >
-                📍 Live
-              </div>
-            </div>
-          )}
-
-          {/* Content Overlay - REMOVED DARK BACKGROUND */}
+      {/* Content */}
+      <div style={{ flex: 1, padding: "2rem", overflow: "auto" }}>
+        {sharedData && (
           <div
             style={{
-              position: "relative",
-              zIndex: 2,
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
+              background: "rgba(255,255,255,0.1)",
+              borderRadius: "1rem",
+              padding: "2rem",
+              marginBottom: "2rem",
             }}
           >
-            {isQuickPinning ? (
-              <>
-                <div
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    border: "4px solid rgba(255,255,255,0.3)",
-                    borderTop: "4px solid white",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                    marginBottom: "0.5rem",
-                  }}
-                />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Pinning...
-                </span>
-              </>
-            ) : quickPinSuccess ? (
-              <>
-                <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Pinned!
-                </span>
-              </>
-            ) : (
-              <>
-                <MapPin
-                  size={48}
-                  style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))" }}
-                />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Tap to PINIT!
-                </span>
-              </>
-            )}
-          </div>
-        </button>
-      </div>
-
-      {/* PINIT Branding - Moved to center */}
-      <div
-        style={{
-          position: "absolute",
-          top: "55%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          textAlign: "center",
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "3rem",
-            fontWeight: "bold",
-            color: "white",
-            textShadow: "0 4px 8px rgba(0,0,0,0.3)",
-          }}
-        >
-          PINIT
-        </h1>
-        <p
-          style={{
-            margin: "0.5rem 0 0 0",
-            opacity: 0.9,
-            fontSize: "1rem",
-            color: "white",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-          }}
-        >
-          📍 {locationName}
-        </p>
-        <p
-          style={{
-            margin: "0.25rem 0 0 0",
-            fontSize: "0.875rem",
-            opacity: 0.7,
-            color: "white",
-            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-          }}
-        >
-          {pins.length} pins created
-        </p>
-      </div>
-
-      {/* ENHANCED: Real Google Places Discovery Panel */}
-      {showNearbyPins && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "8rem",
-            left: "1rem",
-            right: "1rem",
-            background: "rgba(0,0,0,0.9)",
-            borderRadius: "1rem",
-            padding: "1rem",
-            backdropFilter: "blur(10px)",
-            maxHeight: "200px",
-            overflowY: "auto",
-            border: "2px solid #10B981",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
-              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
-            </h3>
-            <button
-              onClick={() => setShowNearbyPins(false)}
-              style={{
-                padding: "0.25rem",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-                borderRadius: "4px",
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: "1rem", overflowX: "auto" }}>
-            {nearbyPins.map((pin) => (
+            {/* Place Preview */}
+            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
               <div
-                key={pin.id}
                 style={{
-                  minWidth: "160px",
-                  background: "rgba(255,255,255,0.1)",
-                  borderRadius: "0.5rem",
-                  padding: "0.75rem",
-                  color: "white",
-                  cursor: "pointer",
-                  border: pin.googlePlaceId ? "1px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
-                }}
-                onClick={() => {
-                  // Add to user's pins
-                  addPin({ ...pin, id: Date.now().toString() })
-                  setShowNearbyPins(false)
+                  width: "120px",
+                  height: "120px",
+                  background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 1rem",
+                  fontSize: "3rem",
                 }}
               >
-                {pin.mediaUrl && (
-                  <img
-                    src={pin.mediaUrl || "/placeholder.svg"}
-                    alt={pin.title}
-                    style={{
-                      width: "100%",
-                      height: "80px",
-                      objectFit: "cover",
-                      borderRadius: "0.25rem",
-                      marginBottom: "0.5rem",
-                    }}
-                    onError={(e) => {
-                      // FIXED: Add null check here too
-                      if (e.currentTarget) {
-                        e.currentTarget.src = "/placeholder.svg"
-                      }
-                    }}
-                  />
-                )}
-                <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", fontWeight: "bold" }}>{pin.title}</h4>
-                <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
-                {pin.rating && (
-                  <div style={{ fontSize: "0.625rem", color: "#F59E0B", marginBottom: "0.25rem" }}>
-                    {"⭐".repeat(Math.floor(pin.rating))} {pin.rating}
+                📍
+              </div>
+              <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "1.5rem" }}>{sharedData.extractedData.placeName}</h2>
+              <p style={{ margin: 0, opacity: 0.8 }}>{sharedData.extractedData.searchQuery}</p>
+            </div>
+
+            {/* Extracted Data */}
+            <div style={{ marginBottom: "2rem" }}>
+              <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem" }}>📊 Extracted Data</h3>
+              <div style={{ display: "grid", gap: "0.5rem", fontSize: "0.875rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ opacity: 0.7 }}>Place Name:</span>
+                  <span>{sharedData.extractedData.placeName}</span>
+                </div>
+                {sharedData.extractedData.knowledgeGraphId && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ opacity: 0.7 }}>Knowledge Graph ID:</span>
+                    <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+                      {sharedData.extractedData.knowledgeGraphId}
+                    </span>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
-                  {pin.googlePlaceId && (
-                    <span
-                      style={{
-                        fontSize: "0.5rem",
-                        background: "#10B981",
-                        padding: "0.125rem 0.25rem",
-                        borderRadius: "0.25rem",
-                      }}
-                    >
-                      🌐 Google
+                {sharedData.extractedData.coordinates && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ opacity: 0.7 }}>Coordinates:</span>
+                    <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+                      {sharedData.extractedData.coordinates.lat.toFixed(6)},{" "}
+                      {sharedData.extractedData.coordinates.lng.toFixed(6)}
                     </span>
-                  )}
-                  {pin.isRecommended && (
-                    <span
-                      style={{
-                        fontSize: "0.5rem",
-                        background: "#F59E0B",
-                        padding: "0.125rem 0.25rem",
-                        borderRadius: "0.25rem",
-                      }}
-                    >
-                      ⭐ Top
-                    </span>
-                  )}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ opacity: 0.7 }}>Search Query:</span>
+                  <span>{sharedData.extractedData.searchQuery}</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <button
+                onClick={addToRecommendations}
+                disabled={isAdding}
+                style={{
+                  padding: "1rem",
+                  background: "#10B981",
+                  border: "none",
+                  borderRadius: "0.75rem",
+                  color: "white",
+                  cursor: isAdding ? "not-allowed" : "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  opacity: isAdding ? 0.7 : 1,
+                }}
+              >
+                {isAdding ? (
+                  <>
+                    <div
+                      style={{
+                        width: "20px",
+                        height: "20px",
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTop: "2px solid white",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                    Adding to Recommendations...
+                  </>
+                ) : (
+                  <>
+                    <Plus size={20} />
+                    Add to Recommendations
+                  </>
+                )}
+              </button>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                <button
+                  onClick={() => window.open(sharedData.url, "_blank")}
+                  style={{
+                    padding: "0.75rem",
+                    background: "rgba(255,255,255,0.1)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <ExternalLink size={16} />
+                  Open in Maps
+                </button>
+
+                <button
+                  onClick={() => router.push("/")}
+                  style={{
+                    padding: "0.75rem",
+                    background: "rgba(255,255,255,0.1)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <Navigation size={16} />
+                  Go to PINIT
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Bottom Navigation - Photo/Video/Library */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "2rem",
-          left: "2rem",
-          right: "2rem",
-          display: "flex",
-          justifyContent: "space-around",
-          background: "transparent",
-          borderRadius: "2rem",
-          padding: "1.5rem",
-          backdropFilter: "none",
-        }}
-      >
-        <button
-          onClick={() => {
-            setCameraMode("photo")
-            setCurrentScreen("camera")
-          }}
+        {/* Debug Info */}
+        <details
           style={{
-            padding: "0.5rem",
-            border: "none",
-            background: "transparent",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            background: "rgba(0,0,0,0.2)",
+            borderRadius: "0.5rem",
+            padding: "1rem",
+            fontSize: "0.75rem",
           }}
         >
-          <Camera size={28} />
-        </button>
-
-        <button
-          onClick={() => {
-            setCameraMode("video")
-            setCurrentScreen("camera")
-          }}
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            background: "transparent",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Video size={28} />
-        </button>
-
-        <button
-          onClick={() => setCurrentScreen("library")}
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            background: "transparent",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Library size={28} />
-        </button>
+          <summary style={{ cursor: "pointer", marginBottom: "0.5rem" }}>🔍 Debug Info (Raw Share Data)</summary>
+          <pre
+            style={{
+              background: "rgba(0,0,0,0.3)",
+              padding: "0.5rem",
+              borderRadius: "0.25rem",
+              overflow: "auto",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {JSON.stringify(sharedData, null, 2)}
+          </pre>
+        </details>
       </div>
-
-      {/* AI Assistant Modal */}
-      {showAIAssistant && <AIAssistant onCommand={handleAICommand} onClose={() => setShowAIAssistant(false)} />}
 
       <style jsx>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        
-        @keyframes shazamPulse {
-          0% { 
-            transform: translate(-50%, -50%) scale(0.9);
-            opacity: 0.6;
-          }
-          50% { 
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 0.3;
-          }
-          100% { 
-            transform: translate(-50%, -50%) scale(1.5);
-            opacity: 0;
-          }
-        }
-
-        @keyframes mapShimmer {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
       `}</style>
     </div>
   )
-}
-
-// Helper function for platform dimensions
-function getPlatformDimensions(platform: string) {
-  const dimensions = {
-    "instagram-story": { width: 1080, height: 1920 },
-    "instagram-post": { width: 1080, height: 1080 },
-    "facebook-post": { width: 1200, height: 630 },
-    "twitter-post": { width: 1200, height: 675 },
-    "linkedin-post": { width: 1200, height: 627 },
-    tiktok: { width: 1080, height: 1920 },
-    snapchat: { width: 1080, height: 1920 },
-    whatsapp: { width: 1080, height: 1080 },
-  }
-
-  return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
