@@ -1,10 +1,6 @@
-// app/library/page.tsx
+'use client';
 
-import dynamic from "next/dynamic";
-
-const PinLibrary = dynamic(() => import("@/components/PinLibrary"), {
-  ssr: false,
-});
+import PinLibrary from "@/components/PinLibrary";
 
 export default function LibraryPage() {
   return <PinLibrary />;
