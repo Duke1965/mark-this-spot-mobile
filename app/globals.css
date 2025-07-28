@@ -71,3 +71,19 @@ button {
 .animate-ping {
   animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
+/* Shazam Pulse Animation */
+@keyframes shazamPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
