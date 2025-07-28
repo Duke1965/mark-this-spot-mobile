@@ -727,7 +727,7 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        background: "linear-gradient(135deg, #002c7c 0%, #3730a3 50%, #9ddbeb 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
