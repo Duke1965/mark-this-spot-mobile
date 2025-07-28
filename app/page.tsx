@@ -727,7 +727,7 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
@@ -901,7 +901,7 @@ export default function PINITApp() {
             width: "320px",
             height: "320px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 50%, transparent 70%)",
             animation: "shazamPulse 2s ease-in-out infinite",
             zIndex: 1,
           }}
@@ -916,7 +916,7 @@ export default function PINITApp() {
             height: "360px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.08) 50%, transparent 70%)",
+              "radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 50%, transparent 70%)",
             animation: "shazamPulse 2s ease-in-out infinite 0.7s",
             zIndex: 1,
           }}
@@ -931,7 +931,7 @@ export default function PINITApp() {
             height: "400px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 70%)",
+              "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.15) 50%, transparent 70%)",
             animation: "shazamPulse 2s ease-in-out infinite 1.4s",
             zIndex: 1,
           }}
@@ -1354,15 +1354,15 @@ export default function PINITApp() {
         
         @keyframes shazamPulse {
           0% { 
-            transform: translate(-50%, -50%) scale(0.9);
-            opacity: 0.6;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0.8;
           }
           50% { 
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 0.3;
+            transform: translate(-50%, -50%) scale(1.3);
+            opacity: 0.5;
           }
           100% { 
-            transform: translate(-50%, -50%) scale(1.5);
+            transform: translate(-50%, -50%) scale(1.6);
             opacity: 0;
           }
         }
