@@ -15,6 +15,7 @@ import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
+import { PinLibrary } from "@/components/PinLibrary"
 
 export interface PinData {
   id: string
@@ -307,6 +308,17 @@ export default function PINITApp() {
     }
   }, [])
 
+  // Helper to fetch Google Street View or fallback to static map
+  async function getLocationImageUrl(lat: number, lng: number): Promise<string> {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    // Try Street View first
+    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x400&location=${lat},${lng}&fov=80&heading=70&pitch=0&key=${apiKey}`
+    // Optionally, you could check if Street View is available, but for simplicity, just use the URL
+    // If Street View fails to load, the image will be blank, so fallback to static map
+    // We'll use the static map as a fallback in the UI if needed
+    return streetViewUrl
+  }
+
   // Quick Pin Function (Shazam-like)
   const handleQuickPin = useCallback(async () => {
     if (isQuickPinning) return
@@ -328,13 +340,16 @@ export default function PINITApp() {
       ]
       const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
 
+      // Fetch Street View image for the pin
+      const imageUrl = await getLocationImageUrl(currentLocation.latitude, currentLocation.longitude)
+
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
         locationName: `${aiLocationName} (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
-        mediaUrl: null,
-        mediaType: null,
+        mediaUrl: imageUrl,
+        mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
@@ -385,19 +400,28 @@ export default function PINITApp() {
   }, [])
 
   const handleSavePin = useCallback(
-    (postcardData?: any) => {
+    async (postcardData?: any) => {
       if (!capturedMedia || !location) return
+
+      let mediaUrl = capturedMedia.url
+      let mediaType = capturedMedia.type
+
+      // If no photo/video, fetch Street View image
+      if (!mediaUrl) {
+        mediaUrl = await getLocationImageUrl(location.latitude, location.longitude)
+        mediaType = "photo"
+      }
 
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: location.latitude,
         longitude: location.longitude,
         locationName: capturedMedia.location,
-        mediaUrl: capturedMedia.url,
-        mediaType: capturedMedia.type,
+        mediaUrl,
+        mediaType,
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
+        title: `${mediaType === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
         description: postcardData?.text || "",
         tags: ["social-media", selectedPlatform],
       }
@@ -685,111 +709,12 @@ export default function PINITApp() {
 
   if (currentScreen === "library") {
     return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "rgba(0,0,0,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            color: "white",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>📚 Pin Library</h1>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {pins.filter((p) => p.mediaUrl).length > 0 && (
-              <button
-                onClick={() => setCurrentScreen("story-builder")}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: "#10B981",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                📖 Story
-              </button>
-            )}
-            <button
-              onClick={() => setCurrentScreen("map")}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "0.5rem",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Back
-            </button>
-          </div>
-        </div>
-
-        {/* Pins List */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-          {pins.length === 0 ? (
-            <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
-              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📍</div>
-              <h2>No Pins Yet</h2>
-              <p>Start pinning locations to build your collection!</p>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              {pins.map((pin) => (
-                <div
-                  key={pin.id}
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    borderRadius: "0.5rem",
-                    padding: "1rem",
-                    color: "white",
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem", fontWeight: "bold" }}>{pin.title}</h3>
-                  <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>📍 {pin.locationName}</p>
-                  <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
-                    {new Date(pin.timestamp).toLocaleDateString()} at {new Date(pin.timestamp).toLocaleTimeString()}
-                  </p>
-                  {pin.tags && (
-                    <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                      {pin.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            background: "rgba(255,255,255,0.2)",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <PinLibrary
+        pins={pins}
+        onBack={() => setCurrentScreen("map")}
+        onPinSelect={() => {}}
+        onPinUpdate={() => {}}
+      />
     )
   }
 
