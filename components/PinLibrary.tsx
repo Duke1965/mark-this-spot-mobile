@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation, BookOpen } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation, BookOpen, Camera, Video, Star } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinLibraryProps {
@@ -11,7 +11,66 @@ interface PinLibraryProps {
   onPinUpdate: (pinId: string, updates: Partial<PinData>) => void
 }
 
+type TabType = 'photos' | 'videos' | 'pins' | 'recommended'
+
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('pins')
+
+  // Mock data for demonstration
+  const photos = [
+    {
+      id: '1',
+      title: 'Memorable Place',
+      locationName: 'Memorable Place',
+      latitude: -33.3543,
+      longitude: 18.8698,
+      timestamp: '2025-07-22T10:00:00Z',
+      tags: ['quick-pin', 'ai-generated'],
+      mediaUrl: '/placeholder.jpg',
+      mediaType: 'photo' as const
+    },
+    {
+      id: '2', 
+      title: 'Amazing Coffee Spot',
+      locationName: 'Popular Coffee Shop',
+      latitude: -33.3543,
+      longitude: 18.8698,
+      timestamp: '2025-07-21T10:00:00Z',
+      tags: ['food', 'coffee', 'recommended'],
+      mediaUrl: '/placeholder.jpg',
+      mediaType: 'photo' as const
+    }
+  ]
+
+  const videos = [
+    {
+      id: '3',
+      title: 'Sunset Walk',
+      locationName: 'Beach Promenade',
+      latitude: -33.3543,
+      longitude: 18.8698,
+      timestamp: '2025-07-20T18:30:00Z',
+      tags: ['sunset', 'beach', 'walk'],
+      mediaUrl: '/placeholder.jpg',
+      mediaType: 'video' as const
+    }
+  ]
+
+  const recommended = [
+    {
+      id: '4',
+      title: 'Hidden Gem Restaurant',
+      locationName: 'Local Favorite',
+      latitude: -33.3543,
+      longitude: 18.8698,
+      timestamp: '2025-07-19T12:00:00Z',
+      tags: ['food', 'restaurant', 'ai-recommended'],
+      mediaUrl: '/placeholder.jpg',
+      mediaType: 'photo' as const,
+      isRecommended: true
+    }
+  ]
+
   const renderPinCard = (pin: PinData) => {
     return (
       <div key={pin.id} style={{
@@ -129,6 +188,31 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     )
   }
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'photos':
+        return photos.map((photo) => renderPinCard(photo))
+      case 'videos':
+        return videos.map((video) => renderPinCard(video))
+      case 'pins':
+        return pins.map((pin) => renderPinCard(pin))
+      case 'recommended':
+        return recommended.map((item) => renderPinCard(item))
+      default:
+        return pins.map((pin) => renderPinCard(pin))
+    }
+  }
+
+  const getTabCount = (tab: TabType) => {
+    switch (tab) {
+      case 'photos': return photos.length
+      case 'videos': return videos.length
+      case 'pins': return pins.length
+      case 'recommended': return recommended.length
+      default: return 0
+    }
+  }
+
   return (
     <div style={{
       position: "fixed",
@@ -192,19 +276,111 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div style={{
+        padding: "0.5rem 1rem",
+        background: "rgba(0,0,0,0.2)",
+        display: "flex",
+        gap: "0.25rem"
+      }}>
+        <button
+          onClick={() => setActiveTab('photos')}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === 'photos' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+            color: activeTab === 'photos' ? "white" : "rgba(255,255,255,0.7)"
+          }}
+        >
+          <Camera size={16} />
+          Photos
+        </button>
+        <button
+          onClick={() => setActiveTab('videos')}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === 'videos' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+            color: activeTab === 'videos' ? "white" : "rgba(255,255,255,0.7)"
+          }}
+        >
+          <Video size={16} />
+          Videos
+        </button>
+        <button
+          onClick={() => setActiveTab('pins')}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === 'pins' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+            color: activeTab === 'pins' ? "white" : "rgba(255,255,255,0.7)"
+          }}
+        >
+          <MapPin size={16} />
+          Pinned Places
+        </button>
+        <button
+          onClick={() => setActiveTab('recommended')}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === 'recommended' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+            color: activeTab === 'recommended' ? "white" : "rgba(255,255,255,0.7)"
+          }}
+        >
+          <Star size={16} />
+          Recommended
+        </button>
+      </div>
+
       {/* Content Area */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {pins.length > 0 ? (
-            pins.map((pin) => renderPinCard(pin))
+          {renderContent().length > 0 ? (
+            renderContent()
           ) : (
             <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", padding: "2rem" }}>
               <MapPin size={48} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-              <p style={{ fontSize: "1.125rem", margin: "0 0 0.5rem 0" }}>No pins yet</p>
+              <p style={{ fontSize: "1.125rem", margin: "0 0 0.5rem 0" }}>No {activeTab} yet</p>
               <p style={{ fontSize: "0.875rem", margin: 0 }}>Start pinning places to see them here!</p>
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Summary Bar */}
+      <div style={{
+        padding: "1rem",
+        background: "rgba(0,0,0,0.2)",
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: "0.875rem",
+        color: "rgba(255,255,255,0.8)"
+      }}>
+        <span>Photos: {getTabCount('photos')}</span>
+        <span>Videos: {getTabCount('videos')}</span>
+        <span>Pins: {getTabCount('pins')}</span>
+        <span>Recommended: {getTabCount('recommended')}</span>
       </div>
     </div>
   )
