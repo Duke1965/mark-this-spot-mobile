@@ -196,7 +196,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-purple-600 to-blue-600">
+    <div className="pinit-full-bg flex flex-col">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
         <button onClick={onBack} className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
