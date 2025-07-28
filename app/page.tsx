@@ -449,7 +449,7 @@ export default function Home() {
 
   // Main map screen
   return (
-    <div className="pinit-full-bg" style={{ display: "flex", flexDirection: "column", color: "white", padding: "2rem" }}>
+    <div className="pinit-full-bg min-h-screen flex flex-col text-white p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -527,7 +527,7 @@ export default function Home() {
         <div className="relative">
           <button
             onClick={handleQuickPin}
-            className="w-24 h-24 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110"
+            className="w-24 h-24 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 relative z-10"
             style={{
               boxShadow: "0 0 30px rgba(239, 68, 68, 0.5)"
             }}
@@ -537,7 +537,7 @@ export default function Home() {
           
           {/* Pulsating effect */}
           <div
-            className="absolute inset-0 w-24 h-24 bg-red-500 rounded-full animate-pulse"
+            className="absolute inset-0 w-24 h-24 bg-red-500 rounded-full"
             style={{
               animation: "shazamPulse 2s infinite"
             }}
