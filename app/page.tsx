@@ -15,7 +15,7 @@ import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
-import { PinLibrary } from "@/components/PinLibrary"
+import PinLibrary from "@/components/PinLibrary"
 
 export interface PinData {
   id: string
@@ -311,11 +311,11 @@ export default function PINITApp() {
   // Helper to fetch Google Street View or fallback to static map
   async function getLocationImageUrl(lat: number, lng: number): Promise<string> {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-    // Try Street View first
+    
+    // Try Street View first - use a more reliable URL format
     const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x400&location=${lat},${lng}&fov=80&heading=70&pitch=0&key=${apiKey}`
-    // Optionally, you could check if Street View is available, but for simplicity, just use the URL
-    // If Street View fails to load, the image will be blank, so fallback to static map
-    // We'll use the static map as a fallback in the UI if needed
+    
+    // For now, return the Street View URL - the component will handle fallback if it fails
     return streetViewUrl
   }
 
