@@ -1,194 +1,133 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation } from "lucide-react"
-import type { PinData } from "@/app/page"
+import React, { useState } from 'react'
+import { ArrowLeft, MapPin, Calendar, Clock, Hash, Camera, Video, Star, Edit, Share } from 'lucide-react'
+
+interface PinData {
+  id: string
+  title: string
+  description?: string
+  latitude: number
+  longitude: number
+  timestamp: string
+  tags: string[]
+  mediaUrl?: string
+  mediaType?: 'photo' | 'video'
+  isRecommended?: boolean
+  hasStreetView?: boolean
+}
 
 interface PinLibraryProps {
   pins: PinData[]
   onBack: () => void
   onPinSelect: (pin: PinData) => void
-  onPinUpdate: (pinId: string, updates: Partial<PinData>) => void
+  onPinUpdate: (pin: PinData) => void
 }
 
-export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
-  const [selectedPin, setSelectedPin] = useState<PinData | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
+export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
+  const [activeTab, setActiveTab] = useState<'Photos' | 'Videos' | 'Pinned Places' | 'Recommended Places'>('Pinned Places')
 
-  const handlePinClick = useCallback((pin: PinData) => {
-    setSelectedPin(pin)
-    setEditTitle(pin.title)
-    setEditDescription(pin.description || "")
-  }, [])
+  // Mock data for demonstration
+  const photos = [
+    { id: '1', title: 'Car Interior', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 22, 2025', tags: ['#car', '#interior'] },
+    { id: '2', title: 'Road View', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 21, 2025', tags: ['#road', '#travel'] },
+  ]
 
-  const handleEditSave = useCallback(() => {
-    if (selectedPin) {
-      onPinUpdate(selectedPin.id, {
-        title: editTitle,
-        description: editDescription,
-      })
-      setSelectedPin({ ...selectedPin, title: editTitle, description: editDescription })
-      setIsEditing(false)
-    }
-  }, [selectedPin, editTitle, editDescription, onPinUpdate])
+  const videos = [
+    { id: '1', title: 'Sunset Drive', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 20, 2025', tags: ['#sunset', '#drive'] },
+  ]
 
-  const openInMaps = useCallback((pin: PinData) => {
-    const url = `https://www.google.com/maps?q=${pin.coordinates.lat},${pin.coordinates.lng}`
-    window.open(url, "_blank")
-  }, [])
+  const recommendedPins = pins.filter(pin => pin.isRecommended)
 
-  const sharePin = useCallback((pin: PinData) => {
-    const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.location}! 📍`
+  const handlePinClick = (pin: PinData) => {
+    onPinSelect(pin)
+  }
 
-    if (navigator.share) {
-      navigator.share({
-        title: pin.title,
-        text: shareText,
-        url: `https://www.google.com/maps?q=${pin.coordinates.lat},${pin.coordinates.lng}`,
-      })
-    } else {
-      navigator.clipboard.writeText(shareText)
-      alert("Pin details copied to clipboard!")
-    }
-  }, [])
-
-  if (selectedPin) {
+  const renderCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
+    const isPin = type === 'pin' || type === 'recommended'
+    const isPhoto = type === 'photo'
+    const isVideo = type === 'video'
+    
     return (
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-purple-600 to-blue-600">
-        {/* Header */}
-        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
-          <button
-            onClick={() => setSelectedPin(null)}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <h2 className="font-bold">Pin Details</h2>
-
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
-          >
-            <Edit3 size={20} />
-          </button>
-        </div>
-
-        {/* Pin Details */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 space-y-6">
-            {/* Title */}
-            {isEditing ? (
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full text-xl font-bold bg-white/20 text-white placeholder-white/60 rounded-lg p-3 border border-white/30"
-                placeholder="Pin title..."
+      <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-4 hover:bg-white/20 transition-colors">
+        <div className="flex gap-4">
+          {/* Media/Image Section */}
+          <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative">
+            {item.mediaUrl ? (
+              <img 
+                src={item.mediaUrl} 
+                alt={item.title} 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to placeholder if image fails to load
+                  const target = e.target as HTMLImageElement
+                  target.src = '/placeholder.jpg'
+                }}
               />
             ) : (
-              <h1 className="text-2xl font-bold text-white">{selectedPin.title}</h1>
+              <div className="w-full h-full flex items-center justify-center text-3xl text-white/40">
+                {isPin && <MapPin />}
+                {isPhoto && <Camera />}
+                {isVideo && <Video />}
+                {type === 'recommended' && <Star />}
+              </div>
+            )}
+            
+            {/* Street View Badge for pins */}
+            {isPin && item.hasStreetView && (
+              <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                Street View
+              </div>
+            )}
+            
+            {/* Recommended Badge */}
+            {type === 'recommended' && (
+              <div className="absolute bottom-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                <Star size={10} />
+                Recommended
+              </div>
+            )}
+          </div>
+
+          {/* Content Section */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="font-bold text-lg text-white">{item.title}</h3>
+              <div className="flex gap-2">
+                <button className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
+                  <Edit size={14} />
+                </button>
+                <button className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
+                  <Share size={14} />
+                </button>
+              </div>
+            </div>
+
+            {item.description && (
+              <p className="text-white/80 text-sm mb-2">{item.description}</p>
             )}
 
-            {/* Location Info */}
-            <div className="flex items-center gap-3 text-white/90">
-              <MapPin size={20} className="text-red-400" />
-              <div>
-                <div className="font-semibold">{selectedPin.location}</div>
-                <div className="text-sm opacity-70">
-                  {selectedPin.coordinates.lat.toFixed(4)}, {selectedPin.coordinates.lng.toFixed(4)}
-                </div>
-              </div>
-            </div>
-
-            {/* Date */}
-            <div className="flex items-center gap-3 text-white/90">
-              <Calendar size={20} className="text-blue-400" />
-              <div>
-                <div className="font-semibold">
-                  {new Date(selectedPin.timestamp).toLocaleDateString("en-US", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </div>
-                <div className="text-sm opacity-70">
-                  {new Date(selectedPin.timestamp).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-white/90 font-semibold mb-2">Description</label>
-              {isEditing ? (
-                <textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full bg-white/20 text-white placeholder-white/60 rounded-lg p-3 border border-white/30 h-24 resize-none"
-                  placeholder="Add a description for this pin..."
-                />
-              ) : (
-                <p className="text-white/80">{selectedPin.description || "No description added yet."}</p>
-              )}
-            </div>
-
-            {/* Tags */}
-            {selectedPin.tags && selectedPin.tags.length > 0 && (
-              <div>
-                <label className="block text-white/90 font-semibold mb-2">Tags</label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedPin.tags.map((tag, index) => (
-                    <span key={index} className="px-3 py-1 bg-white/20 rounded-full text-sm text-white/90">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
+            {isPin && (
+              <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
+                <MapPin size={14} />
+                <span>({item.latitude.toFixed(4)}, {item.longitude.toFixed(4)})</span>
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-4">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={handleEditSave}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-bold transition-colors"
-                  >
-                    Save Changes
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-bold transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => openInMaps(selectedPin)}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Navigation size={16} />
-                    Open in Maps
-                  </button>
-                  <button
-                    onClick={() => sharePin(selectedPin)}
-                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Share2 size={16} />
-                    Share
-                  </button>
-                </>
-              )}
+            <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
+              <Calendar size={14} />
+              <span>{item.timestamp}</span>
             </div>
+
+            {item.tags && item.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.tags.map((tag: string, index: number) => (
+                  <span key={index} className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -203,84 +142,88 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
           <ArrowLeft size={20} />
         </button>
 
-        <h1 className="text-xl font-bold">My Discoveries</h1>
+        <div className="text-center">
+          <h1 className="text-xl font-bold">Library</h1>
+          <p className="text-sm text-white/70">
+            {activeTab === 'Photos' && `${photos.length} items in photos`}
+            {activeTab === 'Videos' && `${videos.length} items in videos`}
+            {activeTab === 'Pinned Places' && `${pins.length} items in pins`}
+            {activeTab === 'Recommended Places' && `${recommendedPins.length} items in recommended`}
+          </p>
+        </div>
 
-        <div className="text-sm bg-white/20 px-3 py-1 rounded-full">{pins.length} pins</div>
+        <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+          <Star size={16} />
+          Story
+        </button>
       </div>
 
-      {/* Pins List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {pins.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center flex-col gap-4 text-center">
-            <div className="text-6xl">📍</div>
-            <h2 className="text-2xl font-bold">No Discoveries Yet!</h2>
-            <p className="opacity-80 max-w-sm">
-              Start exploring and pin interesting places you discover on your journeys.
-            </p>
-            <button
-              onClick={onBack}
-              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
-            >
-              Start Discovering
-            </button>
-          </div>
-        ) : (
+      {/* Tabs */}
+      <div className="flex justify-around bg-black/10 py-2">
+        {[
+          { key: 'Photos', icon: Camera, count: photos.length },
+          { key: 'Videos', icon: Video, count: videos.length },
+          { key: 'Pinned Places', icon: MapPin, count: pins.length },
+          { key: 'Recommended Places', icon: Star, count: recommendedPins.length }
+        ].map(({ key, icon: Icon, count }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`px-4 py-2 font-semibold rounded-full transition-colors flex items-center gap-2 ${
+              activeTab === key ? 'bg-white/30 text-white' : 'text-white/70 hover:bg-white/10'
+            }`}
+          >
+            <Icon size={16} />
+            {key} ({count})
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 p-4 overflow-y-auto">
+        {activeTab === 'Pinned Places' && (
           <div className="space-y-4">
-            {pins.map((pin) => (
-              <button
-                key={pin.id}
-                onClick={() => handlePinClick(pin)}
-                className="w-full bg-white/10 backdrop-blur-sm rounded-xl p-4 text-left hover:bg-white/20 transition-colors flex gap-4"
-              >
-                {/* Pin Thumbnail */}
-                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-                  {pin.mediaUrl ? (
-                    <img src={pin.mediaUrl} alt={pin.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl text-white/40">📍</div>
-                  )}
-                </div>
-                {/* Pin Info */}
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-white mb-1">{pin.title}</h3>
-                    <div className="flex items-center gap-2 text-white/80 mb-2">
-                      <MapPin size={14} className="text-red-400" />
-                      <span className="text-sm">{pin.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white/60 text-sm">
-                      <Calendar size={14} />
-                      <span>
-                        {new Date(pin.timestamp).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    {pin.description && <p className="text-white/70 text-sm mt-2 line-clamp-2">{pin.description}</p>}
-                    {pin.tags && pin.tags.length > 0 && (
-                      <div className="flex gap-1 mt-2">
-                        {pin.tags.slice(0, 3).map((tag, index) => (
-                          <span key={index} className="px-2 py-1 bg-white/20 rounded-full text-xs text-white/80">
-                            #{tag}
-                          </span>
-                        ))}
-                        {pin.tags.length > 3 && (
-                          <span className="px-2 py-1 bg-white/20 rounded-full text-xs text-white/80">
-                            +{pin.tags.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                {/* End Pin Info */}
-                <div className="ml-4 text-white/60 flex items-center">
-                    <div className="text-2xl">📍</div>
-                </div>
-              </button>
-            ))}
+            {pins.map((pin) => renderCard(pin, 'pin'))}
           </div>
         )}
+        
+        {activeTab === 'Photos' && (
+          <div className="space-y-4">
+            {photos.map((photo) => renderCard(photo, 'photo'))}
+          </div>
+        )}
+        
+        {activeTab === 'Videos' && (
+          <div className="space-y-4">
+            {videos.map((video) => renderCard(video, 'video'))}
+          </div>
+        )}
+        
+        {activeTab === 'Recommended Places' && (
+          <div className="space-y-4">
+            {recommendedPins.map((pin) => renderCard(pin, 'recommended'))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Summary */}
+      <div className="bg-black/20 backdrop-blur-sm p-4 flex justify-around text-sm text-white/70">
+        <div className="flex items-center gap-1">
+          <Camera size={14} />
+          {photos.length} photos
+        </div>
+        <div className="flex items-center gap-1">
+          <Video size={14} />
+          {videos.length} videos
+        </div>
+        <div className="flex items-center gap-1">
+          <MapPin size={14} />
+          {pins.length} pins
+        </div>
+        <div className="flex items-center gap-1">
+          <Star size={14} />
+          {recommendedPins.length} recommended
+        </div>
       </div>
     </div>
   )
