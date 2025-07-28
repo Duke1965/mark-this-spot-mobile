@@ -15,7 +15,6 @@ interface PinData {
   mediaUrl?: string | null
   mediaType?: 'photo' | 'video' | null
   isRecommended?: boolean
-  hasStreetView?: boolean
 }
 
 interface PinLibraryProps {
@@ -76,13 +75,6 @@ export default function PinLibrary(props: PinLibraryProps) {
                   {isPhoto && <Camera />}
                   {isVideo && <Video />}
                   {type === 'recommended' && <Star />}
-                </div>
-              )}
-
-              {/* Street View Badge */}
-              {isPin && item.hasStreetView && (
-                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                  Street View
                 </div>
               )}
 
