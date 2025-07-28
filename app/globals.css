@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shared PINIT Background Gradient */
+.pinit-gradient-bg {
+  background: linear-gradient(135deg, #002c7c 0%, #3730a3 50%, #4a90c4 100%);
+}
+
+/* PINIT Background for full-screen components */
+.pinit-full-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #002c7c 0%, #3730a3 50%, #4a90c4 100%);
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
