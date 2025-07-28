@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { ArrowLeft, MapPin, Calendar, Clock, Hash, Camera, Video, Star, Edit, Share } from 'lucide-react'
+import { ArrowLeft, MapPin, Camera, Video, Star, Edit, Share, Calendar } from 'lucide-react'
 
 interface PinData {
   id: string
@@ -38,11 +38,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
     { id: '1', title: 'Sunset Drive', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 20, 2025', tags: ['#sunset', '#drive'] },
   ]
 
-  const recommendedPins = pins.filter(pin => pin.isRecommended)
-
-  const handlePinClick = (pin: PinData) => {
-    onPinSelect(pin)
-  }
+  const recommendedPins = pins.filter(pin => pin.isRecommended || false)
 
   const renderCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
     const isPin = type === 'pin' || type === 'recommended'
@@ -57,10 +53,9 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
             {item.mediaUrl ? (
               <img 
                 src={item.mediaUrl} 
-                alt={item.title} 
+                alt={item.title || 'Pin'} 
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Fallback to placeholder if image fails to load
                   const target = e.target as HTMLImageElement
                   target.src = '/placeholder.jpg'
                 }}
@@ -93,7 +88,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
           {/* Content Section */}
           <div className="flex-1">
             <div className="flex items-start justify-between mb-2">
-              <h3 className="font-bold text-lg text-white">{item.title}</h3>
+              <h3 className="font-bold text-lg text-white">{item.title || 'Untitled'}</h3>
               <div className="flex gap-2">
                 <button className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
                   <Edit size={14} />
@@ -108,7 +103,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
               <p className="text-white/80 text-sm mb-2">{item.description}</p>
             )}
 
-            {isPin && (
+            {isPin && item.locationName && (
               <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
                 <MapPin size={14} />
                 <span>{item.locationName}</span>
@@ -117,7 +112,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
 
             <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
               <Calendar size={14} />
-              <span>{item.timestamp}</span>
+              <span>{item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Unknown date'}</span>
             </div>
 
             {item.tags && item.tags.length > 0 && (
@@ -184,7 +179,15 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
       <div className="flex-1 p-4 overflow-y-auto">
         {activeTab === 'Pinned Places' && (
           <div className="space-y-4">
-            {pins.map((pin) => renderCard(pin, 'pin'))}
+            {pins.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/80">
+                <div className="text-6xl mb-4">📍</div>
+                <h2 className="text-2xl font-bold mb-2">No Pins Yet!</h2>
+                <p>Start exploring and pin interesting places you discover.</p>
+              </div>
+            ) : (
+              pins.map((pin) => renderCard(pin, 'pin'))
+            )}
           </div>
         )}
         
@@ -202,7 +205,15 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
         
         {activeTab === 'Recommended Places' && (
           <div className="space-y-4">
-            {recommendedPins.map((pin) => renderCard(pin, 'recommended'))}
+            {recommendedPins.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/80">
+                <div className="text-6xl mb-4">🌟</div>
+                <h2 className="text-2xl font-bold mb-2">No Recommendations Yet!</h2>
+                <p>Recommended places will appear here.</p>
+              </div>
+            ) : (
+              recommendedPins.map((pin) => renderCard(pin, 'recommended'))
+            )}
           </div>
         )}
       </div>
