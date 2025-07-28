@@ -35,6 +35,7 @@ export interface PinData {
   priceLevel?: number
   types?: string[]
   isAISuggestion?: boolean
+  hasStreetView?: boolean
 }
 
 interface GooglePlace {
@@ -355,6 +356,7 @@ export default function PINITApp() {
         title: `📍 ${aiLocationName}`,
         description: `Quick pin created at ${new Date().toLocaleTimeString()}`,
         tags: ["quick-pin", "ai-generated"],
+        hasStreetView: true,
       }
 
       addPin(newPin)
@@ -424,6 +426,7 @@ export default function PINITApp() {
         title: `${mediaType === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
         description: postcardData?.text || "",
         tags: ["social-media", selectedPlatform],
+        hasStreetView: !mediaUrl, // If no media, we fetched Street View
       }
 
       addPin(newPin)
