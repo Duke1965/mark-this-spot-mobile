@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useCallback, useEffect } from "react"
-import { MapPin, Camera, Library, Settings, ArrowLeft, Edit3, Share2, Navigation, Calendar } from "lucide-react"
+import { MapPin, Camera, Library, Settings, ArrowLeft, Edit3, Share2, Navigation, Calendar, Mic, Star } from "lucide-react"
 import PinLibrary from "@/components/PinLibrary"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useLocationServices } from "@/hooks/useLocationServices"
@@ -555,7 +555,7 @@ export default function Home() {
             onClick={() => setCurrentScreen("audio")}
             className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
           >
-            <Calendar size={20} />
+            <Mic size={20} />
             Voice Note
           </button>
         </div>
@@ -583,8 +583,8 @@ export default function Home() {
           onClick={() => setCurrentScreen("recommendations")}
           className="flex flex-col items-center gap-1 p-3 hover:bg-white/10 rounded-lg transition-colors"
         >
-          <Navigation size={24} />
-          <span className="text-xs">Discover</span>
+          <Star size={24} />
+          <span className="text-xs">Recommendations</span>
         </button>
       </div>
     </div>
