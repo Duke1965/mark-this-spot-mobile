@@ -9,10 +9,11 @@ interface PinData {
   description?: string
   latitude: number
   longitude: number
+  locationName: string
   timestamp: string
-  tags: string[]
-  mediaUrl?: string
-  mediaType?: 'photo' | 'video'
+  tags?: string[]
+  mediaUrl?: string | null
+  mediaType?: 'photo' | 'video' | null
   isRecommended?: boolean
   hasStreetView?: boolean
 }
@@ -110,7 +111,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
             {isPin && (
               <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
                 <MapPin size={14} />
-                <span>({item.latitude.toFixed(4)}, {item.longitude.toFixed(4)})</span>
+                <span>{item.locationName}</span>
               </div>
             )}
 
