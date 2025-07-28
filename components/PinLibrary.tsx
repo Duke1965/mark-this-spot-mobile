@@ -25,7 +25,12 @@ interface PinLibraryProps {
   onPinUpdate: (pin: PinData) => void
 }
 
-export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
+export default function PinLibrary({ 
+  pins = [], 
+  onBack = () => {}, 
+  onPinSelect = () => {}, 
+  onPinUpdate = () => {} 
+}: PinLibraryProps) {
   const [activeTab, setActiveTab] = useState<'Photos' | 'Videos' | 'Pinned Places' | 'Recommended Places'>('Pinned Places')
 
   // Mock data for demonstration
@@ -38,9 +43,14 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
     { id: '1', title: 'Sunset Drive', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 20, 2025', tags: ['#sunset', '#drive'] },
   ]
 
-  const recommendedPins = pins.filter(pin => pin.isRecommended || false)
+  // Safely filter recommended pins
+  const recommendedPins = pins.filter(pin => pin && pin.isRecommended === true)
 
   const renderCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
+    if (!item || !item.id) {
+      return null
+    }
+
     const isPin = type === 'pin' || type === 'recommended'
     const isPhoto = type === 'photo'
     const isVideo = type === 'video'
@@ -56,8 +66,14 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
                 alt={item.title || 'Pin'} 
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = '/placeholder.jpg'
+                  try {
+                    const target = e.target as HTMLImageElement
+                    if (target) {
+                      target.src = '/placeholder.jpg'
+                    }
+                  } catch (error) {
+                    console.log('Image error handled')
+                  }
                 }}
               />
             ) : (
@@ -90,10 +106,16 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
             <div className="flex items-start justify-between mb-2">
               <h3 className="font-bold text-lg text-white">{item.title || 'Untitled'}</h3>
               <div className="flex gap-2">
-                <button className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
+                <button 
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  onClick={() => onPinUpdate(item)}
+                >
                   <Edit size={14} />
                 </button>
-                <button className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors">
+                <button 
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  onClick={() => onPinSelect(item)}
+                >
                   <Share size={14} />
                 </button>
               </div>
@@ -112,10 +134,21 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
 
             <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
               <Calendar size={14} />
-              <span>{item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Unknown date'}</span>
+              <span>
+                {item.timestamp ? 
+                  (() => {
+                    try {
+                      return new Date(item.timestamp).toLocaleDateString()
+                    } catch {
+                      return 'Unknown date'
+                    }
+                  })() 
+                  : 'Unknown date'
+                }
+              </span>
             </div>
 
-            {item.tags && item.tags.length > 0 && (
+            {item.tags && Array.isArray(item.tags) && item.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {item.tags.map((tag: string, index: number) => (
                   <span key={index} className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded">
@@ -131,10 +164,13 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
   }
 
   return (
-    <div className="pinit-full-bg flex flex-col">
+    <div className="pinit-full-bg flex flex-col min-h-screen">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
-        <button onClick={onBack} className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
+        <button 
+          onClick={onBack} 
+          className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+        >
           <ArrowLeft size={20} />
         </button>
 
@@ -179,7 +215,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
       <div className="flex-1 p-4 overflow-y-auto">
         {activeTab === 'Pinned Places' && (
           <div className="space-y-4">
-            {pins.length === 0 ? (
+            {!pins || pins.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-white/80">
                 <div className="text-6xl mb-4">📍</div>
                 <h2 className="text-2xl font-bold mb-2">No Pins Yet!</h2>
@@ -205,7 +241,7 @@ export default function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: P
         
         {activeTab === 'Recommended Places' && (
           <div className="space-y-4">
-            {recommendedPins.length === 0 ? (
+            {!recommendedPins || recommendedPins.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-white/80">
                 <div className="text-6xl mb-4">🌟</div>
                 <h2 className="text-2xl font-bold mb-2">No Recommendations Yet!</h2>
