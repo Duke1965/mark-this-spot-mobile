@@ -25,15 +25,11 @@ interface PinLibraryProps {
   onPinUpdate: (pin: PinData) => void
 }
 
-export default function PinLibrary({ 
-  pins = [], 
-  onBack = () => {}, 
-  onPinSelect = () => {}, 
-  onPinUpdate = () => {} 
-}: PinLibraryProps) {
-  const [activeTab, setActiveTab] = useState<'Photos' | 'Videos' | 'Pinned Places' | 'Recommended Places'>('Pinned Places')
+export default function PinLibrary(props: PinLibraryProps) {
+  const { pins = [], onBack = () => {}, onPinSelect = () => {}, onPinUpdate = () => {} } = props
+  const [activeTab, setActiveTab] = useState('Pinned Places')
 
-  // Mock data for demonstration
+  // Mock data
   const photos = [
     { id: '1', title: 'Car Interior', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 22, 2025', tags: ['#car', '#interior'] },
     { id: '2', title: 'Road View', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 21, 2025', tags: ['#road', '#travel'] },
@@ -43,10 +39,9 @@ export default function PinLibrary({
     { id: '1', title: 'Sunset Drive', mediaUrl: '/placeholder.jpg', timestamp: 'Jul 20, 2025', tags: ['#sunset', '#drive'] },
   ]
 
-  // Safely filter recommended pins
   const recommendedPins = pins.filter(pin => pin && pin.isRecommended === true)
 
-  const renderCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
+  const renderCard = (item: any, type: string) => {
     if (!item || !item.id) return null
 
     const isPin = type === 'pin' || type === 'recommended'
@@ -199,7 +194,7 @@ export default function PinLibrary({
         ].map(({ key, icon: Icon, count }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key as typeof activeTab)}
+            onClick={() => setActiveTab(key)}
             className={`px-4 py-2 font-semibold rounded-full transition-colors flex items-center gap-2 ${
               activeTab === key ? 'bg-white/30 text-white' : 'text-white/70 hover:bg-white/10'
             }`}
