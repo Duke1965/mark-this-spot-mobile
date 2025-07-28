@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation, Camera, Video, Star, BookOpen } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation, BookOpen } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinLibraryProps {
@@ -11,69 +11,11 @@ interface PinLibraryProps {
   onPinUpdate: (pinId: string, updates: Partial<PinData>) => void
 }
 
-type TabType = 'photos' | 'videos' | 'pins' | 'recommended'
-
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('photos')
   const [selectedPin, setSelectedPin] = useState<PinData | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState("")
   const [editDescription, setEditDescription] = useState("")
-
-  // Mock data for demonstration
-  const photos = [
-    {
-      id: '1',
-      title: 'Memorable Place',
-      locationName: 'Memorable Place',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-22T10:00:00Z',
-      tags: ['quick-pin', 'ai-generated'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const
-    },
-    {
-      id: '2', 
-      title: 'Amazing Coffee Spot',
-      locationName: 'Popular Coffee Shop',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-21T10:00:00Z',
-      tags: ['food', 'coffee', 'recommended'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const
-    }
-  ]
-
-  const videos = [
-    {
-      id: '3',
-      title: 'Sunset Walk',
-      locationName: 'Beach Promenade',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-20T18:30:00Z',
-      tags: ['sunset', 'beach', 'walk'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'video' as const
-    }
-  ]
-
-  const recommended = [
-    {
-      id: '4',
-      title: 'Hidden Gem Restaurant',
-      locationName: 'Local Favorite',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-19T12:00:00Z',
-      tags: ['food', 'restaurant', 'ai-recommended'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const,
-      isRecommended: true
-    }
-  ]
 
   const handlePinClick = useCallback((pin: PinData) => {
     setSelectedPin(pin)
@@ -112,111 +54,67 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     }
   }, [])
 
-  const renderCard = (item: any, type: 'photo' | 'video' | 'pin' | 'recommended') => {
-    if (!item || !item.id) return null
-    
-    const isPin = type === 'pin' || type === 'recommended'
-    const isPhoto = type === 'photo'
-    const isVideo = type === 'video'
-    const isRecommended = type === 'recommended' || item.isRecommended
-
+  const renderPinCard = (pin: PinData) => {
     return (
-      <div key={item.id} className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 p-2">
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-colors h-full relative shadow-lg border border-white/10">
-          <div className="flex gap-4">
-            {/* Media Section */}
-            <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
-              {item.mediaUrl ? (
-                <img 
-                  src={item.mediaUrl} 
-                  alt={item.title || 'Pin'} 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    try {
-                      const target = e.target as HTMLImageElement
-                      if (target) {
-                        target.src = '/placeholder.jpg'
-                      }
-                    } catch (error) {
-                      console.log('Image error handled')
-                    }
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl text-white/40">
-                  {isPin && <MapPin />}
-                  {isPhoto && <Camera />}
-                  {isVideo && <Video />}
-                  {type === 'recommended' && <Star />}
-                </div>
-              )}
-              
-              {/* Recommended Badge */}
-              {isRecommended && (
-                <div className="absolute bottom-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                  <Star size={10} />
-                  Recommended
-                </div>
-              )}
-            </div>
+      <div key={pin.id} className="w-full max-w-md mx-auto mb-4">
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-colors shadow-lg border border-white/10">
+          {/* Title with Map Pin Icon */}
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin size={16} className="text-red-500" />
+            <h3 className="font-bold text-lg text-white">{pin.title}</h3>
+          </div>
 
-            {/* Text Content */}
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-bold text-lg text-white">{item.title || 'Untitled'}</h3>
-                <div className="flex gap-2">
-                  <button 
-                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
-                    onClick={() => onPinUpdate(item.id, {})}
-                  >
-                    <Edit3 size={14} />
-                  </button>
-                  <button 
-                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
-                    onClick={() => onPinSelect(item)}
-                  >
-                    <Share2 size={14} />
-                  </button>
-                </div>
-              </div>
+          {/* Location */}
+          <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
+            <MapPin size={14} className="text-red-500" />
+            <span>{pin.locationName} ({pin.latitude}, {pin.longitude})</span>
+          </div>
 
-              {item.description && (
-                <p className="text-white/80 text-sm mb-2">{item.description}</p>
-              )}
+          {/* Timestamp */}
+          <div className="flex items-center gap-2 text-white/60 text-sm mb-3">
+            <Calendar size={14} />
+            <span>
+              {pin.timestamp ? new Date(pin.timestamp).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              }) : 'Unknown date'}
+            </span>
+          </div>
 
-              {isPin && item.locationName && (
-                <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                  <MapPin size={14} />
-                  <span>{item.locationName}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                <Calendar size={14} />
-                <span>
-                  {item.timestamp ? (() => {
-                    try {
-                      return new Date(item.timestamp).toLocaleDateString()
-                    } catch {
-                      return 'Unknown date'
-                    }
-                  })() : 'Unknown date'}
+          {/* Tags */}
+          {pin.tags && pin.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {pin.tags.map((tag, index) => (
+                <span 
+                  key={index} 
+                  className="text-xs bg-white/20 text-white/80 px-3 py-1 rounded-full"
+                >
+                  #{tag}
                 </span>
-              </div>
-
-              {item.tags && Array.isArray(item.tags) && item.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {item.tags.map((tag: string, index: number) => (
-                    <span 
-                      key={index} 
-                      className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-3">
+            <button 
+              className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+              onClick={() => openInMaps(pin)}
+            >
+              <Navigation size={14} />
+              Open in Maps
+            </button>
+            <button 
+              className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+              onClick={() => sharePin(pin)}
+            >
+              <Share2 size={14} />
+              Share
+            </button>
           </div>
         </div>
       </div>
@@ -227,86 +125,44 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     <div className="flex-1 flex flex-col bg-gradient-to-br from-purple-600 to-blue-600">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
-        >
-          <ArrowLeft size={20} />
-          <span className="text-lg font-semibold">Library</span>
-        </button>
-        <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-          <BookOpen size={16} />
-          Story
-        </button>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="bg-black/20 backdrop-blur-sm px-4 py-2">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setActiveTab('photos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'photos' 
-                ? 'bg-white/30 text-white' 
-                : 'bg-white/10 text-white/70 hover:bg-white/20'
-            }`}
-          >
-            <Camera size={16} />
-            Photos
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <div className="w-6 h-1 bg-red-500 rounded mb-1"></div>
+              <div className="w-6 h-1 bg-green-500 rounded mb-1"></div>
+              <div className="w-6 h-1 bg-blue-500 rounded"></div>
+            </div>
+            <div className="w-2 h-4 bg-red-500 rounded"></div>
+          </div>
+          <span className="text-lg font-semibold text-white">Pin Library</span>
+        </div>
+        
+        <div className="flex gap-2">
+          <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+            <BookOpen size={16} />
+            Story
           </button>
-          <button
-            onClick={() => setActiveTab('videos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'videos' 
-                ? 'bg-white/30 text-white' 
-                : 'bg-white/10 text-white/70 hover:bg-white/20'
-            }`}
+          <button 
+            onClick={onBack}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
-            <Video size={16} />
-            Videos
-          </button>
-          <button
-            onClick={() => setActiveTab('pins')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'pins' 
-                ? 'bg-white/30 text-white' 
-                : 'bg-white/10 text-white/70 hover:bg-white/20'
-            }`}
-          >
-            <MapPin size={16} />
-            Pinned Places
-          </button>
-          <button
-            onClick={() => setActiveTab('recommended')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'recommended' 
-                ? 'bg-white/30 text-white' 
-                : 'bg-white/10 text-white/70 hover:bg-white/20'
-            }`}
-          >
-            <Star size={16} />
-            Recommended
+            Back
           </button>
         </div>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex flex-wrap justify-center gap-4 px-4 max-w-screen-xl mx-auto">
-          {activeTab === 'photos' && photos.map((photo) => renderCard(photo, 'photo'))}
-          {activeTab === 'videos' && videos.map((video) => renderCard(video, 'video'))}
-          {activeTab === 'pins' && pins.map((pin) => renderCard(pin, 'pin'))}
-          {activeTab === 'recommended' && recommended.map((item) => renderCard(item, 'recommended'))}
-        </div>
-      </div>
-
-      {/* Bottom Summary Bar */}
-      <div className="bg-black/20 backdrop-blur-sm p-4">
-        <div className="flex justify-between text-white/80 text-sm">
-          <span>Photos: {photos.length}</span>
-          <span>Videos: {videos.length}</span>
-          <span>Pins: {pins.length}</span>
-          <span>Recommended: {recommended.length}</span>
+        <div className="space-y-4">
+          {pins.length > 0 ? (
+            pins.map((pin) => renderPinCard(pin))
+          ) : (
+            <div className="text-center text-white/60 py-8">
+              <MapPin size={48} className="mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No pins yet</p>
+              <p className="text-sm">Start pinning places to see them here!</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
