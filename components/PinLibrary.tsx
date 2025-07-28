@@ -47,116 +47,115 @@ export default function PinLibrary({
   const recommendedPins = pins.filter(pin => pin && pin.isRecommended === true)
 
   const renderCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
-    if (!item || !item.id) {
-      return null
-    }
+    if (!item || !item.id) return null
 
     const isPin = type === 'pin' || type === 'recommended'
     const isPhoto = type === 'photo'
     const isVideo = type === 'video'
-    
+
     return (
-      <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-4 hover:bg-white/20 transition-colors">
-        <div className="flex gap-4">
-          {/* Media/Image Section */}
-          <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative">
-            {item.mediaUrl ? (
-              <img 
-                src={item.mediaUrl} 
-                alt={item.title || 'Pin'} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  try {
-                    const target = e.target as HTMLImageElement
-                    if (target) {
-                      target.src = '/placeholder.jpg'
-                    }
-                  } catch (error) {
-                    console.log('Image error handled')
-                  }
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl text-white/40">
-                {isPin && <MapPin />}
-                {isPhoto && <Camera />}
-                {isVideo && <Video />}
-                {type === 'recommended' && <Star />}
-              </div>
-            )}
-            
-            {/* Street View Badge for pins */}
-            {isPin && item.hasStreetView && (
-              <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                Street View
-              </div>
-            )}
-            
-            {/* Recommended Badge */}
-            {type === 'recommended' && (
-              <div className="absolute bottom-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                <Star size={10} />
-                Recommended
-              </div>
-            )}
-          </div>
-
-          {/* Content Section */}
-          <div className="flex-1">
-            <div className="flex items-start justify-between mb-2">
-              <h3 className="font-bold text-lg text-white">{item.title || 'Untitled'}</h3>
-              <div className="flex gap-2">
-                <button 
-                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
-                  onClick={() => onPinUpdate(item)}
-                >
-                  <Edit size={14} />
-                </button>
-                <button 
-                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
-                  onClick={() => onPinSelect(item)}
-                >
-                  <Share size={14} />
-                </button>
-              </div>
-            </div>
-
-            {item.description && (
-              <p className="text-white/80 text-sm mb-2">{item.description}</p>
-            )}
-
-            {isPin && item.locationName && (
-              <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                <MapPin size={14} />
-                <span>{item.locationName}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
-              <Calendar size={14} />
-              <span>
-                {item.timestamp ? 
-                  (() => {
+      <div key={item.id} className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 p-2">
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-colors h-full relative shadow-lg border border-white/10">
+          <div className="flex gap-4">
+            {/* Media Section */}
+            <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+              {item.mediaUrl ? (
+                <img
+                  src={item.mediaUrl}
+                  alt={item.title || 'Pin'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
                     try {
-                      return new Date(item.timestamp).toLocaleDateString()
-                    } catch {
-                      return 'Unknown date'
+                      const target = e.target as HTMLImageElement
+                      if (target) {
+                        target.src = '/placeholder.jpg'
+                      }
+                    } catch (error) {
+                      console.log('Image error handled')
                     }
-                  })() 
-                  : 'Unknown date'
-                }
-              </span>
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-3xl text-white/40">
+                  {isPin && <MapPin />}
+                  {isPhoto && <Camera />}
+                  {isVideo && <Video />}
+                  {type === 'recommended' && <Star />}
+                </div>
+              )}
+
+              {/* Street View Badge */}
+              {isPin && item.hasStreetView && (
+                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                  Street View
+                </div>
+              )}
+
+              {/* Recommended Badge */}
+              {type === 'recommended' && (
+                <div className="absolute bottom-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                  <Star size={10} />
+                  Recommended
+                </div>
+              )}
             </div>
 
-            {item.tags && Array.isArray(item.tags) && item.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {item.tags.map((tag: string, index: number) => (
-                  <span key={index} className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded">
-                    {tag}
-                  </span>
-                ))}
+            {/* Text Content */}
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-bold text-lg text-white">{item.title || 'Untitled'}</h3>
+                <div className="flex gap-2">
+                  <button
+                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                    onClick={() => onPinUpdate(item)}
+                  >
+                    <Edit size={14} />
+                  </button>
+                  <button
+                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                    onClick={() => onPinSelect(item)}
+                  >
+                    <Share size={14} />
+                  </button>
+                </div>
               </div>
-            )}
+
+              {item.description && (
+                <p className="text-white/80 text-sm mb-2">{item.description}</p>
+              )}
+
+              {isPin && item.locationName && (
+                <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
+                  <MapPin size={14} />
+                  <span>{item.locationName}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-white/60 text-sm mb-2">
+                <Calendar size={14} />
+                <span>
+                  {item.timestamp
+                    ? (() => {
+                        try {
+                          return new Date(item.timestamp).toLocaleDateString()
+                        } catch {
+                          return 'Unknown date'
+                        }
+                      })()
+                    : 'Unknown date'}
+                </span>
+              </div>
+
+              {item.tags && Array.isArray(item.tags) && item.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {item.tags.map((tag: string, index: number) => (
+                    <span key={index} className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -222,20 +221,26 @@ export default function PinLibrary({
                 <p>Start exploring and pin interesting places you discover.</p>
               </div>
             ) : (
-              pins.map((pin) => renderCard(pin, 'pin'))
+              <div className="flex flex-wrap justify-center gap-4 px-4 max-w-screen-xl mx-auto">
+                {pins.map((pin) => renderCard(pin, 'pin'))}
+              </div>
             )}
           </div>
         )}
         
         {activeTab === 'Photos' && (
           <div className="space-y-4">
-            {photos.map((photo) => renderCard(photo, 'photo'))}
+            <div className="flex flex-wrap justify-center gap-4 px-4 max-w-screen-xl mx-auto">
+              {photos.map((photo) => renderCard(photo, 'photo'))}
+            </div>
           </div>
         )}
         
         {activeTab === 'Videos' && (
           <div className="space-y-4">
-            {videos.map((video) => renderCard(video, 'video'))}
+            <div className="flex flex-wrap justify-center gap-4 px-4 max-w-screen-xl mx-auto">
+              {videos.map((video) => renderCard(video, 'video'))}
+            </div>
           </div>
         )}
         
@@ -248,7 +253,9 @@ export default function PinLibrary({
                 <p>Recommended places will appear here.</p>
               </div>
             ) : (
-              recommendedPins.map((pin) => renderCard(pin, 'recommended'))
+              <div className="flex flex-wrap justify-center gap-4 px-4 max-w-screen-xl mx-auto">
+                {recommendedPins.map((pin) => renderCard(pin, 'recommended'))}
+              </div>
             )}
           </div>
         )}
