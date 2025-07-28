@@ -35,7 +35,7 @@ export interface PinData {
   priceLevel?: number
   types?: string[]
   isAISuggestion?: boolean
-  hasStreetView?: boolean
+
 }
 
 interface GooglePlace {
@@ -311,13 +311,8 @@ export default function PINITApp() {
 
   // Helper to fetch Google Street View or fallback to static map
   async function getLocationImageUrl(lat: number, lng: number): Promise<string> {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-    
-    // Try Street View first - use a more reliable URL format
-    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=400x400&location=${lat},${lng}&fov=80&heading=70&pitch=0&key=${apiKey}`
-    
-    // For now, return the Street View URL - the component will handle fallback if it fails
-    return streetViewUrl
+    // Return placeholder image instead of Street View
+    return '/placeholder.jpg'
   }
 
   // Quick Pin Function (Shazam-like)
@@ -356,7 +351,6 @@ export default function PINITApp() {
         title: `📍 ${aiLocationName}`,
         description: `Quick pin created at ${new Date().toLocaleTimeString()}`,
         tags: ["quick-pin", "ai-generated"],
-        hasStreetView: true,
       }
 
       addPin(newPin)
@@ -426,7 +420,6 @@ export default function PINITApp() {
         title: `${mediaType === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
         description: postcardData?.text || "",
         tags: ["social-media", selectedPlatform],
-        hasStreetView: !mediaUrl, // If no media, we fetched Street View
       }
 
       addPin(newPin)
