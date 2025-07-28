@@ -28,20 +28,18 @@ type Screen = "map" | "camera" | "library" | "editor" | "share" | "story" | "set
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("map")
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-  const [pins, setPins] = useState<PinData[]>([])
   const [capturedMedia, setCapturedMedia] = useState<{ url: string | null; type: 'photo' | 'video' | null }>({ url: null, type: null })
   const [selectedPlatform, setSelectedPlatform] = useState<string>("instagram")
   const [postcardData, setPostcardData] = useState<any>(null)
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
-  const [motionData, setMotionData] = useState<any>(null)
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [navigationData, setNavigationData] = useState<any>(null)
   const [audioData, setAudioData] = useState<any>(null)
   const [advancedEditorData, setAdvancedEditorData] = useState<any>(null)
 
-  const { loadPins, savePin } = usePinStorage()
-  const { getCurrentLocation, getLocationName } = useLocationServices()
-  const { startMotionDetection, stopMotionDetection } = useMotionDetection()
+  const { pins, addPin, updatePin } = usePinStorage()
+  const { getCurrentLocation, formatCoordinates } = useLocationServices()
+  const motionDataFromHook = useMotionDetection()
 
   // Helper to fetch Google Street View or fallback to static map
   async function getLocationImageUrl(lat: number, lng: number): Promise<string> {
@@ -49,20 +47,25 @@ export default function Home() {
     return '/placeholder.jpg'
   }
 
+  // Helper to get location name (simplified for now)
+  async function getLocationName(lat: number, lng: number): Promise<string> {
+    try {
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}`)
+      if (response.ok) {
+        const data = await response.json()
+        return data.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      }
+    } catch (error) {
+      console.error("Failed to get location name:", error)
+    }
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+  }
+
   useEffect(() => {
     const initializeApp = async () => {
       try {
         const location = await getCurrentLocation()
         setCurrentLocation(location)
-        
-        const loadedPins = await loadPins()
-        setPins(loadedPins)
-        
-        // Start motion detection for AI suggestions
-        startMotionDetection((data) => {
-          setMotionData(data)
-          console.log("🚶‍♂️ Motion Analysis:", data)
-        })
         
         // Generate initial AI recommendations
         generateAIRecommendations(location)
@@ -72,10 +75,6 @@ export default function Home() {
     }
     
     initializeApp()
-    
-    return () => {
-      stopMotionDetection()
-    }
   }, [])
 
   const generateAIRecommendations = useCallback(async (location: { latitude: number; longitude: number }) => {
@@ -92,7 +91,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to generate AI recommendations:", error)
     }
-  }, [getLocationName])
+  }, [])
 
   const handleQuickPin = useCallback(async () => {
     if (!currentLocation) return
@@ -114,8 +113,7 @@ export default function Home() {
         tags: ["quick-pin", "ai-generated"],
       }
       
-      setPins(prev => [...prev, newPin])
-      await savePin(newPin)
+      addPin(newPin)
       console.log("📍 Quick pin created:", newPin)
       
       // Generate new AI recommendations
@@ -123,7 +121,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to create quick pin:", error)
     }
-  }, [currentLocation, getLocationName, savePin, generateAIRecommendations])
+  }, [currentLocation, addPin, generateAIRecommendations])
 
   const handleCameraCapture = useCallback((media: { url: string; type: 'photo' | 'video' }) => {
     setCapturedMedia(media)
@@ -154,8 +152,7 @@ export default function Home() {
         tags: ["social-media", selectedPlatform],
       }
       
-      setPins(prev => [...prev, newPin])
-      await savePin(newPin)
+      addPin(newPin)
       console.log("💾 Pin saved:", newPin)
       
       setCurrentScreen("map")
@@ -164,11 +161,11 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to save pin:", error)
     }
-  }, [capturedMedia, postcardData, selectedPlatform, getLocationName, savePin])
+  }, [capturedMedia, postcardData, selectedPlatform, addPin])
 
   const handlePinUpdate = useCallback((pinId: string, updates: Partial<PinData>) => {
-    setPins(prev => prev.map(pin => pin.id === pinId ? { ...pin, ...updates } : pin))
-  }, [])
+    updatePin(pinId, updates)
+  }, [updatePin])
 
   const handlePinSelect = useCallback((pin: PinData) => {
     // Handle pin selection - could open details or start navigation
