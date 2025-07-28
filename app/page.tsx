@@ -6,29 +6,6 @@ import PinLibrary from "@/components/PinLibrary"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
-import ProactiveAI from "@/components/ProactiveAI"
-import CameraCapture from "@/components/CameraCapture"
-import PhotoEditor from "@/components/PhotoEditor"
-import SocialShare from "@/components/SocialShare"
-import RecommendationsHub from "@/components/RecommendationsHub"
-import PinStoryBuilder from "@/components/PinStoryBuilder"
-import SmartThemeSelector from "@/components/SmartThemeSelector"
-import AudioRecorder from "@/components/AudioRecorder"
-import AutoTitleGenerator from "@/components/AutoTitleGenerator"
-import AIAssistant from "@/components/AIAssistant"
-import PlaceNavigation from "@/components/PlaceNavigation"
-import LocationDisplay from "@/components/LocationDisplay"
-import GoogleMapsView from "@/components/GoogleMapsView"
-import EnhancedLocationService from "@/components/EnhancedLocationService"
-import PinManager from "@/components/PinManager"
-import PinStoryMode from "@/components/PinStoryMode"
-import StoryMode from "@/components/StoryMode"
-import SocialPlatformSelector from "@/components/social-platform-selector"
-import MobilePostcardEditor from "@/components/mobile-postcard-editor"
-import EnhancedAudio from "@/components/enhanced-audio"
-import ReliableCamera from "@/components/reliable-camera"
-import SimpleCamera from "@/components/simple-camera"
-import AdvancedEditor from "@/components/AdvancedEditor"
 
 interface PinData {
   id: string
@@ -44,7 +21,6 @@ interface PinData {
   isRecommended?: boolean
   types?: string[]
   isAISuggestion?: boolean
-
 }
 
 type Screen = "map" | "camera" | "library" | "editor" | "share" | "story" | "settings" | "recommendations" | "navigation" | "audio" | "advanced-editor"
@@ -222,82 +198,241 @@ export default function Home() {
   // Screen rendering logic
   if (currentScreen === "camera") {
     return (
-      <CameraCapture
-        onCapture={handleCameraCapture}
-        onBack={() => setCurrentScreen("map")}
-        location={currentLocation}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Camera</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Camera size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Camera Feature</h2>
+            <p className="text-white/70 mb-4">Camera functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "editor") {
     return (
-      <PhotoEditor
-        media={capturedMedia}
-        onSave={handleSavePin}
-        onBack={() => setCurrentScreen("camera")}
-        location={currentLocation}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("camera")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Photo Editor</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Edit3 size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Photo Editor</h2>
+            <p className="text-white/70 mb-4">Photo editing functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "share") {
     return (
-      <SocialShare
-        pin={pins[pins.length - 1]}
-        onBack={() => setCurrentScreen("map")}
-        platform={selectedPlatform}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Share</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Share2 size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Share Feature</h2>
+            <p className="text-white/70 mb-4">Sharing functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "story") {
     return (
-      <PinStoryBuilder
-        pins={pins}
-        onBack={() => setCurrentScreen("map")}
-        onComplete={(story) => console.log("Story created:", story)}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Story Builder</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Edit3 size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Story Builder</h2>
+            <p className="text-white/70 mb-4">Story building functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "recommendations") {
     return (
-      <RecommendationsHub
-        recommendations={recommendations}
-        onSelect={handleRecommendationSelect}
-        onBack={() => setCurrentScreen("map")}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Discover</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Navigation size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Discover Places</h2>
+            <p className="text-white/70 mb-4">Recommendation functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "navigation") {
     return (
-      <PlaceNavigation
-        destination={navigationData}
-        onBack={() => setCurrentScreen("map")}
-        onArrive={() => console.log("Arrived at destination")}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Navigation</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Navigation size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Navigation</h2>
+            <p className="text-white/70 mb-4">Navigation functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "audio") {
     return (
-      <AudioRecorder
-        onRecord={handleAudioRecord}
-        onBack={() => setCurrentScreen("map")}
-        location={currentLocation}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Voice Note</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Calendar size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Voice Note</h2>
+            <p className="text-white/70 mb-4">Audio recording functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (currentScreen === "advanced-editor") {
     return (
-      <AdvancedEditor
-        onComplete={handleAdvancedEditorComplete}
-        onBack={() => setCurrentScreen("map")}
-        data={advancedEditorData}
-      />
+      <div className="pinit-full-bg flex flex-col min-h-screen">
+        <div className="bg-black/20 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button 
+            onClick={() => setCurrentScreen("map")} 
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold">Advanced Editor</h1>
+          <div></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Edit3 size={64} className="mx-auto mb-4 text-white/60" />
+            <h2 className="text-2xl font-bold mb-2">Advanced Editor</h2>
+            <p className="text-white/70 mb-4">Advanced editing functionality coming soon!</p>
+            <button
+              onClick={() => setCurrentScreen("map")}
+              className="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-lg font-bold transition-colors"
+            >
+              Back to Map
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -338,30 +473,54 @@ export default function Home() {
       </div>
 
       {/* AI Suggestions */}
-      <ProactiveAI
-        suggestions={aiSuggestions}
-        motionData={motionData}
-        onSuggestionClick={(suggestion) => console.log("AI suggestion clicked:", suggestion)}
-      />
+      {aiSuggestions.length > 0 && (
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6">
+          <h3 className="font-bold mb-2">🤖 AI Suggestions</h3>
+          <div className="space-y-2">
+            {aiSuggestions.slice(0, 2).map((suggestion, index) => (
+              <div key={index} className="text-sm text-white/80 bg-white/10 rounded-lg p-2">
+                {suggestion}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col items-center justify-center relative">
         {/* Map View */}
         <div className="w-full h-64 bg-white/10 rounded-2xl mb-6 relative overflow-hidden">
-          <GoogleMapsView
-            location={currentLocation}
-            pins={pins}
-            onPinClick={handlePinSelect}
-          />
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center">
+              <MapPin size={48} className="mx-auto mb-2 text-white/60" />
+              <p className="text-white/70">Map View</p>
+              {currentLocation && (
+                <p className="text-xs text-white/50 mt-1">
+                  {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Location Display */}
         {currentLocation && (
-          <LocationDisplay
-            latitude={currentLocation.latitude}
-            longitude={currentLocation.longitude}
-            onNavigate={() => setCurrentScreen("navigation")}
-          />
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6 w-full">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold">📍 Current Location</h3>
+                <p className="text-sm text-white/70">
+                  {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+                </p>
+              </div>
+              <button
+                onClick={() => setCurrentScreen("navigation")}
+                className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+              >
+                <Navigation size={16} />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Main Action Button */}
