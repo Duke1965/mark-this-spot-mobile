@@ -721,13 +721,8 @@ export default function PINITApp() {
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   return (
     <div
+      className="pinit-full-bg"
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "linear-gradient(135deg, #002c7c 0%, #3730a3 50%, #9ddbeb 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
