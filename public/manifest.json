@@ -1,1 +1,27 @@
+{
+  "name": "PINIT - Travel Discovery App",
+  "short_name": "PINIT",
+  "description": "Like Shazam, but for Travel - Discover and pin amazing places",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3a8a",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "/placeholder-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/placeholder-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["travel", "lifestyle", "utilities"],
+  "lang": "en",
+  "orientation": "portrait",
+  "scope": "/",
+  "permissions": ["notifications", "geolocation"]
+} 
 
