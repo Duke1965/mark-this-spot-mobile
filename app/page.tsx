@@ -230,11 +230,16 @@ export default function PINITApp() {
 
         // Generate description based on rating and types
         const generateDescription = (place: GooglePlace): string => {
-          const rating = place.rating ? `${place.rating}⭐` : ""
-          const priceLevel = place.price_level ? "💰".repeat(place.price_level) : ""
-          const type = place.types[0]?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Place"
-
-          return `${type} ${rating} ${priceLevel}`.trim()
+          const placeType = place.types[0]?.replace(/_/g, ' ') || 'amazing place'
+          
+          const descriptions = [
+            `Scenic ${placeType} with breathtaking views. Perfect for sunset photos and worth stopping to explore this hidden gem.`,
+            `Beautiful ${placeType} that's perfect for photos. Great spot to capture memories and enjoy the atmosphere.`,
+            `Amazing ${placeType} with stunning surroundings. Ideal for a quick stop and definitely worth the visit.`,
+            `Hidden ${placeType} gem with incredible charm. Perfect spot for photos and a memorable experience.`,
+            `Stunning ${placeType} with spectacular views. Great for capturing moments and exploring the area.`,
+          ]
+          return descriptions[Math.floor(Math.random() * descriptions.length)]
         }
 
         // Generate photo URL if available
@@ -343,7 +348,7 @@ export default function PINITApp() {
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
-        description: `Quick pin created at ${new Date().toLocaleTimeString()}`,
+        description: `Amazing discovery! Perfect spot for photos and memories. Worth stopping to explore this hidden gem.`,
         tags: ["quick-pin", "ai-generated"],
       }
 
@@ -390,21 +395,26 @@ export default function PINITApp() {
   }, [])
 
   const handleSavePin = useCallback(
-    (postcardData?: any) => {
+    async (postcardData?: any) => {
       if (!capturedMedia || !location) return
+
+      // Fetch location photo for the pin
+      const locationPhoto = await fetchLocationPhoto(location.latitude, location.longitude)
 
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: location.latitude,
         longitude: location.longitude,
         locationName: capturedMedia.location,
-        mediaUrl: capturedMedia.url,
+        mediaUrl: capturedMedia.url, // Keep the captured media as primary
         mediaType: capturedMedia.type,
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
         description: postcardData?.text || "",
         tags: ["social-media", selectedPlatform],
+        // Store location photo as additional metadata for future use
+        googlePlaceId: locationPhoto ? "location-photo" : undefined,
       }
 
       addPin(newPin)
@@ -416,7 +426,7 @@ export default function PINITApp() {
       setSelectedPlatform("")
       setCurrentScreen("map")
     },
-    [capturedMedia, location, selectedPlatform, addPin],
+    [capturedMedia, location, selectedPlatform, addPin, fetchLocationPhoto],
   )
 
   const handleAICommand = useCallback(
@@ -557,27 +567,48 @@ export default function PINITApp() {
     try {
       console.log("📸 Fetching location photo...")
       
-      // Use existing fetchNearbyPlaces function to get nearby places
-      const places = await fetchNearbyPlaces(lat, lng)
-      
-      // Find the first place with photos
-      const placeWithPhoto = places.find(place => place.photos && place.photos.length > 0)
-      
-      if (placeWithPhoto && placeWithPhoto.photos && placeWithPhoto.photos.length > 0) {
-        const photoRef = placeWithPhoto.photos[0].photo_reference
-        const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      // Direct Google Places API call to get nearby places with photos
+      const radius = 1000 // 1km radius
+      const types = [
+        "tourist_attraction",
+        "restaurant",
+        "cafe",
+        "museum",
+        "park",
+        "shopping_mall",
+        "art_gallery",
+        "amusement_park",
+        "zoo",
+        "aquarium",
+      ]
+
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
+        "|",
+      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
+      const response = await fetch(placesUrl)
+      const data = await response.json()
+
+      if (data.results && data.results.length > 0) {
+        // Find the first place with photos
+        const placeWithPhoto = data.results.find((place: any) => place.photos && place.photos.length > 0)
         
-        console.log("✅ Location photo found:", photoUrl)
-        return photoUrl
+        if (placeWithPhoto && placeWithPhoto.photos && placeWithPhoto.photos.length > 0) {
+          const photoRef = placeWithPhoto.photos[0].photo_reference
+          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          
+          console.log("✅ Location photo found:", photoUrl)
+          return photoUrl
+        }
       }
       
       console.log("📸 No location photo found, will use PINIT placeholder")
       return "/placeholder.jpg"
     } catch (error) {
       console.error("❌ Error fetching location photo:", error)
-      return null
+      return "/placeholder.jpg"
     }
-  }, [fetchNearbyPlaces])
+  }, [])
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = useCallback((place: any) => {
