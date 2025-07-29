@@ -2,7 +2,7 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
-  "_comment": "PINIT App - No Material-UI dependencies required",
+  "_comment": "PINIT App - No Material-UI dependencies required - SSR Fixed",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
