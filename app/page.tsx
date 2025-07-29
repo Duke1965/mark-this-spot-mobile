@@ -131,7 +131,7 @@ export default function PINITApp() {
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
 
   // Add location name resolution
-  const getLocationName = useCallback(async (lat: number, lng: number): Promise<string> => {
+  const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
       // Using a simple reverse geocoding approach
       // In production, you'd use Google Maps API or similar
@@ -153,7 +153,7 @@ export default function PINITApp() {
       console.error("Failed to get location name:", error)
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
-  }, [])
+  }
 
   // Get current location on mount and resolve name
   useEffect(() => {
@@ -163,7 +163,7 @@ export default function PINITApp() {
         setLocationName(name)
       }
     })
-  }, [getCurrentLocation, getLocationName])
+  }, [getCurrentLocation])
 
   // Add this useEffect right after the existing useEffect for location name
   useEffect(() => {
@@ -435,7 +435,7 @@ export default function PINITApp() {
       setSelectedPlatform("")
       setCurrentScreen("map")
     },
-    [capturedMedia, location, selectedPlatform, addPin, fetchLocationPhoto],
+    [capturedMedia, location, selectedPlatform, addPin],
   )
 
   const handleAICommand = useCallback(
@@ -572,7 +572,7 @@ export default function PINITApp() {
   }, [location, fetchNearbyPlaces])
 
   // NEW: Fetch location photo for pins
-  const fetchLocationPhoto = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+  const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
     try {
       console.log("📸 Fetching location photo...")
       
@@ -617,27 +617,27 @@ export default function PINITApp() {
       console.error("❌ Error fetching location photo:", error)
       return "/placeholder.jpg"
     }
-  }, [])
+  }
 
   // Handle place navigation from recommendations
-  const handlePlaceNavigation = useCallback((place: any) => {
+  const handlePlaceNavigation = (place: any) => {
     console.log("🗺️ Opening place navigation for:", place.title)
     setSelectedPlace(place)
     setCurrentScreen("place-navigation")
-  }, [])
+  }
 
   // Handle save for later
-  const handleSaveForLater = useCallback((place: any) => {
+  const handleSaveForLater = (place: any) => {
     console.log("🔖 Saving place for later:", place.title)
     setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
     setCurrentScreen("recommendations")
-  }, [])
+  }
 
   // Handle navigation start
-  const handleStartNavigation = useCallback((place: any) => {
+  const handleStartNavigation = (place: any) => {
     console.log("🧭 Starting navigation to:", place.title)
     // Navigation is handled within the PlaceNavigation component
-  }, [])
+  }
 
   // Handle arrival
   const handleArrival = useCallback(
