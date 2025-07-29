@@ -1084,6 +1084,18 @@ export default function PINITApp() {
         </h1>
         <p
           style={{
+            margin: "0.25rem 0 0 0",
+            fontSize: "1.1rem",
+            opacity: 0.9,
+            color: "white",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+            fontWeight: "500",
+          }}
+        >
+          Pin It. Find It. Share It.
+        </p>
+        <p
+          style={{
             margin: "0.5rem 0 0 0",
             opacity: 0.9,
             fontSize: "1rem",
