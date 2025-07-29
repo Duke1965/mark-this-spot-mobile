@@ -141,19 +141,19 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
               justifyContent: "center",
               gap: "0.5rem"
             }}
-            onClick={() => {
-              const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
-              if (navigator.share) {
-                navigator.share({
-                  title: pin.title,
-                  text: shareText,
-                  url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
-                })
-              } else {
-                navigator.clipboard.writeText(shareText)
-                alert("Pin details copied to clipboard!")
-              }
-            }}
+                                      onClick={() => {
+                            const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
+                            if (typeof window !== 'undefined' && navigator.share) {
+                              navigator.share({
+                                title: pin.title,
+                                text: shareText,
+                                url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
+                              })
+                            } else if (typeof window !== 'undefined' && navigator.clipboard) {
+                              navigator.clipboard.writeText(shareText)
+                              alert("Pin details copied to clipboard!")
+                            }
+                          }}
           >
             <Share2 size={14} />
             Share
