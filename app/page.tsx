@@ -330,13 +330,16 @@ export default function PINITApp() {
       ]
       const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
 
+      // Fetch location photo
+      const locationPhoto = await fetchLocationPhoto(currentLocation.latitude, currentLocation.longitude)
+
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
         locationName: `${aiLocationName} (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
-        mediaUrl: null,
-        mediaType: null,
+        mediaUrl: locationPhoto,
+        mediaType: locationPhoto ? "photo" : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
@@ -548,6 +551,33 @@ export default function PINITApp() {
     setShowNearbyPins(true)
     setLastActivity("discovery")
   }, [location, fetchNearbyPlaces])
+
+  // NEW: Fetch location photo for pins
+  const fetchLocationPhoto = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      console.log("📸 Fetching location photo...")
+      
+      // Use existing fetchNearbyPlaces function to get nearby places
+      const places = await fetchNearbyPlaces(lat, lng)
+      
+      // Find the first place with photos
+      const placeWithPhoto = places.find(place => place.photos && place.photos.length > 0)
+      
+      if (placeWithPhoto && placeWithPhoto.photos && placeWithPhoto.photos.length > 0) {
+        const photoRef = placeWithPhoto.photos[0].photo_reference
+        const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        
+        console.log("✅ Location photo found:", photoUrl)
+        return photoUrl
+      }
+      
+      console.log("📸 No location photo found, will use PINIT placeholder")
+      return "/placeholder.jpg"
+    } catch (error) {
+      console.error("❌ Error fetching location photo:", error)
+      return null
+    }
+  }, [fetchNearbyPlaces])
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = useCallback((place: any) => {
