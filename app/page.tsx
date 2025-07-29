@@ -836,14 +836,15 @@ export default function PINITApp() {
             }
           }}
           style={{
-            padding: "0.75rem",
+            padding: "0.5rem",
             border: "none",
-            background: discoveryMode ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.2)",
-            color: "white",
+            background: "transparent",
+            color: discoveryMode ? "#6B7280" : "white",
             cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-            border: discoveryMode ? "2px solid #10B981" : "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "color 0.2s ease",
           }}
         >
           🌐
