@@ -9,7 +9,7 @@ import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { PinStoryMode } from "@/components/PinStoryMode"
-import { AIAssistant } from "@/components/AIAssistant"
+
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
@@ -94,7 +94,7 @@ export default function PINITApp() {
     | "place-navigation"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
-  const [showAIAssistant, setShowAIAssistant] = useState(false)
+
   const [isQuickPinning, setIsQuickPinning] = useState(false)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
@@ -438,29 +438,7 @@ export default function PINITApp() {
     [capturedMedia, location, selectedPlatform, addPin],
   )
 
-  const handleAICommand = useCallback(
-    (command: string) => {
-      const lowerCommand = command.toLowerCase()
 
-      if (lowerCommand.includes("pin") || lowerCommand.includes("mark")) {
-        handleQuickPin()
-      } else if (lowerCommand.includes("photo")) {
-        setCameraMode("photo")
-        setCurrentScreen("camera")
-      } else if (lowerCommand.includes("video")) {
-        setCameraMode("video")
-        setCurrentScreen("camera")
-      } else if (lowerCommand.includes("story")) {
-        setCurrentScreen("story")
-      } else if (lowerCommand.includes("library")) {
-        setCurrentScreen("library")
-      }
-
-      setShowAIAssistant(false)
-      setLastActivity("ai-command")
-    },
-    [handleQuickPin],
-  )
 
   // Handle proactive AI suggestions
   const handleProactiveSuggestion = useCallback(
@@ -483,8 +461,8 @@ export default function PINITApp() {
           findNearbyPins()
           break
         case "suggest-pin":
-          // Show AI assistant with pin suggestion
-          setShowAIAssistant(true)
+          // Show recommendations instead of AI assistant
+          setCurrentScreen("recommendations")
           break
         default:
           console.log("Unknown proactive suggestion:", action)
@@ -828,30 +806,7 @@ export default function PINITApp() {
         onNotificationTap={handleNotificationTap}
       />
 
-      {/* AI Assistant Button - Top Right */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          zIndex: 10,
-        }}
-      >
-        <button
-          onClick={() => setShowAIAssistant(true)}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <Sparkles size={24} />
-        </button>
-      </div>
+
 
       {/* Enhanced Location Service - Hidden but working */}
       {location && (
@@ -862,12 +817,12 @@ export default function PINITApp() {
         />
       )}
 
-      {/* Discovery Mode Toggle - Next to AI Assistant */}
+      {/* Discovery Mode Toggle - Top Right */}
       <div
         style={{
           position: "absolute",
           top: "1rem",
-          right: "5rem",
+          right: "1rem",
           zIndex: 10,
         }}
       >
@@ -1429,8 +1384,7 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* AI Assistant Modal */}
-      {showAIAssistant && <AIAssistant onCommand={handleAICommand} onClose={() => setShowAIAssistant(false)} />}
+
 
       <style jsx>{`
         @keyframes spin {
