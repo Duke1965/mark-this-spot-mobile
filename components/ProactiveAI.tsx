@@ -272,85 +272,26 @@ export function ProactiveAI({
     }
   }, [topNotification, onNotificationTap])
 
-  // Don't render if no active notification
-  if (!topNotification) return null
+  // Send Android-style notification instead of showing popup
+  useEffect(() => {
+    if (topNotification) {
+      // @ts-ignore
+      if (window.sendNotification) {
+        // @ts-ignore
+        window.sendNotification({
+          id: topNotification.id,
+          title: "PINIT Discovery",
+          body: topNotification.message,
+          icon: topNotification.icon,
+          badge: 1,
+        })
+      }
+      
+      // Clear the notification after sending
+      setTopNotification(null)
+    }
+  }, [topNotification])
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        pointerEvents: "auto",
-      }}
-    >
-      {/* WhatsApp-style Top Notification Bar - DARK BLUE THEME */}
-      <div
-        onClick={handleNotificationTap}
-        style={{
-          background: `linear-gradient(135deg, ${topNotification.color}E6, ${topNotification.color}CC)`,
-          color: "white",
-          padding: "0.75rem 1rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          cursor: "pointer",
-          backdropFilter: "blur(10px)",
-          borderBottom: `2px solid ${topNotification.color}`,
-          animation: "slideDownFade 0.3s ease-out",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-        }}
-      >
-        {/* Icon */}
-        <div
-          style={{
-            fontSize: "1.2rem",
-            flexShrink: 0,
-          }}
-        >
-          {topNotification.icon}
-        </div>
-
-        {/* Message */}
-        <div style={{ flex: 1, fontSize: "0.9rem", fontWeight: "500" }}>{topNotification.message}</div>
-
-        {/* Tap indicator */}
-        <div
-          style={{
-            fontSize: "0.75rem",
-            opacity: 0.8,
-            flexShrink: 0,
-          }}
-        >
-          Tap to view
-        </div>
-
-        {/* Subtle indicator */}
-        <div
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.8)",
-            flexShrink: 0,
-          }}
-        />
-      </div>
-
-      <style jsx>{`
-        @keyframes slideDownFade {
-          0% {
-            transform: translateY(-100%);
-            opacity: 0;
-          }
-          100% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
-  )
+  // Don't render anything - notifications are now handled by the service
+  return null
 }
