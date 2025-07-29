@@ -16,6 +16,7 @@ import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
+import { NotificationService } from "@/components/NotificationService"
 
 export interface PinData {
   id: string
@@ -707,20 +708,21 @@ export default function PINITApp() {
 
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
-        display: "flex",
-        flexDirection: "column",
-        color: "white",
-        padding: "2rem",
-      }}
-    >
+    <NotificationService>
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
+          display: "flex",
+          flexDirection: "column",
+          color: "white",
+          padding: "2rem",
+        }}
+      >
       {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
@@ -1360,7 +1362,8 @@ export default function PINITApp() {
           100% { background-position: 0% 50%; }
         }
       `}</style>
-    </div>
+      </div>
+    </NotificationService>
   )
 }
 
