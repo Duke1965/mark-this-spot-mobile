@@ -16,7 +16,7 @@ import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
-import { NotificationService } from "@/components/NotificationService"
+
 
 export interface PinData {
   id: string
@@ -708,8 +708,7 @@ export default function PINITApp() {
 
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   return (
-    <NotificationService>
-      <div
+    <div
         style={{
           position: "fixed",
           top: 0,
@@ -1363,7 +1362,6 @@ export default function PINITApp() {
         }
       `}</style>
       </div>
-    </NotificationService>
   )
 }
 
