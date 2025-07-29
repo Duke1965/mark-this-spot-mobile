@@ -62,6 +62,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@babel/plugin-transform-react-jsx-source": "^7.24.0",
+    "@babel/plugin-transform-react-jsx": "^7.24.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
