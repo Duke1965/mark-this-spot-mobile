@@ -6,7 +6,12 @@ export const metadata: Metadata = {
   title: "PINIT - Pin It. Find It. Share It.",
   description: "Location-based discovery and sharing app",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/placeholder-logo.png',
+    apple: '/placeholder-logo.png',
+  },
 }
 
 export default function RootLayout({
