@@ -272,26 +272,7 @@ export function ProactiveAI({
     }
   }, [topNotification, onNotificationTap])
 
-  // Send Android-style notification instead of showing popup
-  useEffect(() => {
-    if (topNotification) {
-      // @ts-ignore
-      if (window.sendNotification) {
-        // @ts-ignore
-        window.sendNotification({
-          id: topNotification.id,
-          title: "PINIT Discovery",
-          body: topNotification.message,
-          icon: topNotification.icon,
-          badge: 1,
-        })
-      }
-      
-      // Clear the notification after sending
-      setTopNotification(null)
-    }
-  }, [topNotification])
-
-  // Don't render anything - notifications are now handled by the service
+  // Don't render anything - notifications disabled for now
+  // This removes the intrusive popups while keeping all the AI logic intact
   return null
 }
