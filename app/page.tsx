@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Camera, Video, Library, Sparkles, MapPin, Check } from "lucide-react"
+import { Camera, Video, Library, Sparkles, MapPin, Check, Star } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
@@ -800,55 +800,7 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* NEW: Recommendations Button - Next to Discovery */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "9rem",
-          zIndex: 10,
-        }}
-      >
-        <button
-          onClick={() => setCurrentScreen("recommendations")}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background:
-              recommendations.filter((r) => !r.isCompleted).length > 0
-                ? "rgba(30,58,138,0.8)"
-                : "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-            position: "relative",
-          }}
-        >
-          🤖{/* Notification Badge */}
-          {recommendations.filter((r) => !r.isCompleted).length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "-4px",
-                right: "-4px",
-                background: "#EF4444",
-                color: "white",
-                borderRadius: "50%",
-                width: "20px",
-                height: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.75rem",
-                fontWeight: "bold",
-              }}
-            >
-              {recommendations.filter((r) => !r.isCompleted).length}
-            </div>
-          )}
-        </button>
-      </div>
+
 
       {/* Motion Status Indicator (Debug) */}
       {motionData.isMoving && (
@@ -1261,7 +1213,7 @@ export default function PINITApp() {
         </div>
       )}
 
-      {/* Bottom Navigation - Photo/Video/Library */}
+      {/* Bottom Navigation - Photo/Video/Library/Recommendations */}
       <div
         style={{
           position: "absolute",
@@ -1328,6 +1280,45 @@ export default function PINITApp() {
           }}
         >
           <Library size={28} />
+        </button>
+
+        <button
+          onClick={() => setCurrentScreen("recommendations")}
+          style={{
+            padding: "0.5rem",
+            border: "none",
+            background: "transparent",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <Star size={28} />
+          {/* Notification Badge */}
+          {recommendations.filter((r) => !r.isCompleted).length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                background: "#EF4444",
+                color: "white",
+                borderRadius: "50%",
+                width: "20px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+              }}
+            >
+              {recommendations.filter((r) => !r.isCompleted).length}
+            </div>
+          )}
         </button>
       </div>
 
