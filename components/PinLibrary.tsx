@@ -16,60 +16,10 @@ type TabType = 'photos' | 'videos' | 'pins' | 'recommended'
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
   const [activeTab, setActiveTab] = useState<TabType>('pins')
 
-  // Mock data for demonstration
-  const photos = [
-    {
-      id: '1',
-      title: 'Memorable Place',
-      locationName: 'Memorable Place',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-22T10:00:00Z',
-      tags: ['quick-pin', 'ai-generated'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const
-    },
-    {
-      id: '2', 
-      title: 'Amazing Coffee Spot',
-      locationName: 'Popular Coffee Shop',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-21T10:00:00Z',
-      tags: ['food', 'coffee', 'recommended'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const
-    }
-  ]
-
-  const videos = [
-    {
-      id: '3',
-      title: 'Sunset Walk',
-      locationName: 'Beach Promenade',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-20T18:30:00Z',
-      tags: ['sunset', 'beach', 'walk'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'video' as const
-    }
-  ]
-
-  const recommended = [
-    {
-      id: '4',
-      title: 'Hidden Gem Restaurant',
-      locationName: 'Local Favorite',
-      latitude: -33.3543,
-      longitude: 18.8698,
-      timestamp: '2025-07-19T12:00:00Z',
-      tags: ['food', 'restaurant', 'ai-recommended'],
-      mediaUrl: '/placeholder.jpg',
-      mediaType: 'photo' as const,
-      isRecommended: true
-    }
-  ]
+  // Filter pins by type
+  const photos = pins.filter(pin => pin.mediaType === 'photo')
+  const videos = pins.filter(pin => pin.mediaType === 'video')
+  const recommended = pins.filter(pin => pin.isRecommended === true)
 
   const renderPinCard = (pin: PinData) => {
     return (
@@ -81,6 +31,31 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         color: "white",
         border: "1px solid rgba(255,255,255,0.1)"
       }}>
+        {/* Image/Media Display */}
+        {pin.mediaUrl && (
+          <div style={{ 
+            marginBottom: "1rem",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+            height: "120px",
+            background: "rgba(0,0,0,0.2)"
+          }}>
+            <img
+              src={pin.mediaUrl}
+              alt={pin.title}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover"
+              }}
+              onError={(e) => {
+                // Fallback to placeholder if image fails to load
+                e.currentTarget.src = "/placeholder.jpg"
+              }}
+            />
+          </div>
+        )}
+
         {/* Title with Map Pin Icon */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
           <MapPin size={16} style={{ color: "#EF4444" }} />
