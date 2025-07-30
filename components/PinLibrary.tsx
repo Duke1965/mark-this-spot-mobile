@@ -25,19 +25,21 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     return (
       <div key={pin.id} style={{
         background: "rgba(255,255,255,0.1)",
-        borderRadius: "0.75rem",
-        padding: "1rem",
-        marginBottom: "1rem",
+        borderRadius: "0.5rem",
+        padding: "0.75rem",
         color: "white",
-        border: "1px solid rgba(255,255,255,0.1)"
+        border: "1px solid rgba(255,255,255,0.1)",
+        display: "flex",
+        flexDirection: "column",
+        height: "fit-content"
       }}>
         {/* Image/Media Display */}
         {pin.mediaUrl && (
           <div style={{ 
-            marginBottom: "1rem",
-            borderRadius: "0.5rem",
+            marginBottom: "0.5rem",
+            borderRadius: "0.25rem",
             overflow: "hidden",
-            height: "120px",
+            height: "80px",
             background: "rgba(0,0,0,0.2)"
           }}>
             <img
@@ -53,110 +55,114 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
                 e.currentTarget.src = "/placeholder.jpg"
               }}
             />
-          </div>
+        </div>
         )}
 
         {/* Title with Map Pin Icon */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-          <MapPin size={16} style={{ color: "#EF4444" }} />
-          <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "bold" }}>{pin.title}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.5rem" }}>
+          <MapPin size={12} style={{ color: "#EF4444" }} />
+          <h3 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "bold", lineHeight: "1.2" }}>{pin.title}</h3>
         </div>
 
         {/* Location */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", opacity: 0.8, fontSize: "0.875rem" }}>
-          <MapPin size={14} style={{ color: "#EF4444" }} />
-          <span>{pin.locationName} ({pin.latitude}, {pin.longitude})</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.25rem", opacity: 0.8, fontSize: "0.75rem" }}>
+          <MapPin size={10} style={{ color: "#EF4444" }} />
+          <span style={{ lineHeight: "1.2" }}>{pin.locationName}</span>
         </div>
 
         {/* Timestamp */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", opacity: 0.6, fontSize: "0.875rem" }}>
-          <Calendar size={14} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.5rem", opacity: 0.6, fontSize: "0.75rem" }}>
+          <Calendar size={10} />
           <span>
-            {pin.timestamp ? new Date(pin.timestamp).toLocaleString('en-GB', {
+            {pin.timestamp ? new Date(pin.timestamp).toLocaleDateString('en-GB', {
               day: '2-digit',
               month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
+              year: 'numeric'
             }) : 'Unknown date'}
           </span>
         </div>
 
         {/* Tags */}
         {pin.tags && pin.tags.length > 0 && (
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-            {pin.tags.map((tag, index) => (
+          <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+            {pin.tags.slice(0, 2).map((tag, index) => (
               <span 
                 key={index} 
                 style={{
-                  fontSize: "0.75rem",
+                  fontSize: "0.625rem",
                   background: "rgba(255,255,255,0.2)",
                   color: "rgba(255,255,255,0.8)",
-                  padding: "0.25rem 0.75rem",
+                  padding: "0.125rem 0.5rem",
                   borderRadius: "9999px"
                 }}
               >
                 #{tag}
               </span>
             ))}
+            {pin.tags.length > 2 && (
+              <span style={{
+                fontSize: "0.625rem",
+                color: "rgba(255,255,255,0.6)",
+                padding: "0.125rem 0.5rem"
+              }}>
+                +{pin.tags.length - 2}
+              </span>
+            )}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button 
+        <div style={{ display: "flex", gap: "0.25rem", marginTop: "auto" }}>
+          <button
             style={{
               flex: 1,
               background: "rgba(255,255,255,0.2)",
               color: "white",
-              padding: "0.5rem 0.75rem",
-              borderRadius: "0.5rem",
+              padding: "0.25rem 0.5rem",
+              borderRadius: "0.25rem",
               border: "none",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "0.5rem"
+              fontSize: "0.75rem"
             }}
             onClick={() => {
               const url = `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`
               window.open(url, "_blank")
             }}
           >
-            <Navigation size={14} />
-            Open in Maps
+            <Navigation size={10} />
           </button>
-          <button 
+          <button
             style={{
               flex: 1,
               background: "rgba(255,255,255,0.2)",
               color: "white",
-              padding: "0.5rem 0.75rem",
-              borderRadius: "0.5rem",
+              padding: "0.25rem 0.5rem",
+              borderRadius: "0.25rem",
               border: "none",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "0.5rem"
+              fontSize: "0.75rem"
             }}
-                                      onClick={() => {
-                            const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
-                            if (typeof window !== 'undefined' && navigator.share) {
-                              navigator.share({
-                                title: pin.title,
-                                text: shareText,
-                                url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
-                              })
-                            } else if (typeof window !== 'undefined' && navigator.clipboard) {
-                              navigator.clipboard.writeText(shareText)
-                              alert("Pin details copied to clipboard!")
-                            }
-                          }}
+            onClick={() => {
+              const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
+              if (typeof window !== 'undefined' && navigator.share) {
+                navigator.share({
+                  title: pin.title,
+                  text: shareText,
+                  url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
+                })
+              } else if (typeof window !== 'undefined' && navigator.clipboard) {
+                navigator.clipboard.writeText(shareText)
+                alert("Pin details copied to clipboard!")
+              }
+            }}
           >
-            <Share2 size={14} />
-            Share
+            <Share2 size={10} />
           </button>
         </div>
       </div>
@@ -218,8 +224,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             <div style={{ width: "0.5rem", height: "1rem", background: "#EF4444", borderRadius: "0.125rem" }}></div>
           </div>
           <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Pin Library</span>
-        </div>
-        
+      </div>
+
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button style={{
             background: "#10B981",
@@ -235,8 +241,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             <BookOpen size={16} />
             Story
           </button>
-          <button 
-            onClick={onBack}
+            <button
+              onClick={onBack}
             style={{
               background: "#6B7280",
               color: "white",
@@ -247,9 +253,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             }}
           >
             Back
-          </button>
-        </div>
-      </div>
+            </button>
+          </div>
+                    </div>
 
       {/* Tab Navigation */}
       <div style={{
@@ -326,15 +332,25 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
           <Star size={16} />
           Recommended
         </button>
-      </div>
+                    </div>
 
       {/* Content Area */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", 
+          gap: "0.75rem",
+          maxWidth: "100%"
+        }}>
           {renderContent().length > 0 ? (
             renderContent()
           ) : (
-            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", padding: "2rem" }}>
+            <div style={{ 
+              textAlign: "center", 
+              color: "rgba(255,255,255,0.6)", 
+              padding: "2rem",
+              gridColumn: "1 / -1"
+            }}>
               <MapPin size={48} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
               <p style={{ fontSize: "1.125rem", margin: "0 0 0.5rem 0" }}>No {activeTab} yet</p>
               <p style={{ fontSize: "0.875rem", margin: 0 }}>Start pinning places to see them here!</p>
