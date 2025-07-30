@@ -1338,17 +1338,6 @@ export default function PINITApp() {
         >
           📍 {locationName}
         </p>
-        <p
-          style={{
-            margin: "0.25rem 0 0 0",
-            fontSize: "0.875rem",
-            opacity: 0.7,
-            color: "white",
-            textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-          }}
-        >
-          {pins.length} pins created
-        </p>
       </div>
 
       {/* ENHANCED: Real Google Places Discovery Panel */}
@@ -1522,9 +1511,32 @@ export default function PINITApp() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            position: "relative",
           }}
         >
           <Library size={28} style={{ color: "white" }} />
+          {/* Pin Count Badge */}
+          {pins.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                background: "#10B981",
+                color: "white",
+                borderRadius: "50%",
+                width: "20px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+              }}
+            >
+              {pins.length}
+            </div>
+          )}
         </button>
 
         <button
