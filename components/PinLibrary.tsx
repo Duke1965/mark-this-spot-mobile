@@ -31,7 +31,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         border: "1px solid rgba(255,255,255,0.1)",
         display: "flex",
         flexDirection: "column",
-        height: "fit-content"
+        height: "fit-content",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
       }}>
         {/* Image/Media Display */}
         {pin.mediaUrl && (
