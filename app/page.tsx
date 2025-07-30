@@ -106,6 +106,8 @@ export default function PINITApp() {
   const [discoveryMode, setDiscoveryMode] = useState(false)
   const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
+  const [pins, setPins] = useState<PinData[]>([])
+  const [newPins, setNewPins] = useState<number>(0)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
 
   const [locationDetails, setLocationDetails] = useState<any>(null)
@@ -126,8 +128,26 @@ export default function PINITApp() {
 
   // Hooks
   const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
-  const { pins, addPin } = usePinStorage()
+  const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
+
+  // Initialize pins from storage
+  useEffect(() => {
+    if (storedPins.length > 0) {
+      setPins(storedPins)
+    }
+  }, [storedPins])
+
+  const addPin = useCallback((pin: PinData) => {
+    setPins(prev => [...prev, pin])
+    setNewPins(prev => prev + 1)
+    addPinFromStorage(pin) // Also save to storage
+  }, [addPinFromStorage])
+
+  const openLibrary = useCallback(() => {
+    setCurrentScreen("library")
+    setNewPins(0) // Reset new pins count when Library is opened
+  }, [setCurrentScreen])
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
@@ -1501,7 +1521,7 @@ export default function PINITApp() {
         </button>
 
         <button
-          onClick={() => setCurrentScreen("library")}
+          onClick={openLibrary}
           style={{
             padding: "0.5rem",
             border: "none",
@@ -1516,25 +1536,19 @@ export default function PINITApp() {
         >
           <Library size={28} style={{ color: "white" }} />
           {/* Pin Count Badge */}
-          {pins.length > 0 && (
+          {newPins > 0 && (
             <div
               style={{
                 position: "absolute",
                 top: "-4px",
                 right: "-4px",
-                background: "#10B981",
                 color: "white",
-                borderRadius: "50%",
-                width: "20px",
-                height: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 fontSize: "0.75rem",
                 fontWeight: "bold",
+                textShadow: "0 1px 2px rgba(0,0,0,0.8)",
               }}
             >
-              {pins.length}
+              {newPins}
             </div>
           )}
         </button>
