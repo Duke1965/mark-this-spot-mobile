@@ -200,11 +200,11 @@ export default function PINITApp() {
       }
 
       // Fallback to nearby places search
-      const radius = 1000 // Increased to 1km radius for better results
+      const radius = 2000 // Increased to 2km radius for better results
       const types = [
         "establishment", "point_of_interest", "tourist_attraction", 
         "restaurant", "cafe", "store", "shopping_mall", "museum", 
-        "park", "church", "school", "hospital"
+        "park", "church", "school", "hospital", "natural_feature"
       ]
 
       const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join("|")}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
@@ -239,46 +239,57 @@ export default function PINITApp() {
         }
       }
 
-      // Final fallback - generate a nice descriptive name
-      const generateNiceName = (lat: number, lng: number): string => {
-        // Generate a more user-friendly name based on the area
-        const names = [
-          "Beautiful Scenic Spot",
-          "Hidden Gem Location", 
-          "Amazing Discovery",
-          "Perfect Photo Spot",
-          "Memorable Place",
-          "Stunning Viewpoint",
-          "Special Location",
-          "Wonderful Spot"
-        ]
+      // Try a broader search without type restrictions
+      const broadPlacesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      const broadResponse = await fetch(broadPlacesUrl)
+      const broadData = await broadResponse.json()
+
+      if (broadData.results && broadData.results.length > 0) {
+        const closestPlace = broadData.results[0]
+        const placeName = closestPlace.name
+        const vicinity = closestPlace.vicinity || ""
         
-        const randomName = names[Math.floor(Math.random() * names.length)]
-        return randomName
+        if (vicinity && !placeName.includes(vicinity)) {
+          return `${placeName}, ${vicinity}`
+        }
+        
+        return placeName
       }
 
-      return generateNiceName(lat, lng)
+      // Final fallback - use the most specific address component we can find
+      if (geocodeData.results && geocodeData.results.length > 0) {
+        const addressComponents = geocodeData.results[0].address_components
+        
+        // Try to find the most specific location name
+        const sublocality = addressComponents.find((comp: any) => 
+          comp.types.includes("sublocality")
+        )
+        const locality = addressComponents.find((comp: any) => 
+          comp.types.includes("locality")
+        )
+        const administrative_area = addressComponents.find((comp: any) => 
+          comp.types.includes("administrative_area_level_1")
+        )
+        const country = addressComponents.find((comp: any) => 
+          comp.types.includes("country")
+        )
+
+        if (sublocality) {
+          return sublocality.long_name
+        } else if (locality) {
+          return locality.long_name
+        } else if (administrative_area) {
+          return administrative_area.long_name
+        } else if (country) {
+          return country.long_name
+        }
+      }
+
+      // Last resort - use a simple area name
+      return "Unknown Area"
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      
-      // Even if API fails, return a nice descriptive name
-      const generateNiceName = (lat: number, lng: number): string => {
-        const names = [
-          "Beautiful Scenic Spot",
-          "Hidden Gem Location",
-          "Amazing Discovery", 
-          "Perfect Photo Spot",
-          "Memorable Place",
-          "Stunning Viewpoint",
-          "Special Location",
-          "Wonderful Spot"
-        ]
-        
-        const randomName = names[Math.floor(Math.random() * names.length)]
-        return randomName
-      }
-
-      return generateNiceName(lat, lng)
+      return "Unknown Area"
     }
   }
 
