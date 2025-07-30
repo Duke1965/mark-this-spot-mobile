@@ -136,24 +136,74 @@ export default function PINITApp() {
   // Add location name resolution
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
-      // Using a simple reverse geocoding approach
-      // In production, you'd use Google Maps API or similar
-      const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-      )
-      const data = await response.json()
-
-      if (data.city && data.countryName) {
-        return `${data.city}, ${data.countryName}`
-      } else if (data.locality && data.countryName) {
-        return `${data.locality}, ${data.countryName}`
-      } else if (data.countryName) {
-        return data.countryName
-      }
-
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Use the new getRealLocationName function for better results
+      return await getRealLocationName(lat, lng)
     } catch (error) {
       console.error("Failed to get location name:", error)
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    }
+  }
+
+  // Get real location name from Google Places API
+  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
+    try {
+      console.log("📍 Fetching real location name...")
+      
+      const radius = 500 // 500m radius for nearby places
+      const types = [
+        "establishment", "point_of_interest", "tourist_attraction", 
+        "restaurant", "cafe", "store", "shopping_mall", "museum", 
+        "park", "church", "school", "hospital"
+      ]
+
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join("|")}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
+      const response = await fetch(placesUrl)
+      const data = await response.json()
+
+      if (data.results && data.results.length > 0) {
+        // Get the closest place (first result)
+        const closestPlace = data.results[0]
+        const placeName = closestPlace.name
+        const vicinity = closestPlace.vicinity || ""
+        
+        // Combine place name with vicinity for better context
+        if (vicinity && !placeName.includes(vicinity)) {
+          return `${placeName}, ${vicinity}`
+        }
+        
+        return placeName
+      }
+
+      // Fallback to reverse geocoding for general area name
+      const reverseGeocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      const geocodeResponse = await fetch(reverseGeocodeUrl)
+      const geocodeData = await geocodeResponse.json()
+
+      if (geocodeData.results && geocodeData.results.length > 0) {
+        const addressComponents = geocodeData.results[0].address_components
+        
+        // Look for locality (city) and country
+        const locality = addressComponents.find((comp: any) => 
+          comp.types.includes("locality") || comp.types.includes("sublocality")
+        )
+        const country = addressComponents.find((comp: any) => 
+          comp.types.includes("country")
+        )
+
+        if (locality && country) {
+          return `${locality.long_name}, ${country.long_name}`
+        } else if (locality) {
+          return locality.long_name
+        } else if (country) {
+          return country.long_name
+        }
+      }
+
+      // Final fallback
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    } catch (error) {
+      console.error("❌ Error fetching location name:", error)
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }
@@ -336,6 +386,9 @@ export default function PINITApp() {
     try {
       const currentLocation = await getCurrentLocation()
 
+      // Get real location name from Google Places API
+      const realLocationName = await getRealLocationName(currentLocation.latitude, currentLocation.longitude)
+
       // Generate AI location name (simplified for demo)
       const locationNames = [
         "Beautiful Scenic Spot",
@@ -354,7 +407,7 @@ export default function PINITApp() {
         id: Date.now().toString(),
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        locationName: `${aiLocationName} (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
+        locationName: realLocationName,
         mediaUrl: locationPhoto,
         mediaType: locationPhoto ? "photo" : null,
         audioUrl: null,
@@ -374,25 +427,26 @@ export default function PINITApp() {
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen])
+  }, [getCurrentLocation, getRealLocationName, isQuickPinning, setCurrentResultPin, setCurrentScreen])
 
   const handleCameraCapture = useCallback(
-    (mediaUrl: string, type: "photo" | "video") => {
+    async (mediaUrl: string, type: "photo" | "video") => {
       if (!location) return
 
-      const locationName = `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+      // Get real location name
+      const realLocationName = await getRealLocationName(location.latitude, location.longitude)
 
       setCapturedMedia({
         url: mediaUrl,
         type,
-        location: locationName,
+        location: realLocationName,
       })
 
       setLastActivity(`camera-${type}`)
       // Go to platform selection
       setCurrentScreen("platform-select")
     },
-    [location],
+    [location, getRealLocationName],
   )
 
   const handlePlatformSelect = useCallback((platform: string) => {
