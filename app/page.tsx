@@ -16,6 +16,7 @@ import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
+import { PinResults } from "@/components/PinResults"
 
 
 export interface PinData {
@@ -92,6 +93,7 @@ export default function PINITApp() {
     | "story-builder"
     | "recommendations"
     | "place-navigation"
+    | "results"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
@@ -129,6 +131,7 @@ export default function PINITApp() {
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
+  const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
 
   // Add location name resolution
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
@@ -168,17 +171,17 @@ export default function PINITApp() {
   // Add this useEffect right after the existing useEffect for location name
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          })
-        },
-        (err) => {
-          console.error("Failed to get location:", err)
-        },
-      )
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        })
+      },
+      (err) => {
+        console.error("Failed to get location:", err)
+      },
+    )
     }
   }, [])
 
@@ -361,15 +364,9 @@ export default function PINITApp() {
         tags: ["quick-pin", "ai-generated"],
       }
 
-      addPin(newPin)
-
-      // Show success feedback
-      setQuickPinSuccess(true)
-
-      // Auto-hide success after 2 seconds
-      setTimeout(() => {
-        setQuickPinSuccess(false)
-      }, 2000)
+      // Set the pin for results page instead of immediately adding to library
+      setCurrentResultPin(newPin)
+      setCurrentScreen("results")
 
       console.log("📍 Quick pin created:", newPin)
     } catch (error) {
@@ -377,7 +374,7 @@ export default function PINITApp() {
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, addPin, isQuickPinning])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen])
 
   const handleCameraCapture = useCallback(
     (mediaUrl: string, type: "photo" | "video") => {
@@ -617,6 +614,40 @@ export default function PINITApp() {
     // Navigation is handled within the PlaceNavigation component
   }
 
+  // Results page handlers
+  const handleSaveFromResults = (pin: PinData) => {
+    addPin(pin)
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+    setQuickPinSuccess(true)
+    setTimeout(() => setQuickPinSuccess(false), 2000)
+  }
+
+  const handleShareFromResults = (pin: PinData) => {
+    const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
+    if (typeof window !== 'undefined' && navigator.share) {
+      navigator.share({
+        title: pin.title,
+        text: shareText,
+        url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
+      })
+    } else if (typeof window !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(shareText)
+      alert("Pin details copied to clipboard!")
+    }
+  }
+
+  const handleEditFromResults = (pin: PinData) => {
+    // For now, just go back to map - could be enhanced with an edit modal
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+  }
+
+  const handleBackFromResults = () => {
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+  }
+
   // Handle arrival
   const handleArrival = useCallback(
     (place: any, shouldSave: boolean) => {
@@ -733,6 +764,18 @@ export default function PINITApp() {
     )
   }
 
+  if (currentScreen === "results" && currentResultPin) {
+    return (
+      <PinResults
+        pin={currentResultPin}
+        onSave={handleSaveFromResults}
+        onShare={handleShareFromResults}
+        onEdit={handleEditFromResults}
+        onBack={handleBackFromResults}
+      />
+    )
+  }
+
   if (currentScreen === "library") {
     return (
       <PinLibrary
@@ -766,12 +809,12 @@ export default function PINITApp() {
           right: 0,
           bottom: 0,
           background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
-          display: "flex",
-          alignItems: "center",
+            display: "flex",
+            alignItems: "center",
           justifyContent: "center",
-          color: "white",
-        }}
-      >
+            color: "white",
+          }}
+        >
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>PINIT</h1>
           <p>Loading...</p>
@@ -782,19 +825,19 @@ export default function PINITApp() {
 
   return (
     <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
-          display: "flex",
-          flexDirection: "column",
-          color: "white",
-          padding: "2rem",
-        }}
-      >
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        padding: "2rem",
+      }}
+    >
       {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
@@ -841,12 +884,12 @@ export default function PINITApp() {
             background: "transparent",
             color: discoveryMode ? "#6B7280" : "white",
             cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
             transition: "color 0.2s ease",
-          }}
-        >
+              }}
+            >
           🌐
         </button>
       </div>
@@ -1414,7 +1457,7 @@ export default function PINITApp() {
           100% { background-position: 0% 50%; }
         }
       `}</style>
-      </div>
+    </div>
   )
 }
 
