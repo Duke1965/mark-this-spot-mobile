@@ -149,6 +149,54 @@ export default function PINITApp() {
     try {
       console.log("📍 Fetching real location name...")
       
+      // First try reverse geocoding for general area name (more reliable)
+      const reverseGeocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      const geocodeResponse = await fetch(reverseGeocodeUrl)
+      const geocodeData = await geocodeResponse.json()
+
+      if (geocodeData.results && geocodeData.results.length > 0) {
+        const addressComponents = geocodeData.results[0].address_components
+        
+        // Look for specific place names first
+        const establishment = addressComponents.find((comp: any) => 
+          comp.types.includes("establishment") || comp.types.includes("point_of_interest")
+        )
+        const route = addressComponents.find((comp: any) => 
+          comp.types.includes("route")
+        )
+        const locality = addressComponents.find((comp: any) => 
+          comp.types.includes("locality") || comp.types.includes("sublocality")
+        )
+        const country = addressComponents.find((comp: any) => 
+          comp.types.includes("country")
+        )
+
+        // Build a nice location name
+        let locationName = ""
+        
+        if (establishment) {
+          locationName = establishment.long_name
+        } else if (route) {
+          locationName = route.long_name
+        } else if (locality) {
+          locationName = locality.long_name
+        }
+
+        // Add context if we have it
+        if (locality && country && locationName !== locality.long_name) {
+          locationName = locationName ? `${locationName}, ${locality.long_name}, ${country.long_name}` : `${locality.long_name}, ${country.long_name}`
+        } else if (locality && !locationName) {
+          locationName = locality.long_name
+        } else if (country && !locationName) {
+          locationName = country.long_name
+        }
+
+        if (locationName) {
+          return locationName
+        }
+      }
+
+      // Fallback to nearby places search
       const radius = 500 // 500m radius for nearby places
       const types = [
         "establishment", "point_of_interest", "tourist_attraction", 
@@ -175,36 +223,46 @@ export default function PINITApp() {
         return placeName
       }
 
-      // Fallback to reverse geocoding for general area name
-      const reverseGeocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      const geocodeResponse = await fetch(reverseGeocodeUrl)
-      const geocodeData = await geocodeResponse.json()
-
-      if (geocodeData.results && geocodeData.results.length > 0) {
-        const addressComponents = geocodeData.results[0].address_components
+      // Final fallback - generate a nice name based on coordinates
+      const generateNiceName = (lat: number, lng: number): string => {
+        // Generate a more user-friendly name
+        const names = [
+          "Scenic Viewpoint",
+          "Hidden Gem",
+          "Beautiful Spot",
+          "Perfect Location",
+          "Amazing Place",
+          "Discovery Point",
+          "Memorable Location",
+          "Special Place"
+        ]
         
-        // Look for locality (city) and country
-        const locality = addressComponents.find((comp: any) => 
-          comp.types.includes("locality") || comp.types.includes("sublocality")
-        )
-        const country = addressComponents.find((comp: any) => 
-          comp.types.includes("country")
-        )
-
-        if (locality && country) {
-          return `${locality.long_name}, ${country.long_name}`
-        } else if (locality) {
-          return locality.long_name
-        } else if (country) {
-          return country.long_name
-        }
+        const randomName = names[Math.floor(Math.random() * names.length)]
+        return randomName
       }
 
-      // Final fallback
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      return generateNiceName(lat, lng)
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      
+      // Even if API fails, return a nice name instead of coordinates
+      const generateNiceName = (lat: number, lng: number): string => {
+        const names = [
+          "Scenic Viewpoint",
+          "Hidden Gem",
+          "Beautiful Spot",
+          "Perfect Location",
+          "Amazing Place",
+          "Discovery Point",
+          "Memorable Location",
+          "Special Place"
+        ]
+        
+        const randomName = names[Math.floor(Math.random() * names.length)]
+        return randomName
+      }
+
+      return generateNiceName(lat, lng)
     }
   }
 
