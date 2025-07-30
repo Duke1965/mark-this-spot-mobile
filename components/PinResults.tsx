@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { MapPin, Calendar, Edit3, Share2, Navigation, ArrowLeft, ChevronLeft, ChevronRight, Save, X } from "lucide-react"
 import type { PinData } from "@/app/page"
+import { AdvancedPhotoEditor } from "./AdvancedPhotoEditor"
 
 interface PinResultsProps {
   pin: PinData
@@ -24,6 +25,7 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null)
+  const [showEditor, setShowEditor] = useState(false)
 
   // Fetch Google Places photos for the area
   useEffect(() => {
@@ -117,6 +119,35 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
       mediaUrl: selectedPhotoUrl || pin.mediaUrl
     }
     onShare(updatedPin)
+  }
+
+  const handleEditFromResults = (pin: PinData) => {
+    // Show the advanced editor
+    setShowEditor(true)
+  }
+
+  const handleBackFromResults = () => {
+    onBack()
+  }
+
+  // Show editor if active
+  if (showEditor && selectedPhotoUrl) {
+    return (
+      <AdvancedPhotoEditor
+        imageUrl={selectedPhotoUrl}
+        onSave={(editedImageUrl) => {
+          // Update the pin with edited image
+          const updatedPin = { ...pin, mediaUrl: editedImageUrl }
+          onSave(updatedPin)
+        }}
+        onShare={(editedImageUrl) => {
+          // Update the pin with edited image
+          const updatedPin = { ...pin, mediaUrl: editedImageUrl }
+          onShare(updatedPin)
+        }}
+        onBack={() => setShowEditor(false)}
+      />
+    )
   }
 
   return (
@@ -370,7 +401,7 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <button
-            onClick={() => onEdit(pin)}
+            onClick={() => handleEditFromResults(pin)}
             style={{
               flex: 1,
               background: "rgba(255,255,255,0.2)",
