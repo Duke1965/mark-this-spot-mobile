@@ -239,32 +239,46 @@ export default function PINITApp() {
         }
       }
 
-      // Final fallback - use coordinates but format them nicely
-      const formatCoordinates = (lat: number, lng: number): string => {
-        // Try to get a general area name from coordinates
-        const latDir = lat >= 0 ? 'N' : 'S'
-        const lngDir = lng >= 0 ? 'E' : 'W'
-        const latAbs = Math.abs(lat).toFixed(2)
-        const lngAbs = Math.abs(lng).toFixed(2)
+      // Final fallback - generate a nice descriptive name
+      const generateNiceName = (lat: number, lng: number): string => {
+        // Generate a more user-friendly name based on the area
+        const names = [
+          "Beautiful Scenic Spot",
+          "Hidden Gem Location", 
+          "Amazing Discovery",
+          "Perfect Photo Spot",
+          "Memorable Place",
+          "Stunning Viewpoint",
+          "Special Location",
+          "Wonderful Spot"
+        ]
         
-        return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+        const randomName = names[Math.floor(Math.random() * names.length)]
+        return randomName
       }
 
-      return formatCoordinates(lat, lng)
+      return generateNiceName(lat, lng)
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
       
-      // Even if API fails, return formatted coordinates instead of generic names
-      const formatCoordinates = (lat: number, lng: number): string => {
-        const latDir = lat >= 0 ? 'N' : 'S'
-        const lngDir = lng >= 0 ? 'E' : 'W'
-        const latAbs = Math.abs(lat).toFixed(2)
-        const lngAbs = Math.abs(lng).toFixed(2)
+      // Even if API fails, return a nice descriptive name
+      const generateNiceName = (lat: number, lng: number): string => {
+        const names = [
+          "Beautiful Scenic Spot",
+          "Hidden Gem Location",
+          "Amazing Discovery", 
+          "Perfect Photo Spot",
+          "Memorable Place",
+          "Stunning Viewpoint",
+          "Special Location",
+          "Wonderful Spot"
+        ]
         
-        return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+        const randomName = names[Math.floor(Math.random() * names.length)]
+        return randomName
       }
 
-      return formatCoordinates(lat, lng)
+      return generateNiceName(lat, lng)
     }
   }
 
