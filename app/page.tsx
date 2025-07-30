@@ -170,6 +170,9 @@ export default function PINITApp() {
         const country = addressComponents.find((comp: any) => 
           comp.types.includes("country")
         )
+        const administrative_area = addressComponents.find((comp: any) => 
+          comp.types.includes("administrative_area_level_1")
+        )
 
         // Build a nice location name
         let locationName = ""
@@ -197,7 +200,7 @@ export default function PINITApp() {
       }
 
       // Fallback to nearby places search
-      const radius = 500 // 500m radius for nearby places
+      const radius = 1000 // Increased to 1km radius for better results
       const types = [
         "establishment", "point_of_interest", "tourist_attraction", 
         "restaurant", "cafe", "store", "shopping_mall", "museum", 
@@ -223,46 +226,45 @@ export default function PINITApp() {
         return placeName
       }
 
-      // Final fallback - generate a nice name based on coordinates
-      const generateNiceName = (lat: number, lng: number): string => {
-        // Generate a more user-friendly name
-        const names = [
-          "Scenic Viewpoint",
-          "Hidden Gem",
-          "Beautiful Spot",
-          "Perfect Location",
-          "Amazing Place",
-          "Discovery Point",
-          "Memorable Location",
-          "Special Place"
-        ]
-        
-        const randomName = names[Math.floor(Math.random() * names.length)]
-        return randomName
+      // If reverse geocoding worked but we didn't get a good name, try again with different approach
+      if (geocodeData.results && geocodeData.results.length > 0) {
+        const formattedAddress = geocodeData.results[0].formatted_address
+        if (formattedAddress) {
+          // Extract city and country from formatted address
+          const parts = formattedAddress.split(', ')
+          if (parts.length >= 2) {
+            return `${parts[0]}, ${parts[parts.length - 1]}` // First part (city) and last part (country)
+          }
+          return formattedAddress
+        }
       }
 
-      return generateNiceName(lat, lng)
+      // Final fallback - use coordinates but format them nicely
+      const formatCoordinates = (lat: number, lng: number): string => {
+        // Try to get a general area name from coordinates
+        const latDir = lat >= 0 ? 'N' : 'S'
+        const lngDir = lng >= 0 ? 'E' : 'W'
+        const latAbs = Math.abs(lat).toFixed(2)
+        const lngAbs = Math.abs(lng).toFixed(2)
+        
+        return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      }
+
+      return formatCoordinates(lat, lng)
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
       
-      // Even if API fails, return a nice name instead of coordinates
-      const generateNiceName = (lat: number, lng: number): string => {
-        const names = [
-          "Scenic Viewpoint",
-          "Hidden Gem",
-          "Beautiful Spot",
-          "Perfect Location",
-          "Amazing Place",
-          "Discovery Point",
-          "Memorable Location",
-          "Special Place"
-        ]
+      // Even if API fails, return formatted coordinates instead of generic names
+      const formatCoordinates = (lat: number, lng: number): string => {
+        const latDir = lat >= 0 ? 'N' : 'S'
+        const lngDir = lng >= 0 ? 'E' : 'W'
+        const latAbs = Math.abs(lat).toFixed(2)
+        const lngAbs = Math.abs(lng).toFixed(2)
         
-        const randomName = names[Math.floor(Math.random() * names.length)]
-        return randomName
+        return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
       }
 
-      return generateNiceName(lat, lng)
+      return formatCoordinates(lat, lng)
     }
   }
 
@@ -1497,7 +1499,7 @@ export default function PINITApp() {
             justifyContent: "center",
           }}
         >
-          <Library size={28} />
+          <Library size={28} style={{ color: "white" }} />
         </button>
 
         <button
@@ -1514,7 +1516,7 @@ export default function PINITApp() {
             position: "relative",
           }}
         >
-          <Star size={28} />
+          <Star size={28} style={{ color: "white" }} />
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
