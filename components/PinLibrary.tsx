@@ -1,199 +1,28 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { ArrowLeft, MapPin, Calendar, Edit3, Share2, Navigation, BookOpen, Camera, Video, Star } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2 } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinLibraryProps {
   pins: PinData[]
   onBack: () => void
   onPinSelect: (pin: PinData) => void
-  onPinUpdate: (pinId: string, updates: Partial<PinData>) => void
+  onPinUpdate: (pinId: string, updates: any) => void
 }
 
-type TabType = 'photos' | 'videos' | 'pins' | 'recommended'
-
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('pins')
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedFilter, setSelectedFilter] = useState("all")
 
-  // Filter pins by type
-  const photos = pins.filter(pin => pin.mediaType === 'photo')
-  const videos = pins.filter(pin => pin.mediaType === 'video')
-  const recommended = pins.filter(pin => pin.isRecommended === true)
-
-  const renderPinCard = (pin: PinData) => {
-    return (
-      <div key={pin.id} style={{
-        background: "rgba(255,255,255,0.1)",
-        borderRadius: "0.5rem",
-        padding: "0.75rem",
-        color: "white",
-        border: "1px solid rgba(255,255,255,0.1)",
-        display: "flex",
-        flexDirection: "column",
-        height: "fit-content",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
-      }}>
-        {/* Image/Media Display */}
-        {pin.mediaUrl && (
-          <div style={{ 
-            marginBottom: "0.5rem",
-            borderRadius: "0.25rem",
-            overflow: "hidden",
-            height: "80px",
-            background: "rgba(0,0,0,0.2)"
-          }}>
-            <img
-              src={pin.mediaUrl}
-              alt={pin.title}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover"
-              }}
-              onError={(e) => {
-                // Fallback to placeholder if image fails to load
-                e.currentTarget.src = "/placeholder.jpg"
-              }}
-            />
-        </div>
-        )}
-
-        {/* Title with Map Pin Icon */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.5rem" }}>
-          <MapPin size={12} style={{ color: "#EF4444" }} />
-          <h3 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "bold", lineHeight: "1.2" }}>{pin.title}</h3>
-        </div>
-
-        {/* Location */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.25rem", opacity: 0.8, fontSize: "0.75rem" }}>
-          <MapPin size={10} style={{ color: "#EF4444" }} />
-          <span style={{ lineHeight: "1.2" }}>{pin.locationName}</span>
-        </div>
-
-        {/* Timestamp */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.5rem", opacity: 0.6, fontSize: "0.75rem" }}>
-          <Calendar size={10} />
-          <span>
-            {pin.timestamp ? new Date(pin.timestamp).toLocaleDateString('en-GB', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
-            }) : 'Unknown date'}
-          </span>
-        </div>
-
-        {/* Tags */}
-        {pin.tags && pin.tags.length > 0 && (
-          <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
-            {pin.tags.slice(0, 2).map((tag, index) => (
-              <span 
-                key={index} 
-                style={{
-                  fontSize: "0.625rem",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "rgba(255,255,255,0.8)",
-                  padding: "0.125rem 0.5rem",
-                  borderRadius: "9999px"
-                }}
-              >
-                #{tag}
-              </span>
-            ))}
-            {pin.tags.length > 2 && (
-              <span style={{
-                fontSize: "0.625rem",
-                color: "rgba(255,255,255,0.6)",
-                padding: "0.125rem 0.5rem"
-              }}>
-                +{pin.tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div style={{ display: "flex", gap: "0.25rem", marginTop: "auto" }}>
-          <button
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              padding: "0.25rem 0.5rem",
-              borderRadius: "0.25rem",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.75rem"
-            }}
-            onClick={() => {
-              const url = `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`
-              window.open(url, "_blank")
-            }}
-          >
-            <Navigation size={10} />
-          </button>
-          <button
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              padding: "0.25rem 0.5rem",
-              borderRadius: "0.25rem",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.75rem"
-            }}
-            onClick={() => {
-              const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
-              if (typeof window !== 'undefined' && navigator.share) {
-                navigator.share({
-                  title: pin.title,
-                  text: shareText,
-                  url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
-                })
-              } else if (typeof window !== 'undefined' && navigator.clipboard) {
-                navigator.clipboard.writeText(shareText)
-                alert("Pin details copied to clipboard!")
-              }
-            }}
-          >
-            <Share2 size={10} />
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'photos':
-        return photos.map((photo) => renderPinCard(photo))
-      case 'videos':
-        return videos.map((video) => renderPinCard(video))
-      case 'pins':
-        return pins.map((pin) => renderPinCard(pin))
-      case 'recommended':
-        return recommended.map((item) => renderPinCard(item))
-      default:
-        return pins.map((pin) => renderPinCard(pin))
-    }
-  }
-
-  const getTabCount = (tab: TabType) => {
-    switch (tab) {
-      case 'photos': return photos.length
-      case 'videos': return videos.length
-      case 'pins': return pins.length
-      case 'recommended': return recommended.length
-      default: return 0
-    }
-  }
+  const filteredPins = pins.filter(pin => {
+    const matchesSearch = pin.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         pin.locationName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = selectedFilter === "all" || 
+                         (selectedFilter === "recommended" && pin.isRecommended) ||
+                         (selectedFilter === "recent" && pin.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+    return matchesSearch && matchesFilter
+  })
 
   return (
     <div style={{
@@ -202,10 +31,11 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%)",
+      background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
       display: "flex",
       flexDirection: "column",
-      color: "white"
+      color: "white",
+      zIndex: 1000
     }}>
       {/* Header */}
       <div style={{
@@ -215,164 +45,195 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         alignItems: "center",
         justifyContent: "space-between"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ width: "1.5rem", height: "0.25rem", background: "#EF4444", borderRadius: "0.125rem", marginBottom: "0.25rem" }}></div>
-              <div style={{ width: "1.5rem", height: "0.25rem", background: "#10B981", borderRadius: "0.125rem", marginBottom: "0.25rem" }}></div>
-              <div style={{ width: "1.5rem", height: "0.25rem", background: "#3B82F6", borderRadius: "0.125rem" }}></div>
-            </div>
-            <div style={{ width: "0.5rem", height: "1rem", background: "#EF4444", borderRadius: "0.125rem" }}></div>
-          </div>
-          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Pin Library</span>
-      </div>
-
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button style={{
-            background: "#10B981",
+        <button
+          onClick={onBack}
+          style={{
+            background: "rgba(255,255,255,0.2)",
             color: "white",
-            padding: "0.5rem 1rem",
+            padding: "0.5rem",
             borderRadius: "0.5rem",
             border: "none",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem"
-          }}>
-            <BookOpen size={16} />
-            Story
-          </button>
-            <button
-              onClick={onBack}
-            style={{
-              background: "#6B7280",
-              color: "white",
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              cursor: "pointer"
-            }}
-          >
-            Back
-            </button>
+          }}
+        >
+          <ArrowLeft size={20} />
+          Back
+        </button>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>PINIT Library</span>
+        </div>
+
+        <div style={{ width: "40px" }}></div>
+      </div>
+
+      {/* Search and Filter */}
+      <div style={{ padding: "1rem", background: "rgba(0,0,0,0.1)" }}>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+          <div style={{ flex: 1, position: "relative" }}>
+            <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
+            <input
+              type="text"
+              placeholder="Search pins..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: "0.875rem"
+              }}
+            />
           </div>
-                    </div>
+        </div>
 
-      {/* Tab Navigation */}
-      <div style={{
-        padding: "0.5rem 1rem",
-        background: "rgba(0,0,0,0.2)",
-        display: "flex",
-        gap: "0.25rem"
-      }}>
-        <button
-          onClick={() => setActiveTab('photos')}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            cursor: "pointer",
-            background: activeTab === 'photos' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-            color: activeTab === 'photos' ? "white" : "rgba(255,255,255,0.7)"
-          }}
-        >
-          <Camera size={16} />
-          Photos
-        </button>
-        <button
-          onClick={() => setActiveTab('videos')}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            cursor: "pointer",
-            background: activeTab === 'videos' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-            color: activeTab === 'videos' ? "white" : "rgba(255,255,255,0.7)"
-          }}
-        >
-          <Video size={16} />
-          Videos
-        </button>
-        <button
-          onClick={() => setActiveTab('pins')}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            cursor: "pointer",
-            background: activeTab === 'pins' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-            color: activeTab === 'pins' ? "white" : "rgba(255,255,255,0.7)"
-          }}
-        >
-          <MapPin size={16} />
-          Pinned Places
-        </button>
-        <button
-          onClick={() => setActiveTab('recommended')}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            cursor: "pointer",
-            background: activeTab === 'recommended' ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-            color: activeTab === 'recommended' ? "white" : "rgba(255,255,255,0.7)"
-          }}
-        >
-          <Star size={16} />
-          Recommended
-        </button>
-                    </div>
-
-      {/* Content Area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", 
-          gap: "0.75rem",
-          maxWidth: "100%"
-        }}>
-          {renderContent().length > 0 ? (
-            renderContent()
-          ) : (
-            <div style={{ 
-              textAlign: "center", 
-              color: "rgba(255,255,255,0.6)", 
-              padding: "2rem",
-              gridColumn: "1 / -1"
-            }}>
-              <MapPin size={48} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-              <p style={{ fontSize: "1.125rem", margin: "0 0 0.5rem 0" }}>No {activeTab} yet</p>
-              <p style={{ fontSize: "0.875rem", margin: 0 }}>Start pinning places to see them here!</p>
-            </div>
-          )}
+        {/* Filter Buttons */}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {["all", "recommended", "recent"].map(filter => (
+            <button
+              key={filter}
+              onClick={() => setSelectedFilter(filter)}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                background: selectedFilter === filter ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                textTransform: "capitalize"
+              }}
+            >
+              {filter}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Bottom Summary Bar */}
-      <div style={{
-        padding: "1rem",
-        background: "rgba(0,0,0,0.2)",
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: "0.875rem",
-        color: "rgba(255,255,255,0.8)"
-      }}>
-        <span>Photos: {getTabCount('photos')}</span>
-        <span>Videos: {getTabCount('videos')}</span>
-        <span>Pins: {getTabCount('pins')}</span>
-        <span>Recommended: {getTabCount('recommended')}</span>
+      {/* Pins List */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+        {filteredPins.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📌</div>
+            <h3>No pins found</h3>
+            <p>Create your first pin to get started!</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {filteredPins.map((pin) => (
+              <div
+                key={pin.id}
+                onClick={() => onPinSelect(pin)}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  borderRadius: "0.75rem",
+                  padding: "1rem",
+                  cursor: "pointer",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                  {/* Pin Image */}
+                  <div style={{
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "0.5rem",
+                    overflow: "hidden",
+                    background: "rgba(255,255,255,0.1)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    {pin.mediaUrl ? (
+                      <img
+                        src={pin.mediaUrl}
+                        alt={pin.title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: "1.5rem" }}>📍</span>
+                    )}
+                  </div>
+
+                  {/* Pin Details */}
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem", fontWeight: "bold" }}>
+                      {pin.title}
+                    </h3>
+                    <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
+                      📍 {pin.locationName}
+                    </p>
+                    <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
+                      {new Date(pin.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  {/* Pin Actions */}
+                  <div style={{ display: "flex", gap: "0.25rem" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Handle share
+                      }}
+                      style={{
+                        padding: "0.25rem",
+                        background: "rgba(255,255,255,0.2)",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        color: "white",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <Share2 size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Handle edit
+                      }}
+                      style={{
+                        padding: "0.25rem",
+                        background: "rgba(255,255,255,0.2)",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        color: "white",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {pin.tags && pin.tags.length > 0 && (
+                  <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+                    {pin.tags.slice(0, 3).map((tag, index) => (
+                      <span
+                        key={index}
+                        style={{
+                          fontSize: "0.75rem",
+                          background: "rgba(255,255,255,0.2)",
+                          padding: "0.125rem 0.5rem",
+                          borderRadius: "9999px"
+                        }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
