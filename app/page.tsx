@@ -84,6 +84,27 @@ export default function PINITApp() {
     setIsClient(true)
   }, [])
 
+  // Early return for SSR
+  if (!isClient) {
+    return (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        fontSize: "1.5rem"
+      }}>
+        Loading PINIT...
+      </div>
+    )
+  }
+
   // Auth state
   const { user, loading: authLoading } = useAuth()
 
@@ -158,11 +179,6 @@ export default function PINITApp() {
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
   const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
-
-  // Prevent SSR issues
-  if (!isClient) {
-    return <div>Loading...</div>
-  }
 
   // Add location name resolution
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
