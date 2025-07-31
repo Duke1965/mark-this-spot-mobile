@@ -491,8 +491,8 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      // Go directly to photo editor
-      setCurrentScreen("photo-editor")
+      // Go to platform selection
+      setCurrentScreen("platform-select")
     },
     [location, getRealLocationName],
   )
