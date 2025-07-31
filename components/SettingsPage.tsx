@@ -27,28 +27,36 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
   })
 
   const handleNext = () => {
+    console.log("🔄 handleNext called, current step:", currentStep)
     switch (currentStep) {
       case "welcome":
+        console.log("📝 Moving from welcome to login")
         setCurrentStep("login")
         break
       case "login":
         if (user) {
+          console.log("📝 Moving from login to profile")
           setCurrentStep("profile")
         }
         break
       case "profile":
+        console.log("📝 Moving from profile to social")
         setCurrentStep("social")
         break
       case "social":
+        console.log("📝 Moving from social to location")
         setCurrentStep("location")
         break
       case "location":
+        console.log("📝 Moving from location to theme")
         setCurrentStep("theme")
         break
       case "theme":
+        console.log("📝 Moving from theme to complete")
         setCurrentStep("complete")
         break
       case "complete":
+        console.log("📝 Completing setup")
         onComplete()
         break
     }
@@ -408,11 +416,11 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
                 />
               </div>
 
-              {/* Twitter */}
+              {/* X (Twitter) */}
               <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>🐦</span>
-                  <span style={{ fontWeight: "bold" }}>Twitter</span>
+                  <span style={{ fontSize: "1.5rem" }}>𝕏</span>
+                  <span style={{ fontWeight: "bold" }}>X (Twitter)</span>
                 </div>
                 <input
                   type="text"
@@ -449,6 +457,169 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
                 }}
               >
                 Continue to Location
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Location Setup Step */}
+        {currentStep === "location" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📍</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Set Your Home Location</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              This helps PINIT understand your area for better recommendations.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              <input
+                type="text"
+                placeholder="Enter your city or address"
+                value={userProfile.homeLocation}
+                onChange={(e) => setUserProfile(prev => ({
+                  ...prev,
+                  homeLocation: e.target.value
+                }))}
+                style={{
+                  width: "100%",
+                  padding: "1rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontSize: "1rem"
+                }}
+              />
+
+              <button
+                onClick={handleNext}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
+                Continue to Theme
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Theme Setup Step */}
+        {currentStep === "theme" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎨</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Choose Your Theme</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Select your preferred appearance for PINIT.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              {/* Light Theme */}
+              <button
+                onClick={() => {
+                  setUserProfile(prev => ({ ...prev, theme: "light" }))
+                  setTimeout(handleNext, 500)
+                }}
+                style={{
+                  background: userProfile.theme === "light" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.5rem",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}
+              >
+                <span style={{ fontSize: "1.5rem" }}>☀️</span>
+                Light Mode
+              </button>
+
+              {/* Dark Theme */}
+              <button
+                onClick={() => {
+                  setUserProfile(prev => ({ ...prev, theme: "dark" }))
+                  setTimeout(handleNext, 500)
+                }}
+                style={{
+                  background: userProfile.theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.5rem",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}
+              >
+                <span style={{ fontSize: "1.5rem" }}>🌙</span>
+                Dark Mode
+              </button>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
+                Complete Setup
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Complete Step */}
+        {currentStep === "complete" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Your profile is all set up. You're ready to start discovering and sharing amazing places!
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem", textAlign: "left" }}>
+                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Profile Summary</p>
+                <p style={{ margin: 0, fontSize: "0.875rem" }}>👤 {userProfile.name}</p>
+                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📧 {userProfile.email}</p>
+                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📍 {userProfile.homeLocation || "Not set"}</p>
+                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>🎨 {userProfile.theme} mode</p>
+              </div>
+
+              <button
+                onClick={onComplete}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
+                Start Using PINIT
               </button>
             </div>
           </div>
