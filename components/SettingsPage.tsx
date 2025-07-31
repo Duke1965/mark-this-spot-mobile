@@ -306,6 +306,154 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
           </div>
         )}
 
+        {/* Profile Step */}
+        {currentStep === "profile" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👤</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Complete Your Profile</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Let's set up your PINIT profile to personalize your experience.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              {/* Profile Avatar */}
+              <div style={{
+                width: "100px",
+                height: "100px",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.2)",
+                margin: "0 auto 1rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "2rem"
+              }}>
+                {userProfile.avatar ? (
+                  <img 
+                    src={userProfile.avatar} 
+                    alt="Profile" 
+                    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : (
+                  "👤"
+                )}
+              </div>
+
+              {/* Profile Info */}
+              <div style={{ textAlign: "left", background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Name</p>
+                <p style={{ margin: 0, fontSize: "1rem", fontWeight: "bold" }}>
+                  {userProfile.name || "Test User"}
+                </p>
+                
+                <p style={{ margin: "1rem 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Email</p>
+                <p style={{ margin: 0, fontSize: "1rem" }}>
+                  {userProfile.email || "user@example.com"}
+                </p>
+              </div>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
+                Continue to Social Setup
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Social Media Setup Step */}
+        {currentStep === "social" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📱</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Connect Social Media</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Add your social media accounts to share your PINIT discoveries easily.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              {/* Instagram */}
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>📸</span>
+                  <span style={{ fontWeight: "bold" }}>Instagram</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="@yourusername"
+                  value={userProfile.socialAccounts.instagram}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    socialAccounts: { ...prev.socialAccounts, instagram: e.target.value }
+                  }))}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </div>
+
+              {/* Twitter */}
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>🐦</span>
+                  <span style={{ fontWeight: "bold" }}>Twitter</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="@yourusername"
+                  value={userProfile.socialAccounts.twitter}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    socialAccounts: { ...prev.socialAccounts, twitter: e.target.value }
+                  }))}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
+                Continue to Location
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Email Login Step */}
         {currentStep === "email-login" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
