@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { ArrowLeft, Instagram, Facebook, Twitter, MessageCircle, Share2, Edit3, Download } from "lucide-react"
+import { ArrowLeft, Instagram, Facebook, MessageCircle, Share2, Edit3, Download } from "lucide-react"
 import type { LocationData } from "@/hooks/useLocationServices"
 import type { MediaType } from "@/app/page"
 
@@ -31,10 +31,10 @@ const socialPlatforms = [
       "Just discovered this incredible place: {location}! 📍\n\nFound it using PINIT - the perfect app for explorers! 🗺️✨",
   },
   {
-    id: "twitter",
-    name: "Twitter",
-    icon: Twitter,
-    color: "from-blue-400 to-blue-500",
+    id: "x",
+    name: "X",
+    icon: "𝕏",
+    color: "from-black to-gray-800",
     template: "Amazing discovery at {location}! 📍✨ Found with @PINIT #Discovery #Travel",
   },
   {
@@ -173,9 +173,9 @@ export function SocialShare({ mediaUrl, mediaType, location, onShare, onEdit, on
               <div className="flex justify-between items-center mt-3 text-sm text-white/70">
                 <span>{customCaption.length} characters</span>
                 <span>
-                  {selectedPlatform === "twitter" && customCaption.length > 280 && (
-                    <span className="text-red-400">Too long for Twitter</span>
-                  )}
+                  {selectedPlatform === "x" && customCaption.length > 280 && (
+  <span className="text-red-400">Too long for X</span>
+)}
                 </span>
               </div>
             </div>
