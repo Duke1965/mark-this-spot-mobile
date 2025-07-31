@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut } from "lucide-react"
+import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
 
 interface SettingsPageProps {
   onBack: () => void
@@ -9,8 +10,8 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
+  const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "profile" | "social" | "location" | "theme" | "complete">("welcome")
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userProfile, setUserProfile] = useState({
     name: "",
     email: "",
@@ -31,7 +32,9 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("login")
         break
       case "login":
-        setCurrentStep("profile")
+        if (user) {
+          setCurrentStep("profile")
+        }
         break
       case "profile":
         setCurrentStep("social")
@@ -73,6 +76,26 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         break
       default:
         onBack()
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithGoogle()
+      // Auto-advance to next step on successful login
+      setTimeout(() => setCurrentStep("profile"), 1000)
+    } catch (error) {
+      console.error("Login failed:", error)
+    }
+  }
+
+  const handleFacebookLogin = async () => {
+    try {
+      await signInWithFacebook()
+      // Auto-advance to next step on successful login
+      setTimeout(() => setCurrentStep("profile"), 1000)
+    } catch (error) {
+      console.error("Login failed:", error)
     }
   }
 
@@ -148,6 +171,90 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
             >
               Get Started
             </button>
+          </div>
+        )}
+
+        {/* Login Step */}
+        {currentStep === "login" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In to PINIT</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Choose your preferred way to sign in and start discovering amazing places.
+            </p>
+
+            {/* Error Message */}
+            {error && (
+              <div style={{
+                background: "rgba(239,68,68,0.2)",
+                border: "1px solid #ef4444",
+                padding: "1rem",
+                borderRadius: "0.5rem",
+                marginBottom: "1rem"
+              }}>
+                {error}
+              </div>
+            )}
+
+            {/* Login Buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+              <button
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  opacity: loading ? 0.6 : 1
+                }}
+              >
+                {loading ? "⏳" : "🔍"} Continue with Google
+              </button>
+
+              <button
+                onClick={handleFacebookLogin}
+                disabled={loading}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  opacity: loading ? 0.6 : 1
+                }}
+              >
+                {loading ? "⏳" : "📘"} Continue with Facebook
+              </button>
+            </div>
+
+            {/* Success Message */}
+            {user && (
+              <div style={{
+                background: "rgba(34,197,94,0.2)",
+                border: "1px solid #22c55e",
+                padding: "1rem",
+                borderRadius: "0.5rem",
+                marginTop: "1rem"
+              }}>
+                ✅ Welcome, {user.displayName || user.email}!
+              </div>
+            )}
           </div>
         )}
 
