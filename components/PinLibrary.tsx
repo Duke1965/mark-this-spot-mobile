@@ -32,15 +32,26 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
   ]
 
   const getTabData = () => {
+    console.log("🔍 Current tab:", currentTab, "Total pins:", pins.length)
+    console.log("📌 Sample pins:", pins.slice(0, 2))
+    
     switch (currentTab) {
       case "photos":
-        return pins.filter(pin => pin.mediaType === "photo")
+        const photos = pins.filter(pin => pin.mediaType === "photo")
+        console.log("📸 Photos found:", photos.length)
+        return photos
       case "videos":
-        return pins.filter(pin => pin.mediaType === "video")
+        const videos = pins.filter(pin => pin.mediaType === "video")
+        console.log("🎥 Videos found:", videos.length)
+        return videos
       case "pins":
-        return pins.filter(pin => !pin.isRecommended)
+        const regularPins = pins.filter(pin => !pin.isRecommended)
+        console.log("📍 Regular pins found:", regularPins.length)
+        return regularPins
       case "recommended":
-        return pins.filter(pin => pin.isRecommended)
+        const recommended = pins.filter(pin => pin.isRecommended)
+        console.log("⭐ Recommended found:", recommended.length)
+        return recommended
       default:
         return pins
     }
