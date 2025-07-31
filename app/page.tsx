@@ -368,7 +368,7 @@ export default function PINITApp() {
     }
   }, [])
 
-  // Quick Pin Function (Shazam-like)
+  // Quick Pin Function (Shazam-like) - ENHANCED WITH SPEED-BASED LOCATION ADJUSTMENT
   const handleQuickPin = useCallback(async () => {
     if (isQuickPinning) return
 
@@ -378,8 +378,51 @@ export default function PINITApp() {
     try {
       const currentLocation = await getCurrentLocation()
 
-      // Get real location name from Google Places API
-      const realLocationName = await getRealLocationName(currentLocation.latitude, currentLocation.longitude)
+      // 🚗 SPEED-BASED LOCATION ADJUSTMENT
+      let adjustedLatitude = currentLocation.latitude
+      let adjustedLongitude = currentLocation.longitude
+
+      // If user is moving, adjust the pin location backwards
+      if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
+        console.log("🚗 User is moving at", motionData.speed.toFixed(1), "km/h - adjusting pin location...")
+        
+        // Estimate time passed since user noticed the spot (5-10 seconds)
+        const timePassedSeconds = 7 // Average reaction time + app opening time
+        const timePassedHours = timePassedSeconds / 3600
+        
+        // Calculate distance traveled backwards
+        const distanceTraveledKm = motionData.speed * timePassedHours
+        
+        // Convert distance to coordinate changes (approximate)
+        // 1 degree latitude ≈ 111 km
+        // 1 degree longitude ≈ 111 km * cos(latitude)
+        const latChange = distanceTraveledKm / 111
+        const lngChange = distanceTraveledKm / (111 * Math.cos(currentLocation.latitude * Math.PI / 180))
+        
+        // Adjust coordinates backwards (opposite to travel direction)
+        // For simplicity, we'll adjust based on the last known direction
+        if (motionData.lastPosition) {
+          const latDiff = currentLocation.latitude - motionData.lastPosition.latitude
+          const lngDiff = currentLocation.longitude - motionData.lastPosition.longitude
+          
+          // Calculate direction and apply adjustment
+          const direction = Math.atan2(lngDiff, latDiff)
+          adjustedLatitude = currentLocation.latitude - (latChange * Math.cos(direction))
+          adjustedLongitude = currentLocation.longitude - (lngChange * Math.sin(direction))
+          
+          console.log("📍 Adjusted pin location:", {
+            original: `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`,
+            adjusted: `${adjustedLatitude.toFixed(6)}, ${adjustedLongitude.toFixed(6)}`,
+            distanceBack: (distanceTraveledKm * 1000).toFixed(0) + "m",
+            speed: motionData.speed.toFixed(1) + " km/h"
+          })
+        }
+      } else {
+        console.log("🚶 User is stationary or moving slowly - using current location")
+      }
+
+      // Get real location name from the ADJUSTED location
+      const realLocationName = await getRealLocationName(adjustedLatitude, adjustedLongitude)
 
       // Generate AI location name (simplified for demo)
       const locationNames = [
@@ -392,13 +435,13 @@ export default function PINITApp() {
       ]
       const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
 
-      // Fetch location photo
-      const locationPhoto = await fetchLocationPhoto(currentLocation.latitude, currentLocation.longitude)
+      // Fetch location photo for the ADJUSTED location
+      const locationPhoto = await fetchLocationPhoto(adjustedLatitude, adjustedLongitude)
 
       const newPin: PinData = {
         id: Date.now().toString(),
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+        latitude: adjustedLatitude,  // Use adjusted coordinates
+        longitude: adjustedLongitude, // Use adjusted coordinates
         locationName: realLocationName,
         mediaUrl: locationPhoto,
         mediaType: locationPhoto ? "photo" : null,
@@ -406,20 +449,20 @@ export default function PINITApp() {
         timestamp: new Date().toISOString(),
         title: `📍 ${aiLocationName}`,
         description: `Amazing discovery! Perfect spot for photos and memories. Worth stopping to explore this hidden gem.`,
-        tags: ["quick-pin", "ai-generated"],
+        tags: ["quick-pin", "ai-generated", motionData.isMoving ? "speed-adjusted" : "stationary"],
       }
 
       // Set the pin for results page instead of immediately adding to library
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("📍 Quick pin created:", newPin)
+      console.log("📍 Quick pin created with speed adjustment:", newPin)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, getRealLocationName, isQuickPinning, setCurrentResultPin, setCurrentScreen])
+  }, [getCurrentLocation, getRealLocationName, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
   const handleCameraCapture = useCallback(
     async (mediaUrl: string, type: "photo" | "video") => {
