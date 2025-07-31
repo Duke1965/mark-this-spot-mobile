@@ -33,8 +33,8 @@ const platforms = [
     color: "#1877F2",
   },
   {
-    id: "twitter-post",
-    name: "Twitter Post",
+    id: "x-post",
+    name: "X Post",
     icon: "🐦",
     dimensions: "16:9",
     color: "#1DA1F2",
