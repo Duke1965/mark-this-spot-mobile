@@ -145,8 +145,8 @@ export default function PINITApp() {
   }, [storedPins])
 
   const addPin = useCallback((pin: PinData) => {
-    setPins(prev => [...prev, pin])
-    setNewPins(prev => prev + 1)
+    setPins((prev: PinData[]) => [...prev, pin])
+    setNewPins((prev: number) => prev + 1)
     addPinFromStorage(pin) // Also save to storage
   }, [addPinFromStorage])
 
@@ -794,8 +794,6 @@ export default function PINITApp() {
         locationName={capturedMedia.location}
         onSave={handleSavePin}
         onClose={() => setCurrentScreen("map")}
-        locationDetails={locationDetails}
-        currentTheme={currentTheme}
       />
     )
   }
@@ -863,11 +861,11 @@ export default function PINITApp() {
       <PinLibrary
         pins={pins}
         onBack={() => setCurrentScreen("map")}
-        onPinSelect={(pin) => {
+        onPinSelect={(pin: PinData) => {
           // Handle pin selection
           console.log("Pin selected:", pin)
         }}
-        onPinUpdate={(pinId, updates) => {
+        onPinUpdate={(pinId: string, updates: any) => {
           // Handle pin updates
           const updatedPins = pins.map(pin => 
             pin.id === pinId ? { ...pin, ...updates } : pin
