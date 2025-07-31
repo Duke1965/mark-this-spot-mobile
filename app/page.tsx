@@ -8,6 +8,7 @@ import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
+import { PhotoEditor } from "@/components/PhotoEditor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
@@ -93,6 +94,7 @@ export default function PINITApp() {
     | "camera"
     | "platform-select"
     | "editor"
+    | "photo-editor"
     | "story"
     | "library"
     | "story-builder"
@@ -158,6 +160,11 @@ export default function PINITApp() {
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
   const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
+
+  // Prevent SSR issues
+  if (!isClient) {
+    return <div>Loading...</div>
+  }
 
   // Add location name resolution
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
@@ -484,8 +491,8 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      // Go directly to editor
-      setCurrentScreen("editor")
+      // Go directly to photo editor
+      setCurrentScreen("photo-editor")
     },
     [location, getRealLocationName],
   )
@@ -794,6 +801,39 @@ export default function PINITApp() {
         locationName={capturedMedia.location}
         onSave={handleSavePin}
         onClose={() => setCurrentScreen("map")}
+      />
+    )
+  }
+
+  if (currentScreen === "photo-editor" && capturedMedia) {
+    return (
+      <PhotoEditor
+        mediaUrl={capturedMedia.url}
+        mediaType={capturedMedia.type}
+        location={location ? { name: capturedMedia.location, latitude: location.latitude, longitude: location.longitude } : null}
+        onSave={(editedUrl) => {
+          // Save the edited photo to library
+          const newPin: PinData = {
+            id: Date.now().toString(),
+            latitude: location!.latitude,
+            longitude: location!.longitude,
+            locationName: capturedMedia.location,
+            mediaUrl: editedUrl,
+            mediaType: capturedMedia.type,
+            audioUrl: null,
+            timestamp: new Date().toISOString(),
+            title: `📸 ${capturedMedia.type === "photo" ? "Photo" : "Video"} from ${capturedMedia.location}`,
+            description: "",
+            tags: ["edited"],
+          }
+          addPin(newPin)
+          setCapturedMedia(null)
+          setCurrentScreen("map")
+        }}
+        onBack={() => {
+          setCapturedMedia(null)
+          setCurrentScreen("map")
+        }}
       />
     )
   }
