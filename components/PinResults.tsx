@@ -34,15 +34,13 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
         setIsLoading(true)
         console.log("📸 Fetching area photos for results page...")
 
-        const radius = 1000 // 1km radius
-        const types = [
-          "tourist_attraction", "restaurant", "cafe", "museum", "park",
-          "shopping_mall", "art_gallery", "amusement_park", "zoo", "aquarium",
-        ]
+        // Use our API route instead of calling Google Maps directly
+        const response = await fetch(`/api/places?lat=${pin.latitude}&lng=${pin.longitude}&radius=1000`)
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch location data")
+        }
 
-        const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${pin.latitude},${pin.longitude}&radius=${radius}&type=${types.join("|")}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-        const response = await fetch(placesUrl)
         const data = await response.json()
 
         if (data.results && data.results.length > 0) {
@@ -444,7 +442,7 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
             onClick={handleSave}
             style={{
               flex: 1,
-              background: "#10B981",
+              background: "rgba(255,255,255,0.2)",
               color: "white",
               padding: "0.75rem 1rem",
               borderRadius: "0.5rem",
