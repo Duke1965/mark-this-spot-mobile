@@ -8,6 +8,7 @@ import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
+import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
 import { ProactiveAI } from "@/components/ProactiveAI"
@@ -94,6 +95,7 @@ export default function PINITApp() {
     | "recommendations"
     | "place-navigation"
     | "results"
+    | "settings"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
@@ -873,6 +875,15 @@ export default function PINITApp() {
     )
   }
 
+  if (currentScreen === "settings") {
+    return (
+      <SettingsPage
+        onBack={() => setCurrentScreen("map")}
+        onComplete={() => setCurrentScreen("map")}
+      />
+    )
+  }
+
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   // Don't render during SSR - Prevents build errors
   if (!isClient) {
@@ -943,8 +954,30 @@ export default function PINITApp() {
           top: "1rem",
           right: "1rem",
           zIndex: 10,
+          display: "flex",
+          gap: "0.5rem"
         }}
       >
+        {/* Settings Button */}
+        <button
+          onClick={() => setCurrentScreen("settings")}
+          style={{
+            padding: "0.5rem",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            borderRadius: "0.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s ease",
+          }}
+        >
+          ⚙️
+        </button>
+
+        {/* Discovery Mode Toggle */}
         <button
           onClick={() => {
             setDiscoveryMode(!discoveryMode)
@@ -960,12 +993,12 @@ export default function PINITApp() {
             background: "transparent",
             color: discoveryMode ? "#6B7280" : "white",
             cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             transition: "color 0.2s ease",
-              }}
-            >
+          }}
+        >
           🌐
         </button>
       </div>
