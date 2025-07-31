@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2 } from "lucide-react"
+import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinLibraryProps {
@@ -13,16 +13,185 @@ interface PinLibraryProps {
 
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedFilter, setSelectedFilter] = useState("all")
+  const [currentTab, setCurrentTab] = useState<"photos" | "videos" | "pins" | "recommended">("pins")
 
-  const filteredPins = pins.filter(pin => {
-    const matchesSearch = pin.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         pin.locationName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = selectedFilter === "all" || 
-                         (selectedFilter === "recommended" && pin.isRecommended) ||
-                         (selectedFilter === "recent" && pin.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-    return matchesSearch && matchesFilter
+  // Mock data for demonstration
+  const mockPhotos = [
+    { id: "1", title: "Sunset at Beach", locationName: "Malibu Beach", timestamp: "2024-01-15", mediaUrl: "/placeholder.jpg", mediaType: "photo" as const },
+    { id: "2", title: "Mountain View", locationName: "Rocky Mountains", timestamp: "2024-01-14", mediaUrl: "/placeholder.jpg", mediaType: "photo" as const },
+  ]
+
+  const mockVideos = [
+    { id: "3", title: "City Tour", locationName: "Downtown", timestamp: "2024-01-13", mediaUrl: "/placeholder.jpg", mediaType: "video" as const },
+    { id: "4", title: "Nature Walk", locationName: "Forest Trail", timestamp: "2024-01-12", mediaUrl: "/placeholder.jpg", mediaType: "video" as const },
+  ]
+
+  const mockRecommended = [
+    { id: "5", title: "Hidden Cafe", locationName: "Arts District", timestamp: "2024-01-11", mediaUrl: "/placeholder.jpg", isRecommended: true },
+    { id: "6", title: "Scenic Overlook", locationName: "Hilltop Park", timestamp: "2024-01-10", mediaUrl: "/placeholder.jpg", isRecommended: true },
+  ]
+
+  const getTabData = () => {
+    switch (currentTab) {
+      case "photos":
+        return pins.filter(pin => pin.mediaType === "photo")
+      case "videos":
+        return pins.filter(pin => pin.mediaType === "video")
+      case "pins":
+        return pins.filter(pin => !pin.isRecommended)
+      case "recommended":
+        return pins.filter(pin => pin.isRecommended)
+      default:
+        return pins
+    }
+  }
+
+  const filteredData = getTabData().filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.locationName.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesSearch
   })
+
+  const renderPinCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
+    if (!item || !item.id) return null
+
+    const isPin = type === 'pin' || type === 'recommended'
+    const isPhoto = type === 'photo'
+    const isVideo = type === 'video'
+
+    return (
+      <div key={item.id} style={{
+        background: "rgba(255,255,255,0.1)",
+        borderRadius: "0.75rem",
+        padding: "1rem",
+        cursor: "pointer",
+        border: "1px solid rgba(255,255,255,0.1)",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+      }}>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          {/* Media Thumbnail */}
+          <div style={{
+            width: "60px",
+            height: "60px",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+            background: "rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative"
+          }}>
+            {item.mediaUrl ? (
+              <img
+                src={item.mediaUrl}
+                alt={item.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  if (target) {
+                    target.src = "/placeholder.jpg"
+                  }
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: "1.5rem" }}>
+                {isPin && <MapPin />}
+                {isPhoto && <Camera />}
+                {isVideo && <Video />}
+                {type === 'recommended' && <Star />}
+              </span>
+            )}
+            
+            {/* Type Badge */}
+            {isVideo && (
+              <div style={{
+                position: "absolute",
+                top: "4px",
+                right: "4px",
+                background: "rgba(0,0,0,0.7)",
+                color: "white",
+                fontSize: "0.75rem",
+                padding: "2px 4px",
+                borderRadius: "4px"
+              }}>
+                ▶
+              </div>
+            )}
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem", fontWeight: "bold" }}>
+              {item.title}
+            </h3>
+            <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
+              📍 {item.locationName}
+            </p>
+            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
+              <Calendar size={12} style={{ display: "inline", marginRight: "4px" }} />
+              {new Date(item.timestamp).toLocaleDateString()}
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: "0.25rem" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onPinSelect(item)
+              }}
+              style={{
+                padding: "0.25rem",
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                borderRadius: "0.25rem",
+                color: "white",
+                cursor: "pointer"
+              }}
+            >
+              <Share2 size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onPinUpdate(item.id, {})
+              }}
+              style={{
+                padding: "0.25rem",
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                borderRadius: "0.25rem",
+                color: "white",
+                cursor: "pointer"
+              }}
+            >
+              <Edit3 size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Tags */}
+        {item.tags && item.tags.length > 0 && (
+          <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+            {item.tags.slice(0, 3).map((tag: string, index: number) => (
+              <span
+                key={index}
+                style={{
+                  fontSize: "0.75rem",
+                  background: "rgba(255,255,255,0.2)",
+                  padding: "0.125rem 0.5rem",
+                  borderRadius: "9999px"
+                }}
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -70,167 +239,84 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         <div style={{ width: "40px" }}></div>
       </div>
 
-      {/* Search and Filter */}
+      {/* Tab Navigation */}
       <div style={{ padding: "1rem", background: "rgba(0,0,0,0.1)" }}>
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
-            <input
-              type="text"
-              placeholder="Search pins..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.75rem 0.75rem 0.75rem 2.5rem",
-                borderRadius: "0.5rem",
-                border: "none",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                fontSize: "0.875rem"
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Filter Buttons */}
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          {["all", "recommended", "recent"].map(filter => (
+        <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem" }}>
+          {[
+            { id: "pins", label: "Pins", icon: "📍" },
+            { id: "photos", label: "Photos", icon: "📸" },
+            { id: "videos", label: "Videos", icon: "🎥" },
+            { id: "recommended", label: "Recommended", icon: "⭐" }
+          ].map(tab => (
             <button
-              key={filter}
-              onClick={() => setSelectedFilter(filter)}
+              key={tab.id}
+              onClick={() => setCurrentTab(tab.id as any)}
               style={{
-                padding: "0.5rem 1rem",
+                flex: 1,
+                padding: "0.75rem 0.5rem",
                 borderRadius: "0.5rem",
                 border: "none",
-                background: selectedFilter === filter ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                background: currentTab === tab.id ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
                 color: "white",
                 cursor: "pointer",
                 fontSize: "0.875rem",
-                textTransform: "capitalize"
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem"
               }}
             >
-              {filter}
+              <span style={{ fontSize: "1.25rem" }}>{tab.icon}</span>
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
+
+        {/* Search */}
+        <div style={{ position: "relative" }}>
+          <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              fontSize: "0.875rem"
+            }}
+          />
+        </div>
       </div>
 
-      {/* Pins List */}
+      {/* Content Grid */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {filteredPins.length === 0 ? (
+        {filteredData.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📌</div>
-            <h3>No pins found</h3>
-            <p>Create your first pin to get started!</p>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
+              {currentTab === "photos" ? "📸" : 
+               currentTab === "videos" ? "🎥" : 
+               currentTab === "recommended" ? "⭐" : "📍"}
+            </div>
+            <h3>No {currentTab} found</h3>
+            <p>Create your first {currentTab.slice(0, -1)} to get started!</p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {filteredPins.map((pin) => (
-              <div
-                key={pin.id}
-                onClick={() => onPinSelect(pin)}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  borderRadius: "0.75rem",
-                  padding: "1rem",
-                  cursor: "pointer",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                  {/* Pin Image */}
-                  <div style={{
-                    width: "60px",
-                    height: "60px",
-                    borderRadius: "0.5rem",
-                    overflow: "hidden",
-                    background: "rgba(255,255,255,0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}>
-                    {pin.mediaUrl ? (
-                      <img
-                        src={pin.mediaUrl}
-                        alt={pin.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: "1.5rem" }}>📍</span>
-                    )}
-                  </div>
-
-                  {/* Pin Details */}
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem", fontWeight: "bold" }}>
-                      {pin.title}
-                    </h3>
-                    <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
-                      📍 {pin.locationName}
-                    </p>
-                    <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
-                      {new Date(pin.timestamp).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  {/* Pin Actions */}
-                  <div style={{ display: "flex", gap: "0.25rem" }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // Handle share
-                      }}
-                      style={{
-                        padding: "0.25rem",
-                        background: "rgba(255,255,255,0.2)",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        color: "white",
-                        cursor: "pointer"
-                      }}
-                    >
-                      <Share2 size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // Handle edit
-                      }}
-                      style={{
-                        padding: "0.25rem",
-                        background: "rgba(255,255,255,0.2)",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        color: "white",
-                        cursor: "pointer"
-                      }}
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                {pin.tags && pin.tags.length > 0 && (
-                  <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-                    {pin.tags.slice(0, 3).map((tag, index) => (
-                      <span
-                        key={index}
-                        style={{
-                          fontSize: "0.75rem",
-                          background: "rgba(255,255,255,0.2)",
-                          padding: "0.125rem 0.5rem",
-                          borderRadius: "9999px"
-                        }}
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gap: "1rem",
+            padding: "0.5rem"
+          }}>
+            {filteredData.map((item) => renderPinCard(item, 
+              currentTab === "pins" ? "pin" : 
+              currentTab === "photos" ? "photo" : 
+              currentTab === "videos" ? "video" : 
+              "recommended"
             ))}
           </div>
         )}
