@@ -77,33 +77,6 @@ interface Recommendation {
 }
 
 export default function PINITApp() {
-  // Prevent SSR issues
-  const [isClient, setIsClient] = useState(false)
-  
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Early return for SSR
-  if (!isClient) {
-    return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "white",
-        fontSize: "1.5rem"
-      }}>
-        Loading PINIT...
-      </div>
-    )
-  }
 
   // Auth state
   const { user, loading: authLoading } = useAuth()
@@ -910,30 +883,6 @@ export default function PINITApp() {
   }
 
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
-  // Don't render during SSR - Prevents build errors
-  if (!isClient) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
-            display: "flex",
-            alignItems: "center",
-          justifyContent: "center",
-            color: "white",
-          }}
-        >
-        <div style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>PINIT</h1>
-          <p>Loading...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
