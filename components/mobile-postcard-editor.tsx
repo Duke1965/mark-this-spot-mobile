@@ -58,7 +58,7 @@ export function MobilePostcardEditor({
       textColor: "#FFFFFF",
       background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
     },
-    twitter: {
+    x: {
       name: "Corner Badge",
       textPosition: { x: 20, y: 20 },
       textSize: 20,
