@@ -484,8 +484,8 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      // Go to platform selection
-      setCurrentScreen("platform-select")
+      // Go directly to editor
+      setCurrentScreen("editor")
     },
     [location, getRealLocationName],
   )
@@ -1584,7 +1584,7 @@ function getPlatformDimensions(platform: string) {
     "instagram-story": { width: 1080, height: 1920 },
     "instagram-post": { width: 1080, height: 1080 },
     "facebook-post": { width: 1200, height: 630 },
-    "twitter-post": { width: 1200, height: 675 },
+            "x-post": { width: 1200, height: 675 },
     "linkedin-post": { width: 1200, height: 627 },
     tiktok: { width: 1080, height: 1920 },
     snapchat: { width: 1080, height: 1920 },
