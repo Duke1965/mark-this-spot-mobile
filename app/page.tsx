@@ -8,7 +8,6 @@ import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
-import { PhotoEditor } from "@/components/PhotoEditor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
@@ -94,7 +93,6 @@ export default function PINITApp() {
     | "camera"
     | "platform-select"
     | "editor"
-    | "photo-editor"
     | "story"
     | "library"
     | "story-builder"
@@ -805,38 +803,7 @@ export default function PINITApp() {
     )
   }
 
-  if (currentScreen === "photo-editor" && capturedMedia) {
-    return (
-      <PhotoEditor
-        mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type}
-        location={location ? { name: capturedMedia.location, latitude: location.latitude, longitude: location.longitude } : null}
-        onSave={(editedUrl) => {
-          // Save the edited photo to library
-          const newPin: PinData = {
-            id: Date.now().toString(),
-            latitude: location!.latitude,
-            longitude: location!.longitude,
-            locationName: capturedMedia.location,
-            mediaUrl: editedUrl,
-            mediaType: capturedMedia.type,
-            audioUrl: null,
-            timestamp: new Date().toISOString(),
-            title: `📸 ${capturedMedia.type === "photo" ? "Photo" : "Video"} from ${capturedMedia.location}`,
-            description: "",
-            tags: ["edited"],
-          }
-          addPin(newPin)
-          setCapturedMedia(null)
-          setCurrentScreen("map")
-        }}
-        onBack={() => {
-          setCapturedMedia(null)
-          setCurrentScreen("map")
-        }}
-      />
-    )
-  }
+
 
   if (currentScreen === "story") {
     return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
