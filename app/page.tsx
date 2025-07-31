@@ -169,69 +169,15 @@ export default function PINITApp() {
     try {
       console.log("📍 Fetching real location name...")
       
-      // First try reverse geocoding for general area name (more reliable)
-      const reverseGeocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      const geocodeResponse = await fetch(reverseGeocodeUrl)
-      const geocodeData = await geocodeResponse.json()
-
-      if (geocodeData.results && geocodeData.results.length > 0) {
-        const addressComponents = geocodeData.results[0].address_components
-        
-        // Look for specific place names first
-        const establishment = addressComponents.find((comp: any) => 
-          comp.types.includes("establishment") || comp.types.includes("point_of_interest")
-        )
-        const route = addressComponents.find((comp: any) => 
-          comp.types.includes("route")
-        )
-        const locality = addressComponents.find((comp: any) => 
-          comp.types.includes("locality") || comp.types.includes("sublocality")
-        )
-        const country = addressComponents.find((comp: any) => 
-          comp.types.includes("country")
-        )
-        const administrative_area = addressComponents.find((comp: any) => 
-          comp.types.includes("administrative_area_level_1")
-        )
-
-        // Build a nice location name
-        let locationName = ""
-        
-        if (establishment) {
-          locationName = establishment.long_name
-        } else if (route) {
-          locationName = route.long_name
-        } else if (locality) {
-          locationName = locality.long_name
-        }
-
-        // Add context if we have it
-        if (locality && country && locationName !== locality.long_name) {
-          locationName = locationName ? `${locationName}, ${locality.long_name}, ${country.long_name}` : `${locality.long_name}, ${country.long_name}`
-        } else if (locality && !locationName) {
-          locationName = locality.long_name
-        } else if (country && !locationName) {
-          locationName = country.long_name
-        }
-
-        if (locationName) {
-          return locationName
-        }
+      // Use our API route instead of calling Google Maps directly
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch location data")
       }
 
-      // Fallback to nearby places search
-      const radius = 2000 // Increased to 2km radius for better results
-      const types = [
-        "establishment", "point_of_interest", "tourist_attraction", 
-        "restaurant", "cafe", "store", "shopping_mall", "museum", 
-        "park", "church", "school", "hospital", "natural_feature"
-      ]
-
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join("|")}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      const response = await fetch(placesUrl)
       const data = await response.json()
-
+      
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
         const closestPlace = data.results[0]
@@ -246,70 +192,11 @@ export default function PINITApp() {
         return placeName
       }
 
-      // If reverse geocoding worked but we didn't get a good name, try again with different approach
-      if (geocodeData.results && geocodeData.results.length > 0) {
-        const formattedAddress = geocodeData.results[0].formatted_address
-        if (formattedAddress) {
-          // Extract city and country from formatted address
-          const parts = formattedAddress.split(', ')
-          if (parts.length >= 2) {
-            return `${parts[0]}, ${parts[parts.length - 1]}` // First part (city) and last part (country)
-          }
-          return formattedAddress
-        }
-      }
-
-      // Try a broader search without type restrictions
-      const broadPlacesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      const broadResponse = await fetch(broadPlacesUrl)
-      const broadData = await broadResponse.json()
-
-      if (broadData.results && broadData.results.length > 0) {
-        const closestPlace = broadData.results[0]
-        const placeName = closestPlace.name
-        const vicinity = closestPlace.vicinity || ""
-        
-        if (vicinity && !placeName.includes(vicinity)) {
-          return `${placeName}, ${vicinity}`
-        }
-        
-        return placeName
-      }
-
-      // Final fallback - use the most specific address component we can find
-      if (geocodeData.results && geocodeData.results.length > 0) {
-        const addressComponents = geocodeData.results[0].address_components
-        
-        // Try to find the most specific location name
-        const sublocality = addressComponents.find((comp: any) => 
-          comp.types.includes("sublocality")
-        )
-        const locality = addressComponents.find((comp: any) => 
-          comp.types.includes("locality")
-        )
-        const administrative_area = addressComponents.find((comp: any) => 
-          comp.types.includes("administrative_area_level_1")
-        )
-        const country = addressComponents.find((comp: any) => 
-          comp.types.includes("country")
-        )
-
-        if (sublocality) {
-          return sublocality.long_name
-        } else if (locality) {
-          return locality.long_name
-        } else if (administrative_area) {
-          return administrative_area.long_name
-        } else if (country) {
-          return country.long_name
-        }
-      }
-
-      // Last resort - use a simple area name
-      return "Unknown Area"
+      // Fallback to coordinates if no places found
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      return "Unknown Area"
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }
 
@@ -710,26 +597,13 @@ export default function PINITApp() {
     try {
       console.log("📸 Fetching location photo...")
       
-      // Direct Google Places API call to get nearby places with photos
-      const radius = 1000 // 1km radius
-      const types = [
-        "tourist_attraction",
-        "restaurant",
-        "cafe",
-        "museum",
-        "park",
-        "shopping_mall",
-        "art_gallery",
-        "amusement_park",
-        "zoo",
-        "aquarium",
-      ]
+      // Use our API route instead of calling Google Maps directly
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=1000`)
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch location data")
+      }
 
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-        "|",
-      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      const response = await fetch(placesUrl)
       const data = await response.json()
 
       if (data.results && data.results.length > 0) {
