@@ -18,6 +18,7 @@ import { RecommendationsHub } from "@/components/RecommendationsHub"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
+import { useAuth } from "@/hooks/useAuth"
 
 
 export interface PinData {
@@ -82,6 +83,9 @@ export default function PINITApp() {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Auth state
+  const { user, loading: authLoading } = useAuth()
 
   // Core state
   const [currentScreen, setCurrentScreen] = useState<
