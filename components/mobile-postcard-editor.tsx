@@ -108,20 +108,20 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Preview */}
-      <div className="bg-black/20 p-2 flex items-center justify-center relative">
-        <div className="w-20 h-20 rounded-lg overflow-hidden relative border border-white/20">
+      <div className="bg-black/20 p-1 flex items-center justify-center relative">
+        <div className="w-12 h-12 rounded-lg overflow-hidden relative border border-white/20" style={{maxWidth: '48px', maxHeight: '48px', minWidth: '48px', minHeight: '48px'}}>
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
               alt="Preview"
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString() }}
+              style={{ filter: generateFilterString(), maxWidth: '48px', maxHeight: '48px', width: '48px', height: '48px' }}
             />
           ) : (
             <video
               src={mediaUrl}
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString() }}
+              style={{ filter: generateFilterString(), maxWidth: '48px', maxHeight: '48px', width: '48px', height: '48px' }}
               controls
               muted
             />
@@ -139,7 +139,7 @@ export function MobilePostcardEditor({
               }}
               onClick={() => removeSticker(sticker.id)}
             >
-              <span className="text-sm">{sticker.emoji}</span>
+              <span className="text-xs">{sticker.emoji}</span>
             </div>
           ))}
         </div>
