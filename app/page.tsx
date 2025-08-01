@@ -205,15 +205,15 @@ export default function PINITApp() {
         }
       }
 
-      // Final fallback - create a more descriptive coordinate string
-      const latStr = lat.toFixed(4)
-      const lngStr = lng.toFixed(4)
+      // Final fallback - create a more descriptive coordinate string with proper formatting
+      const latStr = lat.toFixed(6)
+      const lngStr = lng.toFixed(6)
       return `Location at ${latStr}, ${lngStr}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      // More descriptive fallback
-      const latStr = lat.toFixed(4)
-      const lngStr = lng.toFixed(4)
+      // More descriptive fallback with proper formatting
+      const latStr = lat.toFixed(6)
+      const lngStr = lng.toFixed(6)
       return `Location at ${latStr}, ${lngStr}`
     }
   }
