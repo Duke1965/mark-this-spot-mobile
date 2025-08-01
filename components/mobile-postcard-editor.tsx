@@ -216,19 +216,19 @@ export function MobilePostcardEditor({
 
       {/* Preview */}
       <div className="bg-black/20 p-2 flex items-center justify-center relative">
-        <div className="w-24 h-24 rounded-lg overflow-hidden relative border border-white/20">
+        <div className="w-24 h-24 rounded-lg overflow-hidden relative border border-white/20" style={{maxWidth: '96px', maxHeight: '96px', minWidth: '96px', minHeight: '96px'}}>
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
               alt="Preview"
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString() }}
+              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
             />
           ) : (
             <video
               src={mediaUrl}
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString() }}
+              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
               controls
               muted
             />
@@ -253,12 +253,23 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-black/30 border-b border-white/10">
+      <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
         <button
           onClick={() => setActiveTab("effects")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "effects" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "effects" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "effects" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Wand2 size={18} />
           Effects
@@ -266,9 +277,20 @@ export function MobilePostcardEditor({
 
         <button
           onClick={() => setActiveTab("stickers")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "stickers" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "stickers" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "stickers" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Sticker size={18} />
           Stickers
@@ -276,9 +298,20 @@ export function MobilePostcardEditor({
 
         <button
           onClick={() => setActiveTab("canvas")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "canvas" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "canvas" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "canvas" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Palette size={18} />
           Canvas
@@ -286,137 +319,205 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 bg-black/20 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto" style={{backgroundColor: 'rgba(0,0,0,0.2)'}}>
         {activeTab === "effects" && (
           <div className="space-y-6">
-            {/* Presets */}
-            <div>
-              <h3 className="text-base font-semibold mb-3 text-white">Presets</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {presets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => applyPreset(preset)}
-                    className={`p-2 rounded-lg border transition-colors text-sm ${
-                      selectedPreset === preset.id
-                        ? "border-white bg-white/20 text-white"
-                        : "border-white/30 text-white/70 hover:border-white/50 hover:text-white"
-                    }`}
-                  >
-                    {preset.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+                         {/* Presets */}
+             <div>
+               <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'white'}}>Presets</h3>
+               <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px'}}>
+                 {presets.map((preset) => (
+                   <button
+                     key={preset.id}
+                     onClick={() => applyPreset(preset)}
+                     style={{
+                       padding: '8px',
+                       borderRadius: '8px',
+                       border: selectedPreset === preset.id ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                       backgroundColor: selectedPreset === preset.id ? 'rgba(255,255,255,0.2)' : 'transparent',
+                       color: selectedPreset === preset.id ? 'white' : 'rgba(255,255,255,0.7)',
+                       fontSize: '14px',
+                       cursor: 'pointer'
+                     }}
+                   >
+                     {preset.name}
+                   </button>
+                 ))}
+               </div>
+             </div>
 
-            {/* Advanced Adjustments */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-white">Advanced Adjustments</h3>
-              
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Brightness</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={brightness}
-                  onChange={(e) => setBrightness(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{brightness}%</span>
-              </div>
+                         {/* Advanced Adjustments */}
+             <div style={{marginTop: '24px'}}>
+               <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>Advanced Adjustments</h3>
+               
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Brightness</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={brightness}
+                   onChange={(e) => setBrightness(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{brightness}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Contrast</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={contrast}
-                  onChange={(e) => setContrast(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{contrast}%</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Contrast</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={contrast}
+                   onChange={(e) => setContrast(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{contrast}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Saturation</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={saturation}
-                  onChange={(e) => setSaturation(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{saturation}%</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Saturation</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={saturation}
+                   onChange={(e) => setSaturation(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{saturation}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Hue</label>
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
-                  value={hue}
-                  onChange={(e) => setHue(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{hue}°</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Hue</label>
+                 <input
+                   type="range"
+                   min="-180"
+                   max="180"
+                   value={hue}
+                   onChange={(e) => setHue(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{hue}°</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Blur</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  value={blur}
-                  onChange={(e) => setBlur(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{blur}px</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Blur</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="10"
+                   value={blur}
+                   onChange={(e) => setBlur(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{blur}px</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Sepia</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sepia}
-                  onChange={(e) => setSepia(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{sepia}%</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Sepia</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="100"
+                   value={sepia}
+                   onChange={(e) => setSepia(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{sepia}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Grayscale</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={grayscale}
-                  onChange={(e) => setGrayscale(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{grayscale}%</span>
-              </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Grayscale</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="100"
+                   value={grayscale}
+                   onChange={(e) => setGrayscale(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{grayscale}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2 text-white/80">Invert</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={invert}
-                  onChange={(e) => setInvert(Number(e.target.value))}
-                  className="w-full accent-white"
-                />
-                <span className="text-xs text-white/60">{invert}%</span>
-              </div>
-            </div>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Invert</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="100"
+                   value={invert}
+                   onChange={(e) => setInvert(Number(e.target.value))}
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
+                 />
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{invert}%</span>
+               </div>
+             </div>
           </div>
         )}
 
