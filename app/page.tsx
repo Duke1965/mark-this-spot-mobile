@@ -798,13 +798,13 @@ export default function PINITApp() {
     )
   }
 
-  if (currentScreen === "editor" && capturedMedia && selectedPlatform) {
+  if (currentScreen === "editor" && capturedMedia) {
     return (
       <MobilePostcardEditor
         mediaUrl={capturedMedia.url}
         mediaType={capturedMedia.type}
-        platform={selectedPlatform}
-        dimensions={getPlatformDimensions(selectedPlatform)}
+        platform={selectedPlatform || "instagram"} // Default to instagram if no platform selected
+        dimensions={getPlatformDimensions(selectedPlatform || "instagram")}
         locationName={capturedMedia.location}
         onSave={handleSavePin}
         onClose={() => setCurrentScreen("map")}
