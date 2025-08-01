@@ -192,11 +192,29 @@ export default function PINITApp() {
         return placeName
       }
 
-      // Fallback to coordinates if no places found
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // If no places found, try to get a more descriptive location name
+      console.log("📍 No places found, trying alternative location resolution...")
+      
+      // Try a broader search with different types
+      const broaderResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
+      if (broaderResponse.ok) {
+        const broaderData = await broaderResponse.json()
+        if (broaderData.results && broaderData.results.length > 0) {
+          const nearestPlace = broaderData.results[0]
+          return nearestPlace.name
+        }
+      }
+
+      // Final fallback - create a more descriptive coordinate string
+      const latStr = lat.toFixed(4)
+      const lngStr = lng.toFixed(4)
+      return `Location at ${latStr}, ${lngStr}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // More descriptive fallback
+      const latStr = lat.toFixed(4)
+      const lngStr = lng.toFixed(4)
+      return `Location at ${latStr}, ${lngStr}`
     }
   }
 
