@@ -108,8 +108,8 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Preview */}
-      <div className="bg-gray-800 p-2 flex items-center justify-center relative">
-        <div className="w-32 h-32 rounded-lg overflow-hidden relative">
+      <div className="bg-black/20 p-2 flex items-center justify-center relative">
+        <div className="w-20 h-20 rounded-lg overflow-hidden relative border border-white/20">
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
@@ -139,192 +139,192 @@ export function MobilePostcardEditor({
               }}
               onClick={() => removeSticker(sticker.id)}
             >
-              <span className="text-lg">{sticker.emoji}</span>
+              <span className="text-sm">{sticker.emoji}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-gray-800 border-b border-gray-700">
+      <div className="flex bg-black/30 border-b border-white/10">
         <button
           onClick={() => setActiveTab("effects")}
-          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
-            activeTab === "effects" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
+            activeTab === "effects" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
           }`}
         >
-          <Wand2 size={20} />
+          <Wand2 size={18} />
           Effects
         </button>
 
         <button
           onClick={() => setActiveTab("stickers")}
-          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
-            activeTab === "stickers" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
+            activeTab === "stickers" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
           }`}
         >
-          <Sticker size={20} />
+          <Sticker size={18} />
           Stickers
         </button>
 
         <button
           onClick={() => setActiveTab("canvas")}
-          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
-            activeTab === "canvas" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
+            activeTab === "canvas" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
           }`}
         >
-          <Palette size={20} />
+          <Palette size={18} />
           Canvas
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 bg-gray-800 p-4 overflow-y-auto">
+      <div className="flex-1 bg-black/20 p-4 overflow-y-auto">
         {activeTab === "effects" && (
           <div className="space-y-6">
-            {/* Filters */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Filters</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {filters.map((filter) => (
-                  <button
-                    key={filter.name}
-                    onClick={() => setSelectedFilter(filter.name)}
-                    className={`p-3 rounded-lg border-2 transition-colors ${
-                      selectedFilter === filter.name
-                        ? "border-purple-500 bg-purple-500/20"
-                        : "border-gray-600 hover:border-gray-500"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                         {/* Filters */}
+             <div>
+               <h3 className="text-base font-semibold mb-3 text-white">Filters</h3>
+               <div className="grid grid-cols-3 gap-2">
+                 {filters.map((filter) => (
+                   <button
+                     key={filter.name}
+                     onClick={() => setSelectedFilter(filter.name)}
+                     className={`p-2 rounded-lg border transition-colors text-sm ${
+                       selectedFilter === filter.name
+                         ? "border-white bg-white/20 text-white"
+                         : "border-white/30 text-white/70 hover:border-white/50 hover:text-white"
+                     }`}
+                   >
+                     {filter.label}
+                   </button>
+                 ))}
+               </div>
+             </div>
 
-            {/* Adjustments */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Adjustments</h3>
-              
-              <div>
-                <label className="block text-sm mb-2">Brightness</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={brightness}
-                  onChange={(e) => setBrightness(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs text-gray-400">{brightness}%</span>
-              </div>
+             {/* Adjustments */}
+             <div className="space-y-4">
+               <h3 className="text-base font-semibold text-white">Adjustments</h3>
+               
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Brightness</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={brightness}
+                   onChange={(e) => setBrightness(Number(e.target.value))}
+                   className="w-full accent-white"
+                 />
+                 <span className="text-xs text-white/60">{brightness}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2">Contrast</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={contrast}
-                  onChange={(e) => setContrast(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs text-gray-400">{contrast}%</span>
-              </div>
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Contrast</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={contrast}
+                   onChange={(e) => setContrast(Number(e.target.value))}
+                   className="w-full accent-white"
+                 />
+                 <span className="text-xs text-white/60">{contrast}%</span>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2">Saturation</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={saturation}
-                  onChange={(e) => setSaturation(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs text-gray-400">{saturation}%</span>
-              </div>
-            </div>
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Saturation</label>
+                 <input
+                   type="range"
+                   min="0"
+                   max="200"
+                   value={saturation}
+                   onChange={(e) => setSaturation(Number(e.target.value))}
+                   className="w-full accent-white"
+                 />
+                 <span className="text-xs text-white/60">{saturation}%</span>
+               </div>
+             </div>
           </div>
         )}
 
-        {activeTab === "stickers" && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Add Stickers</h3>
-            
-            <div className="grid grid-cols-4 gap-3">
-              {availableStickers.map((sticker) => (
-                <button
-                  key={sticker}
-                  onClick={() => addSticker(sticker)}
-                  className="p-4 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-2xl"
-                >
-                  {sticker}
-                </button>
-              ))}
-            </div>
+                 {activeTab === "stickers" && (
+           <div className="space-y-6">
+             <h3 className="text-base font-semibold text-white">Add Stickers</h3>
+             
+             <div className="grid grid-cols-4 gap-2">
+               {availableStickers.map((sticker) => (
+                 <button
+                   key={sticker}
+                   onClick={() => addSticker(sticker)}
+                   className="p-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xl border border-white/20"
+                 >
+                   {sticker}
+                 </button>
+               ))}
+             </div>
 
-            {stickers.length > 0 && (
-              <div>
-                <h4 className="text-md font-semibold mb-3">Active Stickers</h4>
-                <div className="space-y-2">
-                  {stickers.map((sticker) => (
-                    <div key={sticker.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                      <span className="text-xl">{sticker.emoji}</span>
-                      <button
-                        onClick={() => removeSticker(sticker.id)}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+             {stickers.length > 0 && (
+               <div>
+                 <h4 className="text-sm font-semibold mb-3 text-white">Active Stickers</h4>
+                 <div className="space-y-2">
+                   {stickers.map((sticker) => (
+                     <div key={sticker.id} className="flex items-center justify-between p-2 bg-white/10 rounded-lg border border-white/20">
+                       <span className="text-lg">{sticker.emoji}</span>
+                       <button
+                         onClick={() => removeSticker(sticker.id)}
+                         className="text-red-300 hover:text-red-200 text-sm"
+                       >
+                         Remove
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
+           </div>
+         )}
 
-        {activeTab === "canvas" && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Canvas Tools</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm mb-2">Text Overlay</label>
-                <input
-                  type="text"
-                  placeholder="Add text..."
-                  className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white"
-                />
-              </div>
+                 {activeTab === "canvas" && (
+           <div className="space-y-6">
+             <h3 className="text-base font-semibold text-white">Canvas Tools</h3>
+             
+             <div className="space-y-4">
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Text Overlay</label>
+                 <input
+                   type="text"
+                   placeholder="Add text..."
+                   className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50"
+                 />
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2">Text Color</label>
-                <div className="flex gap-2">
-                  {["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"].map((color) => (
-                    <button
-                      key={color}
-                      className="w-8 h-8 rounded-full border-2 border-gray-600"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Text Color</label>
+                 <div className="flex gap-2">
+                   {["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"].map((color) => (
+                     <button
+                       key={color}
+                       className="w-8 h-8 rounded-full border-2 border-white/30"
+                       style={{ backgroundColor: color }}
+                     />
+                   ))}
+                 </div>
+               </div>
 
-              <div>
-                <label className="block text-sm mb-2">Text Size</label>
-                <input
-                  type="range"
-                  min="12"
-                  max="72"
-                  defaultValue="24"
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+               <div>
+                 <label className="block text-sm mb-2 text-white/80">Text Size</label>
+                 <input
+                   type="range"
+                   min="12"
+                   max="72"
+                   defaultValue="24"
+                   className="w-full accent-white"
+                 />
+               </div>
+             </div>
+           </div>
+         )}
       </div>
     </div>
   )
