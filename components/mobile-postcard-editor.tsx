@@ -215,19 +215,19 @@ export function MobilePostcardEditor({
 
       {/* Preview */}
       <div className="bg-black/20 p-2 flex items-center justify-center relative">
-        <div className="w-24 h-24 rounded-lg overflow-hidden relative border border-white/20" style={{maxWidth: '96px', maxHeight: '96px', minWidth: '96px', minHeight: '96px'}}>
+        <div className="w-full max-w-sm rounded-lg overflow-hidden relative border border-white/20">
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
               alt="Preview"
-              className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
+              className="w-full h-auto object-cover transition-all duration-300"
+              style={{ filter: generateFilterString() }}
             />
           ) : (
             <video
               src={mediaUrl}
-              className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
+              className="w-full h-auto object-cover transition-all duration-300"
+              style={{ filter: generateFilterString() }}
               controls
               muted
             />
@@ -345,184 +345,186 @@ export function MobilePostcardEditor({
                </div>
              </div>
 
-                         {/* Advanced Adjustments */}
+             {/* Advanced Adjustments */}
              <div style={{marginTop: '24px'}}>
                <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>Advanced Adjustments</h3>
                
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Brightness</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="200"
-                   value={brightness}
-                   onChange={(e) => setBrightness(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{brightness}%</span>
-               </div>
+               <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px'}}>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Brightness</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="200"
+                     value={brightness}
+                     onChange={(e) => setBrightness(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{brightness}%</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Contrast</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="200"
-                   value={contrast}
-                   onChange={(e) => setContrast(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{contrast}%</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Contrast</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="200"
+                     value={contrast}
+                     onChange={(e) => setContrast(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{contrast}%</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Saturation</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="200"
-                   value={saturation}
-                   onChange={(e) => setSaturation(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{saturation}%</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Saturation</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="200"
+                     value={saturation}
+                     onChange={(e) => setSaturation(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{saturation}%</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Hue</label>
-                 <input
-                   type="range"
-                   min="-180"
-                   max="180"
-                   value={hue}
-                   onChange={(e) => setHue(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{hue}°</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Hue</label>
+                   <input
+                     type="range"
+                     min="-180"
+                     max="180"
+                     value={hue}
+                     onChange={(e) => setHue(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{hue}°</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Blur</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="10"
-                   value={blur}
-                   onChange={(e) => setBlur(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{blur}px</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Blur</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="10"
+                     value={blur}
+                     onChange={(e) => setBlur(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{blur}px</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Sepia</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="100"
-                   value={sepia}
-                   onChange={(e) => setSepia(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{sepia}%</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Sepia</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="100"
+                     value={sepia}
+                     onChange={(e) => setSepia(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{sepia}%</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Grayscale</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="100"
-                   value={grayscale}
-                   onChange={(e) => setGrayscale(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{grayscale}%</span>
-               </div>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Grayscale</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="100"
+                     value={grayscale}
+                     onChange={(e) => setGrayscale(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{grayscale}%</span>
+                 </div>
 
-               <div style={{marginBottom: '16px'}}>
-                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Invert</label>
-                 <input
-                   type="range"
-                   min="0"
-                   max="100"
-                   value={invert}
-                   onChange={(e) => setInvert(Number(e.target.value))}
-                   style={{
-                     width: '100%',
-                     height: '6px',
-                     borderRadius: '3px',
-                     background: 'rgba(255,255,255,0.3)',
-                     outline: 'none',
-                     WebkitAppearance: 'none',
-                     appearance: 'none',
-                     cursor: 'pointer'
-                   }}
-                 />
-                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{invert}%</span>
+                 <div style={{marginBottom: '16px'}}>
+                   <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Invert</label>
+                   <input
+                     type="range"
+                     min="0"
+                     max="100"
+                     value={invert}
+                     onChange={(e) => setInvert(Number(e.target.value))}
+                     style={{
+                       width: '100%',
+                       height: '6px',
+                       borderRadius: '3px',
+                       background: 'rgba(255,255,255,0.3)',
+                       outline: 'none',
+                       WebkitAppearance: 'none',
+                       appearance: 'none',
+                       cursor: 'pointer'
+                     }}
+                   />
+                   <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{invert}%</span>
+                 </div>
                </div>
              </div>
           </div>
@@ -554,12 +556,12 @@ export function MobilePostcardEditor({
             {/* Stickers Grid */}
             <div>
               <h3 className="text-base font-semibold mb-3 text-white">Stickers</h3>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-6 gap-2">
                 {filteredStickers.map((sticker) => (
                   <button
                     key={sticker.id}
                     onClick={() => addSticker(sticker)}
-                    className="p-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-2xl border border-white/20"
+                    className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xl border border-white/20 flex items-center justify-center"
                   >
                     {sticker.emoji}
                   </button>
@@ -571,15 +573,15 @@ export function MobilePostcardEditor({
             {stickers.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold mb-3 text-white">Active Stickers</h4>
-                <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2">
                   {stickers.map((sticker) => (
                     <div key={sticker.id} className="flex items-center justify-between p-2 bg-white/10 rounded-lg border border-white/20">
                       <span className="text-lg">{sticker.emoji}</span>
                       <button
                         onClick={() => removeSticker(sticker.id)}
-                        className="text-red-300 hover:text-red-200 text-sm"
+                        className="text-red-300 hover:text-red-200 text-xs"
                       >
-                        Remove
+                        ×
                       </button>
                     </div>
                   ))}
