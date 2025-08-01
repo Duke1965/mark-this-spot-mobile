@@ -108,20 +108,20 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Preview */}
-      <div className="bg-black/20 p-1 flex items-center justify-center relative">
-        <div className="w-12 h-12 rounded-lg overflow-hidden relative border border-white/20" style={{maxWidth: '48px', maxHeight: '48px', minWidth: '48px', minHeight: '48px'}}>
+      <div className="bg-black/20 p-2 flex items-center justify-center relative">
+        <div className="w-24 h-24 rounded-lg overflow-hidden relative border border-white/20" style={{maxWidth: '96px', maxHeight: '96px', minWidth: '96px', minHeight: '96px'}}>
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
               alt="Preview"
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString(), maxWidth: '48px', maxHeight: '48px', width: '48px', height: '48px' }}
+              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
             />
           ) : (
             <video
               src={mediaUrl}
               className="w-full h-full object-cover transition-all duration-300"
-              style={{ filter: generateFilterString(), maxWidth: '48px', maxHeight: '48px', width: '48px', height: '48px' }}
+              style={{ filter: generateFilterString(), maxWidth: '96px', maxHeight: '96px', width: '96px', height: '96px' }}
               controls
               muted
             />
@@ -139,7 +139,7 @@ export function MobilePostcardEditor({
               }}
               onClick={() => removeSticker(sticker.id)}
             >
-              <span className="text-xs">{sticker.emoji}</span>
+              <span className="text-sm">{sticker.emoji}</span>
             </div>
           ))}
         </div>
@@ -240,46 +240,70 @@ export function MobilePostcardEditor({
              </div>
 
              {/* Adjustments */}
-             <div className="space-y-4">
-               <h3 className="text-base font-semibold text-white">Adjustments</h3>
+             <div style={{marginTop: '24px'}}>
+               <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>Adjustments</h3>
                
-               <div>
-                 <label className="block text-sm mb-2 text-white/80">Brightness</label>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Brightness</label>
                  <input
                    type="range"
                    min="0"
                    max="200"
                    value={brightness}
                    onChange={(e) => setBrightness(Number(e.target.value))}
-                   className="w-full accent-white"
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
                  />
-                 <span className="text-xs text-white/60">{brightness}%</span>
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{brightness}%</span>
                </div>
 
-               <div>
-                 <label className="block text-sm mb-2 text-white/80">Contrast</label>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Contrast</label>
                  <input
                    type="range"
                    min="0"
                    max="200"
                    value={contrast}
                    onChange={(e) => setContrast(Number(e.target.value))}
-                   className="w-full accent-white"
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
                  />
-                 <span className="text-xs text-white/60">{contrast}%</span>
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{contrast}%</span>
                </div>
 
-               <div>
-                 <label className="block text-sm mb-2 text-white/80">Saturation</label>
+               <div style={{marginBottom: '16px'}}>
+                 <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>Saturation</label>
                  <input
                    type="range"
                    min="0"
                    max="200"
                    value={saturation}
                    onChange={(e) => setSaturation(Number(e.target.value))}
-                   className="w-full accent-white"
+                   style={{
+                     width: '100%',
+                     height: '6px',
+                     borderRadius: '3px',
+                     background: 'rgba(255,255,255,0.3)',
+                     outline: 'none',
+                     WebkitAppearance: 'none',
+                     appearance: 'none'
+                   }}
                  />
-                 <span className="text-xs text-white/60">{saturation}%</span>
+                 <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{saturation}%</span>
                </div>
              </div>
           </div>
