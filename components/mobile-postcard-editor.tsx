@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { ArrowLeft, Download, Wand2, Sticker, Palette, Sparkles } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Download, Wand2, Sticker, Palette } from "lucide-react"
 
 interface MobilePostcardEditorProps {
   mediaUrl: string
@@ -22,7 +22,6 @@ export function MobilePostcardEditor({
   onSave,
   onClose,
 }: MobilePostcardEditorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [activeTab, setActiveTab] = useState<"effects" | "stickers" | "canvas">("effects")
   
   // Advanced effects state
@@ -156,8 +155,8 @@ export function MobilePostcardEditor({
     const newSticker = {
       id: Date.now(),
       emoji: sticker.emoji,
-      x: Math.random() * 200,
-      y: Math.random() * 200,
+      x: Math.random() * 60, // Reduced from 200 to keep within 96px container
+      y: Math.random() * 60, // Reduced from 200 to keep within 96px container
       scale: 1,
       rotation: 0,
     }
@@ -319,9 +318,9 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 p-4 overflow-y-auto" style={{backgroundColor: 'rgba(0,0,0,0.2)'}}>
+      <div style={{flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: 'rgba(0,0,0,0.2)'}}>
         {activeTab === "effects" && (
-          <div className="space-y-6">
+          <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
                          {/* Presets */}
              <div>
                <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'white'}}>Presets</h3>
@@ -365,7 +364,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{brightness}%</span>
@@ -386,7 +386,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{contrast}%</span>
@@ -407,7 +408,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{saturation}%</span>
@@ -428,7 +430,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{hue}°</span>
@@ -449,7 +452,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{blur}px</span>
@@ -470,7 +474,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{sepia}%</span>
@@ -491,7 +496,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{grayscale}%</span>
@@ -512,7 +518,8 @@ export function MobilePostcardEditor({
                      background: 'rgba(255,255,255,0.3)',
                      outline: 'none',
                      WebkitAppearance: 'none',
-                     appearance: 'none'
+                     appearance: 'none',
+                     cursor: 'pointer'
                    }}
                  />
                  <span style={{fontSize: '12px', color: 'rgba(255,255,255,0.6)'}}>{invert}%</span>
