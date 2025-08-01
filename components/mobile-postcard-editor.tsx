@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { ArrowLeft, Save, Send, Type, Palette } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Palette, Sticker, Download, Wand2 } from "lucide-react"
 
 interface MobilePostcardEditorProps {
   mediaUrl: string
@@ -22,673 +22,310 @@ export function MobilePostcardEditor({
   onSave,
   onClose,
 }: MobilePostcardEditorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [text, setText] = useState("")
-  const [textColor, setTextColor] = useState("#FFFFFF")
-  const [textSize, setTextSize] = useState(32)
-  const [textPosition, setTextPosition] = useState({ x: 50, y: 80 })
-  const [selectedTemplate, setSelectedTemplate] = useState("bottom-overlay")
-  const [showSendModal, setShowSendModal] = useState(false)
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [customMessage, setCustomMessage] = useState("")
-  const [isSending, setIsSending] = useState(false)
-  const [mediaLoaded, setMediaLoaded] = useState(false)
-  const [mediaError, setMediaError] = useState(false)
+  const [activeTab, setActiveTab] = useState<"effects" | "stickers" | "canvas">("effects")
+  const [brightness, setBrightness] = useState(100)
+  const [contrast, setContrast] = useState(100)
+  const [saturation, setSaturation] = useState(100)
+  const [selectedFilter, setSelectedFilter] = useState("none")
+  const [stickers, setStickers] = useState<any[]>([])
+  const [canvasData, setCanvasData] = useState<any>({})
 
-  // Platform-specific templates
-  const templates = {
-    "instagram-story": {
-      name: "Story Overlay",
-      textPosition: { x: 50, y: 85 },
-      textSize: 36,
-      textColor: "#FFFFFF",
-      background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)",
-    },
-    "instagram-post": {
-      name: "Center Text",
-      textPosition: { x: 50, y: 50 },
-      textSize: 28,
-      textColor: "#FFFFFF",
-      background: "rgba(0,0,0,0.5)",
-    },
-    whatsapp: {
-      name: "Bottom Caption",
-      textPosition: { x: 50, y: 90 },
-      textSize: 24,
-      textColor: "#FFFFFF",
-      background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
-    },
-    x: {
-      name: "Corner Badge",
-      textPosition: { x: 20, y: 20 },
-      textSize: 20,
-      textColor: "#1DA1F2",
-      background: "rgba(255,255,255,0.9)",
-    },
+  const filters = [
+    { name: "none", label: "Original" },
+    { name: "vintage", label: "Vintage" },
+    { name: "bw", label: "B&W" },
+    { name: "warm", label: "Warm" },
+    { name: "cool", label: "Cool" },
+  ]
+
+  const availableStickers = ["😊", "❤️", "🌟", "🎉", "📍", "✨", "🔥", "💎", "🏆", "🎯", "💫", "⭐"]
+
+  const generateFilterString = () => {
+    let filterString = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`
+    
+    switch (selectedFilter) {
+      case "vintage":
+        filterString += " sepia(0.8) hue-rotate(30deg)"
+        break
+      case "bw":
+        filterString += " grayscale(1)"
+        break
+      case "warm":
+        filterString += " sepia(0.3) hue-rotate(-10deg)"
+        break
+      case "cool":
+        filterString += " hue-rotate(180deg) saturate(1.2)"
+        break
+    }
+    
+    return filterString
   }
 
-  const currentTemplate = templates[platform as keyof typeof templates] || templates["instagram-post"]
-
-  useEffect(() => {
-    // Set initial template values
-    setTextPosition(currentTemplate.textPosition)
-    setTextSize(currentTemplate.textSize)
-    setTextColor(currentTemplate.textColor)
-    setText(`📍 ${locationName}`)
-  }, [platform, locationName])
-
-  useEffect(() => {
-    drawCanvas()
-  }, [text, textColor, textSize, textPosition, selectedTemplate, mediaLoaded])
-
-  const drawCanvas = () => {
-    const canvas = canvasRef.current
-    if (!canvas || !mediaLoaded) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Set canvas dimensions
-    canvas.width = dimensions.width
-    canvas.height = dimensions.height
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Create and draw media
-    if (mediaType === "photo") {
-      const img = new Image()
-      img.crossOrigin = "anonymous"
-      img.onload = () => {
-        // Draw image to fit canvas
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        drawTextOverlay(ctx)
-      }
-      img.src = mediaUrl
+  const addSticker = (sticker: string) => {
+    const newSticker = {
+      id: Date.now(),
+      emoji: sticker,
+      x: Math.random() * 200,
+      y: Math.random() * 200,
+      scale: 1,
+      rotation: 0,
     }
+    setStickers([...stickers, newSticker])
   }
 
-  const drawTextOverlay = (ctx: CanvasRenderingContext2D) => {
-    if (!text.trim()) return
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    // Calculate text position
-    const x = (textPosition.x / 100) * canvas.width
-    const y = (textPosition.y / 100) * canvas.height
-
-    // Draw background overlay
-    if (selectedTemplate === "bottom-overlay") {
-      const gradient = ctx.createLinearGradient(0, canvas.height - 100, 0, canvas.height)
-      gradient.addColorStop(0, "rgba(0,0,0,0)")
-      gradient.addColorStop(1, "rgba(0,0,0,0.7)")
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, canvas.height - 100, canvas.width, 100)
-    } else if (selectedTemplate === "center-box") {
-      ctx.fillStyle = "rgba(0,0,0,0.5)"
-      ctx.fillRect(x - 20, y - textSize - 10, ctx.measureText(text).width + 40, textSize + 20)
-    }
-
-    // Draw text
-    ctx.font = `bold ${textSize}px Arial, sans-serif`
-    ctx.fillStyle = textColor
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-
-    // Add text shadow for better readability
-    ctx.shadowColor = "rgba(0,0,0,0.8)"
-    ctx.shadowBlur = 4
-    ctx.shadowOffsetX = 2
-    ctx.shadowOffsetY = 2
-
-    ctx.fillText(text, x, y)
-
-    // Reset shadow
-    ctx.shadowColor = "transparent"
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
+  const removeSticker = (id: number) => {
+    setStickers(stickers.filter(s => s.id !== id))
   }
 
   const handleSave = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const canvasDataUrl = canvas.toDataURL("image/jpeg", 0.9)
-
     const postcardData = {
-      id: Date.now().toString(),
-      mediaUrl,
-      mediaType,
-      locationName,
-      text,
-      textColor,
-      textSize,
-      selectedTemplate,
-      platform,
-      dimensions,
-      timestamp: new Date().toISOString(),
-      canvasDataUrl,
+      text: `📍 ${locationName}`,
+      effects: {
+        brightness,
+        contrast,
+        saturation,
+        filter: selectedFilter,
+      },
+      stickers,
+      canvasData,
     }
-
-    // Save to localStorage
-    const savedPostcards = JSON.parse(localStorage.getItem("pinit-saved-postcards") || "[]")
-    savedPostcards.unshift(postcardData)
-    localStorage.setItem("pinit-saved-postcards", JSON.stringify(savedPostcards))
-
     onSave(postcardData)
   }
 
-  const handleSend = async () => {
-    if (!phoneNumber.trim()) {
-      alert("Please enter a phone number")
-      return
-    }
-
-    setIsSending(true)
-
-    try {
-      const canvas = canvasRef.current
-      if (!canvas) throw new Error("Canvas not ready")
-
-      const canvasDataUrl = canvas.toDataURL("image/jpeg", 0.9)
-
-      const response = await fetch("/api/send-postcard", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phoneNumber,
-          imageDataUrl: canvasDataUrl,
-          message: customMessage || `Check out this postcard from ${locationName}!`,
-          locationName,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        alert("Postcard sent successfully! 📮")
-        setShowSendModal(false)
-        setPhoneNumber("")
-        setCustomMessage("")
-      } else {
-        throw new Error(result.error || "Failed to send")
-      }
-    } catch (error) {
-      console.error("Send error:", error)
-      alert("Failed to send postcard. Please try again.")
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  const handleMediaLoad = () => {
-    console.log("📸 Media loaded successfully in editor")
-    setMediaLoaded(true)
-    setMediaError(false)
-  }
-
-  const handleMediaError = () => {
-    console.error("❌ Media failed to load in editor:", mediaUrl)
-    setMediaError(true)
-    setMediaLoaded(false)
-  }
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "#000000",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 1000,
-      }}
-    >
+    <div className="flex-1 flex flex-col bg-gray-900 text-white">
       {/* Header */}
-      <div
-        style={{
-          padding: "1rem",
-          background: "rgba(0,0,0,0.8)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexShrink: 0,
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "50%",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.125rem" }}>Edit for {platform}</h2>
-            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-              {dimensions.width}×{dimensions.height}
-            </p>
-          </div>
-        </div>
+      <div className="bg-black/50 p-4 flex items-center justify-between">
+        <button onClick={onClose} className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
+          <ArrowLeft size={20} />
+        </button>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button
-            onClick={() => setShowSendModal(true)}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "#10B981",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <Send size={16} />
-            Send
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "#3B82F6",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <Save size={16} />
-            Save
-          </button>
-        </div>
+        <h1 className="text-xl font-bold">🎨 Advanced Editor</h1>
+
+        <button onClick={handleSave} className="p-2 rounded-lg bg-green-500 hover:bg-green-600 transition-colors">
+          <Download size={20} />
+        </button>
       </div>
 
-      {/* Canvas Area - Fixed */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "1rem",
-          background: "#111",
-          position: "relative",
-          minHeight: 0,
-        }}
-      >
-        {/* Hidden image for loading */}
-        <img
-          src={mediaUrl || "/placeholder.svg"}
-          alt="Media"
-          style={{ display: "none" }}
-          onLoad={handleMediaLoad}
-          onError={handleMediaError}
-          crossOrigin="anonymous"
-        />
-
-        {mediaError ? (
-          <div
-            style={{
-              textAlign: "center",
-              color: "rgba(255,255,255,0.6)",
-              padding: "2rem",
-            }}
-          >
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>❌</div>
-            <p>Failed to load media</p>
-            <p style={{ fontSize: "0.875rem" }}>Please try again</p>
-          </div>
-        ) : !mediaLoaded ? (
-          <div
-            style={{
-              textAlign: "center",
-              color: "rgba(255,255,255,0.6)",
-              padding: "2rem",
-            }}
-          >
+      {/* Preview */}
+      <div className="bg-gray-800 p-4 flex items-center justify-center relative">
+        <div className="max-w-sm max-h-64 rounded-lg overflow-hidden relative">
+          {mediaType === "photo" ? (
+            <img
+              src={mediaUrl}
+              alt="Preview"
+              className="w-full h-full object-contain transition-all duration-300"
+              style={{ filter: generateFilterString() }}
+            />
+          ) : (
+            <video
+              src={mediaUrl}
+              className="w-full h-full object-contain transition-all duration-300"
+              style={{ filter: generateFilterString() }}
+              controls
+              muted
+            />
+          )}
+          
+          {/* Stickers Overlay */}
+          {stickers.map((sticker) => (
             <div
+              key={sticker.id}
+              className="absolute cursor-move select-none"
               style={{
-                width: "3rem",
-                height: "3rem",
-                border: "3px solid rgba(255,255,255,0.3)",
-                borderTop: "3px solid white",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-                margin: "0 auto 1rem",
+                left: sticker.x,
+                top: sticker.y,
+                transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
               }}
-            />
-            <p>Loading media...</p>
-          </div>
-        ) : (
-          <canvas
-            ref={canvasRef}
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "0.5rem",
-            }}
-          />
-        )}
+              onClick={() => removeSticker(sticker.id)}
+            >
+              <span className="text-2xl">{sticker.emoji}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Controls - Scrollable */}
-      <div
-        style={{
-          maxHeight: "50vh",
-          overflowY: "auto",
-          background: "rgba(0,0,0,0.9)",
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {/* Text Input */}
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-              <Type size={16} style={{ display: "inline", marginRight: "0.5rem" }} />
-              Text
-            </label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Add your message..."
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                fontSize: "1rem",
-                resize: "vertical",
-                minHeight: "80px",
-              }}
-            />
-          </div>
+      {/* Tabs */}
+      <div className="flex bg-gray-800 border-b border-gray-700">
+        <button
+          onClick={() => setActiveTab("effects")}
+          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
+            activeTab === "effects" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <Wand2 size={20} />
+          Effects
+        </button>
 
-          {/* Text Size */}
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-              Text Size: {textSize}px
-            </label>
-            <input
-              type="range"
-              min="16"
-              max="72"
-              value={textSize}
-              onChange={(e) => setTextSize(Number(e.target.value))}
-              style={{
-                width: "100%",
-                height: "6px",
-                borderRadius: "3px",
-                background: "rgba(255,255,255,0.2)",
-                outline: "none",
-              }}
-            />
-          </div>
+        <button
+          onClick={() => setActiveTab("stickers")}
+          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
+            activeTab === "stickers" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <Sticker size={20} />
+          Stickers
+        </button>
 
-          {/* Text Color */}
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-              <Palette size={16} style={{ display: "inline", marginRight: "0.5rem" }} />
-              Text Color
-            </label>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"].map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setTextColor(color)}
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    border: textColor === color ? "3px solid #10B981" : "2px solid rgba(255,255,255,0.3)",
-                    background: color,
-                    cursor: "pointer",
-                  }}
+        <button
+          onClick={() => setActiveTab("canvas")}
+          className={`flex-1 p-4 flex items-center justify-center gap-2 transition-colors ${
+            activeTab === "canvas" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <Palette size={20} />
+          Canvas
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 bg-gray-800 p-4 overflow-y-auto">
+        {activeTab === "effects" && (
+          <div className="space-y-6">
+            {/* Filters */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Filters</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {filters.map((filter) => (
+                  <button
+                    key={filter.name}
+                    onClick={() => setSelectedFilter(filter.name)}
+                    className={`p-3 rounded-lg border-2 transition-colors ${
+                      selectedFilter === filter.name
+                        ? "border-purple-500 bg-purple-500/20"
+                        : "border-gray-600 hover:border-gray-500"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Adjustments */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Adjustments</h3>
+              
+              <div>
+                <label className="block text-sm mb-2">Brightness</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={brightness}
+                  onChange={(e) => setBrightness(Number(e.target.value))}
+                  className="w-full"
                 />
-              ))}
+                <span className="text-xs text-gray-400">{brightness}%</span>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-2">Contrast</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={contrast}
+                  onChange={(e) => setContrast(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs text-gray-400">{contrast}%</span>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-2">Saturation</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={saturation}
+                  onChange={(e) => setSaturation(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs text-gray-400">{saturation}%</span>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Templates */}
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-              Template Style
-            </label>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {[
-                { id: "bottom-overlay", name: "Bottom" },
-                { id: "center-box", name: "Center" },
-                { id: "corner", name: "Corner" },
-              ].map((template) => (
+        {activeTab === "stickers" && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Add Stickers</h3>
+            
+            <div className="grid grid-cols-4 gap-3">
+              {availableStickers.map((sticker) => (
                 <button
-                  key={template.id}
-                  onClick={() => setSelectedTemplate(template.id)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.5rem",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    background: selectedTemplate === template.id ? "#10B981" : "rgba(255,255,255,0.1)",
-                    color: "white",
-                    cursor: "pointer",
-                    fontSize: "0.875rem",
-                  }}
+                  key={sticker}
+                  onClick={() => addSticker(sticker)}
+                  className="p-4 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-2xl"
                 >
-                  {template.name}
+                  {sticker}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Text Position */}
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-              Position
-            </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+            {stickers.length > 0 && (
               <div>
-                <label style={{ fontSize: "0.75rem", opacity: 0.7 }}>Horizontal: {textPosition.x}%</label>
+                <h4 className="text-md font-semibold mb-3">Active Stickers</h4>
+                <div className="space-y-2">
+                  {stickers.map((sticker) => (
+                    <div key={sticker.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                      <span className="text-xl">{sticker.emoji}</span>
+                      <button
+                        onClick={() => removeSticker(sticker.id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "canvas" && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Canvas Tools</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Text Overlay</label>
                 <input
-                  type="range"
-                  min="10"
-                  max="90"
-                  value={textPosition.x}
-                  onChange={(e) => setTextPosition({ ...textPosition, x: Number(e.target.value) })}
-                  style={{
-                    width: "100%",
-                    height: "4px",
-                    borderRadius: "2px",
-                    background: "rgba(255,255,255,0.2)",
-                    outline: "none",
-                  }}
+                  type="text"
+                  placeholder="Add text..."
+                  className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white"
                 />
               </div>
+
               <div>
-                <label style={{ fontSize: "0.75rem", opacity: 0.7 }}>Vertical: {textPosition.y}%</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="90"
-                  value={textPosition.y}
-                  onChange={(e) => setTextPosition({ ...textPosition, y: Number(e.target.value) })}
-                  style={{
-                    width: "100%",
-                    height: "4px",
-                    borderRadius: "2px",
-                    background: "rgba(255,255,255,0.2)",
-                    outline: "none",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Send Modal */}
-      {showSendModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-            padding: "1rem",
-          }}
-        >
-          <div
-            style={{
-              background: "#1F2937",
-              borderRadius: "1rem",
-              padding: "2rem",
-              width: "100%",
-              maxWidth: "400px",
-              color: "white",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.25rem" }}>Send Postcard</h3>
-
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1234567890"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  fontSize: "1rem",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
-                Custom Message (Optional)
-              </label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Add a personal message..."
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  fontSize: "1rem",
-                  resize: "vertical",
-                  minHeight: "80px",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <button
-                onClick={() => setShowSendModal(false)}
-                disabled={isSending}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "transparent",
-                  color: "white",
-                  cursor: isSending ? "not-allowed" : "pointer",
-                  opacity: isSending ? 0.5 : 1,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={isSending || !phoneNumber.trim()}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: isSending || !phoneNumber.trim() ? "#6B7280" : "#10B981",
-                  color: "white",
-                  cursor: isSending || !phoneNumber.trim() ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                {isSending ? (
-                  <>
-                    <div
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        border: "2px solid rgba(255,255,255,0.3)",
-                        borderTop: "2px solid white",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
-                      }}
+                <label className="block text-sm mb-2">Text Color</label>
+                <div className="flex gap-2">
+                  {["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"].map((color) => (
+                    <button
+                      key={color}
+                      className="w-8 h-8 rounded-full border-2 border-gray-600"
+                      style={{ backgroundColor: color }}
                     />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Send
-                  </>
-                )}
-              </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-2">Text Size</label>
+                <input
+                  type="range"
+                  min="12"
+                  max="72"
+                  defaultValue="24"
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+        )}
+      </div>
     </div>
   )
 }
