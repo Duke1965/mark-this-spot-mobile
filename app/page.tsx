@@ -177,7 +177,7 @@ export default function PINITApp() {
       }
 
       const data = await response.json()
-      
+
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
         const closestPlace = data.results[0]
@@ -498,8 +498,8 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      // Go to platform selection
-      setCurrentScreen("platform-select")
+      // Go to editor first
+      setCurrentScreen("editor")
     },
     [location, getRealLocationName],
   )
@@ -987,12 +987,12 @@ export default function PINITApp() {
             background: "transparent",
             color: discoveryMode ? "#6B7280" : "white",
             cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
             transition: "color 0.2s ease",
-          }}
-        >
+              }}
+            >
           🌐
         </button>
       </div>
