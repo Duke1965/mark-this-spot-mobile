@@ -108,19 +108,19 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Preview */}
-      <div className="bg-gray-800 p-4 flex items-center justify-center relative">
-        <div className="max-w-sm max-h-64 rounded-lg overflow-hidden relative">
+      <div className="bg-gray-800 p-2 flex items-center justify-center relative">
+        <div className="w-32 h-32 rounded-lg overflow-hidden relative">
           {mediaType === "photo" ? (
             <img
               src={mediaUrl}
               alt="Preview"
-              className="w-full h-full object-contain transition-all duration-300"
+              className="w-full h-full object-cover transition-all duration-300"
               style={{ filter: generateFilterString() }}
             />
           ) : (
             <video
               src={mediaUrl}
-              className="w-full h-full object-contain transition-all duration-300"
+              className="w-full h-full object-cover transition-all duration-300"
               style={{ filter: generateFilterString() }}
               controls
               muted
@@ -139,7 +139,7 @@ export function MobilePostcardEditor({
               }}
               onClick={() => removeSticker(sticker.id)}
             >
-              <span className="text-2xl">{sticker.emoji}</span>
+              <span className="text-lg">{sticker.emoji}</span>
             </div>
           ))}
         </div>
