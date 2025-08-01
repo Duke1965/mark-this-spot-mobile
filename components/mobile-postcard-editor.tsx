@@ -146,12 +146,23 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-black/30 border-b border-white/10">
+      <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
         <button
           onClick={() => setActiveTab("effects")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "effects" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "effects" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "effects" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Wand2 size={18} />
           Effects
@@ -159,9 +170,20 @@ export function MobilePostcardEditor({
 
         <button
           onClick={() => setActiveTab("stickers")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "stickers" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "stickers" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "stickers" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Sticker size={18} />
           Stickers
@@ -169,9 +191,20 @@ export function MobilePostcardEditor({
 
         <button
           onClick={() => setActiveTab("canvas")}
-          className={`flex-1 p-3 flex items-center justify-center gap-2 transition-colors text-sm font-medium ${
-            activeTab === "canvas" ? "bg-white/20 text-white" : "text-white/70 hover:text-white"
-          }`}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "canvas" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "canvas" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
         >
           <Palette size={18} />
           Canvas
@@ -179,22 +212,26 @@ export function MobilePostcardEditor({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 bg-black/20 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto" style={{backgroundColor: 'rgba(0,0,0,0.2)'}}>
         {activeTab === "effects" && (
           <div className="space-y-6">
                          {/* Filters */}
              <div>
-               <h3 className="text-base font-semibold mb-3 text-white">Filters</h3>
-               <div className="grid grid-cols-3 gap-2">
+               <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'white'}}>Filters</h3>
+               <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px'}}>
                  {filters.map((filter) => (
                    <button
                      key={filter.name}
                      onClick={() => setSelectedFilter(filter.name)}
-                     className={`p-2 rounded-lg border transition-colors text-sm ${
-                       selectedFilter === filter.name
-                         ? "border-white bg-white/20 text-white"
-                         : "border-white/30 text-white/70 hover:border-white/50 hover:text-white"
-                     }`}
+                     style={{
+                       padding: '8px',
+                       borderRadius: '8px',
+                       border: selectedFilter === filter.name ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                       backgroundColor: selectedFilter === filter.name ? 'rgba(255,255,255,0.2)' : 'transparent',
+                       color: selectedFilter === filter.name ? 'white' : 'rgba(255,255,255,0.7)',
+                       fontSize: '14px',
+                       cursor: 'pointer'
+                     }}
                    >
                      {filter.label}
                    </button>
