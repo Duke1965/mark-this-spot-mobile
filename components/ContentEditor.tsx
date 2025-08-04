@@ -77,8 +77,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
-        fontSize: "24px",
-        zIndex: isDragging ? 1000 : 1,
+              fontSize: "48px", // Much larger for easier dragging
+      zIndex: isDragging ? 1000 : 1,
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
