@@ -505,8 +505,36 @@ export default function PINITApp() {
 
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
-    setCurrentScreen("platform-select")
-  }, [])
+    // Proceed to save/share the pin with the selected platform
+    if (capturedMedia && location) {
+      // Fetch location photo for the pin
+      fetchLocationPhoto(location.latitude, location.longitude).then((locationPhoto) => {
+        const newPin: PinData = {
+          id: Date.now().toString(),
+          latitude: location.latitude,
+          longitude: location.longitude,
+          locationName: capturedMedia.location,
+          mediaUrl: capturedMedia.url,
+          mediaType: capturedMedia.type,
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${platform} Post`,
+          description: "",
+          tags: ["social-media", platform],
+          googlePlaceId: locationPhoto ? "location-photo" : undefined,
+        }
+
+        addPin(newPin)
+        console.log("💾 Pin saved:", newPin)
+
+        setLastActivity("pin-saved")
+        // Reset state and go back to map
+        setCapturedMedia(null)
+        setSelectedPlatform("")
+        setCurrentScreen("map")
+      })
+    }
+  }, [capturedMedia, location, addPin])
 
   const handleSavePin = useCallback(
     async (postcardData?: any) => {
