@@ -71,13 +71,15 @@ const platforms = [
 
 export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, onBack }: SocialPlatformSelectorProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
+  
+  // Photo positioning state
+  const [photoScale, setPhotoScale] = useState(1)
+  const [photoPosition, setPhotoPosition] = useState({ x: 0, y: 0 })
+  const [showPositioning, setShowPositioning] = useState(false)
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatform(platformId)
-    // Small delay for visual feedback
-    setTimeout(() => {
-      onPlatformSelect(platformId)
-    }, 200)
+    setShowPositioning(true) // Show positioning controls after platform selection
   }
 
   return (
@@ -124,7 +126,7 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
         <div style={{ width: "48px" }} /> {/* Spacer */}
       </div>
 
-      {/* Media Preview */}
+      {/* Enhanced Media Preview with Positioning */}
       <div
         style={{
           padding: "1rem",
@@ -135,11 +137,13 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
       >
         <div
           style={{
-            width: "120px",
-            height: "120px",
+            width: selectedPlatform ? "200px" : "120px",
+            height: selectedPlatform ? "200px" : "120px",
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
+            position: "relative",
+            transition: "all 0.3s ease",
           }}
         >
           {mediaType === "photo" ? (
@@ -150,6 +154,8 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                transform: `scale(${photoScale}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
+                transition: "transform 0.2s ease",
               }}
             />
           ) : (
@@ -159,6 +165,8 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                transform: `scale(${photoScale}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
+                transition: "transform 0.2s ease",
               }}
               muted
               autoPlay
@@ -167,6 +175,142 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
           )}
         </div>
       </div>
+
+      {/* Photo Positioning Controls */}
+      {showPositioning && selectedPlatform && (
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(0,0,0,0.2)",
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "600" }}>
+            Position Your Photo
+          </h3>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+                Zoom: {Math.round(photoScale * 100)}%
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value={photoScale}
+                onChange={(e) => setPhotoScale(Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  height: "6px",
+                  borderRadius: "3px",
+                  background: "rgba(255,255,255,0.3)",
+                  outline: "none",
+                  WebkitAppearance: "none",
+                  appearance: "none",
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+                Move Photo
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => setPhotoPosition({ ...photoPosition, x: photoPosition.x - 10 })}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => setPhotoPosition({ ...photoPosition, x: photoPosition.x + 10 })}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  →
+                </button>
+                <button
+                  onClick={() => setPhotoPosition({ ...photoPosition, y: photoPosition.y - 10 })}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => setPhotoPosition({ ...photoPosition, y: photoPosition.y + 10 })}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+            <button
+              onClick={() => {
+                setPhotoScale(1)
+                setPhotoPosition({ x: 0, y: 0 })
+              }}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "0.25rem",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => onPlatformSelect(selectedPlatform)}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "0.25rem",
+                border: "none",
+                background: "#10B981",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: "600",
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Platform Grid */}
       <div
