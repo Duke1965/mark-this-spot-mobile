@@ -306,7 +306,7 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
                 fontWeight: "600",
               }}
             >
-              Continue
+              Next
             </button>
           </div>
         </div>
