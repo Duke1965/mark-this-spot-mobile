@@ -14,7 +14,8 @@ interface ContentEditorProps {
 
 interface Sticker {
   id: string
-  emoji: string
+  emoji: string // This will store the image URL
+  name: string
   x: number
   y: number
   scale: number
@@ -77,15 +78,25 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
-              fontSize: "48px", // Much larger for easier dragging
+                    fontSize: "48px", // Much larger for easier dragging
       zIndex: isDragging ? 1000 : 1,
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onDoubleClick={onRemove}
-    >
-      {sticker.emoji}
+    }}
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+    onDoubleClick={onRemove}
+  >
+    <img 
+      src={sticker.emoji} 
+      alt={sticker.name}
+      style={{ 
+        width: "48px", 
+        height: "48px", 
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "none"
+      }} 
+    />
       <button
         onClick={handleRotate}
         style={{
@@ -161,23 +172,43 @@ function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
 }
 
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
+  // Available stickers (comic stickers from GitHub)
+  const availableStickers = [
+    // Old School stickers
+    { id: "1", imageUrl: "/stickers/Old-schoolwish-you-were-here.png", name: "Wish You Were Here", category: "old-school" },
+    { id: "2", imageUrl: "/stickers/Old-schoollegendary-vacay.png", name: "Legendary Vacay", category: "old-school" },
+    { id: "3", imageUrl: "/stickers/Old-schoolexploring.png", name: "Exploring!", category: "old-school" },
+    { id: "4", imageUrl: "/stickers/Old-schoolday-trip.png", name: "Day Trip", category: "old-school" },
+    { id: "5", imageUrl: "/stickers/Old-schooladventure-time.png", name: "Adventure Time!", category: "old-school" },
+    { id: "6", imageUrl: "/stickers/Old-schoollove-this.png", name: "Love This", category: "old-school" },
+    
+    // New stickers
+    { id: "7", imageUrl: "/stickers/Newwish-you-were-here.png", name: "Wish You Were Here", category: "new" },
+    { id: "8", imageUrl: "/stickers/Newlegendary-vacay.png", name: "Legendary Vacay", category: "new" },
+    { id: "9", imageUrl: "/stickers/Newexploring.png", name: "Exploring!", category: "new" },
+    { id: "10", imageUrl: "/stickers/Newday-trip.png", name: "Day Trip", category: "new" },
+    { id: "11", imageUrl: "/stickers/Newadventure-time.png", name: "Adventure Time!", category: "new" },
+    { id: "12", imageUrl: "/stickers/Newlove-this.png", name: "Love This", category: "new" },
+  ]
+
   const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
+  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [textOverlay, setTextOverlay] = useState("")
   const [textStyle, setTextStyle] = useState("bold")
 
-  // Available stickers (placeholder - you'll add your comic style stickers)
-  const availableStickers = [
-    "😊", "😍", "🤩", "😎", "🥳", "😂", "❤️", "💙", "💚", "💛", "🧡", "💜",
-    "🌟", "⭐", "🌙", "☀️", "🌈", "🌸", "✈️", "🚗", "🏖️", "🏔️", "🗽", "📍",
-    "🎉", "🎊", "🎈", "🎁", "🎵", "⚽"
-  ]
+  // Filter stickers by category
+  const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
 
   // Add sticker
-  const addSticker = (emoji: string) => {
+  const addSticker = (stickerName: string) => {
+    const stickerData = availableStickers.find(s => s.name === stickerName)
+    if (!stickerData) return
+    
     const newSticker: Sticker = {
       id: Date.now().toString(),
-      emoji,
+      emoji: stickerData.imageUrl, // Store image URL instead of emoji
+      name: stickerData.name,
       x: Math.random() * 100,
       y: Math.random() * 100,
       scale: 1,
@@ -381,22 +412,70 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
               Add Stickers
             </h3>
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px'}}>
-              {availableStickers.map((emoji, index) => (
+            
+            {/* Sticker Category Tabs */}
+            <div style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
+              <button
+                onClick={() => setStickerCategory("old-school")}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: stickerCategory === "old-school" ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                  background: stickerCategory === "old-school" ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Old School
+              </button>
+              <button
+                onClick={() => setStickerCategory("new")}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: stickerCategory === "new" ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                  background: stickerCategory === "new" ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                New
+              </button>
+            </div>
+            
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px'}}>
+              {filteredStickers.map((sticker, index) => (
                 <button
-                  key={index}
-                  onClick={() => addSticker(emoji)}
+                  key={sticker.id}
+                  onClick={() => addSticker(sticker.name)}
                   style={{
-                    padding: '12px',
+                    padding: '8px',
                     borderRadius: '8px',
                     border: '1px solid rgba(255,255,255,0.3)',
                     background: 'rgba(255,255,255,0.1)',
                     color: 'white',
-                    fontSize: '20px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    aspectRatio: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
-                  {emoji}
+                  <img 
+                    src={sticker.imageUrl} 
+                    alt={sticker.name} 
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'contain',
+                      maxWidth: '40px',
+                      maxHeight: '40px'
+                    }} 
+                  />
                 </button>
               ))}
             </div>
