@@ -29,7 +29,7 @@ const platforms = [
     id: "facebook-post",
     name: "Facebook Post",
     icon: "👥",
-    dimensions: "16:9",
+    dimensions: "1.91:1",
     color: "#1877F2",
   },
   {
@@ -43,7 +43,7 @@ const platforms = [
     id: "linkedin-post",
     name: "LinkedIn Post",
     icon: "💼",
-    dimensions: "16:9",
+    dimensions: "1.91:1",
     color: "#0A66C2",
   },
   {
@@ -64,7 +64,7 @@ const platforms = [
     id: "whatsapp",
     name: "WhatsApp",
     icon: "💬",
-    dimensions: "1:1",
+    dimensions: "16:9",
     color: "#25D366",
   },
 ]
@@ -298,8 +298,8 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "0.25rem",
-                border: "none",
-                background: "#10B981",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.1)",
                 color: "white",
                 cursor: "pointer",
                 fontSize: "0.875rem",
