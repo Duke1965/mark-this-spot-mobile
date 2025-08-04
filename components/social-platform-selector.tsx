@@ -82,6 +82,8 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
     setShowPositioning(true) // Show positioning controls after platform selection
   }
 
+
+
   return (
     <div
       style={{
@@ -137,36 +139,67 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
       >
         <div
           style={{
-            width: selectedPlatform ? "200px" : "120px",
-            height: selectedPlatform ? "200px" : "120px",
+            width: selectedPlatform ? "90vw" : "120px",
+            height: selectedPlatform ? "50vh" : "120px",
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
             position: "relative",
             transition: "all 0.3s ease",
+            touchAction: "none", // Prevent default touch behaviors
+          }}
+          onTouchStart={(e) => {
+            if (!showPositioning) return
+            const touch = e.touches[0]
+            const rect = e.currentTarget.getBoundingClientRect()
+            const startX = touch.clientX - rect.left
+            const startY = touch.clientY - rect.top
+            e.currentTarget.setAttribute('data-start-x', startX.toString())
+            e.currentTarget.setAttribute('data-start-y', startY.toString())
+          }}
+          onTouchMove={(e) => {
+            if (!showPositioning) return
+            e.preventDefault()
+            const touch = e.touches[0]
+            const rect = e.currentTarget.getBoundingClientRect()
+            const currentX = touch.clientX - rect.left
+            const currentY = touch.clientY - rect.top
+            const startX = parseFloat(e.currentTarget.getAttribute('data-start-x') || '0')
+            const startY = parseFloat(e.currentTarget.getAttribute('data-start-y') || '0')
+            
+            const deltaX = currentX - startX
+            const deltaY = currentY - startY
+            
+            setPhotoPosition({
+              x: photoPosition.x + deltaX * 0.5,
+              y: photoPosition.y + deltaY * 0.5
+            })
+            
+            e.currentTarget.setAttribute('data-start-x', currentX.toString())
+            e.currentTarget.setAttribute('data-start-y', currentY.toString())
           }}
         >
           {mediaType === "photo" ? (
             <img
-              src={mediaUrl || "/placeholder.svg"}
-              alt="Captured media"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+              src={mediaUrl}
+              alt="Preview"
+              className="w-full h-auto object-cover transition-all duration-300"
+              style={{ 
                 transform: `scale(${photoScale}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
                 transition: "transform 0.2s ease",
+                userSelect: "none",
+                pointerEvents: "none"
               }}
             />
           ) : (
             <video
               src={mediaUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+              className="w-full h-auto object-cover transition-all duration-300"
+              style={{ 
                 transform: `scale(${photoScale}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
                 transition: "transform 0.2s ease",
+                userSelect: "none",
+                pointerEvents: "none"
               }}
               muted
               autoPlay
