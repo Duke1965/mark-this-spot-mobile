@@ -7,7 +7,6 @@ import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
-import { MobilePostcardEditor } from "@/components/mobile-postcard-editor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
@@ -506,7 +505,7 @@ export default function PINITApp() {
 
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
-    setCurrentScreen("editor")
+    setCurrentScreen("platform-select")
   }, [])
 
   const handleSavePin = useCallback(
@@ -799,17 +798,9 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "editor" && capturedMedia) {
-    return (
-      <MobilePostcardEditor
-        mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type}
-        platform={selectedPlatform || "instagram"} // Default to instagram if no platform selected
-        dimensions={getPlatformDimensions(selectedPlatform || "instagram")}
-        locationName={capturedMedia.location}
-        onSave={handleSavePin}
-        onClose={() => setCurrentScreen("map")}
-      />
-    )
+    // Redirect to social platform selector instead of photo editor
+    setCurrentScreen("platform-select")
+    return null
   }
 
 
