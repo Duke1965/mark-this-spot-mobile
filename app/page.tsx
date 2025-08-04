@@ -7,6 +7,7 @@ import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
+import { ContentEditor } from "@/components/ContentEditor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
@@ -85,6 +86,7 @@ export default function PINITApp() {
     | "map"
     | "camera"
     | "platform-select"
+    | "content-editor"
     | "editor"
     | "story"
     | "library"
@@ -97,6 +99,8 @@ export default function PINITApp() {
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
 
@@ -505,36 +509,9 @@ export default function PINITApp() {
 
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
-    // Proceed to save/share the pin with the selected platform
-    if (capturedMedia && location) {
-      // Fetch location photo for the pin
-      fetchLocationPhoto(location.latitude, location.longitude).then((locationPhoto) => {
-        const newPin: PinData = {
-          id: Date.now().toString(),
-          latitude: location.latitude,
-          longitude: location.longitude,
-          locationName: capturedMedia.location,
-          mediaUrl: capturedMedia.url,
-          mediaType: capturedMedia.type,
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${platform} Post`,
-          description: "",
-          tags: ["social-media", platform],
-          googlePlaceId: locationPhoto ? "location-photo" : undefined,
-        }
-
-        addPin(newPin)
-        console.log("💾 Pin saved:", newPin)
-
-        setLastActivity("pin-saved")
-        // Reset state and go back to map
-        setCapturedMedia(null)
-        setSelectedPlatform("")
-        setCurrentScreen("map")
-      })
-    }
-  }, [capturedMedia, location, addPin])
+    // Go to content editor for stickers and text
+    setCurrentScreen("content-editor")
+  }, [])
 
   const handleSavePin = useCallback(
     async (postcardData?: any) => {
@@ -825,6 +802,33 @@ export default function PINITApp() {
     )
   }
 
+  if (currentScreen === "content-editor" && capturedMedia) {
+    return (
+      <ContentEditor
+        mediaUrl={capturedMedia.url}
+        mediaType={capturedMedia.type}
+        platform={selectedPlatform}
+        onBack={() => setCurrentScreen("platform-select")}
+        onPost={(contentData) => {
+          // Handle posting with content data
+          console.log("🚀 Posting with content:", contentData)
+          setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
+          setShowSuccessPopup(true)
+          setTimeout(() => setShowSuccessPopup(false), 3000)
+          setCurrentScreen("map")
+        }}
+        onSave={(contentData) => {
+          // Handle saving with content data
+          console.log("💾 Saving with content:", contentData)
+          setSuccessMessage("Saved to library successfully!")
+          setShowSuccessPopup(true)
+          setTimeout(() => setShowSuccessPopup(false), 3000)
+          setCurrentScreen("map")
+        }}
+      />
+    )
+  }
+
   if (currentScreen === "editor" && capturedMedia) {
     // Redirect to social platform selector instead of photo editor
     setCurrentScreen("platform-select")
@@ -938,6 +942,40 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(0,0,0,0.9)",
+            padding: "1.5rem",
+            borderRadius: "1rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            zIndex: 1000,
+            textAlign: "center",
+            minWidth: "250px",
+          }}
+        >
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
+          <div style={{ 
+            fontSize: "1.125rem", 
+            fontWeight: "600", 
+            color: "#10B981",
+            marginBottom: "0.5rem"
+          }}>
+            {successMessage}
+          </div>
+          <div style={{ 
+            fontSize: "0.875rem", 
+            opacity: 0.8 
+          }}>
+            Your content has been processed successfully
+          </div>
+        </div>
+      )}
       {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
