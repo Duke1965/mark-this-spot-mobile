@@ -21,6 +21,145 @@ interface Sticker {
   rotation: number
 }
 
+interface DraggableStickerProps {
+  sticker: Sticker
+  onUpdate: (updates: Partial<Sticker>) => void
+  onRemove: () => void
+}
+
+interface DraggableTextProps {
+  text: string
+  style: string
+  onUpdate: (updates: any) => void
+}
+
+function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    if (!isDragging) return
+    const touch = e.touches[0]
+    onUpdate({
+      x: touch.clientX - startPos.x,
+      y: touch.clientY - startPos.y
+    })
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
+  const handleRotate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI
+    onUpdate({ rotation: angle })
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: sticker.x,
+        top: sticker.y,
+        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+        fontSize: "24px",
+        zIndex: isDragging ? 1000 : 1,
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onDoubleClick={onRemove}
+    >
+      {sticker.emoji}
+      <button
+        onClick={handleRotate}
+        style={{
+          position: "absolute",
+          top: "-20px",
+          right: "-20px",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: "rgba(0,0,0,0.8)",
+          color: "white",
+          border: "none",
+          fontSize: "12px",
+          cursor: "pointer",
+        }}
+      >
+        🔄
+      </button>
+    </div>
+  )
+}
+
+function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
+  const [position, setPosition] = useState({ x: 10, y: 10 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    if (!isDragging) return
+    const touch = e.touches[0]
+    setPosition({
+      x: touch.clientX - startPos.x,
+      y: touch.clientY - startPos.y
+    })
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: position.x,
+        top: position.y,
+        fontSize: style === "bold" ? "16px" : "14px",
+        fontWeight: style === "bold" ? "bold" : "normal",
+        color: "white",
+        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+        zIndex: isDragging ? 1000 : 1,
+        maxWidth: "calc(100% - 20px)",
+        wordWrap: "break-word",
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {text}
+    </div>
+  )
+}
+
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
   const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
   const [stickers, setStickers] = useState<Sticker[]>([])
@@ -131,12 +270,13 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       >
         <div
           style={{
-            width: "200px",
-            height: "200px",
+            width: "90vw",
+            height: "50vh",
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
             position: "relative",
+            touchAction: "none",
           }}
         >
           {mediaType === "photo" ? (
@@ -163,39 +303,30 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             />
           )}
           
-          {/* Stickers Overlay */}
+          {/* Draggable Stickers Overlay */}
           {stickers.map((sticker) => (
-            <div
+            <DraggableSticker
               key={sticker.id}
-              className="absolute cursor-move select-none"
-              style={{
-                left: sticker.x,
-                top: sticker.y,
-                transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+              sticker={sticker}
+              onUpdate={(updates) => {
+                setStickers(stickers.map(s => 
+                  s.id === sticker.id ? { ...s, ...updates } : s
+                ))
               }}
-              onClick={() => removeSticker(sticker.id)}
-            >
-              <span className="text-sm">{sticker.emoji}</span>
-            </div>
+              onRemove={() => removeSticker(sticker.id)}
+            />
           ))}
 
-          {/* Text Overlay */}
+          {/* Draggable Text Overlay */}
           {textOverlay && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "10px",
-                left: "10px",
-                right: "10px",
-                textAlign: "center",
-                fontSize: textStyle === "bold" ? "16px" : "14px",
-                fontWeight: textStyle === "bold" ? "bold" : "normal",
-                color: "white",
-                textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+            <DraggableText
+              text={textOverlay}
+              style={textStyle}
+              onUpdate={(updates) => {
+                // Update text position if needed
+                console.log("Text position updated:", updates)
               }}
-            >
-              {textOverlay}
-            </div>
+            />
           )}
         </div>
       </div>
