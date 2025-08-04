@@ -130,7 +130,7 @@ export default function PINITApp() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
   // Hooks
-  const { location, getCurrentLocation, isLoading: locationLoading } = useLocationServices()
+  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
@@ -140,6 +140,42 @@ export default function PINITApp() {
       setPins(storedPins)
     }
   }, [storedPins])
+
+  // Continuous location watching
+  useEffect(() => {
+    let watchId: number | null = null
+
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      // Start watching location continuously
+      watchId = watchLocation({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000, // 30 seconds - more frequent updates
+      })
+
+      // Cleanup function
+      return () => {
+        if (watchId !== null) {
+          clearWatch(watchId)
+        }
+      }
+    }
+  }, [watchLocation, clearWatch])
+
+  // Update userLocation when location changes
+  useEffect(() => {
+    if (location) {
+      setUserLocation({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })
+      
+      // Update location name when location changes
+      getLocationName(location.latitude, location.longitude).then((name) => {
+        setLocationName(name)
+      })
+    }
+  }, [location])
 
   const addPin = useCallback((pin: PinData) => {
     setPins((prev: PinData[]) => [...prev, pin])
@@ -222,33 +258,6 @@ export default function PINITApp() {
       }
     }
   }
-
-  // Get current location on mount and resolve name
-  useEffect(() => {
-    getCurrentLocation().then(async (loc) => {
-      if (loc) {
-        const name = await getLocationName(loc.latitude, loc.longitude)
-        setLocationName(name)
-      }
-    })
-  }, [getCurrentLocation])
-
-  // Add this useEffect right after the existing useEffect for location name
-  useEffect(() => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        })
-      },
-      (err) => {
-        console.error("Failed to get location:", err)
-      },
-    )
-    }
-  }, [])
 
   // Google Places API Integration
   const fetchNearbyPlaces = useCallback(async (lat: number, lng: number): Promise<PinData[]> => {
