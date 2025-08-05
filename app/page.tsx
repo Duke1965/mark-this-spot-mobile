@@ -208,19 +208,38 @@ export default function PINITApp() {
     try {
       console.log("📍 Fetching location name for:", lat, lng)
       
-      // Use our API route instead of calling Google Maps directly
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
+      // Try Google Geocoding API directly from frontend
+      const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
       
-      if (!response.ok) {
+      console.log("📍 Calling Google Geocoding API directly:", geocodingUrl)
+      
+      const response = await fetch(geocodingUrl)
+      const data = await response.json()
+      
+      console.log("📍 Google Geocoding API response:", JSON.stringify(data, null, 2))
+
+      if (data.status === "OK" && data.results && data.results.length > 0) {
+        const result = data.results[0]
+        const locationName = result.formatted_address.split(',')[0] // Get the first part of the address
+        
+        console.log("📍 Real location name from Google:", locationName)
+        return locationName
+      }
+
+      // If Google API fails, fall back to our API
+      console.log("📍 Google API failed, trying our API...")
+      const apiResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
+      
+      if (!apiResponse.ok) {
         throw new Error("Failed to fetch location data")
       }
 
-      const data = await response.json()
-      console.log("📍 API response:", JSON.stringify(data, null, 2))
+      const apiData = await apiResponse.json()
+      console.log("📍 Our API response:", JSON.stringify(apiData, null, 2))
 
-      if (data.results && data.results.length > 0) {
+      if (apiData.results && apiData.results.length > 0) {
         // Get the closest place (first result)
-        const closestPlace = data.results[0]
+        const closestPlace = apiData.results[0]
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
         
