@@ -84,7 +84,6 @@ export function useLocationServices() {
 
   const watchLocation = useCallback((options?: PositionOptions): number => {
     if (!navigator.geolocation) {
-      console.log("❌ Geolocation not supported by browser")
       setError({
         code: 0,
         message: "Geolocation is not supported by this browser",
@@ -92,18 +91,15 @@ export function useLocationServices() {
       return -1
     }
 
-    console.log("📍 Starting location watch...")
-    
     const defaultOptions: PositionOptions = {
-      enableHighAccuracy: false, // Try low accuracy first
-      timeout: 15000, // Increase timeout to 15 seconds
+      enableHighAccuracy: true,
+      timeout: 10000,
       maximumAge: 60000, // 1 minute for watch
       ...options,
     }
 
     return navigator.geolocation.watchPosition(
       (position) => {
-        console.log("📍 Location received:", position.coords.latitude, position.coords.longitude)
         const locationData: LocationData = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -115,7 +111,6 @@ export function useLocationServices() {
         setError(null)
       },
       (geoError) => {
-        console.log("❌ Location error:", geoError.code, geoError.message)
         const error: LocationError = {
           code: geoError.code,
           message: getErrorMessage(geoError.code),
