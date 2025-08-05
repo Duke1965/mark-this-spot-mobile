@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 // Generate location name based on coordinates
 const getLocationNameFromCoords = (lat: number, lng: number) => {
   // South Africa location mapping - more precise ranges
-  if (lat > -34.1 && lat < -33.9 && lng > 18.9 && lng < 19.1) {
+  if (lat > -34.05 && lat < -34.04 && lng > 18.77 && lng < 18.78) {
     return "Riebeek West"
   } else if (lat > -34.2 && lat < -33.8 && lng > 18.7 && lng < 18.9) {
     return "Malmesbury"
