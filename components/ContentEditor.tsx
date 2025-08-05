@@ -31,8 +31,8 @@ interface ContentEditorProps {
   mediaType: 'image' | 'video';
   platform: string;
   onBack: () => void;
-  onPost: () => void;
-  onSave: () => void;
+  onPost: (contentData?: any) => void;
+  onSave: (contentData?: any) => void;
 }
 
 interface DraggableStickerProps {
@@ -401,11 +401,25 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   const handlePost = () => {
-    onPost();
+    const contentData = {
+      stickers,
+      textOverlays,
+      mediaUrl,
+      mediaType,
+      platform
+    };
+    onPost(contentData);
   };
 
   const handleSave = () => {
-    onSave();
+    const contentData = {
+      stickers,
+      textOverlays,
+      mediaUrl,
+      mediaType,
+      platform
+    };
+    onSave(contentData);
   };
 
   const oldSchoolStickers = availableStickers.filter(s => s.category === 'old-school');
