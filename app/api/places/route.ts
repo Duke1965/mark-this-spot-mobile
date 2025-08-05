@@ -90,7 +90,9 @@ export async function GET(request: NextRequest) {
     const response = await fetch(placesUrl)
     const data = await response.json()
 
-    if (!response.ok) {
+    // Check if the API returned an error status
+    if (!response.ok || data.status === "REQUEST_DENIED" || data.status === "ZERO_RESULTS") {
+      console.log("❌ Google Places API error, falling back to mock data:", data.status, data.error_message)
       throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
     }
 
