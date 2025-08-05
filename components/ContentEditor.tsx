@@ -152,11 +152,25 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         ×
       </button>
       
-      {/* Rotate button - always visible */}
-      <button
-        onClick={(e) => {
+      {/* Draggable rotate handle */}
+      <div
+        onTouchStart={(e) => {
           e.stopPropagation()
-          onUpdate({ rotation: sticker.rotation + 45 }) // Rotate by 45 degrees each click
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
         }}
         style={{
           position: "absolute",
@@ -169,15 +183,17 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
           border: "2px solid white",
           color: "white",
           fontSize: "12px",
-          cursor: "pointer",
+          cursor: "grab",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           zIndex: 1001,
+          userSelect: "none",
+          touchAction: "none",
         }}
       >
         🔄
-      </button>
+      </div>
       
       <img 
         src={sticker.emoji} 
