@@ -206,7 +206,7 @@ export default function PINITApp() {
   // Get real location name from Google Places API
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
-      console.log("📍 Fetching real location name...")
+      console.log("📍 Fetching real location name for:", lat, lng)
       
       // Use our API route instead of calling Google Maps directly
       const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
@@ -216,12 +216,15 @@ export default function PINITApp() {
       }
 
       const data = await response.json()
+      console.log("📍 API response:", data)
 
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
         const closestPlace = data.results[0]
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
+        
+        console.log("📍 Found place:", placeName, "vicinity:", vicinity)
         
         // Combine place name with vicinity for better context
         if (vicinity && !placeName.includes(vicinity)) {
