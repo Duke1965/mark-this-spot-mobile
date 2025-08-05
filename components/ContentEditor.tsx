@@ -212,28 +212,80 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
 
 function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
   const [position, setPosition] = useState({ x: 10, y: 10 })
+  const [scale, setScale] = useState(1)
+  const [rotation, setRotation] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const [initialDistance, setInitialDistance] = useState(0)
+  const [initialScale, setInitialScale] = useState(1)
+  const [initialRotation, setInitialRotation] = useState(0)
+
+  const getDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getAngle = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.atan2(dy, dx) * 180 / Math.PI
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault()
-    const touch = e.touches[0]
-    setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
-    setIsDragging(true)
+    
+    if (e.touches.length === 1) {
+      // Single finger - drag
+      const touch = e.touches[0]
+      setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+      setIsDragging(true)
+    } else if (e.touches.length === 2) {
+      // Two fingers - scale and rotate
+      setInitialDistance(getDistance(e.touches))
+      setInitialScale(scale)
+      setInitialRotation(rotation)
+    }
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault()
-    if (!isDragging) return
-    const touch = e.touches[0]
-    setPosition({
-      x: touch.clientX - startPos.x,
-      y: touch.clientY - startPos.y
-    })
+    
+    if (e.touches.length === 1 && isDragging) {
+      // Single finger drag
+      const touch = e.touches[0]
+      const newPosition = {
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
+      }
+      setPosition(newPosition)
+      onUpdate(newPosition)
+    } else if (e.touches.length === 2) {
+      // Two finger scale and rotate simultaneously
+      const currentDistance = getDistance(e.touches)
+      const currentAngle = getAngle(e.touches)
+      
+      if (initialDistance > 0) {
+        // Calculate scale
+        const scaleChange = currentDistance / initialDistance
+        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
+        setScale(newScale)
+        
+        // Calculate rotation (simplified for better performance)
+        const angleDiff = currentAngle - getAngle(e.touches)
+        const newRotation = initialRotation + angleDiff
+        setRotation(newRotation)
+        
+        onUpdate({ scale: newScale, rotation: newRotation })
+      }
+    }
   }
 
   const handleTouchEnd = () => {
     setIsDragging(false)
+    setInitialDistance(0)
   }
 
   return (
@@ -242,6 +294,7 @@ function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
         position: "absolute",
         left: position.x,
         top: position.y,
+        transform: `scale(${scale}) rotate(${rotation}deg)`,
         fontSize: style === "bold" ? "16px" : "14px",
         fontWeight: style === "bold" ? "bold" : "normal",
         color: "white",
@@ -252,11 +305,83 @@ function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
         zIndex: isDragging ? 1000 : 1,
         maxWidth: "calc(100% - 20px)",
         wordWrap: "break-word",
+        padding: "20px", // Bigger touch area
+        margin: "-20px", // Compensate for padding
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* X button for removal */}
+      <button
+        onClick={() => onUpdate({ remove: true })}
+        style={{
+          position: "absolute",
+          top: "-10px",
+          right: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(255, 0, 0, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "14px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+        }}
+      >
+        ×
+      </button>
+      
+      {/* Draggable rotate handle */}
+      <div
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
+        style={{
+          position: "absolute",
+          top: "-10px",
+          left: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(0, 0, 255, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "12px",
+          cursor: "grab",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+          userSelect: "none",
+          touchAction: "none",
+        }}
+      >
+        🔄
+      </div>
+      
       {text}
     </div>
   )
@@ -488,8 +613,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             />
           )}
           
-          {/* Draggable Stickers Overlay */}
-          {stickers.map((sticker) => (
+          {/* Draggable Stickers Overlay - Only active when stickers tab is selected */}
+          {activeTab === "stickers" && stickers.map((sticker) => (
             <DraggableSticker
               key={sticker.id}
               sticker={sticker}
@@ -502,14 +627,18 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             />
           ))}
 
-          {/* Draggable Text Overlay */}
-          {textOverlay && (
+          {/* Draggable Text Overlay - Only active when text tab is selected */}
+          {activeTab === "text" && textOverlay && (
             <DraggableText
               text={textOverlay}
               style={textStyle}
               onUpdate={(updates) => {
-                // Update text position if needed
-                console.log("Text position updated:", updates)
+                if (updates.remove) {
+                  setTextOverlay("")
+                } else {
+                  // Update text position, scale, rotation
+                  console.log("Text updated:", updates)
+                }
               }}
             />
           )}
