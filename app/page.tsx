@@ -216,7 +216,7 @@ export default function PINITApp() {
       }
 
       const data = await response.json()
-      console.log("📍 API response:", data)
+      console.log("📍 API response:", JSON.stringify(data, null, 2))
 
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
