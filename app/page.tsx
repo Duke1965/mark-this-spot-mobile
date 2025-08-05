@@ -7,7 +7,7 @@ import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
-import ContentEditor from "@/components/ContentEditor"
+import { ContentEditor } from "@/components/ContentEditor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
 
@@ -811,11 +811,11 @@ export default function PINITApp() {
     )
   }
 
-  if (currentScreen === "content-editor" && capturedMedia) {
+  if (currentScreen === "content-editor" && capturedMedia && selectedPlatform) {
     return (
       <ContentEditor
         mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type === 'photo' ? 'image' : 'video'}
+        mediaType={capturedMedia.type}
         platform={selectedPlatform}
         onBack={() => setCurrentScreen("platform-select")}
         onPost={(contentData) => {
