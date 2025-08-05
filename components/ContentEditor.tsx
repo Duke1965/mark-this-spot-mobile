@@ -37,35 +37,73 @@ interface DraggableTextProps {
 function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const [initialDistance, setInitialDistance] = useState(0)
+  const [initialScale, setInitialScale] = useState(1)
+  const [initialRotation, setInitialRotation] = useState(0)
+
+  const getDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getAngle = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.atan2(dy, dx) * 180 / Math.PI
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault()
-    const touch = e.touches[0]
-    setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
-    setIsDragging(true)
+    
+    if (e.touches.length === 1) {
+      // Single finger - drag
+      const touch = e.touches[0]
+      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+      setIsDragging(true)
+    } else if (e.touches.length === 2) {
+      // Two fingers - scale and rotate
+      setInitialDistance(getDistance(e.touches))
+      setInitialScale(sticker.scale)
+      setInitialRotation(sticker.rotation)
+    }
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault()
-    if (!isDragging) return
-    const touch = e.touches[0]
-    onUpdate({
-      x: touch.clientX - startPos.x,
-      y: touch.clientY - startPos.y
-    })
+    
+    if (e.touches.length === 1 && isDragging) {
+      // Single finger drag
+      const touch = e.touches[0]
+      onUpdate({
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
+      })
+    } else if (e.touches.length === 2) {
+      // Two finger scale and rotate
+      const currentDistance = getDistance(e.touches)
+      const currentAngle = getAngle(e.touches)
+      
+      if (initialDistance > 0) {
+        const scaleChange = currentDistance / initialDistance
+        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
+        
+        const rotationChange = currentAngle - (getAngle(e.touches) - initialRotation)
+        const newRotation = initialRotation + rotationChange
+        
+        onUpdate({
+          scale: newScale,
+          rotation: newRotation
+        })
+      }
+    }
   }
 
   const handleTouchEnd = () => {
     setIsDragging(false)
-  }
-
-  const handleRotate = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const rect = e.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI
-    onUpdate({ rotation: angle })
+    setInitialDistance(0)
   }
 
   return (
@@ -78,43 +116,49 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
-                    fontSize: "96px", // 2x bigger for easier dragging
-      zIndex: isDragging ? 1000 : 1,
-    }}
-    onTouchStart={handleTouchStart}
-    onTouchMove={handleTouchMove}
-    onTouchEnd={handleTouchEnd}
-    onDoubleClick={onRemove}
-  >
-    <img 
-      src={sticker.emoji} 
-      alt={sticker.name}
-      style={{ 
-        width: "96px", 
-        height: "96px", 
-        objectFit: "contain",
-        userSelect: "none",
-        pointerEvents: "none"
-      }} 
-    />
+        fontSize: "96px",
+        zIndex: isDragging ? 1000 : 1,
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* X button for removal */}
       <button
-        onClick={handleRotate}
+        onClick={onRemove}
         style={{
           position: "absolute",
-          top: "-20px",
-          right: "-20px",
-          width: "20px",
-          height: "20px",
+          top: "-10px",
+          right: "-10px",
+          width: "24px",
+          height: "24px",
           borderRadius: "50%",
-          background: "rgba(0,0,0,0.8)",
+          background: "rgba(255, 0, 0, 0.8)",
+          border: "2px solid white",
           color: "white",
-          border: "none",
-          fontSize: "12px",
+          fontSize: "14px",
+          fontWeight: "bold",
           cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
         }}
       >
-        🔄
+        ×
       </button>
+      
+      <img 
+        src={sticker.emoji} 
+        alt={sticker.name}
+        style={{ 
+          width: "96px", 
+          height: "96px", 
+          objectFit: "contain",
+          userSelect: "none",
+          pointerEvents: "none"
+        }} 
+      />
     </div>
   )
 }
