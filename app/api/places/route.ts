@@ -65,34 +65,49 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const types = [
-      "tourist_attraction",
-      "restaurant",
-      "cafe",
-      "museum",
-      "park",
-      "shopping_mall",
-      "art_gallery",
-      "amusement_park",
-      "zoo",
-      "aquarium",
-    ]
+    // Use Google Geocoding API to get the actual location name
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
 
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-      "|",
-    )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-    const response = await fetch(placesUrl)
+    const response = await fetch(geocodingUrl)
     const data = await response.json()
 
     // Check if the API returned an error status
     if (!response.ok || data.status === "REQUEST_DENIED" || data.status === "ZERO_RESULTS") {
-      throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
+      throw new Error(`Google Geocoding API error: ${data.error_message || "Unknown error"}`)
     }
 
-    return NextResponse.json(data)
+    // Extract the location name from the geocoding results
+    if (data.results && data.results.length > 0) {
+      const result = data.results[0]
+      const locationName = result.formatted_address.split(',')[0] // Get the first part of the address
+      
+      // Create a mock place with the real location name
+      const realPlace = {
+        place_id: "geocoded-location",
+        name: locationName,
+        geometry: {
+          location: {
+            lat: Number.parseFloat(lat),
+            lng: Number.parseFloat(lng),
+          },
+        },
+        rating: 4.5,
+        price_level: 2,
+        types: ["locality", "political"],
+        vicinity: "",
+        photos: [],
+      }
+
+      return NextResponse.json({
+        results: [realPlace],
+        status: "OK",
+      })
+    }
+
+    // If no results, fall back to mock data
+    throw new Error("No geocoding results found")
   } catch (error) {
-    console.error("❌ Google Places API error:", error)
+    console.error("❌ Google Geocoding API error:", error)
 
     // Return varied fallback mock data on error
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
