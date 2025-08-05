@@ -1074,8 +1074,8 @@ export default function PINITApp() {
 
 
 
-      {/* Motion Status Indicator (Debug) */}
-      {motionData.isMoving && (
+      {/* Motion Status Indicator (Hidden - functionality still works in background) */}
+      {/* {motionData.isMoving && (
         <div
           style={{
             position: "absolute",
@@ -1091,7 +1091,7 @@ export default function PINITApp() {
         >
           🚶‍♂️ Moving ({motionData.speed.toFixed(1)} km/h)
         </div>
-      )}
+      )} */}
 
       {/* SHAZAM-STYLE CIRCLE - MOVED TO TOP THIRD & PULSATING */}
       <div
