@@ -1,84 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+// Generate location name based on coordinates
+const getLocationNameFromCoords = (lat: number, lng: number) => {
+  // South Africa location mapping
+  if (lat > -34.5 && lat < -33.5 && lng > 18.5 && lng < 19.5) {
+    return "Cape Town"
+  } else if (lat > -34.2 && lat < -33.8 && lng > 18.8 && lng < 19.2) {
+    return "Malmesbury"
+  } else if (lat > -34.1 && lat < -33.9 && lng > 18.9 && lng < 19.1) {
+    return "Riebeek West"
+  } else if (lat > -34.5 && lat < -33.5) {
+    return "Western Cape"
+  } else if (lng > 18.5 && lng < 19.5) {
+    return "Cape Town Area"
+  } else {
+    return "South Africa"
+  }
+}
+
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
+  const locationName = getLocationNameFromCoords(lat, lng)
+  
+  console.log("📍 Generating mock places for:", lat, lng, "->", locationName)
+  
   const places = [
     {
-      place_id: "mock-1",
-      name: "Central Park Gardens",
+      place_id: "location-1",
+      name: locationName,
       geometry: {
         location: {
-          lat: lat + 0.001,
-          lng: lng + 0.001,
+          lat: lat,
+          lng: lng,
         },
       },
       rating: 4.5,
       price_level: 2,
-      types: ["park", "tourist_attraction"],
-      vicinity: "Downtown District",
+      types: ["locality", "political"],
+      vicinity: "",
       photos: [],
-    },
-    {
-      place_id: "mock-2",
-      name: "Riverside Café",
-      geometry: {
-        location: {
-          lat: lat - 0.002,
-          lng: lng + 0.001,
-        },
-      },
-      rating: 4.8,
-      types: ["cafe", "restaurant"],
-      vicinity: "Waterfront Area",
-      photos: [],
-    },
-    {
-      place_id: "mock-3",
-      name: "Heritage Museum",
-      geometry: {
-        location: {
-          lat: lat + 0.0015,
-          lng: lng - 0.001,
-        },
-      },
-      rating: 4.3,
-      price_level: 1,
-      types: ["museum", "tourist_attraction"],
-      vicinity: "Historic Quarter",
-      photos: [],
-    },
-    {
-      place_id: "mock-4",
-      name: "Sunset Viewpoint",
-      geometry: {
-        location: {
-          lat: lat - 0.001,
-          lng: lng - 0.002,
-        },
-      },
-      rating: 4.7,
-      types: ["tourist_attraction", "point_of_interest"],
-      vicinity: "Scenic Heights",
-      photos: [],
-    },
-    {
-      place_id: "mock-5",
-      name: "Urban Market Square",
-      geometry: {
-        location: {
-          lat: lat + 0.002,
-          lng: lng + 0.002,
-        },
-      },
-      rating: 4.1,
-      types: ["shopping_mall", "establishment"],
-      vicinity: "Commercial District",
-      photos: [],
-    },
+    }
   ]
 
-  // Shuffle the places to get different results each time
-  return places.sort(() => Math.random() - 0.5).slice(0, 3)
+  console.log("📍 Mock places generated:", places)
+  return places
 }
 
 export async function GET(request: NextRequest) {
@@ -95,6 +60,8 @@ export async function GET(request: NextRequest) {
     console.warn("Google Maps API key not found, returning mock data")
     // Return varied mock data when API key is not available
     const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
+    
+    console.log("📍 API returning mock data:", { results: mockPlaces, status: "OK" })
     
     return NextResponse.json({
       results: mockPlaces,
