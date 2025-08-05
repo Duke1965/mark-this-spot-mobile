@@ -346,10 +346,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     { id: '142', imageUrl: '/stickers/new-68.png', name: 'new-68', category: 'new' },
     { id: '143', imageUrl: '/stickers/new-69.png', name: 'new-69', category: 'new' },
     { id: '144', imageUrl: '/stickers/new-70.png', name: 'new-70', category: 'new' },
-    { id: '141', imageUrl: '/stickers/new-71.png', name: 'new-71', category: 'new' },
-    { id: '142', imageUrl: '/stickers/new-72.png', name: 'new-72', category: 'new' },
-    { id: '143', imageUrl: '/stickers/new-73.png', name: 'new-73', category: 'new' },
-    { id: '144', imageUrl: '/stickers/new-74.png', name: 'new-74', category: 'new' },
+    { id: '145', imageUrl: '/stickers/new-71.png', name: 'new-71', category: 'new' },
+    { id: '146', imageUrl: '/stickers/new-72.png', name: 'new-72', category: 'new' },
+    { id: '147', imageUrl: '/stickers/new-73.png', name: 'new-73', category: 'new' },
+    { id: '148', imageUrl: '/stickers/new-74.png', name: 'new-74', category: 'new' },
   ];
 
   const addSticker = (stickerData: typeof availableStickers[0]) => {
