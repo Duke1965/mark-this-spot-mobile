@@ -150,7 +150,7 @@ export default function PINITApp() {
       watchId = watchLocation({
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 30000, // 30 seconds - more frequent updates
+        maximumAge: 60000, // 1 minute - less frequent updates for smoother experience
       })
 
       // Cleanup function
@@ -231,31 +231,13 @@ export default function PINITApp() {
         return placeName
       }
 
-      // If no places found, return a descriptive location name instead of coordinates
-      console.log("📍 No places found, returning descriptive location name...")
-      
-      // Return a descriptive location name based on coordinates
-      if (lat > -34 && lat < -33 && lng > 18 && lng < 19) {
-        return "Riebeek West Area"
-      } else if (lat > -34 && lat < -33) {
-        return "Western Cape Region"
-      } else if (lng > 18 && lng < 19) {
-        return "Cape Town Area"
-      } else {
-        return "South Africa"
-      }
+      // If no places found, return coordinates as fallback
+      console.log("📍 No places found, returning coordinates...")
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
-      // Return a descriptive location name instead of coordinates
-      if (lat > -34 && lat < -33 && lng > 18 && lng < 19) {
-        return "Riebeek West Area"
-      } else if (lat > -34 && lat < -33) {
-        return "Western Cape Region"
-      } else if (lng > 18 && lng < 19) {
-        return "Cape Town Area"
-      } else {
-        return "South Africa"
-      }
+      // Return coordinates as fallback
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }
 
