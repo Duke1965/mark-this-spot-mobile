@@ -78,7 +78,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
-                    fontSize: "48px", // Much larger for easier dragging
+                    fontSize: "96px", // 2x bigger for easier dragging
       zIndex: isDragging ? 1000 : 1,
     }}
     onTouchStart={handleTouchStart}
@@ -90,8 +90,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
       src={sticker.emoji} 
       alt={sticker.name}
       style={{ 
-        width: "48px", 
-        height: "48px", 
+        width: "96px", 
+        height: "96px", 
         objectFit: "contain",
         userSelect: "none",
         pointerEvents: "none"
