@@ -26,15 +26,17 @@ interface DraggableStickerProps {
   sticker: Sticker
   onUpdate: (updates: Partial<Sticker>) => void
   onRemove: () => void
+  isActive?: boolean
 }
 
 interface DraggableTextProps {
   text: string
   style: string
   onUpdate: (updates: any) => void
+  isActive?: boolean
 }
 
-function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps) {
+function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: DraggableStickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
   const [initialDistance, setInitialDistance] = useState(0)
@@ -56,6 +58,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isActive) return // Disable interactions when not active
     e.preventDefault()
     
     if (e.touches.length === 1) {
@@ -210,7 +213,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
   )
 }
 
-function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
+function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
   const [position, setPosition] = useState({ x: 10, y: 10 })
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -235,6 +238,7 @@ function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isActive) return // Disable interactions when not active
     e.preventDefault()
     
     if (e.touches.length === 1) {
@@ -613,33 +617,43 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             />
           )}
           
-          {/* Draggable Stickers Overlay - Only active when stickers tab is selected */}
-          {activeTab === "stickers" && stickers.map((sticker) => (
+          {/* Draggable Stickers Overlay - Always visible, but only interactive when stickers tab is active */}
+          {stickers.map((sticker) => (
             <DraggableSticker
               key={sticker.id}
               sticker={sticker}
               onUpdate={(updates) => {
-                setStickers(stickers.map(s => 
-                  s.id === sticker.id ? { ...s, ...updates } : s
-                ))
+                if (activeTab === "stickers") {
+                  setStickers(stickers.map(s => 
+                    s.id === sticker.id ? { ...s, ...updates } : s
+                  ))
+                }
               }}
-              onRemove={() => removeSticker(sticker.id)}
+              onRemove={() => {
+                if (activeTab === "stickers") {
+                  removeSticker(sticker.id)
+                }
+              }}
+              isActive={activeTab === "stickers"}
             />
           ))}
 
-          {/* Draggable Text Overlay - Only active when text tab is selected */}
-          {activeTab === "text" && textOverlay && (
+          {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
+          {textOverlay && (
             <DraggableText
               text={textOverlay}
               style={textStyle}
               onUpdate={(updates) => {
-                if (updates.remove) {
-                  setTextOverlay("")
-                } else {
-                  // Update text position, scale, rotation
-                  console.log("Text updated:", updates)
+                if (activeTab === "text") {
+                  if (updates.remove) {
+                    setTextOverlay("")
+                  } else {
+                    // Update text position, scale, rotation
+                    console.log("Text updated:", updates)
+                  }
                 }
               }}
+              isActive={activeTab === "text"}
             />
           )}
         </div>
