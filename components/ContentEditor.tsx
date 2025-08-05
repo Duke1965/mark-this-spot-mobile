@@ -438,21 +438,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         </button>
         <h1 className="text-lg font-semibold">Content Editor</h1>
         <div className="flex space-x-2">
-          <Button
+          <button
             onClick={handleSave}
-            variant="outline"
-            size="sm"
-            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+            className="px-3 py-1 text-sm border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
           >
             Save
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handlePost}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700"
+            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
           >
             Post
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -495,20 +492,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
       {/* Action Buttons */}
       <div className="flex justify-center space-x-4 p-4">
-        <Button
+        <button
           onClick={() => setShowStickerModal(true)}
-          variant="outline"
-          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+          className="px-4 py-2 border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
         >
           Add Stickers
-        </Button>
-        <Button
+        </button>
+        <button
           onClick={() => setShowTextModal(true)}
-          variant="outline"
-          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+          className="px-4 py-2 border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
         >
           Add Text
-        </Button>
+        </button>
       </div>
 
       {/* Sticker Modal */}
