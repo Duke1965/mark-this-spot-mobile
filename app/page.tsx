@@ -224,6 +224,8 @@ export default function PINITApp() {
         
         console.log("📍 Real location name from Google:", locationName)
         return locationName
+      } else {
+        console.log("❌ Google API failed with status:", data.status, data.error_message)
       }
 
       // If Google API fails, fall back to our API
