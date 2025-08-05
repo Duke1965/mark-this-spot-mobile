@@ -1,689 +1,650 @@
 "use client"
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, RotateCw, Type } from 'lucide-react';
-
-interface Sticker {
-  id: string;
-  emoji: string;
-  name?: string;
-  x: number;
-  y: number;
-  rotation: number;
-}
-
-interface TextOverlay {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  style: {
-    fontSize: number;
-    color: string;
-    fontWeight: string;
-  };
-}
+import { useState } from "react"
+import { ArrowLeft, Save, Share2 } from "lucide-react"
 
 interface ContentEditorProps {
-  mediaUrl: string;
-  mediaType: 'image' | 'video';
-  platform: string;
-  onBack: () => void;
-  onPost: (contentData?: any) => void;
-  onSave: (contentData?: any) => void;
+  mediaUrl: string
+  mediaType: "photo" | "video"
+  platform: string
+  onBack: () => void
+  onPost: (contentData: any) => void
+  onSave: (contentData: any) => void
+}
+
+interface Sticker {
+  id: string
+  emoji: string // This will store the image URL
+  name: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
 }
 
 interface DraggableStickerProps {
-  sticker: Sticker;
-  onUpdate: (id: string, updates: Partial<Sticker>) => void;
-  onRemove: (id: string) => void;
+  sticker: Sticker
+  onUpdate: (updates: Partial<Sticker>) => void
+  onRemove: () => void
 }
 
 interface DraggableTextProps {
-  textOverlay: TextOverlay;
-  onUpdate: (id: string, updates: Partial<TextOverlay>) => void;
-  onRemove: (id: string) => void;
+  text: string
+  style: string
+  onUpdate: (updates: any) => void
 }
 
-const DraggableSticker: React.FC<DraggableStickerProps> = ({ sticker, onUpdate, onRemove }) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y });
-    setIsDragging(true);
-  };
+    e.preventDefault()
+    const touch = e.touches[0]
+    setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+    setIsDragging(true)
+  }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    onUpdate(sticker.id, {
+    e.preventDefault()
+    if (!isDragging) return
+    const touch = e.touches[0]
+    onUpdate({
       x: touch.clientX - startPos.x,
-      y: touch.clientY - startPos.y,
-    });
-  };
+      y: touch.clientY - startPos.y
+    })
+  }
 
   const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
+    setIsDragging(false)
+  }
 
-  const handleRotate = () => {
-    onUpdate(sticker.id, { rotation: sticker.rotation + 45 });
-  };
-
-  const handleDoubleClick = () => {
-    onRemove(sticker.id);
-  };
+  const handleRotate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI
+    onUpdate({ rotation: angle })
+  }
 
   return (
     <div
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: sticker.x,
         top: sticker.y,
-        transform: `rotate(${sticker.rotation}deg)`,
-        cursor: 'move',
-        zIndex: 1000,
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onDoubleClick={handleDoubleClick}
-    >
-      <img
-        src={sticker.emoji}
-        alt={sticker.name || 'sticker'}
-        style={{
-          width: '96px',
-          height: '96px',
-          userSelect: 'none',
-          pointerEvents: 'none',
-        }}
-      />
+        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+                    fontSize: "48px", // Much larger for easier dragging
+      zIndex: isDragging ? 1000 : 1,
+    }}
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+    onDoubleClick={onRemove}
+  >
+    <img 
+      src={sticker.emoji} 
+      alt={sticker.name}
+      style={{ 
+        width: "48px", 
+        height: "48px", 
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "none"
+      }} 
+    />
       <button
         onClick={handleRotate}
         style={{
-          position: 'absolute',
-          top: '-20px',
-          right: '-20px',
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '50%',
-          width: '24px',
-          height: '24px',
-          fontSize: '12px',
-          cursor: 'pointer',
+          position: "absolute",
+          top: "-20px",
+          right: "-20px",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: "rgba(0,0,0,0.8)",
+          color: "white",
+          border: "none",
+          fontSize: "12px",
+          cursor: "pointer",
         }}
       >
-        <RotateCw size={12} />
+        🔄
       </button>
     </div>
-  );
-};
+  )
+}
 
-const DraggableText: React.FC<DraggableTextProps> = ({ textOverlay, onUpdate, onRemove }) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+function DraggableText({ text, style, onUpdate }: DraggableTextProps) {
+  const [position, setPosition] = useState({ x: 10, y: 10 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    setStartPos({ x: touch.clientX - textOverlay.x, y: touch.clientY - textOverlay.y });
-    setIsDragging(true);
-  };
+    e.preventDefault()
+    const touch = e.touches[0]
+    setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+    setIsDragging(true)
+  }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    onUpdate(textOverlay.id, {
+    e.preventDefault()
+    if (!isDragging) return
+    const touch = e.touches[0]
+    setPosition({
       x: touch.clientX - startPos.x,
-      y: touch.clientY - startPos.y,
-    });
-  };
+      y: touch.clientY - startPos.y
+    })
+  }
 
   const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
+    setIsDragging(false)
+  }
 
   return (
     <div
       style={{
-        position: 'absolute',
-        left: textOverlay.x,
-        top: textOverlay.y,
-        cursor: 'move',
-        zIndex: 1000,
+        position: "absolute",
+        left: position.x,
+        top: position.y,
+        fontSize: style === "bold" ? "16px" : "14px",
+        fontWeight: style === "bold" ? "bold" : "normal",
+        color: "white",
+        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+        zIndex: isDragging ? 1000 : 1,
+        maxWidth: "calc(100% - 20px)",
+        wordWrap: "break-word",
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div
-        style={{
-          ...textOverlay.style,
-          userSelect: 'none',
-          pointerEvents: 'none',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-        }}
-      >
-        {textOverlay.text}
-      </div>
+      {text}
     </div>
-  );
-};
+  )
+}
 
-const ContentEditor: React.FC<ContentEditorProps> = ({
-  mediaUrl,
-  mediaType,
-  platform,
-  onBack,
-  onPost,
-  onSave,
-}) => {
-  const [activeTab, setActiveTab] = useState<'stickers' | 'text'>('stickers');
-  const [stickers, setStickers] = useState<Sticker[]>([]);
-  const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
-  const [textStyle, setTextStyle] = useState({
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: 'bold',
-  });
-  const [showStickerModal, setShowStickerModal] = useState(false);
-  const [showTextModal, setShowTextModal] = useState(false);
-  const [textInput, setTextInput] = useState('');
-
+export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
+  // Available stickers (matching exact GitHub file names)
   const availableStickers = [
-    // Old School Stickers
-    { id: '1', imageUrl: '/stickers/Old-school-1.png', name: 'Old-school-1', category: 'old-school' },
-    { id: '2', imageUrl: '/stickers/Old-school-2.png', name: 'Old-school-2', category: 'old-school' },
-    { id: '3', imageUrl: '/stickers/Old-school-3.png', name: 'Old-school-3', category: 'old-school' },
-    { id: '4', imageUrl: '/stickers/Old-school-4.png', name: 'Old-school-4', category: 'old-school' },
-    { id: '5', imageUrl: '/stickers/Old-school-5.png', name: 'Old-school-5', category: 'old-school' },
-    { id: '6', imageUrl: '/stickers/Old-school-6.png', name: 'Old-school-6', category: 'old-school' },
-    { id: '7', imageUrl: '/stickers/Old-school-7.png', name: 'Old-school-7', category: 'old-school' },
-    { id: '8', imageUrl: '/stickers/Old-school-8.png', name: 'Old-school-8', category: 'old-school' },
-    { id: '9', imageUrl: '/stickers/Old-school-9.png', name: 'Old-school-9', category: 'old-school' },
-    { id: '10', imageUrl: '/stickers/Old-school-10.png', name: 'Old-school-10', category: 'old-school' },
-    { id: '11', imageUrl: '/stickers/Old-school-11.png', name: 'Old-school-11', category: 'old-school' },
-    { id: '12', imageUrl: '/stickers/Old-school-12.png', name: 'Old-school-12', category: 'old-school' },
-    { id: '13', imageUrl: '/stickers/Old-school-13.png', name: 'Old-school-13', category: 'old-school' },
-    { id: '14', imageUrl: '/stickers/Old-school-14.png', name: 'Old-school-14', category: 'old-school' },
-    { id: '15', imageUrl: '/stickers/Old-school-15.png', name: 'Old-school-15', category: 'old-school' },
-    { id: '16', imageUrl: '/stickers/Old-school-16.png', name: 'Old-school-16', category: 'old-school' },
-    { id: '17', imageUrl: '/stickers/Old-school-17.png', name: 'Old-school-17', category: 'old-school' },
-    { id: '18', imageUrl: '/stickers/Old-school-18.png', name: 'Old-school-18', category: 'old-school' },
-    { id: '19', imageUrl: '/stickers/Old-school-19.png', name: 'Old-school-19', category: 'old-school' },
-    { id: '20', imageUrl: '/stickers/Old-school-20.png', name: 'Old-school-20', category: 'old-school' },
-    { id: '21', imageUrl: '/stickers/Old-school-21.png', name: 'Old-school-21', category: 'old-school' },
-    { id: '22', imageUrl: '/stickers/Old-school-22.png', name: 'Old-school-22', category: 'old-school' },
-    { id: '23', imageUrl: '/stickers/Old-school-23.png', name: 'Old-school-23', category: 'old-school' },
-    { id: '24', imageUrl: '/stickers/Old-school-24.png', name: 'Old-school-24', category: 'old-school' },
-    { id: '25', imageUrl: '/stickers/Old-school-25.png', name: 'Old-school-25', category: 'old-school' },
-    { id: '26', imageUrl: '/stickers/Old-school-26.png', name: 'Old-school-26', category: 'old-school' },
-    { id: '27', imageUrl: '/stickers/Old-school-27.png', name: 'Old-school-27', category: 'old-school' },
-    { id: '28', imageUrl: '/stickers/Old-school-28.png', name: 'Old-school-28', category: 'old-school' },
-    { id: '29', imageUrl: '/stickers/Old-school-29.png', name: 'Old-school-29', category: 'old-school' },
-    { id: '30', imageUrl: '/stickers/Old-school-30.png', name: 'Old-school-30', category: 'old-school' },
-    { id: '31', imageUrl: '/stickers/Old-school-31.png', name: 'Old-school-31', category: 'old-school' },
-    { id: '32', imageUrl: '/stickers/Old-school-32.png', name: 'Old-school-32', category: 'old-school' },
-    { id: '33', imageUrl: '/stickers/Old-school-33.png', name: 'Old-school-33', category: 'old-school' },
-    { id: '34', imageUrl: '/stickers/Old-school-34.png', name: 'Old-school-34', category: 'old-school' },
-    { id: '35', imageUrl: '/stickers/Old-school-35.png', name: 'Old-school-35', category: 'old-school' },
-    { id: '36', imageUrl: '/stickers/Old-school-36.png', name: 'Old-school-36', category: 'old-school' },
-    { id: '37', imageUrl: '/stickers/Old-school-37.png', name: 'Old-school-37', category: 'old-school' },
-    { id: '38', imageUrl: '/stickers/Old-school-38.png', name: 'Old-school-38', category: 'old-school' },
-    { id: '39', imageUrl: '/stickers/Old-school-39.png', name: 'Old-school-39', category: 'old-school' },
-    { id: '40', imageUrl: '/stickers/Old-school-40.png', name: 'Old-school-40', category: 'old-school' },
-    { id: '41', imageUrl: '/stickers/Old-school-41.png', name: 'Old-school-41', category: 'old-school' },
-    { id: '42', imageUrl: '/stickers/Old-school-42.png', name: 'Old-school-42', category: 'old-school' },
-    { id: '43', imageUrl: '/stickers/Old-school-43.png', name: 'Old-school-43', category: 'old-school' },
-    { id: '44', imageUrl: '/stickers/Old-school-44.png', name: 'Old-school-44', category: 'old-school' },
-    { id: '45', imageUrl: '/stickers/Old-school-45.png', name: 'Old-school-45', category: 'old-school' },
-    { id: '46', imageUrl: '/stickers/Old-school-46.png', name: 'Old-school-46', category: 'old-school' },
-    { id: '47', imageUrl: '/stickers/Old-school-47.png', name: 'Old-school-47', category: 'old-school' },
-    { id: '48', imageUrl: '/stickers/Old-school-48.png', name: 'Old-school-48', category: 'old-school' },
-    { id: '49', imageUrl: '/stickers/Old-school-49.png', name: 'Old-school-49', category: 'old-school' },
-    { id: '50', imageUrl: '/stickers/Old-school-50.png', name: 'Old-school-50', category: 'old-school' },
-    { id: '51', imageUrl: '/stickers/Old-school-51.png', name: 'Old-school-51', category: 'old-school' },
-    { id: '52', imageUrl: '/stickers/Old-school-52.png', name: 'Old-school-52', category: 'old-school' },
-    { id: '53', imageUrl: '/stickers/Old-school-53.png', name: 'Old-school-53', category: 'old-school' },
-    { id: '54', imageUrl: '/stickers/Old-school-54.png', name: 'Old-school-54', category: 'old-school' },
-    { id: '55', imageUrl: '/stickers/Old-school-55.png', name: 'Old-school-55', category: 'old-school' },
-    { id: '56', imageUrl: '/stickers/Old-school-56.png', name: 'Old-school-56', category: 'old-school' },
-    { id: '57', imageUrl: '/stickers/Old-school-57.png', name: 'Old-school-57', category: 'old-school' },
-    { id: '58', imageUrl: '/stickers/Old-school-58.png', name: 'Old-school-58', category: 'old-school' },
-    { id: '59', imageUrl: '/stickers/Old-school-59.png', name: 'Old-school-59', category: 'old-school' },
-    { id: '60', imageUrl: '/stickers/Old-school-60.png', name: 'Old-school-60', category: 'old-school' },
-    { id: '61', imageUrl: '/stickers/Old-school-61.png', name: 'Old-school-61', category: 'old-school' },
-    { id: '62', imageUrl: '/stickers/Old-school-62.png', name: 'Old-school-62', category: 'old-school' },
-    { id: '63', imageUrl: '/stickers/Old-school-63.png', name: 'Old-school-63', category: 'old-school' },
-    { id: '64', imageUrl: '/stickers/Old-school-64.png', name: 'Old-school-64', category: 'old-school' },
-    { id: '65', imageUrl: '/stickers/Old-school-65.png', name: 'Old-school-65', category: 'old-school' },
-    { id: '66', imageUrl: '/stickers/Old-school-66.png', name: 'Old-school-66', category: 'old-school' },
-    { id: '67', imageUrl: '/stickers/Old-school-67.png', name: 'Old-school-67', category: 'old-school' },
-    { id: '68', imageUrl: '/stickers/Old-school-68.png', name: 'Old-school-68', category: 'old-school' },
-    { id: '69', imageUrl: '/stickers/Old-school-69.png', name: 'Old-school-69', category: 'old-school' },
-    { id: '70', imageUrl: '/stickers/Old-school-70.png', name: 'Old-school-70', category: 'old-school' },
-    { id: '71', imageUrl: '/stickers/Old-school-71.png', name: 'Old-school-71', category: 'old-school' },
-    { id: '72', imageUrl: '/stickers/Old-school-72.png', name: 'Old-school-72', category: 'old-school' },
-    { id: '73', imageUrl: '/stickers/Old-school-73.png', name: 'Old-school-73', category: 'old-school' },
-    { id: '74', imageUrl: '/stickers/Old-school-74.png', name: 'Old-school-74', category: 'old-school' },
-    // New Stickers
-    { id: '75', imageUrl: '/stickers/new-1.png', name: 'new-1', category: 'new' },
-    { id: '76', imageUrl: '/stickers/new-2.png', name: 'new-2', category: 'new' },
-    { id: '77', imageUrl: '/stickers/new-3.png', name: 'new-3', category: 'new' },
-    { id: '78', imageUrl: '/stickers/new-4.png', name: 'new-4', category: 'new' },
-    { id: '79', imageUrl: '/stickers/new-5.png', name: 'new-5', category: 'new' },
-    { id: '80', imageUrl: '/stickers/new-6.png', name: 'new-6', category: 'new' },
-    { id: '81', imageUrl: '/stickers/new-7.png', name: 'new-7', category: 'new' },
-    { id: '82', imageUrl: '/stickers/new-8.png', name: 'new-8', category: 'new' },
-    { id: '83', imageUrl: '/stickers/new-9.png', name: 'new-9', category: 'new' },
-    { id: '84', imageUrl: '/stickers/new-10.png', name: 'new-10', category: 'new' },
-    { id: '85', imageUrl: '/stickers/new-11.png', name: 'new-11', category: 'new' },
-    { id: '86', imageUrl: '/stickers/new-12.png', name: 'new-12', category: 'new' },
-    { id: '87', imageUrl: '/stickers/new-13.png', name: 'new-13', category: 'new' },
-    { id: '88', imageUrl: '/stickers/new-14.png', name: 'new-14', category: 'new' },
-    { id: '89', imageUrl: '/stickers/new-15.png', name: 'new-15', category: 'new' },
-    { id: '90', imageUrl: '/stickers/new-16.png', name: 'new-16', category: 'new' },
-    { id: '91', imageUrl: '/stickers/new-17.png', name: 'new-17', category: 'new' },
-    { id: '92', imageUrl: '/stickers/new-18.png', name: 'new-18', category: 'new' },
-    { id: '93', imageUrl: '/stickers/new-19.png', name: 'new-19', category: 'new' },
-    { id: '94', imageUrl: '/stickers/new-20.png', name: 'new-20', category: 'new' },
-    { id: '95', imageUrl: '/stickers/new-21.png', name: 'new-21', category: 'new' },
-    { id: '96', imageUrl: '/stickers/new-22.png', name: 'new-22', category: 'new' },
-    { id: '97', imageUrl: '/stickers/new-23.png', name: 'new-23', category: 'new' },
-    { id: '98', imageUrl: '/stickers/new-24.png', name: 'new-24', category: 'new' },
-    { id: '99', imageUrl: '/stickers/new-25.png', name: 'new-25', category: 'new' },
-    { id: '100', imageUrl: '/stickers/new-26.png', name: 'new-26', category: 'new' },
-    { id: '101', imageUrl: '/stickers/new-27.png', name: 'new-27', category: 'new' },
-    { id: '102', imageUrl: '/stickers/new-28.png', name: 'new-28', category: 'new' },
-    { id: '103', imageUrl: '/stickers/new-29.png', name: 'new-29', category: 'new' },
-    { id: '104', imageUrl: '/stickers/new-30.png', name: 'new-30', category: 'new' },
-    { id: '105', imageUrl: '/stickers/new-31.png', name: 'new-31', category: 'new' },
-    { id: '106', imageUrl: '/stickers/new-32.png', name: 'new-32', category: 'new' },
-    { id: '107', imageUrl: '/stickers/new-33.png', name: 'new-33', category: 'new' },
-    { id: '108', imageUrl: '/stickers/new-34.png', name: 'new-34', category: 'new' },
-    { id: '109', imageUrl: '/stickers/new-35.png', name: 'new-35', category: 'new' },
-    { id: '110', imageUrl: '/stickers/new-36.png', name: 'new-36', category: 'new' },
-    { id: '111', imageUrl: '/stickers/new-37.png', name: 'new-37', category: 'new' },
-    { id: '112', imageUrl: '/stickers/new-38.png', name: 'new-38', category: 'new' },
-    { id: '113', imageUrl: '/stickers/new-39.png', name: 'new-39', category: 'new' },
-    { id: '114', imageUrl: '/stickers/new-40.png', name: 'new-40', category: 'new' },
-    { id: '115', imageUrl: '/stickers/new-41.png', name: 'new-41', category: 'new' },
-    { id: '116', imageUrl: '/stickers/new-42.png', name: 'new-42', category: 'new' },
-    { id: '117', imageUrl: '/stickers/new-43.png', name: 'new-43', category: 'new' },
-    { id: '118', imageUrl: '/stickers/new-44.png', name: 'new-44', category: 'new' },
-    { id: '119', imageUrl: '/stickers/new-45.png', name: 'new-45', category: 'new' },
-    { id: '120', imageUrl: '/stickers/new-46.png', name: 'new-46', category: 'new' },
-    { id: '121', imageUrl: '/stickers/new-47.png', name: 'new-47', category: 'new' },
-    { id: '122', imageUrl: '/stickers/new-48.png', name: 'new-48', category: 'new' },
-    { id: '123', imageUrl: '/stickers/new-49.png', name: 'new-49', category: 'new' },
-    { id: '124', imageUrl: '/stickers/new-50.png', name: 'new-50', category: 'new' },
-    { id: '125', imageUrl: '/stickers/new-51.png', name: 'new-51', category: 'new' },
-    { id: '126', imageUrl: '/stickers/new-52.png', name: 'new-52', category: 'new' },
-    { id: '127', imageUrl: '/stickers/new-53.png', name: 'new-53', category: 'new' },
-    { id: '128', imageUrl: '/stickers/new-54.png', name: 'new-54', category: 'new' },
-    { id: '129', imageUrl: '/stickers/new-55.png', name: 'new-55', category: 'new' },
-    { id: '130', imageUrl: '/stickers/new-56.png', name: 'new-56', category: 'new' },
-    { id: '131', imageUrl: '/stickers/new-57.png', name: 'new-57', category: 'new' },
-    { id: '132', imageUrl: '/stickers/new-58.png', name: 'new-58', category: 'new' },
-    { id: '133', imageUrl: '/stickers/new-59.png', name: 'new-59', category: 'new' },
-    { id: '134', imageUrl: '/stickers/new-60.png', name: 'new-60', category: 'new' },
-    { id: '135', imageUrl: '/stickers/new-61.png', name: 'new-61', category: 'new' },
-    { id: '136', imageUrl: '/stickers/new-62.png', name: 'new-62', category: 'new' },
-    { id: '137', imageUrl: '/stickers/new-63.png', name: 'new-63', category: 'new' },
-    { id: '138', imageUrl: '/stickers/new-64.png', name: 'new-64', category: 'new' },
-    { id: '139', imageUrl: '/stickers/new-65.png', name: 'new-65', category: 'new' },
-    { id: '140', imageUrl: '/stickers/new-66.png', name: 'new-66', category: 'new' },
-    { id: '141', imageUrl: '/stickers/new-67.png', name: 'new-67', category: 'new' },
-    { id: '142', imageUrl: '/stickers/new-68.png', name: 'new-68', category: 'new' },
-    { id: '143', imageUrl: '/stickers/new-69.png', name: 'new-69', category: 'new' },
-    { id: '144', imageUrl: '/stickers/new-70.png', name: 'new-70', category: 'new' },
-    { id: '145', imageUrl: '/stickers/new-71.png', name: 'new-71', category: 'new' },
-    { id: '146', imageUrl: '/stickers/new-72.png', name: 'new-72', category: 'new' },
-    { id: '147', imageUrl: '/stickers/new-73.png', name: 'new-73', category: 'new' },
-    { id: '148', imageUrl: '/stickers/new-74.png', name: 'new-74', category: 'new' },
-  ];
+    // Old School stickers
+    { id: "old-1", imageUrl: "/stickers/Old-school-Chillin.png", name: "Chillin", category: "old-school" },
+    { id: "old-2", imageUrl: "/stickers/Old-school-Dreamy.png", name: "Dreamy", category: "old-school" },
+    { id: "old-3", imageUrl: "/stickers/Old-school-Exploring-2.png", name: "Exploring 2", category: "old-school" },
+    { id: "old-4", imageUrl: "/stickers/Old-school-Found-Paradise.png", name: "Found Paradise", category: "old-school" },
+    { id: "old-5", imageUrl: "/stickers/Old-school-Golden-Hour-2.png", name: "Golden Hour 2", category: "old-school" },
+    { id: "old-6", imageUrl: "/stickers/Old-school-Good-Times.png", name: "Good Times", category: "old-school" },
+    { id: "old-7", imageUrl: "/stickers/Old-school-Jet-Lagged.png", name: "Jet Lagged", category: "old-school" },
+    { id: "old-8", imageUrl: "/stickers/Old-school-Just-Us-2.png", name: "Just Us 2", category: "old-school" },
+    { id: "old-9", imageUrl: "/stickers/Old-school-Just-Us-3.png", name: "Just Us 3", category: "old-school" },
+    { id: "old-10", imageUrl: "/stickers/Old-school-Just-Us.png", name: "Just Us", category: "old-school" },
+    { id: "old-11", imageUrl: "/stickers/Old-school-Love-This.png", name: "Love This", category: "old-school" },
+    { id: "old-12", imageUrl: "/stickers/Old-school-Mood-Magic.png", name: "Mood Magic", category: "old-school" },
+    { id: "old-13", imageUrl: "/stickers/Old-school-My-Happy-Place-2.png", name: "My Happy Place 2", category: "old-school" },
+    { id: "old-14", imageUrl: "/stickers/Old-school-No-Filter.png", name: "No Filter", category: "old-school" },
+    { id: "old-15", imageUrl: "/stickers/Old-school-OMG.png", name: "OMG", category: "old-school" },
+    { id: "old-16", imageUrl: "/stickers/Old-school-On-The-Road-Again.png", name: "On The Road Again", category: "old-school" },
+    { id: "old-17", imageUrl: "/stickers/Old-school-PINITI.png", name: "PINITI", category: "old-school" },
+    { id: "old-18", imageUrl: "/stickers/Old-school-Pure-Joy.png", name: "Pure Joy", category: "old-school" },
+    { id: "old-19", imageUrl: "/stickers/Old-school-Road-Trip.png", name: "Road Trip", category: "old-school" },
+    { id: "old-20", imageUrl: "/stickers/Old-school-Soul-Mates.png", name: "Soul Mates", category: "old-school" },
+    { id: "old-21", imageUrl: "/stickers/Old-school-Sunset-Funday.png", name: "Sunset Funday", category: "old-school" },
+    { id: "old-22", imageUrl: "/stickers/Old-school-Sunset-Vibes.png", name: "Sunset Vibes", category: "old-school" },
+    { id: "old-23", imageUrl: "/stickers/Old-school-Sweet-Moment.png", name: "Sweet Moment", category: "old-school" },
+    { id: "old-24", imageUrl: "/stickers/Old-school-Swoon.png", name: "Swoon", category: "old-school" },
+    { id: "old-25", imageUrl: "/stickers/Old-school-Together.png", name: "Together", category: "old-school" },
+    { id: "old-26", imageUrl: "/stickers/Old-school-Too-Cool.png", name: "Too Cool", category: "old-school" },
+    { id: "old-27", imageUrl: "/stickers/Old-school-WOW-2.png", name: "WOW 2", category: "old-school" },
+    { id: "old-28", imageUrl: "/stickers/Old-school-WOW-3.png", name: "WOW 3", category: "old-school" },
+    { id: "old-29", imageUrl: "/stickers/Old-school-Wander-Lust.png", name: "Wander Lust", category: "old-school" },
+    { id: "old-30", imageUrl: "/stickers/Old-school-Weekend-Mode.png", name: "Weekend Mode", category: "old-school" },
+    { id: "old-31", imageUrl: "/stickers/Old-school-YASSS.png", name: "YASSS", category: "old-school" },
+    
+    // New stickers
+    { id: "new-1", imageUrl: "/stickers/new-Adventure-Time.png", name: "Adventure Time", category: "new" },
+    { id: "new-2", imageUrl: "/stickers/new-Cuties.png", name: "Cuties", category: "new" },
+    { id: "new-3", imageUrl: "/stickers/new-Day-Trip.png", name: "Day Trip", category: "new" },
+    { id: "new-4", imageUrl: "/stickers/new-Dream-Destination.png", name: "Dream Destination", category: "new" },
+    { id: "new-5", imageUrl: "/stickers/new-Dreamy-2.png", name: "Dreamy 2", category: "new" },
+    { id: "new-6", imageUrl: "/stickers/new-Exploring-3.png", name: "Exploring 3", category: "new" },
+    { id: "new-7", imageUrl: "/stickers/new-Exploring.png", name: "Exploring", category: "new" },
+    { id: "new-8", imageUrl: "/stickers/new-Get-Outside.png", name: "Get Outside", category: "new" },
+    { id: "new-9", imageUrl: "/stickers/new-Getaway.png", name: "Getaway", category: "new" },
+    { id: "new-10", imageUrl: "/stickers/new-Golden-Hour-2.png", name: "Golden Hour 2", category: "new" },
+    { id: "new-11", imageUrl: "/stickers/new-Golden-Hour.png", name: "Golden Hour", category: "new" },
+    { id: "new-12", imageUrl: "/stickers/new-Good-Times-2.png", name: "Good Times 2", category: "new" },
+    { id: "new-13", imageUrl: "/stickers/new-Here-We-Go.png", name: "Here We Go", category: "new" },
+    { id: "new-14", imageUrl: "/stickers/new-HoneyMoon-Mode.png", name: "HoneyMoon Mode", category: "new" },
+    { id: "new-15", imageUrl: "/stickers/new-Legendary-Vaycay.png", name: "Legendary Vaycay", category: "new" },
+    { id: "new-16", imageUrl: "/stickers/new-Lost-Again.png", name: "Lost Again", category: "new" },
+    { id: "new-17", imageUrl: "/stickers/new-Love-In-The-Air.png", name: "Love In The Air", category: "new" },
+    { id: "new-18", imageUrl: "/stickers/new-Love-This-2.png", name: "Love This 2", category: "new" },
+    { id: "new-19", imageUrl: "/stickers/new-Making-Memories.png", name: "Making Memories", category: "new" },
+    { id: "new-20", imageUrl: "/stickers/new-Memories.png", name: "Memories", category: "new" },
+    { id: "new-21", imageUrl: "/stickers/new-My-Happy-Place.png", name: "My Happy Place", category: "new" },
+    { id: "new-22", imageUrl: "/stickers/new-Next-Stop-2.png", name: "Next Stop 2", category: "new" },
+    { id: "new-23", imageUrl: "/stickers/new-Next-Stop-Paris.png", name: "Next Stop Paris", category: "new" },
+    { id: "new-24", imageUrl: "/stickers/new-On-The-Road-2.png", name: "On The Road 2", category: "new" },
+    { id: "new-25", imageUrl: "/stickers/new-On-The-Road.png", name: "On The Road", category: "new" },
+    { id: "new-26", imageUrl: "/stickers/new-Picture-Perfect.png", name: "Picture Perfect", category: "new" },
+    { id: "new-27", imageUrl: "/stickers/new-Postcard.png", name: "Postcard", category: "new" },
+    { id: "new-28", imageUrl: "/stickers/new-Send-Help.png", name: "Send Help", category: "new" },
+    { id: "new-29", imageUrl: "/stickers/new-SnapShot.png", name: "SnapShot", category: "new" },
+    { id: "new-30", imageUrl: "/stickers/new-So-Blessed.png", name: "So Blessed", category: "new" },
+    { id: "new-31", imageUrl: "/stickers/new-Too-many-snacks.png", name: "Too many snacks", category: "new" },
+    { id: "new-32", imageUrl: "/stickers/new-Travel-Squad.png", name: "Travel Squad", category: "new" },
+    { id: "new-33", imageUrl: "/stickers/new-Travel-Vibes-2.png", name: "Travel Vibes 2", category: "new" },
+    { id: "new-34", imageUrl: "/stickers/new-Travel-Vibes.png", name: "Travel Vibes", category: "new" },
+    { id: "new-35", imageUrl: "/stickers/new-Unforgetable.png", name: "Unforgetable", category: "new" },
+    { id: "new-36", imageUrl: "/stickers/new-Vacay-Mode.png", name: "Vacay Mode", category: "new" },
+    { id: "new-37", imageUrl: "/stickers/new-WOW-4.png", name: "WOW 4", category: "new" },
+    { id: "new-38", imageUrl: "/stickers/new-WOW.png", name: "WOW", category: "new" },
+    { id: "new-39", imageUrl: "/stickers/new-Wanderlust-2.png", name: "Wanderlust 2", category: "new" },
+    { id: "new-40", imageUrl: "/stickers/new-Wish-You-Were-Here-2.png", name: "Wish You Were Here 2", category: "new" },
+    { id: "new-41", imageUrl: "/stickers/new-Wish-You-Were-Here.png", name: "Wish You Were Here", category: "new" },
+    { id: "new-42", imageUrl: "/stickers/new-YASS!.png", name: "YASS!", category: "new" },
+    { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
+  ]
 
-  const addSticker = (stickerData: typeof availableStickers[0]) => {
+  const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
+  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
+  const [stickers, setStickers] = useState<Sticker[]>([])
+  const [textOverlay, setTextOverlay] = useState("")
+  const [textStyle, setTextStyle] = useState("bold")
+
+  // Filter stickers by category
+  const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
+
+  // Add sticker
+  const addSticker = (stickerName: string) => {
+    const stickerData = availableStickers.find(s => s.name === stickerName)
+    if (!stickerData) return
+    
     const newSticker: Sticker = {
       id: Date.now().toString(),
-      emoji: stickerData.imageUrl,
+      emoji: stickerData.imageUrl, // Store image URL instead of emoji
       name: stickerData.name,
-      x: Math.random() * 200,
-      y: Math.random() * 200,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      scale: 1,
       rotation: 0,
-    };
-    setStickers([...stickers, newSticker]);
-    setShowStickerModal(false);
-  };
+    }
+    setStickers([...stickers, newSticker])
+  }
 
+  // Remove sticker
   const removeSticker = (id: string) => {
-    setStickers(stickers.filter(sticker => sticker.id !== id));
-  };
+    setStickers(stickers.filter(s => s.id !== id))
+  }
 
-  const updateSticker = (id: string, updates: Partial<Sticker>) => {
-    setStickers(stickers.map(sticker => 
-      sticker.id === id ? { ...sticker, ...updates } : sticker
-    ));
-  };
-
-  const addTextOverlay = () => {
-    if (!textInput.trim()) return;
-    
-    const newTextOverlay: TextOverlay = {
-      id: Date.now().toString(),
-      text: textInput,
-      x: Math.random() * 200,
-      y: Math.random() * 200,
-      style: { ...textStyle },
-    };
-    setTextOverlays([...textOverlays, newTextOverlay]);
-    setTextInput('');
-    setShowTextModal(false);
-  };
-
-  const removeTextOverlay = (id: string) => {
-    setTextOverlays(textOverlays.filter(text => text.id !== id));
-  };
-
-  const updateTextOverlay = (id: string, updates: Partial<TextOverlay>) => {
-    setTextOverlays(textOverlays.map(text => 
-      text.id === id ? { ...text, ...updates } : text
-    ));
-  };
-
+  // Handle post
   const handlePost = () => {
     const contentData = {
       stickers,
-      textOverlays,
-      mediaUrl,
-      mediaType,
-      platform
-    };
-    onPost(contentData);
-  };
+      text: textOverlay,
+      textStyle,
+      platform,
+    }
+    onPost(contentData)
+  }
 
+  // Handle save
   const handleSave = () => {
     const contentData = {
       stickers,
-      textOverlays,
-      mediaUrl,
-      mediaType,
-      platform
-    };
-    onSave(contentData);
-  };
-
-  const oldSchoolStickers = availableStickers.filter(s => s.category === 'old-school');
-  const newStickers = availableStickers.filter(s => s.category === 'new');
+      text: textOverlay,
+      textStyle,
+      platform,
+    }
+    onSave(contentData)
+  }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div
+        style={{
+          padding: "1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "rgba(0,0,0,0.2)",
+        }}
+      >
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-gray-300 hover:text-white"
+          style={{
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <X size={20} />
-          <span>Back</span>
+          <ArrowLeft size={24} />
         </button>
-        <h1 className="text-lg font-semibold">Content Editor</h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>
+          Add Content for {platform}
+        </h1>
+        <div style={{ width: "48px" }} />
+      </div>
+
+      {/* Preview */}
+      <div
+        style={{
+          padding: "1rem",
+          display: "flex",
+          justifyContent: "center",
+          background: "rgba(0,0,0,0.1)",
+        }}
+      >
+        <div
+          style={{
+            width: "90vw",
+            height: activeTab === "stickers" || activeTab === "text" ? "35vh" : "50vh",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            position: "relative",
+            touchAction: "none",
+            transition: "height 0.3s ease",
+          }}
+        >
+          {mediaType === "photo" ? (
+            <img
+              src={mediaUrl}
+              alt="Preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <video
+              src={mediaUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+              muted
+              autoPlay
+              loop
+            />
+          )}
+          
+          {/* Draggable Stickers Overlay */}
+          {stickers.map((sticker) => (
+            <DraggableSticker
+              key={sticker.id}
+              sticker={sticker}
+              onUpdate={(updates) => {
+                setStickers(stickers.map(s => 
+                  s.id === sticker.id ? { ...s, ...updates } : s
+                ))
+              }}
+              onRemove={() => removeSticker(sticker.id)}
+            />
+          ))}
+
+          {/* Draggable Text Overlay */}
+          {textOverlay && (
+            <DraggableText
+              text={textOverlay}
+              style={textStyle}
+              onUpdate={(updates) => {
+                // Update text position if needed
+                console.log("Text position updated:", updates)
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
+        <button
+          onClick={() => setActiveTab("stickers")}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "stickers" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "stickers" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          🎯 Stickers
+        </button>
+
+        <button
+          onClick={() => setActiveTab("text")}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "text" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "text" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          ✏️ Text
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div style={{flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: 'rgba(0,0,0,0.2)'}}>
+        {activeTab === "stickers" && (
+          <div>
+            <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
+              Add Stickers
+            </h3>
+            
+            {/* Sticker Category Tabs */}
+            <div style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
+              <button
+                onClick={() => setStickerCategory("old-school")}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: stickerCategory === "old-school" ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                  background: stickerCategory === "old-school" ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Old School
+              </button>
+              <button
+                onClick={() => setStickerCategory("new")}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: stickerCategory === "new" ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                  background: stickerCategory === "new" ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                New
+              </button>
+            </div>
+            
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px'}}>
+              {filteredStickers.map((sticker, index) => (
+                <button
+                  key={sticker.id}
+                  onClick={() => addSticker(sticker.name)}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: 'white',
+                    cursor: 'pointer',
+                    aspectRatio: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <img 
+                    src={sticker.imageUrl} 
+                    alt={sticker.name} 
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'contain',
+                      maxWidth: '40px',
+                      maxHeight: '40px'
+                    }} 
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "text" && (
+          <div>
+            <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
+              Add Text
+            </h3>
+            <div style={{marginBottom: '16px'}}>
+              <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
+                Your Message
+              </label>
+              <input
+                type="text"
+                value={textOverlay}
+                onChange={(e) => setTextOverlay(e.target.value)}
+                placeholder="Add your message..."
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
+                Text Style
+              </label>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px'}}>
+                {["bold", "normal"].map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setTextStyle(style)}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: textStyle === style ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                      background: textStyle === style ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                      color: 'white',
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {style.charAt(0).toUpperCase() + style.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div style={{padding: '16px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+        <div style={{display: 'flex', gap: '8px'}}>
           <button
             onClick={handleSave}
             style={{
-              padding: '8px 12px',
+              flex: 1,
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.3)',
+              background: 'rgba(255,255,255,0.1)',
+              color: 'white',
               fontSize: '14px',
-              border: '1px solid #4b5563',
-              color: '#d1d5db',
-              backgroundColor: 'transparent',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}
           >
+            <Save size={16} />
             Save
           </button>
           <button
             onClick={handlePost}
             style={{
-              padding: '8px 12px',
-              fontSize: '14px',
-              backgroundColor: '#2563eb',
+              flex: 1,
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.3)',
+              background: 'rgba(255,255,255,0.1)',
               color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}
           >
+            <Share2 size={16} />
             Post
           </button>
         </div>
       </div>
-
-      {/* Preview Area */}
-      <div className="relative" style={{ width: "90vw", height: "50vh", margin: "0 auto" }}>
-        {mediaType === 'image' ? (
-          <img
-            src={mediaUrl}
-            alt="Preview"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <video
-            src={mediaUrl}
-            className="w-full h-full object-cover"
-            controls
-          />
-        )}
-        
-        {/* Stickers Overlay */}
-        {stickers.map(sticker => (
-          <DraggableSticker
-            key={sticker.id}
-            sticker={sticker}
-            onUpdate={updateSticker}
-            onRemove={removeSticker}
-          />
-        ))}
-        
-        {/* Text Overlay */}
-        {textOverlays.map(textOverlay => (
-          <DraggableText
-            key={textOverlay.id}
-            textOverlay={textOverlay}
-            onUpdate={updateTextOverlay}
-            onRemove={removeTextOverlay}
-          />
-        ))}
-      </div>
-
-      {/* Action Buttons */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: '16px', 
-        padding: '16px',
-        backgroundColor: '#1f2937',
-        borderTop: '1px solid #374151'
-      }}>
-        <button
-          onClick={() => setShowStickerModal(true)}
-          style={{
-            padding: '12px 16px',
-            border: '1px solid #4b5563',
-            color: '#d1d5db',
-            backgroundColor: '#374151',
-            borderRadius: '6px',
-            fontSize: '14px',
-            fontWeight: '500',
-            cursor: 'pointer'
-          }}
-        >
-          Add Stickers
-        </button>
-        <button
-          onClick={() => setShowTextModal(true)}
-          style={{
-            padding: '12px 16px',
-            border: '1px solid #4b5563',
-            color: '#d1d5db',
-            backgroundColor: '#374151',
-            borderRadius: '6px',
-            fontSize: '14px',
-            fontWeight: '500',
-            cursor: 'pointer'
-          }}
-        >
-          Add Text
-        </button>
-      </div>
-
-      {/* Sticker Modal */}
-      {showStickerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <h2 className="text-xl font-semibold">Choose Stickers</h2>
-            <button
-              onClick={() => setShowStickerModal(false)}
-              className="text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Old School Column */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4 text-center">Old School</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {oldSchoolStickers.map(sticker => (
-                    <button
-                      key={sticker.id}
-                      onClick={() => addSticker(sticker)}
-                      className="p-2 border border-gray-600 rounded hover:bg-gray-700 transition-colors"
-                    >
-                      <img
-                        src={sticker.imageUrl}
-                        alt={sticker.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          maxWidth: '80px',
-                          maxHeight: '80px',
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* New Column */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4 text-center">New</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {newStickers.map(sticker => (
-                    <button
-                      key={sticker.id}
-                      onClick={() => addSticker(sticker)}
-                      className="p-2 border border-gray-600 rounded hover:bg-gray-700 transition-colors"
-                    >
-                      <img
-                        src={sticker.imageUrl}
-                        alt={sticker.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          maxWidth: '80px',
-                          maxHeight: '80px',
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Text Modal */}
-      {showTextModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <h2 className="text-xl font-semibold">Add Text</h2>
-            <button
-              onClick={() => setShowTextModal(false)}
-              className="text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          <div className="flex-1 p-4">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Text</label>
-                <textarea
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Enter your text..."
-                  className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white"
-                  rows={3}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Font Size</label>
-                <input
-                  type="range"
-                  min="12"
-                  max="72"
-                  value={textStyle.fontSize}
-                  onChange={(e) => setTextStyle({...textStyle, fontSize: parseInt(e.target.value)})}
-                  className="w-full"
-                />
-                <span className="text-sm text-gray-400">{textStyle.fontSize}px</span>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Color</label>
-                <div className="flex space-x-2">
-                  {['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00'].map(color => (
-                    <button
-                      key={color}
-                      onClick={() => setTextStyle({...textStyle, color})}
-                      className={`w-8 h-8 rounded border-2 ${textStyle.color === color ? 'border-white' : 'border-gray-600'}`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-              
-              <Button
-                onClick={addTextOverlay}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                disabled={!textInput.trim()}
-              >
-                Add Text
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  );
-};
-
-export default ContentEditor; 
+  )
+} 
