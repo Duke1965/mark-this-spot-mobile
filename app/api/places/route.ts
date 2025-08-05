@@ -68,11 +68,16 @@ export async function GET(request: NextRequest) {
     // Use Google Geocoding API to get the actual location name
     const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
 
+    console.log("📍 Calling Google Geocoding API:", geocodingUrl)
+    
     const response = await fetch(geocodingUrl)
     const data = await response.json()
 
+    console.log("📍 Google Geocoding API response:", JSON.stringify(data, null, 2))
+
     // Check if the API returned an error status
     if (!response.ok || data.status === "REQUEST_DENIED" || data.status === "ZERO_RESULTS") {
+      console.log("❌ Google Geocoding API error:", data.status, data.error_message)
       throw new Error(`Google Geocoding API error: ${data.error_message || "Unknown error"}`)
     }
 
@@ -80,6 +85,8 @@ export async function GET(request: NextRequest) {
     if (data.results && data.results.length > 0) {
       const result = data.results[0]
       const locationName = result.formatted_address.split(',')[0] // Get the first part of the address
+      
+      console.log("📍 Real location name from Google:", locationName)
       
       // Create a mock place with the real location name
       const realPlace = {
