@@ -152,6 +152,33 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         ×
       </button>
       
+      {/* Rotate button - always visible */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onUpdate({ rotation: sticker.rotation + 45 }) // Rotate by 45 degrees each click
+        }}
+        style={{
+          position: "absolute",
+          top: "-10px",
+          left: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(0, 0, 255, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "12px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+        }}
+      >
+        🔄
+      </button>
+      
       <img 
         src={sticker.emoji} 
         alt={sticker.name}
