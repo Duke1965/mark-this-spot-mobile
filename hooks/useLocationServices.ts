@@ -95,8 +95,8 @@ export function useLocationServices() {
     console.log("📍 Starting location watch...")
     
     const defaultOptions: PositionOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
+      enableHighAccuracy: false, // Try low accuracy first
+      timeout: 15000, // Increase timeout to 15 seconds
       maximumAge: 60000, // 1 minute for watch
       ...options,
     }
