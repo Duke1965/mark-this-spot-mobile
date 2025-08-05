@@ -437,16 +437,32 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           <span>Back</span>
         </button>
         <h1 className="text-lg font-semibold">Content Editor</h1>
-        <div className="flex space-x-2">
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={handleSave}
-            className="px-3 py-1 text-sm border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
+            style={{
+              padding: '8px 12px',
+              fontSize: '14px',
+              border: '1px solid #4b5563',
+              color: '#d1d5db',
+              backgroundColor: 'transparent',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
           >
             Save
           </button>
           <button
             onClick={handlePost}
-            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            style={{
+              padding: '8px 12px',
+              fontSize: '14px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
           >
             Post
           </button>
@@ -491,16 +507,41 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center space-x-4 p-4">
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '16px', 
+        padding: '16px',
+        backgroundColor: '#1f2937',
+        borderTop: '1px solid #374151'
+      }}>
         <button
           onClick={() => setShowStickerModal(true)}
-          className="px-4 py-2 border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
+          style={{
+            padding: '12px 16px',
+            border: '1px solid #4b5563',
+            color: '#d1d5db',
+            backgroundColor: '#374151',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}
         >
           Add Stickers
         </button>
         <button
           onClick={() => setShowTextModal(true)}
-          className="px-4 py-2 border border-gray-600 text-gray-300 hover:bg-gray-700 rounded"
+          style={{
+            padding: '12px 16px',
+            border: '1px solid #4b5563',
+            color: '#d1d5db',
+            backgroundColor: '#374151',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}
         >
           Add Text
         </button>
