@@ -811,7 +811,7 @@ export default function PINITApp() {
     )
   }
 
-  if (currentScreen === "content-editor" && capturedMedia && selectedPlatform) {
+  if (currentScreen === "content-editor" && capturedMedia) {
     return (
       <ContentEditor
         mediaUrl={capturedMedia.url}
