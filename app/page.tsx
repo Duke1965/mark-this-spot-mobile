@@ -206,7 +206,7 @@ export default function PINITApp() {
   // Get real location name from Google Places API
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
-      console.log("📍 Fetching real location name for:", lat, lng)
+      console.log("📍 Fetching location name for:", lat, lng)
       
       // Use our API route instead of calling Google Maps directly
       const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
@@ -235,7 +235,6 @@ export default function PINITApp() {
       }
 
       // If no places found, return coordinates as fallback
-      console.log("📍 No places found, returning coordinates...")
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
