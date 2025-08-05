@@ -82,16 +82,18 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         y: touch.clientY - startPos.y
       })
     } else if (e.touches.length === 2) {
-      // Two finger scale and rotate
+      // Two finger scale and rotate simultaneously
       const currentDistance = getDistance(e.touches)
       const currentAngle = getAngle(e.touches)
       
       if (initialDistance > 0) {
+        // Calculate scale
         const scaleChange = currentDistance / initialDistance
         const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
         
-        const rotationChange = currentAngle - (getAngle(e.touches) - initialRotation)
-        const newRotation = initialRotation + rotationChange
+        // Calculate rotation (simplified for better performance)
+        const angleDiff = currentAngle - getAngle(e.touches)
+        const newRotation = initialRotation + angleDiff
         
         onUpdate({
           scale: newScale,
@@ -118,6 +120,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove }: DraggableStickerProps
         touchAction: "none",
         fontSize: "96px",
         zIndex: isDragging ? 1000 : 1,
+        padding: "20px", // Bigger touch area around sticker
+        margin: "-20px", // Compensate for padding so sticker position stays the same
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
