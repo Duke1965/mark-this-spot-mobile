@@ -146,10 +146,12 @@ export default function PINITApp() {
     let watchId: number | null = null
 
     if (typeof window !== 'undefined' && navigator.geolocation) {
+      console.log("📍 Setting up location watching...")
+      
       // Start watching location continuously
       watchId = watchLocation({
-        enableHighAccuracy: true,
-        timeout: 10000,
+        enableHighAccuracy: false, // Try low accuracy first
+        timeout: 15000, // Increase timeout
         maximumAge: 60000, // 1 minute - less frequent updates for smoother experience
       })
 
@@ -159,6 +161,8 @@ export default function PINITApp() {
           clearWatch(watchId)
         }
       }
+    } else {
+      console.log("❌ Geolocation not available")
     }
   }, [watchLocation, clearWatch])
 
