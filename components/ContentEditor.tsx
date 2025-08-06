@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from 'react';
+import { useState } from "react"
 import { ArrowLeft, Save, Share2 } from "lucide-react"
 
 interface ContentEditorProps {
@@ -23,328 +23,373 @@ interface Sticker {
 }
 
 interface DraggableStickerProps {
-  sticker: any;
-  onUpdate: (id: string, updates: any) => void;
-  onDelete: (id: string) => void;
-  isActive: boolean;
+  sticker: Sticker
+  onUpdate: (updates: Partial<Sticker>) => void
+  onRemove: () => void
+  isActive?: boolean
 }
 
 interface DraggableTextProps {
-  text: any;
-  onUpdate: (id: string, updates: any) => void;
-  onDelete: (id: string) => void;
-  isActive: boolean;
+  text: string
+  style: string
+  onUpdate: (updates: any) => void
+  isActive?: boolean
 }
 
-const DraggableSticker = ({ sticker, onUpdate, onDelete, isActive }: DraggableStickerProps) => {
-  const [position, setPosition] = useState({ x: sticker.x, y: sticker.y });
-  const [scale, setScale] = useState(sticker.scale || 1);
-  const [rotation, setRotation] = useState(sticker.rotation || 0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isScaling, setIsScaling] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
-  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
-  const [startDistance, setStartDistance] = useState(0);
-  const [startAngle, setStartAngle] = useState(0);
-  const [isRotateHandleActive, setIsRotateHandleActive] = useState(false);
+function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: DraggableStickerProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const [initialDistance, setInitialDistance] = useState(0)
+  const [initialScale, setInitialScale] = useState(1)
+  const [initialRotation, setInitialRotation] = useState(0)
+
+  const getDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getAngle = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.atan2(dy, dx) * 180 / Math.PI
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isActive) return;
-    e.preventDefault();
+    if (!isActive) return // Disable interactions when not active
+    e.preventDefault()
+    
     if (e.touches.length === 1) {
-      setIsDragging(true);
-      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      // Single finger - drag
+      const touch = e.touches[0]
+      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+      setIsDragging(true)
     } else if (e.touches.length === 2) {
-      setIsScaling(true);
-      setIsRotating(true);
-      const distance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const angle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
-      setStartDistance(distance);
-      setStartAngle(angle);
+      // Two fingers - scale and rotate
+      setInitialDistance(getDistance(e.touches))
+      setInitialScale(sticker.scale)
+      setInitialRotation(sticker.rotation)
     }
-  };
+  }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isActive) return;
-    e.preventDefault();
+    e.preventDefault()
+    
     if (e.touches.length === 1 && isDragging) {
-      const deltaX = e.touches[0].clientX - startTouch.x;
-      const deltaY = e.touches[0].clientY - startTouch.y;
-      const newPosition = { x: position.x + deltaX, y: position.y + deltaY };
-      setPosition(newPosition);
-      onUpdate(sticker.id, { x: newPosition.x, y: newPosition.y });
-      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-    } else if (e.touches.length === 2 && (isScaling || isRotating)) {
-      const distance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const angle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
+      // Single finger drag
+      const touch = e.touches[0]
+      onUpdate({
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
+      })
+    } else if (e.touches.length === 2) {
+      // Two finger scale and rotate simultaneously
+      const currentDistance = getDistance(e.touches)
+      const currentAngle = getAngle(e.touches)
       
-      if (isScaling) {
-        const scaleFactor = distance / startDistance;
-        const newScale = Math.max(0.5, Math.min(3, scale * scaleFactor));
-        setScale(newScale);
-        onUpdate(sticker.id, { scale: newScale });
+      if (initialDistance > 0) {
+        // Calculate scale
+        const scaleChange = currentDistance / initialDistance
+        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
+        
+        // Calculate rotation (simplified for better performance)
+        const angleDiff = currentAngle - getAngle(e.touches)
+        const newRotation = initialRotation + angleDiff
+        
+        onUpdate({
+          scale: newScale,
+          rotation: newRotation
+        })
       }
-      
-      if (isRotating) {
-        const angleDelta = angle - startAngle;
-        const newRotation = rotation + (angleDelta * (180 / Math.PI)) * 0.5; // 50% less sensitive
-        setRotation(newRotation);
-        onUpdate(sticker.id, { rotation: newRotation });
-      }
-      
-      setStartDistance(distance);
-      setStartAngle(angle);
     }
-  };
+  }
 
   const handleTouchEnd = () => {
-    setIsDragging(false);
-    setIsScaling(false);
-    setIsRotating(false);
-  };
+    setIsDragging(false)
+    setInitialDistance(0)
+  }
 
   return (
     <div
       style={{
-        position: 'absolute',
-        left: position.x,
-        top: position.y,
-        transform: `scale(${scale}) rotate(${rotation}deg)`,
-        cursor: isActive ? 'pointer' : 'default',
-        padding: '20px',
-        margin: '-20px',
-        zIndex: isActive ? 1000 : 1
+        position: "absolute",
+        left: sticker.x,
+        top: sticker.y,
+        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+        fontSize: "96px",
+        zIndex: isDragging ? 1000 : 1,
+        padding: "20px", // Bigger touch area around sticker
+        margin: "-20px", // Compensate for padding so sticker position stays the same
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* X button for removal */}
+      <button
+        onClick={onRemove}
+        style={{
+          position: "absolute",
+          top: "-10px",
+          right: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(255, 0, 0, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "14px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+        }}
+      >
+        ×
+      </button>
+      
+      {/* Draggable rotate handle */}
+      <div
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
+        }}
+        style={{
+          position: "absolute",
+          top: "-10px",
+          left: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(0, 0, 255, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "12px",
+          cursor: "grab",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+          userSelect: "none",
+          touchAction: "none",
+        }}
+      >
+        🔄
+      </div>
+      
       <img 
         src={sticker.emoji} 
         alt={sticker.name}
         style={{ 
-          width: '96px', 
-          height: '96px',
-          objectFit: 'contain',
-          pointerEvents: 'none'
+          width: "96px", 
+          height: "96px", 
+          objectFit: "contain",
+          userSelect: "none",
+          pointerEvents: "none"
         }} 
       />
-      
-      {/* Delete Button */}
-      <button
-        onClick={() => onDelete(sticker.id)}
-        style={{
-          position: 'absolute',
-          top: '-10px',
-          right: '-10px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: 'red',
-          border: 'none',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-        ×
-      </button>
-      
-      {/* Rotate Handle */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-30px',
-          right: '-10px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: 'blue',
-          border: 'none',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-        🔄
-      </div>
     </div>
-  );
-};
+  )
+}
 
-const DraggableText = ({ text, onUpdate, onDelete, isActive }: DraggableTextProps) => {
-  const [position, setPosition] = useState({ x: text.x, y: text.y });
-  const [scale, setScale] = useState(text.scale || 1);
-  const [rotation, setRotation] = useState(text.rotation || 0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isScaling, setIsScaling] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
-  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
-  const [startDistance, setStartDistance] = useState(0);
-  const [startAngle, setStartAngle] = useState(0);
+function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
+  const [position, setPosition] = useState({ x: 10, y: 10 })
+  const [scale, setScale] = useState(1)
+  const [rotation, setRotation] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const [initialDistance, setInitialDistance] = useState(0)
+  const [initialScale, setInitialScale] = useState(1)
+  const [initialRotation, setInitialRotation] = useState(0)
+
+  const getDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const getAngle = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0
+    const dx = touches[1].clientX - touches[0].clientX
+    const dy = touches[1].clientY - touches[0].clientY
+    return Math.atan2(dy, dx) * 180 / Math.PI
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isActive) return;
-    e.preventDefault();
+    if (!isActive) return // Disable interactions when not active
+    e.preventDefault()
+    
     if (e.touches.length === 1) {
-      setIsDragging(true);
-      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      // Single finger - drag
+      const touch = e.touches[0]
+      setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+      setIsDragging(true)
     } else if (e.touches.length === 2) {
-      setIsScaling(true);
-      setIsRotating(true);
-      const distance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const angle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
-      setStartDistance(distance);
-      setStartAngle(angle);
+      // Two fingers - scale and rotate
+      setInitialDistance(getDistance(e.touches))
+      setInitialScale(scale)
+      setInitialRotation(rotation)
     }
-  };
+  }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isActive) return;
-    e.preventDefault();
+    e.preventDefault()
+    
     if (e.touches.length === 1 && isDragging) {
-      const deltaX = e.touches[0].clientX - startTouch.x;
-      const deltaY = e.touches[0].clientY - startTouch.y;
-      const newPosition = { x: position.x + deltaX, y: position.y + deltaY };
-      setPosition(newPosition);
-      onUpdate(text.id, { x: newPosition.x, y: newPosition.y });
-      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-    } else if (e.touches.length === 2 && (isScaling || isRotating)) {
-      const distance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const angle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
-      
-      if (isScaling) {
-        const scaleFactor = distance / startDistance;
-        const newScale = Math.max(0.5, Math.min(3, scale * scaleFactor));
-        setScale(newScale);
-        onUpdate(text.id, { scale: newScale });
+      // Single finger drag
+      const touch = e.touches[0]
+      const newPosition = {
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
       }
+      setPosition(newPosition)
+      onUpdate(newPosition)
+    } else if (e.touches.length === 2) {
+      // Two finger scale and rotate simultaneously
+      const currentDistance = getDistance(e.touches)
+      const currentAngle = getAngle(e.touches)
       
-      if (isRotating) {
-        const angleDelta = angle - startAngle;
-        const newRotation = rotation + (angleDelta * (180 / Math.PI)) * 0.5; // 50% less sensitive
-        setRotation(newRotation);
-        onUpdate(text.id, { rotation: newRotation });
+      if (initialDistance > 0) {
+        // Calculate scale
+        const scaleChange = currentDistance / initialDistance
+        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
+        setScale(newScale)
+        
+        // Calculate rotation (simplified for better performance)
+        const angleDiff = currentAngle - getAngle(e.touches)
+        const newRotation = initialRotation + angleDiff
+        setRotation(newRotation)
+        
+        onUpdate({ scale: newScale, rotation: newRotation })
       }
-      
-      setStartDistance(distance);
-      setStartAngle(angle);
     }
-  };
+  }
 
   const handleTouchEnd = () => {
-    setIsDragging(false);
-    setIsScaling(false);
-    setIsRotating(false);
-  };
+    setIsDragging(false)
+    setInitialDistance(0)
+  }
 
   return (
     <div
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: position.x,
         top: position.y,
         transform: `scale(${scale}) rotate(${rotation}deg)`,
-        cursor: isActive ? 'pointer' : 'default',
-        padding: '20px',
-        margin: '-20px',
-        zIndex: isActive ? 1000 : 1
+        fontSize: style === "bold" ? "16px" : "14px",
+        fontWeight: style === "bold" ? "bold" : "normal",
+        color: "white",
+        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+        cursor: "move",
+        userSelect: "none",
+        touchAction: "none",
+        zIndex: isDragging ? 1000 : 1,
+        maxWidth: "calc(100% - 20px)",
+        wordWrap: "break-word",
+        padding: "20px", // Bigger touch area
+        margin: "-20px", // Compensate for padding
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div
-        style={{
-          color: text.color,
-          fontFamily: text.font,
-          fontSize: '24px',
-          fontWeight: 'bold',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none'
-        }}
-      >
-        {text.content}
-      </div>
-      
-      {/* Delete Button */}
+      {/* X button for removal */}
       <button
-        onClick={() => onDelete(text.id)}
+        onClick={() => onUpdate({ remove: true })}
         style={{
-          position: 'absolute',
-          top: '-10px',
-          right: '-10px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: 'red',
-          border: 'none',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          position: "absolute",
+          top: "-10px",
+          right: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(255, 0, 0, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "14px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
         }}
       >
         ×
       </button>
       
-      {/* Rotate Handle */}
+      {/* Draggable rotate handle */}
       <div
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
         style={{
-          position: 'absolute',
-          bottom: '-30px',
-          right: '-10px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: 'blue',
-          border: 'none',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          position: "absolute",
+          top: "-10px",
+          left: "-10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          background: "rgba(0, 0, 255, 0.8)",
+          border: "2px solid white",
+          color: "white",
+          fontSize: "12px",
+          cursor: "grab",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1001,
+          userSelect: "none",
+          touchAction: "none",
         }}
       >
         🔄
       </div>
+      
+      {text}
     </div>
-  );
-};
+  )
+}
 
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
   // Available stickers (matching exact GitHub file names)
@@ -428,23 +473,11 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
   ]
 
-  const [activeTab, setActiveTab] = useState<'stickers' | 'text'>('stickers')
-  const [stickerCategory, setStickerCategory] = useState<'old-school' | 'new'>('old-school')
+  const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
+  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
-  const [texts, setTexts] = useState<any[]>([])
   const [textOverlay, setTextOverlay] = useState("")
   const [textStyle, setTextStyle] = useState("bold")
-  const [selectedFont, setSelectedFont] = useState('Bangers');
-  const [selectedColor, setSelectedColor] = useState('#000000');
-
-  const fonts = [
-    'Bangers',
-    'Chewy', 
-    'Bubblegum Sans',
-    'Indie Flower',
-    'Righteous',
-    'Audiowide'
-  ];
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -467,41 +500,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   }
 
   // Remove sticker
-  const deleteSticker = (id: string) => {
+  const removeSticker = (id: string) => {
     setStickers(stickers.filter(s => s.id !== id))
   }
-
-  const updateSticker = (id: string, updates: any) => {
-    setStickers(stickers.map(s => 
-      s.id === id ? { ...s, ...updates } : s
-    ))
-  }
-
-  const addText = () => {
-    if (textOverlay.trim()) {
-      const textId = `text-${Date.now()}`;
-      const newTextItem = {
-        id: textId,
-        content: textOverlay,
-        x: Math.random() * 200,
-        y: Math.random() * 200,
-        scale: 1,
-        rotation: 0,
-        font: selectedFont,
-        color: selectedColor
-      };
-      setTexts([...texts, newTextItem]);
-      setTextOverlay('');
-    }
-  };
-
-  const updateText = (id: string, updates: any) => {
-    setTexts(texts.map(t => t.id === id ? { ...t, ...updates } : t));
-  };
-
-  const deleteText = (id: string) => {
-    setTexts(texts.filter(t => t.id !== id));
-  };
 
   // Handle post
   const handlePost = () => {
@@ -540,169 +541,166 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       }}
     >
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '15px'
-      }}>
-        <button 
+      <div
+        style={{
+          padding: "1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "rgba(0,0,0,0.2)",
+        }}
+      >
+        <button
           onClick={onBack}
           style={{
-            background: 'none',
-            border: 'none',
-            color: 'white',
+            padding: "0.75rem",
+            borderRadius: "50%",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>
+          Add Content for {platform}
+        </h1>
+        <div style={{ width: "48px" }} />
+      </div>
+
+      {/* Preview */}
+      <div
+        style={{
+          padding: "1rem",
+          display: "flex",
+          justifyContent: "center",
+          background: "rgba(0,0,0,0.1)",
+        }}
+      >
+        <div
+          style={{
+            width: "90vw",
+            height: activeTab === "stickers" || activeTab === "text" ? "35vh" : "50vh",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            position: "relative",
+            touchAction: "none",
+            transition: "height 0.3s ease",
+          }}
+        >
+          {mediaType === "photo" ? (
+            <img
+              src={mediaUrl}
+              alt="Preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <video
+              src={mediaUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+              muted
+              autoPlay
+              loop
+            />
+          )}
+          
+          {/* Draggable Stickers Overlay - Always visible, but only interactive when stickers tab is active */}
+          {stickers.map((sticker) => (
+            <DraggableSticker
+              key={sticker.id}
+              sticker={sticker}
+              onUpdate={(updates) => {
+                if (activeTab === "stickers") {
+                  setStickers(stickers.map(s => 
+                    s.id === sticker.id ? { ...s, ...updates } : s
+                  ))
+                }
+              }}
+              onRemove={() => {
+                if (activeTab === "stickers") {
+                  removeSticker(sticker.id)
+                }
+              }}
+              isActive={activeTab === "stickers"}
+            />
+          ))}
+
+          {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
+          {textOverlay && (
+            <DraggableText
+              text={textOverlay}
+              style={textStyle}
+              onUpdate={(updates) => {
+                if (activeTab === "text") {
+                  if (updates.remove) {
+                    setTextOverlay("")
+                  } else {
+                    // Update text position, scale, rotation
+                    console.log("Text updated:", updates)
+                  }
+                }
+              }}
+              isActive={activeTab === "text"}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
+        <button
+          onClick={() => setActiveTab("stickers")}
+          style={{
+            flex: 1,
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
             fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "stickers" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "stickers" ? 'rgba(255,255,255,0.2)' : 'transparent',
+            border: 'none',
             cursor: 'pointer'
           }}
         >
-          ← Back
+          🎯 Stickers
         </button>
-        <h2 style={{ margin: 0, fontSize: '16px' }}>Add Content</h2>
-        <div style={{ width: '60px' }}></div>
-      </div>
 
-      {/* Photo Preview */}
-      <div style={{ 
-        position: 'relative',
-        width: '90vw',
-        height: '40vh',
-        margin: '0 auto 15px',
-        overflow: 'hidden',
-        borderRadius: '12px',
-        backgroundColor: '#2a2a2a'
-      }}>
-        <img 
-          src={mediaUrl} 
-          alt="Preview" 
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'cover' 
-          }} 
-        />
-        
-        {/* Stickers */}
-        {stickers.map((sticker) => (
-          <DraggableSticker
-            key={sticker.id}
-            sticker={sticker}
-            onUpdate={updateSticker}
-            onDelete={deleteSticker}
-            isActive={activeTab === 'stickers'}
-          />
-        ))}
-        
-        {/* Texts */}
-        {texts.map((text) => (
-          <DraggableText
-            key={text.id}
-            text={text}
-            onUpdate={updateText}
-            onDelete={deleteText}
-            isActive={activeTab === 'text'}
-          />
-        ))}
-      </div>
-
-      {/* Tabs - Moved up */}
-      <div style={{ 
-        display: 'flex', 
-        marginBottom: '15px',
-        backgroundColor: '#2a2a2a',
-        borderRadius: '8px',
-        padding: '4px'
-      }}>
         <button
-          onClick={() => setActiveTab('stickers')}
+          onClick={() => setActiveTab("text")}
           style={{
             flex: 1,
-            padding: '10px',
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: activeTab === "text" ? 'white' : 'rgba(255,255,255,0.7)',
+            backgroundColor: activeTab === "text" ? 'rgba(255,255,255,0.2)' : 'transparent',
             border: 'none',
-            borderRadius: '6px',
-            background: activeTab === 'stickers' ? '#3a3a3a' : 'transparent',
-            color: 'white',
-            cursor: 'pointer',
-            fontSize: '14px'
+            cursor: 'pointer'
           }}
         >
-          Stickers
-        </button>
-        <button
-          onClick={() => setActiveTab('text')}
-          style={{
-            flex: 1,
-            padding: '10px',
-            border: 'none',
-            borderRadius: '6px',
-            background: activeTab === 'text' ? '#3a3a3a' : 'transparent',
-            color: 'white',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
-        >
-          Text
+          ✏️ Text
         </button>
       </div>
-
-      {/* Color Picker - Thinner and higher */}
-      {activeTab === 'text' && (
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#ccc' }}>
-            Text Color
-          </label>
-          <div style={{ 
-            position: 'relative',
-            width: '50%',
-            height: '30px',
-            borderRadius: '6px',
-            overflow: 'hidden',
-            backgroundColor: '#2a2a2a',
-            padding: '6px',
-            margin: '0 auto'
-          }}>
-            <input
-              type="range"
-              min="0"
-              max="360"
-              value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
-              onChange={(e) => {
-                const hue = parseInt(e.target.value);
-                const color = `hsl(${hue}, 70%, 50%)`;
-                setSelectedColor(color);
-                // Auto-add text when color changes
-                if (textOverlay.trim()) {
-                  addText();
-                }
-              }}
-              style={{
-                width: '100%',
-                height: '18px',
-                background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
-                borderRadius: '9px',
-                outline: 'none',
-                cursor: 'pointer',
-                border: 'none',
-                appearance: 'none',
-                WebkitAppearance: 'none'
-              }}
-            />
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              width: '12px',
-              height: '12px',
-              backgroundColor: selectedColor,
-              borderRadius: '50%',
-              border: '2px solid white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              pointerEvents: 'none'
-            }} />
-          </div>
-        </div>
-      )}
 
       {/* Tab Content */}
       <div style={{flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: 'rgba(0,0,0,0.2)'}}>
@@ -786,58 +784,26 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
               Add Text
             </h3>
-            
-            {/* Font Selector */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#ccc' }}>
-                Font Style
+            <div style={{marginBottom: '16px'}}>
+              <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
+                Your Message
               </label>
-              <select
-                value={selectedFont}
-                onChange={(e) => {
-                  setSelectedFont(e.target.value);
-                  // Auto-add text when font changes
-                  if (textOverlay.trim()) {
-                    addText();
-                  }
-                }}
+              <input
+                type="text"
+                value={textOverlay}
+                onChange={(e) => setTextOverlay(e.target.value)}
+                placeholder="Add your message..."
                 style={{
                   width: '100%',
-                  padding: '10px',
-                  border: 'none',
+                  padding: '12px',
                   borderRadius: '8px',
-                  backgroundColor: '#2a2a2a',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  background: 'rgba(255,255,255,0.1)',
                   color: 'white',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  outline: 'none'
+                  fontSize: '14px'
                 }}
-              >
-                {fonts.map(font => (
-                  <option key={font} value={font} style={{ padding: '8px' }}>
-                    {font}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
-            
-            <input
-              type="text"
-              value={textOverlay}
-              onChange={(e) => setTextOverlay(e.target.value)}
-              placeholder="Enter your text..."
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: 'none',
-                borderRadius: '8px',
-                backgroundColor: '#2a2a2a',
-                color: 'white',
-                fontSize: '16px',
-                marginBottom: '10px'
-              }}
-            />
-
             <div>
               <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
                 Text Style
