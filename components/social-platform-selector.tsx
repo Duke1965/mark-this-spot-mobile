@@ -150,33 +150,67 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
           }}
           onTouchStart={(e) => {
             if (!showPositioning) return
-            const touch = e.touches[0]
-            const rect = e.currentTarget.getBoundingClientRect()
-            const startX = touch.clientX - rect.left
-            const startY = touch.clientY - rect.top
-            e.currentTarget.setAttribute('data-start-x', startX.toString())
-            e.currentTarget.setAttribute('data-start-y', startY.toString())
+            
+            if (e.touches.length === 1) {
+              // Single finger - drag
+              const touch = e.touches[0]
+              const rect = e.currentTarget.getBoundingClientRect()
+              const startX = touch.clientX - rect.left
+              const startY = touch.clientY - rect.top
+              e.currentTarget.setAttribute('data-start-x', startX.toString())
+              e.currentTarget.setAttribute('data-start-y', startY.toString())
+            } else if (e.touches.length === 2) {
+              // Two fingers - pinch to zoom
+              const touch1 = e.touches[0]
+              const touch2 = e.touches[1]
+              const distance = Math.sqrt(
+                Math.pow(touch2.clientX - touch1.clientX, 2) +
+                Math.pow(touch2.clientY - touch1.clientY, 2)
+              )
+              e.currentTarget.setAttribute('data-initial-distance', distance.toString())
+              e.currentTarget.setAttribute('data-initial-scale', photoScale.toString())
+            }
           }}
           onTouchMove={(e) => {
             if (!showPositioning) return
             e.preventDefault()
-            const touch = e.touches[0]
-            const rect = e.currentTarget.getBoundingClientRect()
-            const currentX = touch.clientX - rect.left
-            const currentY = touch.clientY - rect.top
-            const startX = parseFloat(e.currentTarget.getAttribute('data-start-x') || '0')
-            const startY = parseFloat(e.currentTarget.getAttribute('data-start-y') || '0')
             
-            const deltaX = currentX - startX
-            const deltaY = currentY - startY
-            
-            setPhotoPosition({
-              x: photoPosition.x + deltaX * 0.5,
-              y: photoPosition.y + deltaY * 0.5
-            })
-            
-            e.currentTarget.setAttribute('data-start-x', currentX.toString())
-            e.currentTarget.setAttribute('data-start-y', currentY.toString())
+            if (e.touches.length === 1) {
+              // Single finger drag
+              const touch = e.touches[0]
+              const rect = e.currentTarget.getBoundingClientRect()
+              const currentX = touch.clientX - rect.left
+              const currentY = touch.clientY - rect.top
+              const startX = parseFloat(e.currentTarget.getAttribute('data-start-x') || '0')
+              const startY = parseFloat(e.currentTarget.getAttribute('data-start-y') || '0')
+              
+              const deltaX = currentX - startX
+              const deltaY = currentY - startY
+              
+              setPhotoPosition({
+                x: photoPosition.x + deltaX * 0.5,
+                y: photoPosition.y + deltaY * 0.5
+              })
+              
+              e.currentTarget.setAttribute('data-start-x', currentX.toString())
+              e.currentTarget.setAttribute('data-start-y', currentY.toString())
+            } else if (e.touches.length === 2) {
+              // Two finger pinch to zoom
+              const touch1 = e.touches[0]
+              const touch2 = e.touches[1]
+              const distance = Math.sqrt(
+                Math.pow(touch2.clientX - touch1.clientX, 2) +
+                Math.pow(touch2.clientY - touch1.clientY, 2)
+              )
+              const initialDistance = parseFloat(e.currentTarget.getAttribute('data-initial-distance') || '0')
+              const initialScale = parseFloat(e.currentTarget.getAttribute('data-initial-scale') || '1')
+              
+              if (initialDistance > 0) {
+                const scaleFactor = distance / initialDistance
+                const newScale = Math.max(0.5, Math.min(3, initialScale * scaleFactor))
+                setPhotoScale(newScale)
+              }
+            }
           }}
         >
           {mediaType === "photo" ? (
