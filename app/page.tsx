@@ -1194,26 +1194,63 @@ export default function PINITApp() {
                 background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
               }}
             >
-              {/* Live Google Maps Embed */}
-              <iframe
-                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&center=${userLocation?.latitude || location?.latitude || -33.8788352},${userLocation?.longitude || location?.longitude || 18.6187776}&zoom=15&maptype=satellite`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  borderRadius: "50%",
-                  filter: "contrast(1.1) saturate(1.2)",
-                }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                onError={(e) => {
-                  console.log("Google Maps embed failed, showing fallback")
-                  e.currentTarget.style.display = "none"
-                }}
-              />
-              
-              {/* Fallback gradient if iframe fails */}
+              {/* Static Google Maps with smooth overlay */}
+              <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                <img
+                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${
+                    userLocation?.latitude || location?.latitude || -33.8788352
+                  },${
+                    userLocation?.longitude || location?.longitude || 18.6187776
+                  }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                  alt="Live Map"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "contrast(1.1) saturate(1.2)",
+                  }}
+                  onLoad={(e) => {
+                    console.log("Static map loaded successfully")
+                  }}
+                  onError={(e) => {
+                    console.log("Static map failed, showing gradient fallback")
+                    e.currentTarget.style.display = "none"
+                    const fallback = document.getElementById("map-fallback")
+                    if (fallback) fallback.style.display = "block"
+                  }}
+                />
+                
+                {/* Animated overlay to simulate "live" feel */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: "0",
+                    background: "linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)",
+                    animation: "mapShimmer 3s ease-in-out infinite",
+                    pointerEvents: "none",
+                  }}
+                />
+                
+                {/* Location indicator dot */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "12px",
+                    height: "12px",
+                    background: "#EF4444",
+                    borderRadius: "50%",
+                    border: "2px solid white",
+                    boxShadow: "0 0 0 3px rgba(239, 68, 68, 0.3)",
+                    animation: "pulse 2s infinite",
+                    zIndex: 2,
+                  }}
+                />
+              </div>
+
+              {/* Fallback gradient if static map fails */}
               <div
                 style={{
                   position: "absolute",
