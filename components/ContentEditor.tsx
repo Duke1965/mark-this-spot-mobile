@@ -542,6 +542,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const [textStyle, setTextStyle] = useState("bold")
   const [textColor, setTextColor] = useState("#ffffff") // White default
   const [selectedFont, setSelectedFont] = useState("bangers")
+  const [photoMode, setPhotoMode] = useState<"selection" | "active">("selection") // New state for photo visibility
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -561,11 +562,20 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       rotation: 0,
     }
     setStickers([...stickers, newSticker])
+    setPhotoMode("active") // Switch to active mode when sticker is added
   }
 
   // Remove sticker
   const removeSticker = (id: string) => {
     setStickers(stickers.filter(s => s.id !== id))
+  }
+
+  // Handle text input change
+  const handleTextChange = (text: string) => {
+    setTextOverlay(text)
+    if (text.trim()) {
+      setPhotoMode("active") // Switch to active mode when text is entered
+    }
   }
 
   // Handle post
@@ -651,14 +661,14 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       >
         <div
           style={{
-            width: "90vw",
-            height: activeTab === "stickers" || activeTab === "text" ? "30vh" : "45vh", // Reduced height to give more space for controls
+            width: photoMode === "active" ? "95vw" : "90vw",
+            height: photoMode === "active" ? "70vh" : "25vh", // Much bigger in active mode
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
             position: "relative",
             touchAction: "none",
-            transition: "height 0.3s ease",
+            transition: "all 0.3s ease", // Smooth transition between modes
           }}
         >
           {mediaType === "photo" ? (
@@ -835,12 +845,45 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
       {/* Tab Content */}
       <div style={{
-        flex: 1, 
+        flex: photoMode === "active" ? 0 : 1, // Take less space in active mode
         padding: '16px', 
         overflowY: 'auto', 
         backgroundColor: 'rgba(0,0,0,0.2)',
-        maxHeight: '40vh' // Limit height to ensure scrolling works
+        maxHeight: photoMode === "active" ? '20vh' : '40vh', // Much smaller in active mode
+        transition: 'all 0.3s ease'
       }}>
+        {/* Mode Indicator */}
+        {photoMode === "active" && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px',
+            padding: '8px 12px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
+              🎯 Active Mode - Photo visible for precise positioning
+            </span>
+            <button
+              onClick={() => setPhotoMode("selection")}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255,255,255,0.3)',
+                background: 'rgba(255,255,255,0.1)',
+                color: 'white',
+                fontSize: '10px',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Selection
+            </button>
+          </div>
+        )}
+
         {activeTab === "stickers" && (
           <div>
             <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
@@ -928,7 +971,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               <input
                 type="text"
                 value={textOverlay}
-                onChange={(e) => setTextOverlay(e.target.value)}
+                onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="Add your message..."
                 style={{
                   width: '100%',
