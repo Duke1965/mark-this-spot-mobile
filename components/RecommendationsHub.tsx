@@ -249,6 +249,26 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&${markers}&key=${apiKey}`
     
     console.log("🗺️ Generated map URL:", mapUrl)
+    
+    // Test the URL to see what error we get
+    fetch(mapUrl)
+      .then(response => {
+        if (!response.ok) {
+          console.log("🗺️ Map API Error:", response.status, response.statusText)
+          return response.text()
+        }
+        console.log("🗺️ Map API Success!")
+        return null
+      })
+      .then(errorText => {
+        if (errorText) {
+          console.log("🗺️ Map API Error Details:", errorText)
+        }
+      })
+      .catch(error => {
+        console.log("🗺️ Map API Fetch Error:", error)
+      })
+    
     return mapUrl
   }
 
@@ -261,7 +281,15 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     const maptype = "roadmap"
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
     
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&key=${apiKey}`
+    const basicUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&key=${apiKey}`
+    console.log("🗺️ Basic map URL:", basicUrl)
+    
+    return basicUrl
+  }
+
+  const getTestMapUrl = () => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    return `https://maps.googleapis.com/maps/api/staticmap?center=New+York&zoom=10&size=600x400&maptype=roadmap&key=${apiKey}`
   }
 
   if (isLoading) {
@@ -456,8 +484,14 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                   if (basicMapUrl) {
                     e.currentTarget.src = basicMapUrl
                     e.currentTarget.onerror = () => {
-                      console.log("🗺️ Basic map also failed, showing fallback")
-                      setMapError(true)
+                      console.log("🗺️ Basic map also failed, trying test map...")
+                      // Try a simple test map
+                      const testMapUrl = getTestMapUrl()
+                      e.currentTarget.src = testMapUrl
+                      e.currentTarget.onerror = () => {
+                        console.log("🗺️ Test map also failed, showing fallback")
+                        setMapError(true)
+                      }
                     }
                   } else {
                     setMapError(true)
