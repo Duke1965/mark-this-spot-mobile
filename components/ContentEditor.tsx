@@ -345,13 +345,18 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
   // Get font style based on selectedFont
   const getFontStyle = () => {
     switch (selectedFont) {
-      case "elegant":
-        return { fontFamily: "serif", fontSize: "20px", fontStyle: "italic" }
-      case "modern":
-        return { fontFamily: "sans-serif", fontSize: "18px", letterSpacing: "1px" }
-      case "playful":
-        return { fontFamily: "cursive", fontSize: "22px" }
-      case "bold":
+      case "bangers":
+        return { fontFamily: "Bangers, cursive", fontSize: "24px", letterSpacing: "2px" }
+      case "chewy":
+        return { fontFamily: "Chewy, cursive", fontSize: "20px" }
+      case "bubblegum":
+        return { fontFamily: "Bubblegum Sans, cursive", fontSize: "22px" }
+      case "indie":
+        return { fontFamily: "Indie Flower, cursive", fontSize: "20px" }
+      case "righteous":
+        return { fontFamily: "Righteous, cursive", fontSize: "18px" }
+      case "audiowide":
+        return { fontFamily: "Audiowide, cursive", fontSize: "16px", letterSpacing: "1px" }
       default:
         return { fontWeight: "bold", fontSize: "24px" }
     }
@@ -522,10 +527,12 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Font styles from PhotoEditor
   const textStyles = [
-    { name: "bold", label: "Bold", style: "font-weight: bold; font-size: 24px;" },
-    { name: "elegant", label: "Elegant", style: "font-family: serif; font-size: 20px; font-style: italic;" },
-    { name: "modern", label: "Modern", style: "font-family: sans-serif; font-size: 18px; letter-spacing: 1px;" },
-    { name: "playful", label: "Playful", style: "font-family: cursive; font-size: 22px; color: #ff6b6b;" },
+    { name: "bangers", label: "Bangers", style: "font-family: 'Bangers', cursive; font-size: 24px; letter-spacing: 2px;" },
+    { name: "chewy", label: "Chewy", style: "font-family: 'Chewy', cursive; font-size: 20px;" },
+    { name: "bubblegum", label: "Bubblegum", style: "font-family: 'Bubblegum Sans', cursive; font-size: 22px;" },
+    { name: "indie", label: "Indie", style: "font-family: 'Indie Flower', cursive; font-size: 20px;" },
+    { name: "righteous", label: "Righteous", style: "font-family: 'Righteous', cursive; font-size: 18px;" },
+    { name: "audiowide", label: "Audiowide", style: "font-family: 'Audiowide', cursive; font-size: 16px; letter-spacing: 1px;" },
   ]
 
   const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
@@ -534,7 +541,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const [textOverlay, setTextOverlay] = useState("")
   const [textStyle, setTextStyle] = useState("bold")
   const [textColor, setTextColor] = useState("#ffffff") // White default
-  const [selectedFont, setSelectedFont] = useState("bold")
+  const [selectedFont, setSelectedFont] = useState("bangers")
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
