@@ -27,6 +27,8 @@ interface MapPin {
 }
 
 export function RecommendationsHub({ onBack }: { onBack: () => void }) {
+  console.log("🗺️ RecommendationsHub component loaded!")
+  
   const [viewMode, setViewMode] = useState<"map" | "list">("map")
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
@@ -34,6 +36,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   const [mapZoom, setMapZoom] = useState(14)
   const [isLoading, setIsLoading] = useState(true)
   const [mapError, setMapError] = useState(false)
+  const [mapUrl, setMapUrl] = useState("")
+  const [currentMapAttempt, setCurrentMapAttempt] = useState(0)
 
   // Generate AI recommendations based on user's pin history
   const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
@@ -172,6 +176,9 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             
             setRecommendations([...aiRecs, ...communityRecs])
             setIsLoading(false)
+            
+            // Set initial map URL
+            setMapUrl(getMapUrl())
           },
           (error) => {
             console.error("Location error:", error)
@@ -184,6 +191,9 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             
             setRecommendations([...aiRecs, ...communityRecs])
             setIsLoading(false)
+            
+            // Set initial map URL
+            setMapUrl(getMapUrl())
           }
         )
       } else {
@@ -196,6 +206,9 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
         
         setRecommendations([...aiRecs, ...communityRecs])
         setIsLoading(false)
+        
+        // Set initial map URL
+        setMapUrl(getMapUrl())
       }
     }
 
@@ -467,7 +480,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
           }}>
             {!mapError ? (
               <img
-                src={getMapUrl()}
+                src={mapUrl}
                 alt="Live Recommendations Map"
                 style={{
                   width: "100%",
@@ -478,22 +491,18 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                   console.log("🗺️ Map loaded successfully")
                 }}
                 onError={(e) => {
-                  console.log("🗺️ Map with markers failed, trying basic map...")
-                  // Try basic map without markers
-                  const basicMapUrl = getBasicMapUrl()
-                  if (basicMapUrl) {
-                    e.currentTarget.src = basicMapUrl
-                    e.currentTarget.onerror = () => {
-                      console.log("🗺️ Basic map also failed, trying test map...")
-                      // Try a simple test map
-                      const testMapUrl = getTestMapUrl()
-                      e.currentTarget.src = testMapUrl
-                      e.currentTarget.onerror = () => {
-                        console.log("🗺️ Test map also failed, showing fallback")
-                        setMapError(true)
-                      }
-                    }
+                  console.log("🗺️ Map failed, trying fallback...")
+                  if (currentMapAttempt === 0) {
+                    // Try basic map
+                    setMapUrl(getBasicMapUrl())
+                    setCurrentMapAttempt(1)
+                  } else if (currentMapAttempt === 1) {
+                    // Try test map
+                    setMapUrl(getTestMapUrl())
+                    setCurrentMapAttempt(2)
                   } else {
+                    // Show fallback
+                    console.log("🗺️ All maps failed, showing fallback")
                     setMapError(true)
                   }
                 }}
@@ -508,11 +517,29 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                 textAlign: "center",
                 fontSize: "1.2rem",
                 opacity: 0.8,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
               }}>
                 <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
-                <div>Map loading...</div>
+                <div>Interactive Map</div>
                 <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
                   Pins are interactive below
+                </div>
+                <div style={{ 
+                  fontSize: "0.75rem", 
+                  marginTop: "1rem", 
+                  opacity: 0.6,
+                  background: "rgba(255,255,255,0.1)",
+                  padding: "0.5rem",
+                  borderRadius: "0.5rem"
+                }}>
+                  🤖 AI Recommendations (Red)<br/>
+                  👥 Community Pins (Blue)
                 </div>
               </div>
             )}
