@@ -556,8 +556,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       id: Date.now().toString(),
       emoji: stickerData.imageUrl, // Store image URL instead of emoji
       name: stickerData.name,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
+      x: 50, // Center the sticker (50% from left)
+      y: 50, // Center the sticker (50% from top)
       scale: 1,
       rotation: 0,
     }
@@ -657,8 +657,36 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           display: "flex",
           justifyContent: "center",
           background: "rgba(0,0,0,0.1)",
+          position: "relative", // For positioning the Done button
         }}
       >
+        {/* Done Button - Only show in active mode */}
+        {photoMode === "active" && (
+          <button
+            onClick={() => setPhotoMode("selection")}
+            style={{
+              position: "absolute",
+              top: "1rem",
+              right: "1rem",
+              zIndex: 1000,
+              padding: "8px 16px",
+              borderRadius: "20px",
+              border: "2px solid rgba(255,255,255,0.3)",
+              background: "rgba(0,0,0,0.7)",
+              color: "white",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: "pointer",
+              backdropFilter: "blur(10px)",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            ✅ Done
+          </button>
+        )}
+
         <div
           style={{
             width: photoMode === "active" ? "95vw" : "90vw",
