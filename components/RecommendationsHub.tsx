@@ -225,12 +225,18 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     
     const pins = generateMapPins()
     const markers = pins.map(pin => 
-      `markers=color:${pin.type === "ai" ? "red" : "blue"}|${pin.lat},${pin.lng}`
+      `markers=color:${pin.type === "ai" ? "red" : "blue"}|label:${pin.type === "ai" ? "A" : "C"}|${pin.lat},${pin.lng}`
     ).join("&")
     
     const center = `${userLocation.lat},${userLocation.lng}`
+    const size = "600x400"
+    const zoom = mapZoom
+    const maptype = "roadmap"
     
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${mapZoom}&size=600x400&maptype=roadmap&${markers}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&${markers}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
+    
+    console.log("🗺️ Generated map URL:", mapUrl)
+    return mapUrl
   }
 
   if (isLoading) {
@@ -413,9 +419,35 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                 height: "100%",
                 objectFit: "cover",
               }}
+              onLoad={(e) => {
+                console.log("🗺️ Map loaded successfully")
+              }}
               onError={(e) => {
-                console.log("Map failed to load, showing fallback")
+                console.log("🗺️ Map failed to load, showing fallback")
+                // Show a gradient background with pins overlay
                 e.currentTarget.style.display = "none"
+                const container = e.currentTarget.parentElement
+                if (container) {
+                  container.style.background = "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)"
+                  container.innerHTML += `
+                    <div style="
+                      position: absolute;
+                      top: 50%;
+                      left: 50%;
+                      transform: translate(-50%, -50%);
+                      color: white;
+                      text-align: center;
+                      font-size: 1.2rem;
+                      opacity: 0.8;
+                    ">
+                      <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+                      <div>Map loading...</div>
+                      <div style="font-size: 0.875rem; margin-top: 0.5rem; opacity: 0.7;">
+                        Pins are interactive below
+                      </div>
+                    </div>
+                  `
+                }
               }}
             />
             
