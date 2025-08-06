@@ -539,43 +539,34 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          padding: "1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "rgba(0,0,0,0.2)",
-        }}
-      >
-        <button
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '15px'
+      }}>
+        <button 
           onClick={onBack}
           style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            fontSize: '14px',
+            cursor: 'pointer'
           }}
         >
-          <ArrowLeft size={24} />
+          ← Back
         </button>
-        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>
-          Add Content for {platform}
-        </h1>
-        <div style={{ width: "48px" }} />
+        <h2 style={{ margin: 0, fontSize: '16px' }}>Add Content</h2>
+        <div style={{ width: '60px' }}></div>
       </div>
 
       {/* Photo Preview */}
       <div style={{ 
         position: 'relative',
         width: '90vw',
-        height: activeTab === 'stickers' || activeTab === 'text' ? '35vh' : '50vh',
-        margin: '0 auto 20px',
+        height: '40vh',
+        margin: '0 auto 15px',
         overflow: 'hidden',
         borderRadius: '12px',
         backgroundColor: '#2a2a2a'
@@ -613,81 +604,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         ))}
       </div>
 
-      {/* Color Picker - Moved here for better visibility */}
-      {activeTab === 'text' && (
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
-            Text Color
-          </label>
-          <div style={{ 
-            position: 'relative',
-            width: '100%',
-            height: '40px',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            backgroundColor: '#2a2a2a',
-            padding: '8px'
-          }}>
-            <input
-              type="range"
-              min="0"
-              max="360"
-              value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
-              onChange={(e) => {
-                const hue = parseInt(e.target.value);
-                const color = `hsl(${hue}, 70%, 50%)`;
-                setSelectedColor(color);
-              }}
-              style={{
-                width: '100%',
-                height: '24px',
-                background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
-                borderRadius: '12px',
-                outline: 'none',
-                cursor: 'pointer',
-                border: 'none',
-                appearance: 'none',
-                WebkitAppearance: 'none'
-              }}
-            />
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              width: '16px',
-              height: '16px',
-              backgroundColor: selectedColor,
-              borderRadius: '50%',
-              border: '2px solid white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              pointerEvents: 'none'
-            }} />
-          </div>
-          <div style={{ 
-            marginTop: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <div style={{
-              width: '24px',
-              height: '24px',
-              backgroundColor: selectedColor,
-              borderRadius: '4px',
-              border: '1px solid #444'
-            }} />
-            <span style={{ fontSize: '12px', color: '#ccc' }}>
-              {selectedColor}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
+      {/* Tabs - Moved up */}
       <div style={{ 
         display: 'flex', 
-        marginBottom: '20px',
+        marginBottom: '15px',
         backgroundColor: '#2a2a2a',
         borderRadius: '8px',
         padding: '4px'
@@ -696,7 +616,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           onClick={() => setActiveTab('stickers')}
           style={{
             flex: 1,
-            padding: '12px',
+            padding: '10px',
             border: 'none',
             borderRadius: '6px',
             background: activeTab === 'stickers' ? '#3a3a3a' : 'transparent',
@@ -711,7 +631,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           onClick={() => setActiveTab('text')}
           style={{
             flex: 1,
-            padding: '12px',
+            padding: '10px',
             border: 'none',
             borderRadius: '6px',
             background: activeTab === 'text' ? '#3a3a3a' : 'transparent',
@@ -723,6 +643,65 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           Text
         </button>
       </div>
+
+      {/* Color Picker - Thinner and higher */}
+      {activeTab === 'text' && (
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#ccc' }}>
+            Text Color
+          </label>
+          <div style={{ 
+            position: 'relative',
+            width: '50%',
+            height: '30px',
+            borderRadius: '6px',
+            overflow: 'hidden',
+            backgroundColor: '#2a2a2a',
+            padding: '6px',
+            margin: '0 auto'
+          }}>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
+              onChange={(e) => {
+                const hue = parseInt(e.target.value);
+                const color = `hsl(${hue}, 70%, 50%)`;
+                setSelectedColor(color);
+                // Auto-add text when color changes
+                if (textOverlay.trim()) {
+                  addText();
+                }
+              }}
+              style={{
+                width: '100%',
+                height: '18px',
+                background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
+                borderRadius: '9px',
+                outline: 'none',
+                cursor: 'pointer',
+                border: 'none',
+                appearance: 'none',
+                WebkitAppearance: 'none'
+              }}
+            />
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              backgroundColor: selectedColor,
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              pointerEvents: 'none'
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div style={{flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: 'rgba(0,0,0,0.2)'}}>
@@ -806,26 +785,58 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
               Add Text
             </h3>
-            <div style={{marginBottom: '16px'}}>
-              <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
-                Your Message
+            
+            {/* Font Selector */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#ccc' }}>
+                Font Style
               </label>
-              <input
-                type="text"
-                value={textOverlay}
-                onChange={(e) => setTextOverlay(e.target.value)}
-                placeholder="Add your message..."
+              <select
+                value={selectedFont}
+                onChange={(e) => {
+                  setSelectedFont(e.target.value);
+                  // Auto-add text when font changes
+                  if (textOverlay.trim()) {
+                    addText();
+                  }
+                }}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '10px',
+                  border: 'none',
                   borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  background: 'rgba(255,255,255,0.1)',
+                  backgroundColor: '#2a2a2a',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  outline: 'none'
                 }}
-              />
+              >
+                {fonts.map(font => (
+                  <option key={font} value={font} style={{ padding: '8px' }}>
+                    {font}
+                  </option>
+                ))}
+              </select>
             </div>
+            
+            <input
+              type="text"
+              value={textOverlay}
+              onChange={(e) => setTextOverlay(e.target.value)}
+              placeholder="Enter your text..."
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: '#2a2a2a',
+                color: 'white',
+                fontSize: '16px',
+                marginBottom: '10px'
+              }}
+            />
+
             <div>
               <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
                 Text Style
@@ -850,49 +861,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 ))}
               </div>
             </div>
-            {/* Font Selector */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
-                Font Style
-              </label>
-              <select
-                value={selectedFont}
-                onChange={(e) => setSelectedFont(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  backgroundColor: '#2a2a2a',
-                  color: 'white',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                {fonts.map(font => (
-                  <option key={font} value={font} style={{ padding: '8px' }}>
-                    {font}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <button
-              onClick={addText}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: 'none',
-                borderRadius: '8px',
-                backgroundColor: '#3a3a3a',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '16px'
-              }}
-            >
-              Add Text
-            </button>
           </div>
         )}
       </div>
