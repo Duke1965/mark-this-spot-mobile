@@ -89,7 +89,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       }
     ]
     return aiRecommendations
-  }
+  }, [])
 
   // Generate community recommendations (simulated from other PINIT users)
   const generateCommunityRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
@@ -151,7 +151,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       }
     ]
     return communityRecommendations
-  }
+  }, [])
 
   // Get user location and generate recommendations
   useEffect(() => {
