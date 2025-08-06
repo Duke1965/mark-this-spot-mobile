@@ -68,7 +68,11 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     if (e.touches.length === 1) {
       // Single finger - drag
       const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+      const rect = e.currentTarget.getBoundingClientRect()
+      // Convert to percentage-based positioning
+      const startX = ((touch.clientX - rect.left) / rect.width) * 100
+      const startY = ((touch.clientY - rect.top) / rect.height) * 100
+      setStartPos({ x: startX, y: startY })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -84,9 +88,14 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      // Convert to percentage-based positioning
+      const currentX = ((touch.clientX - rect.left) / rect.width) * 100
+      const currentY = ((touch.clientY - rect.top) / rect.height) * 100
+      
       onUpdate({
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
+        x: currentX,
+        y: currentY
       })
     } else if (e.touches.length === 2) {
       // Two finger scale and rotate simultaneously
@@ -148,9 +157,9 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     <div
       style={{
         position: "absolute",
-        left: sticker.x,
-        top: sticker.y,
-        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+        left: `${sticker.x}%`, // Use percentage-based positioning
+        top: `${sticker.y}%`, // Use percentage-based positioning
+        transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`, // Center the sticker
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
@@ -264,7 +273,11 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
     if (e.touches.length === 1) {
       // Single finger - drag
       const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+      const rect = e.currentTarget.getBoundingClientRect()
+      // Convert to percentage-based positioning
+      const startX = ((touch.clientX - rect.left) / rect.width) * 100
+      const startY = ((touch.clientY - rect.top) / rect.height) * 100
+      setStartPos({ x: startX, y: startY })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -280,9 +293,14 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      // Convert to percentage-based positioning
+      const currentX = ((touch.clientX - rect.left) / rect.width) * 100
+      const currentY = ((touch.clientY - rect.top) / rect.height) * 100
+      
       const newPosition = {
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
+        x: currentX,
+        y: currentY
       }
       setPosition(newPosition)
       onUpdate(newPosition)
@@ -366,9 +384,9 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
     <div
       style={{
         position: "absolute",
-        left: position.x,
-        top: position.y,
-        transform: `scale(${scale}) rotate(${rotation}deg)`,
+        left: `${position.x}%`, // Use percentage-based positioning
+        top: `${position.y}%`, // Use percentage-based positioning
+        transform: `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`, // Center the text
         color: textColor,
         textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
         cursor: "move",
@@ -628,7 +646,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           background: "rgba(0,0,0,0.2)",
         }}
       >
-        <button
+        <button 
           onClick={onBack}
           style={{
             padding: "0.75rem",
@@ -700,10 +718,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           }}
         >
           {mediaType === "photo" ? (
-            <img
-              src={mediaUrl}
-              alt="Preview"
-              style={{
+        <img 
+          src={mediaUrl} 
+          alt="Preview" 
+          style={{ 
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
@@ -724,10 +742,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           )}
           
           {/* Draggable Stickers Overlay - Always visible, but only interactive when stickers tab is active */}
-          {stickers.map((sticker) => (
-            <DraggableSticker
-              key={sticker.id}
-              sticker={sticker}
+        {stickers.map((sticker) => (
+          <DraggableSticker
+            key={sticker.id}
+            sticker={sticker}
               onUpdate={(updates) => {
                 if (activeTab === "stickers") {
                   setStickers(stickers.map(s => 
@@ -741,12 +759,12 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 }
               }}
               isActive={activeTab === "stickers"}
-            />
-          ))}
-
+          />
+        ))}
+        
           {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
           {textOverlay && (
-            <DraggableText
+          <DraggableText
               text={textOverlay}
               style={selectedFont}
               textColor={textColor}
@@ -779,7 +797,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
             Text Color
           </label>
-          <div style={{ 
+      <div style={{ 
             position: "relative",
             width: "90%", // Much wider slider
             height: "24px", // Slightly thicker
@@ -872,7 +890,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       </div>
 
       {/* Tab Content */}
-      <div style={{
+          <div style={{ 
         flex: photoMode === "active" ? 0 : 1, // Take less space in active mode
         padding: '16px', 
         overflowY: 'auto', 
@@ -909,8 +927,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             >
               Back to Selection
             </button>
-          </div>
-        )}
+        </div>
+      )}
 
         {activeTab === "stickers" && (
           <div>
@@ -1040,7 +1058,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 ))}
               </select>
             </div>
-            
+
             <div>
               <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
                 Text Style
