@@ -1182,7 +1182,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* SMOOTH LIVE MAP BACKGROUND */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - WORKING VERSION */}
           {(userLocation || location) && (
             <div
               style={{
@@ -1194,83 +1194,48 @@ export default function PINITApp() {
                 background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
               }}
             >
-              {/* Static Google Maps with smooth overlay */}
-              <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                <img
-                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                    userLocation?.latitude || location?.latitude || -33.8788352
-                  },${
-                    userLocation?.longitude || location?.longitude || 18.6187776
-                  }&zoom=16&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
-                  alt="Live Map"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    filter: "contrast(1.1) saturate(1.2)",
-                  }}
-                  onLoad={(e) => {
-                    console.log("✅ Static map loaded successfully")
-                  }}
-                  onError={(e) => {
-                    console.log("❌ Static map failed to load")
-                    console.log("🔑 API Key present:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
-                    console.log("📍 Coordinates:", userLocation?.latitude || location?.latitude, userLocation?.longitude || location?.longitude)
-                    e.currentTarget.style.display = "none"
-                    const fallback = document.getElementById("map-fallback")
-                    if (fallback) {
-                      fallback.style.display = "block"
-                      console.log("🔄 Showing gradient fallback")
-                    }
-                  }}
-                />
-                
-                {/* Animated overlay to simulate "live" feel */}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: "0",
-                    background: "linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)",
-                    animation: "mapShimmer 3s ease-in-out infinite",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Location indicator dot */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "12px",
-                    height: "12px",
-                    background: "#EF4444",
-                    borderRadius: "50%",
-                    border: "2px solid white",
-                    boxShadow: "0 0 0 3px rgba(239, 68, 68, 0.3)",
-                    animation: "pulse 2s infinite",
-                    zIndex: 2,
-                  }}
-                />
-              </div>
-
-              {/* Fallback gradient if static map fails */}
-              <div
+              <img
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
+                  userLocation?.latitude || location?.latitude || -25.7479
+                },${
+                  userLocation?.longitude || location?.longitude || 28.2293
+                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                alt="Live Map"
                 style={{
-                  position: "absolute",
-                  inset: "0",
-                  background: `linear-gradient(135deg, 
-                    rgba(34, 197, 94, 0.8) 0%, 
-                    rgba(59, 130, 246, 0.8) 50%, 
-                    rgba(16, 185, 129, 0.8) 100%)`,
-                  display: "none",
-                  borderRadius: "50%",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  filter: "contrast(1.1) saturate(1.2)",
                 }}
-                id="map-fallback"
+                onLoad={(e) => {
+                  console.log("Map loaded successfully")
+                }}
+                onError={(e) => {
+                  console.log("Google Maps failed, trying alternative...")
+                  // Try OpenStreetMap tile service as fallback
+                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
+                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
+                  )}/${Math.floor(
+                    ((1 -
+                      Math.log(
+                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
+                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
+                      ) /
+                        Math.PI) /
+                      2) *
+                      Math.pow(2, 16),
+                  )}.png`
+
+                  // If that also fails, show a nice gradient background
+                  setTimeout(() => {
+                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                      e.currentTarget.style.display = "none"
+                    }
+                  }, 2000)
+                }}
               />
 
-              {/* Location indicator overlay */}
+              {/* Minimal location overlay - positioned at top */}
               <div
                 style={{
                   position: "absolute",
@@ -1284,7 +1249,6 @@ export default function PINITApp() {
                   padding: "0.2rem 0.4rem",
                   borderRadius: "0.2rem",
                   pointerEvents: "none",
-                  background: "rgba(0,0,0,0.3)",
                 }}
               >
                 📍 Live
