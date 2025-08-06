@@ -1201,7 +1201,7 @@ export default function PINITApp() {
                     userLocation?.latitude || location?.latitude || -33.8788352
                   },${
                     userLocation?.longitude || location?.longitude || 18.6187776
-                  }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                  }&zoom=16&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
                   alt="Live Map"
                   style={{
                     width: "100%",
@@ -1210,13 +1210,18 @@ export default function PINITApp() {
                     filter: "contrast(1.1) saturate(1.2)",
                   }}
                   onLoad={(e) => {
-                    console.log("Static map loaded successfully")
+                    console.log("✅ Static map loaded successfully")
                   }}
                   onError={(e) => {
-                    console.log("Static map failed, showing gradient fallback")
+                    console.log("❌ Static map failed to load")
+                    console.log("🔑 API Key present:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
+                    console.log("📍 Coordinates:", userLocation?.latitude || location?.latitude, userLocation?.longitude || location?.longitude)
                     e.currentTarget.style.display = "none"
                     const fallback = document.getElementById("map-fallback")
-                    if (fallback) fallback.style.display = "block"
+                    if (fallback) {
+                      fallback.style.display = "block"
+                      console.log("🔄 Showing gradient fallback")
+                    }
                   }}
                 />
                 
