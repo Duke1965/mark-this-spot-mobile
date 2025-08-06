@@ -46,6 +46,7 @@ const DraggableSticker = ({ sticker, onUpdate, onDelete, isActive }: DraggableSt
   const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
   const [startDistance, setStartDistance] = useState(0);
   const [startAngle, setStartAngle] = useState(0);
+  const [isRotateHandleActive, setIsRotateHandleActive] = useState(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!isActive) return;
@@ -98,7 +99,7 @@ const DraggableSticker = ({ sticker, onUpdate, onDelete, isActive }: DraggableSt
       
       if (isRotating) {
         const angleDelta = angle - startAngle;
-        const newRotation = rotation + angleDelta * (180 / Math.PI);
+        const newRotation = rotation + (angleDelta * (180 / Math.PI)) * 0.5; // 50% less sensitive
         setRotation(newRotation);
         onUpdate(sticker.id, { rotation: newRotation });
       }
@@ -251,7 +252,7 @@ const DraggableText = ({ text, onUpdate, onDelete, isActive }: DraggableTextProp
       
       if (isRotating) {
         const angleDelta = angle - startAngle;
-        const newRotation = rotation + angleDelta * (180 / Math.PI);
+        const newRotation = rotation + (angleDelta * (180 / Math.PI)) * 0.5; // 50% less sensitive
         setRotation(newRotation);
         onUpdate(text.id, { rotation: newRotation });
       }
