@@ -1194,48 +1194,39 @@ export default function PINITApp() {
                 background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
               }}
             >
-              {/* Use a more stable map approach - less frequent updates */}
-              <div
+              {/* Live Google Maps Embed */}
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&center=${userLocation?.latitude || location?.latitude || -33.8788352},${userLocation?.longitude || location?.longitude || 18.6187776}&zoom=15&maptype=satellite`}
                 style={{
                   width: "100%",
                   height: "100%",
+                  border: "none",
+                  borderRadius: "50%",
+                  filter: "contrast(1.1) saturate(1.2)",
+                }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                onError={(e) => {
+                  console.log("Google Maps embed failed, showing fallback")
+                  e.currentTarget.style.display = "none"
+                }}
+              />
+              
+              {/* Fallback gradient if iframe fails */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: "0",
                   background: `linear-gradient(135deg, 
                     rgba(34, 197, 94, 0.8) 0%, 
                     rgba(59, 130, 246, 0.8) 50%, 
                     rgba(16, 185, 129, 0.8) 100%)`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  position: "relative",
+                  display: "none",
+                  borderRadius: "50%",
                 }}
-              >
-                {/* Map placeholder with location indicator */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "8px",
-                    height: "8px",
-                    background: "#EF4444",
-                    borderRadius: "50%",
-                    border: "2px solid white",
-                    boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.3)",
-                    animation: "pulse 2s infinite",
-                  }}
-                />
-                
-                {/* Subtle map texture overlay */}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: "0",
-                    background: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='50' cy='50' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
-                    opacity: 0.3,
-                  }}
-                />
-              </div>
+                id="map-fallback"
+              />
 
               {/* Location indicator overlay */}
               <div
