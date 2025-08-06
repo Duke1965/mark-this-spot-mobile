@@ -35,7 +35,6 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   const [selectedPin, setSelectedPin] = useState<Recommendation | null>(null)
   const [mapZoom, setMapZoom] = useState(14)
   const [isLoading, setIsLoading] = useState(true)
-  const [mapError, setMapError] = useState(false)
   const [mapUrl, setMapUrl] = useState("")
   const [currentMapAttempt, setCurrentMapAttempt] = useState(0)
 
@@ -476,73 +475,38 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             margin: "1rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
-            background: mapError ? "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)" : "transparent",
+            background: "transparent",
           }}>
-            {!mapError ? (
-              <img
-                src={mapUrl}
-                alt="Live Recommendations Map"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-                onLoad={(e) => {
-                  console.log("🗺️ Map loaded successfully")
-                }}
-                onError={(e) => {
-                  console.log("🗺️ Map failed, trying fallback...")
-                  if (currentMapAttempt === 0) {
-                    // Try basic map
-                    setMapUrl(getBasicMapUrl())
-                    setCurrentMapAttempt(1)
-                  } else if (currentMapAttempt === 1) {
-                    // Try test map
-                    setMapUrl(getTestMapUrl())
-                    setCurrentMapAttempt(2)
-                  } else {
-                    // Show fallback
-                    console.log("🗺️ All maps failed, showing fallback")
-                    setMapError(true)
-                  }
-                }}
-              />
-            ) : (
-              <div style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                color: "white",
-                textAlign: "center",
-                fontSize: "1.2rem",
-                opacity: 0.8,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-              }}>
-                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
-                <div>Interactive Map</div>
-                <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
-                  Pins are interactive below
-                </div>
-                <div style={{ 
-                  fontSize: "0.75rem", 
-                  marginTop: "1rem", 
-                  opacity: 0.6,
-                  background: "rgba(255,255,255,0.1)",
-                  padding: "0.5rem",
-                  borderRadius: "0.5rem"
-                }}>
-                  🤖 AI Recommendations (Red)<br/>
-                  👥 Community Pins (Blue)
-                </div>
+            <div style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+              color: "white",
+              textAlign: "center",
+              fontSize: "1.2rem",
+              opacity: 0.9,
+            }}>
+              <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
+              <div>Interactive Recommendations Map</div>
+              <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
+                Pins are interactive below
               </div>
-            )}
+              <div style={{ 
+                fontSize: "0.75rem", 
+                marginTop: "1rem", 
+                opacity: 0.6,
+                background: "rgba(255,255,255,0.1)",
+                padding: "0.5rem",
+                borderRadius: "0.5rem"
+              }}>
+                🤖 AI Recommendations (Red)<br/>
+                👥 Community Pins (Blue)
+              </div>
+            </div>
             
             {/* Map Overlay Controls */}
             <div style={{
