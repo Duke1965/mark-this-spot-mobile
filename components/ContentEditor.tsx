@@ -131,7 +131,7 @@ const DraggableSticker = ({ sticker, onUpdate, onDelete, isActive }: DraggableSt
       onTouchEnd={handleTouchEnd}
     >
       <img 
-        src={sticker.imageUrl} 
+        src={sticker.emoji} 
         alt={sticker.name}
         style={{ 
           width: '96px', 
