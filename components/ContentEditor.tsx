@@ -836,46 +836,101 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 ))}
               </div>
             </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
-                Font:
+            {/* Font Selector */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
+                Font Style
               </label>
               <select
                 value={selectedFont}
                 onChange={(e) => setSelectedFont(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '8px',
+                  padding: '12px',
                   border: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   backgroundColor: '#2a2a2a',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  outline: 'none'
                 }}
               >
                 {fonts.map(font => (
-                  <option key={font} value={font}>{font}</option>
+                  <option key={font} value={font} style={{ padding: '8px' }}>
+                    {font}
+                  </option>
                 ))}
               </select>
             </div>
             
             {/* Color Picker */}
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
-                Color:
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
+                Text Color
               </label>
-              <input
-                type="color"
-                value={selectedColor}
-                onChange={(e) => setSelectedColor(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-              />
+              <div style={{ 
+                position: 'relative',
+                width: '100%',
+                height: '40px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                backgroundColor: '#2a2a2a',
+                padding: '8px'
+              }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
+                  onChange={(e) => {
+                    const hue = parseInt(e.target.value);
+                    const color = `hsl(${hue}, 70%, 50%)`;
+                    setSelectedColor(color);
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '24px',
+                    background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
+                    borderRadius: '12px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    border: 'none',
+                    appearance: 'none',
+                    WebkitAppearance: 'none'
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: selectedColor,
+                  borderRadius: '50%',
+                  border: '2px solid white',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  pointerEvents: 'none'
+                }} />
+              </div>
+              <div style={{ 
+                marginTop: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  backgroundColor: selectedColor,
+                  borderRadius: '4px',
+                  border: '1px solid #444'
+                }} />
+                <span style={{ fontSize: '12px', color: '#ccc' }}>
+                  {selectedColor}
+                </span>
+              </div>
             </div>
             
             <button
