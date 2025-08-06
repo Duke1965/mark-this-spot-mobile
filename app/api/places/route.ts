@@ -20,13 +20,21 @@ const getLocationNameFromCoords = (lat: number, lng: number) => {
 
 // Enhanced location name generator with better precision
 const generateEnhancedLocationName = (lat: number, lng: number) => {
-  // More precise location detection
+  // More precise location detection for Cape Town area
   if (lat > -34.05 && lat < -34.04 && lng > 18.77 && lng < 18.78) {
     return "Riebeek West, Western Cape"
   } else if (lat > -33.6 && lat < -33.5 && lng > 18.9 && lng < 19.0) {
     return "Wellington, Western Cape"
   } else if (lat > -34.2 && lat < -33.8 && lng > 18.7 && lng < 18.9) {
     return "Malmesbury, Western Cape"
+  } else if (lat > -33.95 && lat < -33.85 && lng > 18.6 && lng < 18.7) {
+    return "Cape Town CBD"
+  } else if (lat > -33.95 && lat < -33.85 && lng > 18.4 && lng < 18.6) {
+    return "Cape Town Atlantic Seaboard"
+  } else if (lat > -33.95 && lat < -33.85 && lng > 18.7 && lng < 18.9) {
+    return "Cape Town Southern Suburbs"
+  } else if (lat > -33.95 && lat < -33.85 && lng > 18.9 && lng < 19.1) {
+    return "Cape Town Northern Suburbs"
   } else if (lat > -34.5 && lat < -33.5 && lng > 18.5 && lng < 19.5) {
     return "Cape Town, Western Cape"
   } else if (lat > -34.5 && lat < -33.5) {
