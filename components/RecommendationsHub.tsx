@@ -33,6 +33,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   const [selectedPin, setSelectedPin] = useState<Recommendation | null>(null)
   const [mapZoom, setMapZoom] = useState(14)
   const [isLoading, setIsLoading] = useState(true)
+  const [mapError, setMapError] = useState(false)
 
   // Generate AI recommendations based on user's pin history
   const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
@@ -410,46 +411,43 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             margin: "1rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
+            background: mapError ? "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)" : "transparent",
           }}>
-            <img
-              src={getMapUrl()}
-              alt="Live Recommendations Map"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-              onLoad={(e) => {
-                console.log("🗺️ Map loaded successfully")
-              }}
-              onError={(e) => {
-                console.log("🗺️ Map failed to load, showing fallback")
-                // Show a gradient background with pins overlay
-                e.currentTarget.style.display = "none"
-                const container = e.currentTarget.parentElement
-                if (container) {
-                  container.style.background = "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)"
-                  container.innerHTML += `
-                    <div style="
-                      position: absolute;
-                      top: 50%;
-                      left: 50%;
-                      transform: translate(-50%, -50%);
-                      color: white;
-                      text-align: center;
-                      font-size: 1.2rem;
-                      opacity: 0.8;
-                    ">
-                      <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
-                      <div>Map loading...</div>
-                      <div style="font-size: 0.875rem; margin-top: 0.5rem; opacity: 0.7;">
-                        Pins are interactive below
-                      </div>
-                    </div>
-                  `
-                }
-              }}
-            />
+            {!mapError ? (
+              <img
+                src={getMapUrl()}
+                alt="Live Recommendations Map"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+                onLoad={(e) => {
+                  console.log("🗺️ Map loaded successfully")
+                }}
+                onError={(e) => {
+                  console.log("🗺️ Map failed to load, showing fallback")
+                  setMapError(true)
+                }}
+              />
+            ) : (
+              <div style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                color: "white",
+                textAlign: "center",
+                fontSize: "1.2rem",
+                opacity: 0.8,
+              }}>
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
+                <div>Map loading...</div>
+                <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
+                  Pins are interactive below
+                </div>
+              </div>
+            )}
             
             {/* Map Overlay Controls */}
             <div style={{
