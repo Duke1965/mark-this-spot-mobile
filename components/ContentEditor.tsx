@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback } from 'react';
 import { ArrowLeft, Save, Share2 } from "lucide-react"
 
 interface ContentEditorProps {
@@ -23,373 +23,327 @@ interface Sticker {
 }
 
 interface DraggableStickerProps {
-  sticker: Sticker
-  onUpdate: (updates: Partial<Sticker>) => void
-  onRemove: () => void
-  isActive?: boolean
+  sticker: any;
+  onUpdate: (id: string, updates: any) => void;
+  onDelete: (id: string) => void;
+  isActive: boolean;
 }
 
 interface DraggableTextProps {
-  text: string
-  style: string
-  onUpdate: (updates: any) => void
-  isActive?: boolean
+  text: any;
+  onUpdate: (id: string, updates: any) => void;
+  onDelete: (id: string) => void;
+  isActive: boolean;
 }
 
-function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: DraggableStickerProps) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
-  const [initialDistance, setInitialDistance] = useState(0)
-  const [initialScale, setInitialScale] = useState(1)
-  const [initialRotation, setInitialRotation] = useState(0)
-
-  const getDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const dx = touches[1].clientX - touches[0].clientX
-    const dy = touches[1].clientY - touches[0].clientY
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  const getAngle = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const dx = touches[1].clientX - touches[0].clientX
-    const dy = touches[1].clientY - touches[0].clientY
-    return Math.atan2(dy, dx) * 180 / Math.PI
-  }
+const DraggableSticker = ({ sticker, onUpdate, onDelete, isActive }: DraggableStickerProps) => {
+  const [position, setPosition] = useState({ x: sticker.x, y: sticker.y });
+  const [scale, setScale] = useState(sticker.scale || 1);
+  const [rotation, setRotation] = useState(sticker.rotation || 0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isScaling, setIsScaling] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
+  const [startDistance, setStartDistance] = useState(0);
+  const [startAngle, setStartAngle] = useState(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isActive) return // Disable interactions when not active
-    e.preventDefault()
-    
+    if (!isActive) return;
+    e.preventDefault();
     if (e.touches.length === 1) {
-      // Single finger - drag
-      const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
-      setIsDragging(true)
+      setIsDragging(true);
+      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     } else if (e.touches.length === 2) {
-      // Two fingers - scale and rotate
-      setInitialDistance(getDistance(e.touches))
-      setInitialScale(sticker.scale)
-      setInitialRotation(sticker.rotation)
+      setIsScaling(true);
+      setIsRotating(true);
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const angle = Math.atan2(
+        e.touches[1].clientY - e.touches[0].clientY,
+        e.touches[1].clientX - e.touches[0].clientX
+      );
+      setStartDistance(distance);
+      setStartAngle(angle);
     }
-  }
+  };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault()
-    
+    if (!isActive) return;
+    e.preventDefault();
     if (e.touches.length === 1 && isDragging) {
-      // Single finger drag
-      const touch = e.touches[0]
-      onUpdate({
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
-      })
-    } else if (e.touches.length === 2) {
-      // Two finger scale and rotate simultaneously
-      const currentDistance = getDistance(e.touches)
-      const currentAngle = getAngle(e.touches)
+      const deltaX = e.touches[0].clientX - startTouch.x;
+      const deltaY = e.touches[0].clientY - startTouch.y;
+      const newPosition = { x: position.x + deltaX, y: position.y + deltaY };
+      setPosition(newPosition);
+      onUpdate(sticker.id, { x: newPosition.x, y: newPosition.y });
+      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    } else if (e.touches.length === 2 && (isScaling || isRotating)) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const angle = Math.atan2(
+        e.touches[1].clientY - e.touches[0].clientY,
+        e.touches[1].clientX - e.touches[0].clientX
+      );
       
-      if (initialDistance > 0) {
-        // Calculate scale
-        const scaleChange = currentDistance / initialDistance
-        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
-        
-        // Calculate rotation (simplified for better performance)
-        const angleDiff = currentAngle - getAngle(e.touches)
-        const newRotation = initialRotation + angleDiff
-        
-        onUpdate({
-          scale: newScale,
-          rotation: newRotation
-        })
+      if (isScaling) {
+        const scaleFactor = distance / startDistance;
+        const newScale = Math.max(0.5, Math.min(3, scale * scaleFactor));
+        setScale(newScale);
+        onUpdate(sticker.id, { scale: newScale });
       }
+      
+      if (isRotating) {
+        const angleDelta = angle - startAngle;
+        const newRotation = rotation + angleDelta * (180 / Math.PI);
+        setRotation(newRotation);
+        onUpdate(sticker.id, { rotation: newRotation });
+      }
+      
+      setStartDistance(distance);
+      setStartAngle(angle);
     }
-  }
+  };
 
   const handleTouchEnd = () => {
-    setIsDragging(false)
-    setInitialDistance(0)
-  }
+    setIsDragging(false);
+    setIsScaling(false);
+    setIsRotating(false);
+  };
 
   return (
     <div
       style={{
-        position: "absolute",
-        left: sticker.x,
-        top: sticker.y,
-        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
-        cursor: "move",
-        userSelect: "none",
-        touchAction: "none",
-        fontSize: "96px",
-        zIndex: isDragging ? 1000 : 1,
-        padding: "20px", // Bigger touch area around sticker
-        margin: "-20px", // Compensate for padding so sticker position stays the same
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* X button for removal */}
-      <button
-        onClick={onRemove}
-        style={{
-          position: "absolute",
-          top: "-10px",
-          right: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(255, 0, 0, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "14px",
-          fontWeight: "bold",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
-        }}
-      >
-        ×
-      </button>
-      
-      {/* Draggable rotate handle */}
-      <div
-        onTouchStart={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          onUpdate({ rotation: angle })
-        }}
-        onTouchMove={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          onUpdate({ rotation: angle })
-        }}
-        style={{
-          position: "absolute",
-          top: "-10px",
-          left: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(0, 0, 255, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "12px",
-          cursor: "grab",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
-          userSelect: "none",
-          touchAction: "none",
-        }}
-      >
-        🔄
-      </div>
-      
-      <img 
-        src={sticker.emoji} 
-        alt={sticker.name}
-        style={{ 
-          width: "96px", 
-          height: "96px", 
-          objectFit: "contain",
-          userSelect: "none",
-          pointerEvents: "none"
-        }} 
-      />
-    </div>
-  )
-}
-
-function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
-  const [position, setPosition] = useState({ x: 10, y: 10 })
-  const [scale, setScale] = useState(1)
-  const [rotation, setRotation] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
-  const [initialDistance, setInitialDistance] = useState(0)
-  const [initialScale, setInitialScale] = useState(1)
-  const [initialRotation, setInitialRotation] = useState(0)
-
-  const getDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const dx = touches[1].clientX - touches[0].clientX
-    const dy = touches[1].clientY - touches[0].clientY
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  const getAngle = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0
-    const dx = touches[1].clientX - touches[0].clientX
-    const dy = touches[1].clientY - touches[0].clientY
-    return Math.atan2(dy, dx) * 180 / Math.PI
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isActive) return // Disable interactions when not active
-    e.preventDefault()
-    
-    if (e.touches.length === 1) {
-      // Single finger - drag
-      const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
-      setIsDragging(true)
-    } else if (e.touches.length === 2) {
-      // Two fingers - scale and rotate
-      setInitialDistance(getDistance(e.touches))
-      setInitialScale(scale)
-      setInitialRotation(rotation)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault()
-    
-    if (e.touches.length === 1 && isDragging) {
-      // Single finger drag
-      const touch = e.touches[0]
-      const newPosition = {
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
-      }
-      setPosition(newPosition)
-      onUpdate(newPosition)
-    } else if (e.touches.length === 2) {
-      // Two finger scale and rotate simultaneously
-      const currentDistance = getDistance(e.touches)
-      const currentAngle = getAngle(e.touches)
-      
-      if (initialDistance > 0) {
-        // Calculate scale
-        const scaleChange = currentDistance / initialDistance
-        const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
-        setScale(newScale)
-        
-        // Calculate rotation (simplified for better performance)
-        const angleDiff = currentAngle - getAngle(e.touches)
-        const newRotation = initialRotation + angleDiff
-        setRotation(newRotation)
-        
-        onUpdate({ scale: newScale, rotation: newRotation })
-      }
-    }
-  }
-
-  const handleTouchEnd = () => {
-    setIsDragging(false)
-    setInitialDistance(0)
-  }
-
-  return (
-    <div
-      style={{
-        position: "absolute",
+        position: 'absolute',
         left: position.x,
         top: position.y,
         transform: `scale(${scale}) rotate(${rotation}deg)`,
-        fontSize: style === "bold" ? "16px" : "14px",
-        fontWeight: style === "bold" ? "bold" : "normal",
-        color: "white",
-        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-        cursor: "move",
-        userSelect: "none",
-        touchAction: "none",
-        zIndex: isDragging ? 1000 : 1,
-        maxWidth: "calc(100% - 20px)",
-        wordWrap: "break-word",
-        padding: "20px", // Bigger touch area
-        margin: "-20px", // Compensate for padding
+        cursor: isActive ? 'pointer' : 'default',
+        padding: '20px',
+        margin: '-20px',
+        zIndex: isActive ? 1000 : 1
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* X button for removal */}
+      <img 
+        src={sticker.imageUrl} 
+        alt={sticker.name}
+        style={{ 
+          width: '96px', 
+          height: '96px',
+          objectFit: 'contain',
+          pointerEvents: 'none'
+        }} 
+      />
+      
+      {/* Delete Button */}
       <button
-        onClick={() => onUpdate({ remove: true })}
+        onClick={() => onDelete(sticker.id)}
         style={{
-          position: "absolute",
-          top: "-10px",
-          right: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(255, 0, 0, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "14px",
-          fontWeight: "bold",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
+          position: 'absolute',
+          top: '-10px',
+          right: '-10px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'red',
+          border: 'none',
+          color: 'white',
+          cursor: 'pointer',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
         ×
       </button>
       
-      {/* Draggable rotate handle */}
+      {/* Rotate Handle */}
       <div
-        onTouchStart={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          setRotation(angle)
-          onUpdate({ rotation: angle })
-        }}
-        onTouchMove={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          setRotation(angle)
-          onUpdate({ rotation: angle })
-        }}
         style={{
-          position: "absolute",
-          top: "-10px",
-          left: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(0, 0, 255, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "12px",
-          cursor: "grab",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
-          userSelect: "none",
-          touchAction: "none",
+          position: 'absolute',
+          bottom: '-30px',
+          right: '-10px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'blue',
+          border: 'none',
+          color: 'white',
+          cursor: 'pointer',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
         🔄
       </div>
-      
-      {text}
     </div>
-  )
-}
+  );
+};
+
+const DraggableText = ({ text, onUpdate, onDelete, isActive }: DraggableTextProps) => {
+  const [position, setPosition] = useState({ x: text.x, y: text.y });
+  const [scale, setScale] = useState(text.scale || 1);
+  const [rotation, setRotation] = useState(text.rotation || 0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isScaling, setIsScaling] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
+  const [startDistance, setStartDistance] = useState(0);
+  const [startAngle, setStartAngle] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isActive) return;
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    } else if (e.touches.length === 2) {
+      setIsScaling(true);
+      setIsRotating(true);
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const angle = Math.atan2(
+        e.touches[1].clientY - e.touches[0].clientY,
+        e.touches[1].clientX - e.touches[0].clientX
+      );
+      setStartDistance(distance);
+      setStartAngle(angle);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isActive) return;
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      const deltaX = e.touches[0].clientX - startTouch.x;
+      const deltaY = e.touches[0].clientY - startTouch.y;
+      const newPosition = { x: position.x + deltaX, y: position.y + deltaY };
+      setPosition(newPosition);
+      onUpdate(text.id, { x: newPosition.x, y: newPosition.y });
+      setStartTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    } else if (e.touches.length === 2 && (isScaling || isRotating)) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const angle = Math.atan2(
+        e.touches[1].clientY - e.touches[0].clientY,
+        e.touches[1].clientX - e.touches[0].clientX
+      );
+      
+      if (isScaling) {
+        const scaleFactor = distance / startDistance;
+        const newScale = Math.max(0.5, Math.min(3, scale * scaleFactor));
+        setScale(newScale);
+        onUpdate(text.id, { scale: newScale });
+      }
+      
+      if (isRotating) {
+        const angleDelta = angle - startAngle;
+        const newRotation = rotation + angleDelta * (180 / Math.PI);
+        setRotation(newRotation);
+        onUpdate(text.id, { rotation: newRotation });
+      }
+      
+      setStartDistance(distance);
+      setStartAngle(angle);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setIsScaling(false);
+    setIsRotating(false);
+  };
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: position.x,
+        top: position.y,
+        transform: `scale(${scale}) rotate(${rotation}deg)`,
+        cursor: isActive ? 'pointer' : 'default',
+        padding: '20px',
+        margin: '-20px',
+        zIndex: isActive ? 1000 : 1
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        style={{
+          color: text.color,
+          fontFamily: text.font,
+          fontSize: '24px',
+          fontWeight: 'bold',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none'
+        }}
+      >
+        {text.content}
+      </div>
+      
+      {/* Delete Button */}
+      <button
+        onClick={() => onDelete(text.id)}
+        style={{
+          position: 'absolute',
+          top: '-10px',
+          right: '-10px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'red',
+          border: 'none',
+          color: 'white',
+          cursor: 'pointer',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        ×
+      </button>
+      
+      {/* Rotate Handle */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '-30px',
+          right: '-10px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'blue',
+          border: 'none',
+          color: 'white',
+          cursor: 'pointer',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        🔄
+      </div>
+    </div>
+  );
+};
 
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
   // Available stickers (matching exact GitHub file names)
@@ -473,11 +427,23 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
   ]
 
-  const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
-  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
+  const [activeTab, setActiveTab] = useState<'stickers' | 'text'>('stickers')
+  const [stickerCategory, setStickerCategory] = useState<'old-school' | 'new'>('old-school')
   const [stickers, setStickers] = useState<Sticker[]>([])
+  const [texts, setTexts] = useState<any[]>([])
   const [textOverlay, setTextOverlay] = useState("")
   const [textStyle, setTextStyle] = useState("bold")
+  const [selectedFont, setSelectedFont] = useState('Bangers');
+  const [selectedColor, setSelectedColor] = useState('#000000');
+
+  const fonts = [
+    'Bangers',
+    'Chewy', 
+    'Bubblegum Sans',
+    'Indie Flower',
+    'Righteous',
+    'Audiowide'
+  ];
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -503,6 +469,32 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const removeSticker = (id: string) => {
     setStickers(stickers.filter(s => s.id !== id))
   }
+
+  const addText = () => {
+    if (textOverlay.trim()) {
+      const textId = `text-${Date.now()}`;
+      const newTextItem = {
+        id: textId,
+        content: textOverlay,
+        x: Math.random() * 200,
+        y: Math.random() * 200,
+        scale: 1,
+        rotation: 0,
+        font: selectedFont,
+        color: selectedColor
+      };
+      setTexts([...texts, newTextItem]);
+      setTextOverlay('');
+    }
+  };
+
+  const updateText = (id: string, updates: any) => {
+    setTexts(texts.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const deleteText = (id: string) => {
+    setTexts(texts.filter(t => t.id !== id));
+  };
 
   // Handle post
   const handlePost = () => {
@@ -622,18 +614,14 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <DraggableSticker
               key={sticker.id}
               sticker={sticker}
-              onUpdate={(updates) => {
+              onUpdate={(id, updates) => {
                 if (activeTab === "stickers") {
                   setStickers(stickers.map(s => 
-                    s.id === sticker.id ? { ...s, ...updates } : s
+                    s.id === id ? { ...s, ...updates } : s
                   ))
                 }
               }}
-              onRemove={() => {
-                if (activeTab === "stickers") {
-                  removeSticker(sticker.id)
-                }
-              }}
+              onDelete={removeSticker}
               isActive={activeTab === "stickers"}
             />
           ))}
@@ -641,9 +629,17 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
           {textOverlay && (
             <DraggableText
-              text={textOverlay}
-              style={textStyle}
-              onUpdate={(updates) => {
+              text={{
+                id: `text-${Date.now()}`,
+                content: textOverlay,
+                x: Math.random() * 200,
+                y: Math.random() * 200,
+                scale: 1,
+                rotation: 0,
+                font: selectedFont,
+                color: selectedColor
+              }}
+              onUpdate={(id, updates) => {
                 if (activeTab === "text") {
                   if (updates.remove) {
                     setTextOverlay("")
@@ -653,9 +649,21 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                   }
                 }
               }}
+              onDelete={() => {}} // No direct delete for text overlay
               isActive={activeTab === "text"}
             />
           )}
+
+          {/* Texts */}
+          {texts.map((text) => (
+            <DraggableText
+              key={text.id}
+              text={text}
+              onUpdate={updateText}
+              onDelete={deleteText}
+              isActive={activeTab === 'text'}
+            />
+          ))}
         </div>
       </div>
 
@@ -828,6 +836,63 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 ))}
               </div>
             </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                Font:
+              </label>
+              <select
+                value={selectedFont}
+                onChange={(e) => setSelectedFont(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: '#2a2a2a',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              >
+                {fonts.map(font => (
+                  <option key={font} value={font}>{font}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Color Picker */}
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                Color:
+              </label>
+              <input
+                type="color"
+                value={selectedColor}
+                onChange={(e) => setSelectedColor(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+            
+            <button
+              onClick={addText}
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: '#3a3a3a',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              Add Text
+            </button>
           </div>
         )}
       </div>
