@@ -222,22 +222,46 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   }
 
   const getMapUrl = () => {
-    if (!userLocation) return ""
+    if (!userLocation) {
+      console.log("🗺️ No user location available")
+      return ""
+    }
     
     const pins = generateMapPins()
+    console.log("🗺️ Generated pins:", pins)
+    
+    // Simplify the markers - just use basic format
     const markers = pins.map(pin => 
-      `markers=color:${pin.type === "ai" ? "red" : "blue"}|label:${pin.type === "ai" ? "A" : "C"}|${pin.lat},${pin.lng}`
+      `markers=color:${pin.type === "ai" ? "red" : "blue"}|${pin.lat},${pin.lng}`
     ).join("&")
     
     const center = `${userLocation.lat},${userLocation.lng}`
     const size = "600x400"
     const zoom = mapZoom
     const maptype = "roadmap"
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
     
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&${markers}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
+    console.log("🗺️ API Key available:", !!apiKey)
+    console.log("🗺️ Center:", center)
+    console.log("🗺️ Markers:", markers)
+    
+    // Try with markers first, fallback to basic map
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&${markers}&key=${apiKey}`
     
     console.log("🗺️ Generated map URL:", mapUrl)
     return mapUrl
+  }
+
+  const getBasicMapUrl = () => {
+    if (!userLocation) return ""
+    
+    const center = `${userLocation.lat},${userLocation.lng}`
+    const size = "600x400"
+    const zoom = mapZoom
+    const maptype = "roadmap"
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&key=${apiKey}`
   }
 
   if (isLoading) {
@@ -426,8 +450,18 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                   console.log("🗺️ Map loaded successfully")
                 }}
                 onError={(e) => {
-                  console.log("🗺️ Map failed to load, showing fallback")
-                  setMapError(true)
+                  console.log("🗺️ Map with markers failed, trying basic map...")
+                  // Try basic map without markers
+                  const basicMapUrl = getBasicMapUrl()
+                  if (basicMapUrl) {
+                    e.currentTarget.src = basicMapUrl
+                    e.currentTarget.onerror = () => {
+                      console.log("🗺️ Basic map also failed, showing fallback")
+                      setMapError(true)
+                    }
+                  } else {
+                    setMapError(true)
+                  }
                 }}
               />
             ) : (
