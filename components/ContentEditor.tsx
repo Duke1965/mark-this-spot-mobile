@@ -744,11 +744,11 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <div style={{ 
             position: "relative",
             width: "90%", // Much wider slider
-            height: "20px",
-            borderRadius: "10px",
+            height: "24px", // Slightly thicker
+            borderRadius: "12px",
             overflow: "hidden",
             background: "rgba(255,255,255,0.3)",
-            padding: "4px",
+            padding: "6px", // More padding for thicker slider
             margin: "0 auto"
           }}>
             <input
@@ -763,9 +763,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               }}
               style={{
                 width: "100%",
-                height: "12px",
+                height: "16px", // Thicker slider
                 background: "linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 outline: "none",
                 cursor: "pointer",
                 border: "none",
@@ -776,10 +776,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <div style={{
               position: "absolute",
               top: "50%",
-              left: `${(parseInt(textColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
+              left: `${((textColor === "#ffffff" ? 0 : parseInt(textColor.replace('#', ''), 16) % 360) / 360) * 100}%`,
               transform: "translate(-50%, -50%)",
-              width: "8px",
-              height: "8px",
+              width: "12px", // Slightly bigger indicator
+              height: "12px",
               backgroundColor: textColor,
               borderRadius: "50%",
               border: "2px solid white",
