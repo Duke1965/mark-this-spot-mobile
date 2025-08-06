@@ -18,9 +18,29 @@ const getLocationNameFromCoords = (lat: number, lng: number) => {
   }
 }
 
+// Enhanced location name generator with better precision
+const generateEnhancedLocationName = (lat: number, lng: number) => {
+  // More precise location detection
+  if (lat > -34.05 && lat < -34.04 && lng > 18.77 && lng < 18.78) {
+    return "Riebeek West, Western Cape"
+  } else if (lat > -33.6 && lat < -33.5 && lng > 18.9 && lng < 19.0) {
+    return "Wellington, Western Cape"
+  } else if (lat > -34.2 && lat < -33.8 && lng > 18.7 && lng < 18.9) {
+    return "Malmesbury, Western Cape"
+  } else if (lat > -34.5 && lat < -33.5 && lng > 18.5 && lng < 19.5) {
+    return "Cape Town, Western Cape"
+  } else if (lat > -34.5 && lat < -33.5) {
+    return "Western Cape"
+  } else if (lng > 18.5 && lng < 19.5) {
+    return "Cape Town Area"
+  } else {
+    return "South Africa"
+  }
+}
+
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
-  const locationName = getLocationNameFromCoords(lat, lng)
+  const locationName = generateEnhancedLocationName(lat, lng)
   
   const places = [
     {
@@ -101,7 +121,7 @@ export async function GET(request: NextRequest) {
         rating: 4.5,
         price_level: 2,
         types: ["locality", "political"],
-        vicinity: "",
+        vicinity: generateEnhancedLocationName(Number.parseFloat(lat), Number.parseFloat(lng)),
         photos: [],
       }
 
