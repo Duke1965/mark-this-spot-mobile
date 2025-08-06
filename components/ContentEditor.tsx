@@ -32,6 +32,8 @@ interface DraggableStickerProps {
 interface DraggableTextProps {
   text: string
   style: string
+  textColor?: string
+  selectedFont?: string
   onUpdate: (updates: any) => void
   isActive?: boolean
 }
@@ -229,7 +231,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
   )
 }
 
-function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
+function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bold", onUpdate, isActive = true }: DraggableTextProps) {
   const [position, setPosition] = useState({ x: 10, y: 10 })
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -340,6 +342,21 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
     setIsRotating(false)
   }
 
+  // Get font style based on selectedFont
+  const getFontStyle = () => {
+    switch (selectedFont) {
+      case "elegant":
+        return { fontFamily: "serif", fontSize: "20px", fontStyle: "italic" }
+      case "modern":
+        return { fontFamily: "sans-serif", fontSize: "18px", letterSpacing: "1px" }
+      case "playful":
+        return { fontFamily: "cursive", fontSize: "22px" }
+      case "bold":
+      default:
+        return { fontWeight: "bold", fontSize: "24px" }
+    }
+  }
+
   return (
     <div
       style={{
@@ -347,9 +364,7 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
         left: position.x,
         top: position.y,
         transform: `scale(${scale}) rotate(${rotation}deg)`,
-        fontSize: style === "bold" ? "16px" : "14px",
-        fontWeight: style === "bold" ? "bold" : "normal",
-        color: "white",
+        color: textColor,
         textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
         cursor: "move",
         userSelect: "none",
@@ -359,6 +374,7 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
         wordWrap: "break-word",
         padding: "40px", // Much bigger touch area since only text is active
         margin: "-40px", // Compensate for padding
+        ...getFontStyle()
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -504,11 +520,21 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
   ]
 
+  // Font styles from PhotoEditor
+  const textStyles = [
+    { name: "bold", label: "Bold", style: "font-weight: bold; font-size: 24px;" },
+    { name: "elegant", label: "Elegant", style: "font-family: serif; font-size: 20px; font-style: italic;" },
+    { name: "modern", label: "Modern", style: "font-family: sans-serif; font-size: 18px; letter-spacing: 1px;" },
+    { name: "playful", label: "Playful", style: "font-family: cursive; font-size: 22px; color: #ff6b6b;" },
+  ]
+
   const [activeTab, setActiveTab] = useState<"stickers" | "text">("stickers")
   const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [textOverlay, setTextOverlay] = useState("")
   const [textStyle, setTextStyle] = useState("bold")
+  const [textColor, setTextColor] = useState("#ffffff") // White default
+  const [selectedFont, setSelectedFont] = useState("bold")
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -541,6 +567,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       stickers,
       text: textOverlay,
       textStyle,
+      textColor,
+      selectedFont,
       platform,
     }
     onPost(contentData)
@@ -552,6 +580,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       stickers,
       text: textOverlay,
       textStyle,
+      textColor,
+      selectedFont,
       platform,
     }
     onSave(contentData)
@@ -673,7 +703,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           {textOverlay && (
             <DraggableText
               text={textOverlay}
-              style={textStyle}
+              style={selectedFont}
+              textColor={textColor}
+              selectedFont={selectedFont}
               onUpdate={(updates) => {
                 if (activeTab === "text") {
                   if (updates.remove) {
@@ -689,6 +721,67 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           )}
         </div>
       </div>
+
+      {/* Color Slider - Only show when text tab is active */}
+      {activeTab === "text" && (
+        <div
+          style={{
+            padding: "0.5rem 1rem",
+            background: "rgba(0,0,0,0.2)",
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.5rem", opacity: 0.8 }}>
+            Text Color
+          </label>
+          <div style={{ 
+            position: "relative",
+            width: "60%",
+            height: "20px",
+            borderRadius: "10px",
+            overflow: "hidden",
+            background: "rgba(255,255,255,0.3)",
+            padding: "4px",
+            margin: "0 auto"
+          }}>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={textColor === "#ffffff" ? 0 : parseInt(textColor.replace('#', ''), 16) % 360}
+              onChange={(e) => {
+                const hue = parseInt(e.target.value)
+                const color = `hsl(${hue}, 70%, 50%)`
+                setTextColor(color)
+              }}
+              style={{
+                width: "100%",
+                height: "12px",
+                background: "linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)",
+                borderRadius: "6px",
+                outline: "none",
+                cursor: "pointer",
+                border: "none",
+                appearance: "none",
+                WebkitAppearance: "none"
+              }}
+            />
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: `${(parseInt(textColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
+              transform: "translate(-50%, -50%)",
+              width: "8px",
+              height: "8px",
+              backgroundColor: textColor,
+              borderRadius: "50%",
+              border: "2px solid white",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+              pointerEvents: "none"
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
@@ -835,6 +928,35 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 }}
               />
             </div>
+            
+            {/* Font Selector */}
+            <div style={{marginBottom: '16px'}}>
+              <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
+                Font Style
+              </label>
+              <select
+                value={selectedFont}
+                onChange={(e) => setSelectedFont(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                {textStyles.map(font => (
+                  <option key={font.name} value={font.name} style={{ padding: '8px', background: '#2a2a2a' }}>
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <div>
               <label style={{display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(255,255,255,0.8)'}}>
                 Text Style
