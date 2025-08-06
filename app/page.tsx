@@ -220,7 +220,7 @@ export default function PINITApp() {
       }
 
       const data = await response.json()
-      
+
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
         const closestPlace = data.results[0]
@@ -872,12 +872,7 @@ export default function PINITApp() {
   if (currentScreen === "recommendations") {
     return (
       <RecommendationsHub
-        recommendations={recommendations}
         onBack={() => setCurrentScreen("map")}
-        onActionTaken={handleRecommendationAction}
-        onRecommendationDismiss={handleRecommendationDismiss}
-        onRecommendationComplete={handleRecommendationComplete}
-        onPlaceNavigation={handlePlaceNavigation}
       />
     )
   }
