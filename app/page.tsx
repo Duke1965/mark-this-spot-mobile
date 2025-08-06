@@ -212,28 +212,7 @@ export default function PINITApp() {
     try {
       console.log("📍 Fetching location name for:", lat, lng)
       
-      // Try Google Geocoding API directly from frontend
-      const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      
-      console.log("📍 Calling Google Geocoding API directly:", geocodingUrl)
-      
-      const response = await fetch(geocodingUrl)
-      const data = await response.json()
-      
-      console.log("📍 Google Geocoding API response:", JSON.stringify(data, null, 2))
-
-      if (data.status === "OK" && data.results && data.results.length > 0) {
-        const result = data.results[0]
-        const locationName = result.formatted_address.split(',')[0] // Get the first part of the address
-        
-        console.log("📍 Real location name from Google:", locationName)
-        return locationName
-      } else {
-        console.log("❌ Google API failed with status:", data.status, data.error_message)
-      }
-
-      // If Google API fails, fall back to our API
-      console.log("📍 Google API failed, trying our API...")
+      // Use our API route instead of calling Google directly (avoids CORS issues)
       const apiResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
       
       if (!apiResponse.ok) {
@@ -259,12 +238,28 @@ export default function PINITApp() {
         return placeName
       }
 
-      // If no places found, return coordinates as fallback
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // If no places found, try a more specific geocoding approach
+      console.log("📍 No places found, trying specific location resolution...")
+      
+      // Try to get a more specific location name
+      const specificResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=500`)
+      if (specificResponse.ok) {
+        const specificData = await specificResponse.json()
+        if (specificData.results && specificData.results.length > 0) {
+          return specificData.results[0].name
+        }
+      }
+
+      // Final fallback: return coordinates but format them nicely
+      const latDir = lat >= 0 ? "N" : "S"
+      const lngDir = lng >= 0 ? "E" : "W"
+      return `${Math.abs(lat).toFixed(4)}°${latDir}, ${Math.abs(lng).toFixed(4)}°${lngDir}`
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
       // Return coordinates as fallback
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      const latDir = lat >= 0 ? "N" : "S"
+      const lngDir = lng >= 0 ? "E" : "W"
+      return `${Math.abs(lat).toFixed(4)}°${latDir}, ${Math.abs(lng).toFixed(4)}°${lngDir}`
     }
   }
 
@@ -1187,7 +1182,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - CLEAN VERSION */}
+          {/* SMOOTH LIVE MAP BACKGROUND */}
           {(userLocation || location) && (
             <div
               style={{
@@ -1199,48 +1194,50 @@ export default function PINITApp() {
                 background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
               }}
             >
-              <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                  userLocation?.latitude || location?.latitude || -25.7479
-                },${
-                  userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
-                alt="Live Map"
+              {/* Use a more stable map approach - less frequent updates */}
+              <div
                 style={{
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover",
-                  filter: "contrast(1.1) saturate(1.2)",
+                  background: `linear-gradient(135deg, 
+                    rgba(34, 197, 94, 0.8) 0%, 
+                    rgba(59, 130, 246, 0.8) 50%, 
+                    rgba(16, 185, 129, 0.8) 100%)`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
                 }}
-                onLoad={(e) => {
-                  console.log("Map loaded successfully")
-                }}
-                onError={(e) => {
-                  console.log("Google Maps failed, trying alternative...")
-                  // Try OpenStreetMap tile service as fallback
-                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
-                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
-                  )}/${Math.floor(
-                    ((1 -
-                      Math.log(
-                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
-                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
-                      ) /
-                        Math.PI) /
-                      2) *
-                      Math.pow(2, 16),
-                  )}.png`
+              >
+                {/* Map placeholder with location indicator */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "8px",
+                    height: "8px",
+                    background: "#EF4444",
+                    borderRadius: "50%",
+                    border: "2px solid white",
+                    boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.3)",
+                    animation: "pulse 2s infinite",
+                  }}
+                />
+                
+                {/* Subtle map texture overlay */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: "0",
+                    background: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='50' cy='50' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
+                    opacity: 0.3,
+                  }}
+                />
+              </div>
 
-                  // If that also fails, show a nice gradient background
-                  setTimeout(() => {
-                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
-                      e.currentTarget.style.display = "none"
-                    }
-                  }, 2000)
-                }}
-              />
-
-              {/* Minimal location overlay - positioned at top */}
+              {/* Location indicator overlay */}
               <div
                 style={{
                   position: "absolute",
@@ -1254,6 +1251,7 @@ export default function PINITApp() {
                   padding: "0.2rem 0.4rem",
                   borderRadius: "0.2rem",
                   pointerEvents: "none",
+                  background: "rgba(0,0,0,0.3)",
                 }}
               >
                 📍 Live
@@ -1639,6 +1637,12 @@ export default function PINITApp() {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes pulse {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+          100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
       `}</style>
     </div>
