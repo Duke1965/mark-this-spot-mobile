@@ -1,74 +1,84 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Generate location name based on coordinates
-const getLocationNameFromCoords = (lat: number, lng: number) => {
-  // South Africa location mapping - more precise ranges
-  if (lat > -34.05 && lat < -34.04 && lng > 18.77 && lng < 18.78) {
-    return "Riebeek West"
-  } else if (lat > -34.2 && lat < -33.8 && lng > 18.7 && lng < 18.9) {
-    return "Malmesbury"
-  } else if (lat > -34.5 && lat < -33.5 && lng > 18.5 && lng < 19.5) {
-    return "Cape Town"
-  } else if (lat > -34.5 && lat < -33.5) {
-    return "Western Cape"
-  } else if (lng > 18.5 && lng < 19.5) {
-    return "Cape Town Area"
-  } else {
-    return "South Africa"
-  }
-}
-
-// Enhanced location name generator with better precision
-const generateEnhancedLocationName = (lat: number, lng: number) => {
-  // More precise location detection for Cape Town area
-  if (lat > -34.05 && lat < -34.04 && lng > 18.77 && lng < 18.78) {
-    return "Riebeek West, Western Cape"
-  } else if (lat > -33.6 && lat < -33.5 && lng > 18.9 && lng < 19.0) {
-    return "Wellington, Western Cape"
-  } else if (lat > -34.2 && lat < -33.8 && lng > 18.7 && lng < 18.9) {
-    return "Malmesbury, Western Cape"
-  } else if (lat > -33.95 && lat < -33.85 && lng > 18.6 && lng < 18.7) {
-    return "Cape Town CBD"
-  } else if (lat > -33.95 && lat < -33.85 && lng > 18.4 && lng < 18.6) {
-    return "Cape Town Atlantic Seaboard"
-  } else if (lat > -33.95 && lat < -33.85 && lng > 18.7 && lng < 18.9) {
-    return "Cape Town Southern Suburbs"
-  } else if (lat > -33.95 && lat < -33.85 && lng > 18.9 && lng < 19.1) {
-    return "Cape Town Northern Suburbs"
-  } else if (lat > -34.5 && lat < -33.5 && lng > 18.5 && lng < 19.5) {
-    return "Cape Town, Western Cape"
-  } else if (lat > -34.5 && lat < -33.5) {
-    return "Western Cape"
-  } else if (lng > 18.5 && lng < 19.5) {
-    return "Cape Town Area"
-  } else {
-    return "South Africa"
-  }
-}
-
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
-  const locationName = generateEnhancedLocationName(lat, lng)
-  
   const places = [
     {
-      place_id: "location-1",
-      name: locationName,
+      place_id: "mock-1",
+      name: "Central Park Gardens",
       geometry: {
         location: {
-          lat: lat,
-          lng: lng,
+          lat: lat + 0.001,
+          lng: lng + 0.001,
         },
       },
       rating: 4.5,
       price_level: 2,
-      types: ["locality", "political"],
-      vicinity: "",
+      types: ["park", "tourist_attraction"],
+      vicinity: "Downtown District",
       photos: [],
-    }
+    },
+    {
+      place_id: "mock-2",
+      name: "Riverside Café",
+      geometry: {
+        location: {
+          lat: lat - 0.002,
+          lng: lng + 0.001,
+        },
+      },
+      rating: 4.8,
+      types: ["cafe", "restaurant"],
+      vicinity: "Waterfront Area",
+      photos: [],
+    },
+    {
+      place_id: "mock-3",
+      name: "Heritage Museum",
+      geometry: {
+        location: {
+          lat: lat + 0.0015,
+          lng: lng - 0.001,
+        },
+      },
+      rating: 4.3,
+      price_level: 1,
+      types: ["museum", "tourist_attraction"],
+      vicinity: "Historic Quarter",
+      photos: [],
+    },
+    {
+      place_id: "mock-4",
+      name: "Sunset Viewpoint",
+      geometry: {
+        location: {
+          lat: lat - 0.001,
+          lng: lng - 0.002,
+        },
+      },
+      rating: 4.7,
+      types: ["tourist_attraction", "point_of_interest"],
+      vicinity: "Scenic Heights",
+      photos: [],
+    },
+    {
+      place_id: "mock-5",
+      name: "Urban Market Square",
+      geometry: {
+        location: {
+          lat: lat + 0.002,
+          lng: lng + 0.002,
+        },
+      },
+      rating: 4.1,
+      types: ["shopping_mall", "establishment"],
+      vicinity: "Commercial District",
+      photos: [],
+    },
   ]
 
-  return places
+  // Shuffle the places to get different results each time
+  return places.sort(() => Math.random() - 0.5).slice(0, 3)
 }
 
 export async function GET(request: NextRequest) {
@@ -93,56 +103,35 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use Google Geocoding API to get the actual location name
-    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    const types = [
+      "tourist_attraction",
+      "restaurant",
+      "cafe",
+      "museum",
+      "park",
+      "shopping_mall",
+      "art_gallery",
+      "amusement_park",
+      "zoo",
+      "aquarium",
+    ]
 
-    console.log("📍 Calling Google Geocoding API:", geocodingUrl)
-    
-    const response = await fetch(geocodingUrl)
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
+      "|",
+    )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+
+    const response = await fetch(placesUrl)
     const data = await response.json()
 
-    console.log("📍 Google Geocoding API response:", JSON.stringify(data, null, 2))
-
-    // Check if the API returned an error status
-    if (!response.ok || data.status === "REQUEST_DENIED" || data.status === "ZERO_RESULTS") {
-      console.log("❌ Google Geocoding API error:", data.status, data.error_message)
-      throw new Error(`Google Geocoding API error: ${data.error_message || "Unknown error"}`)
+    if (!response.ok) {
+      throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
     }
 
-    // Extract the location name from the geocoding results
-    if (data.results && data.results.length > 0) {
-      const result = data.results[0]
-      const locationName = result.formatted_address.split(',')[0] // Get the first part of the address
-      
-      console.log("📍 Real location name from Google:", locationName)
-      
-      // Create a mock place with the real location name
-      const realPlace = {
-        place_id: "geocoded-location",
-        name: locationName,
-        geometry: {
-          location: {
-            lat: Number.parseFloat(lat),
-            lng: Number.parseFloat(lng),
-          },
-        },
-        rating: 4.5,
-        price_level: 2,
-        types: ["locality", "political"],
-        vicinity: generateEnhancedLocationName(Number.parseFloat(lat), Number.parseFloat(lng)),
-        photos: [],
-      }
+    console.log(`✅ Google Places API: Found ${data.results?.length || 0} places`)
 
-      return NextResponse.json({
-        results: [realPlace],
-        status: "OK",
-      })
-    }
-
-    // If no results, fall back to mock data
-    throw new Error("No geocoding results found")
+    return NextResponse.json(data)
   } catch (error) {
-    console.error("❌ Google Geocoding API error:", error)
+    console.error("❌ Google Places API error:", error)
 
     // Return varied fallback mock data on error
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
