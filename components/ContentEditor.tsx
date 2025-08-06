@@ -466,8 +466,14 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   }
 
   // Remove sticker
-  const removeSticker = (id: string) => {
+  const deleteSticker = (id: string) => {
     setStickers(stickers.filter(s => s.id !== id))
+  }
+
+  const updateSticker = (id: string, updates: any) => {
+    setStickers(stickers.map(s => 
+      s.id === id ? { ...s, ...updates } : s
+    ))
   }
 
   const addText = () => {
@@ -564,149 +570,157 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         <div style={{ width: "48px" }} />
       </div>
 
-      {/* Preview */}
-      <div
-        style={{
-          padding: "1rem",
-          display: "flex",
-          justifyContent: "center",
-          background: "rgba(0,0,0,0.1)",
-        }}
-      >
-        <div
-          style={{
-            width: "90vw",
-            height: activeTab === "stickers" || activeTab === "text" ? "35vh" : "50vh",
-            borderRadius: "0.5rem",
-            overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.2)",
-            position: "relative",
-            touchAction: "none",
-            transition: "height 0.3s ease",
-          }}
-        >
-          {mediaType === "photo" ? (
-            <img
-              src={mediaUrl}
-              alt="Preview"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          ) : (
-            <video
-              src={mediaUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-              muted
-              autoPlay
-              loop
-            />
-          )}
-          
-          {/* Draggable Stickers Overlay - Always visible, but only interactive when stickers tab is active */}
-          {stickers.map((sticker) => (
-            <DraggableSticker
-              key={sticker.id}
-              sticker={sticker}
-              onUpdate={(id, updates) => {
-                if (activeTab === "stickers") {
-                  setStickers(stickers.map(s => 
-                    s.id === id ? { ...s, ...updates } : s
-                  ))
-                }
-              }}
-              onDelete={removeSticker}
-              isActive={activeTab === "stickers"}
-            />
-          ))}
-
-          {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
-          {textOverlay && (
-            <DraggableText
-              text={{
-                id: `text-${Date.now()}`,
-                content: textOverlay,
-                x: Math.random() * 200,
-                y: Math.random() * 200,
-                scale: 1,
-                rotation: 0,
-                font: selectedFont,
-                color: selectedColor
-              }}
-              onUpdate={(id, updates) => {
-                if (activeTab === "text") {
-                  if (updates.remove) {
-                    setTextOverlay("")
-                  } else {
-                    // Update text position, scale, rotation
-                    console.log("Text updated:", updates)
-                  }
-                }
-              }}
-              onDelete={() => {}} // No direct delete for text overlay
-              isActive={activeTab === "text"}
-            />
-          )}
-
-          {/* Texts */}
-          {texts.map((text) => (
-            <DraggableText
-              key={text.id}
-              text={text}
-              onUpdate={updateText}
-              onDelete={deleteText}
-              isActive={activeTab === 'text'}
-            />
-          ))}
-        </div>
+      {/* Photo Preview */}
+      <div style={{ 
+        position: 'relative',
+        width: '90vw',
+        height: activeTab === 'stickers' || activeTab === 'text' ? '35vh' : '50vh',
+        margin: '0 auto 20px',
+        overflow: 'hidden',
+        borderRadius: '12px',
+        backgroundColor: '#2a2a2a'
+      }}>
+        <img 
+          src={mediaUrl} 
+          alt="Preview" 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover' 
+          }} 
+        />
+        
+        {/* Stickers */}
+        {stickers.map((sticker) => (
+          <DraggableSticker
+            key={sticker.id}
+            sticker={sticker}
+            onUpdate={updateSticker}
+            onDelete={deleteSticker}
+            isActive={activeTab === 'stickers'}
+          />
+        ))}
+        
+        {/* Texts */}
+        {texts.map((text) => (
+          <DraggableText
+            key={text.id}
+            text={text}
+            onUpdate={updateText}
+            onDelete={deleteText}
+            isActive={activeTab === 'text'}
+          />
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex" style={{backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
-        <button
-          onClick={() => setActiveTab("stickers")}
-          style={{
-            flex: 1,
-            padding: '12px',
+      {/* Color Picker - Moved here for better visibility */}
+      {activeTab === 'text' && (
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
+            Text Color
+          </label>
+          <div style={{ 
+            position: 'relative',
+            width: '100%',
+            height: '40px',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            backgroundColor: '#2a2a2a',
+            padding: '8px'
+          }}>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
+              onChange={(e) => {
+                const hue = parseInt(e.target.value);
+                const color = `hsl(${hue}, 70%, 50%)`;
+                setSelectedColor(color);
+              }}
+              style={{
+                width: '100%',
+                height: '24px',
+                background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
+                borderRadius: '12px',
+                outline: 'none',
+                cursor: 'pointer',
+                border: 'none',
+                appearance: 'none',
+                WebkitAppearance: 'none'
+              }}
+            />
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
+              transform: 'translate(-50%, -50%)',
+              width: '16px',
+              height: '16px',
+              backgroundColor: selectedColor,
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              pointerEvents: 'none'
+            }} />
+          </div>
+          <div style={{ 
+            marginTop: '8px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: activeTab === "stickers" ? 'white' : 'rgba(255,255,255,0.7)',
-            backgroundColor: activeTab === "stickers" ? 'rgba(255,255,255,0.2)' : 'transparent',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          🎯 Stickers
-        </button>
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '24px',
+              height: '24px',
+              backgroundColor: selectedColor,
+              borderRadius: '4px',
+              border: '1px solid #444'
+            }} />
+            <span style={{ fontSize: '12px', color: '#ccc' }}>
+              {selectedColor}
+            </span>
+          </div>
+        </div>
+      )}
 
+      {/* Tabs */}
+      <div style={{ 
+        display: 'flex', 
+        marginBottom: '20px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px',
+        padding: '4px'
+      }}>
         <button
-          onClick={() => setActiveTab("text")}
+          onClick={() => setActiveTab('stickers')}
           style={{
             flex: 1,
             padding: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: activeTab === "text" ? 'white' : 'rgba(255,255,255,0.7)',
-            backgroundColor: activeTab === "text" ? 'rgba(255,255,255,0.2)' : 'transparent',
             border: 'none',
-            cursor: 'pointer'
+            borderRadius: '6px',
+            background: activeTab === 'stickers' ? '#3a3a3a' : 'transparent',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '14px'
           }}
         >
-          ✏️ Text
+          Stickers
+        </button>
+        <button
+          onClick={() => setActiveTab('text')}
+          style={{
+            flex: 1,
+            padding: '12px',
+            border: 'none',
+            borderRadius: '6px',
+            background: activeTab === 'text' ? '#3a3a3a' : 'transparent',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Text
         </button>
       </div>
 
@@ -862,75 +876,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                   </option>
                 ))}
               </select>
-            </div>
-            
-            {/* Color Picker */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#ccc' }}>
-                Text Color
-              </label>
-              <div style={{ 
-                position: 'relative',
-                width: '100%',
-                height: '40px',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                backgroundColor: '#2a2a2a',
-                padding: '8px'
-              }}>
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  value={selectedColor === '#000000' ? 0 : parseInt(selectedColor.replace('#', ''), 16) % 360}
-                  onChange={(e) => {
-                    const hue = parseInt(e.target.value);
-                    const color = `hsl(${hue}, 70%, 50%)`;
-                    setSelectedColor(color);
-                  }}
-                  style={{
-                    width: '100%',
-                    height: '24px',
-                    background: 'linear-gradient(to right, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000)',
-                    borderRadius: '12px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    border: 'none',
-                    appearance: 'none',
-                    WebkitAppearance: 'none'
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: `${(parseInt(selectedColor.replace('#', ''), 16) % 360) / 360 * 100}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: '16px',
-                  height: '16px',
-                  backgroundColor: selectedColor,
-                  borderRadius: '50%',
-                  border: '2px solid white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                  pointerEvents: 'none'
-                }} />
-              </div>
-              <div style={{ 
-                marginTop: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  backgroundColor: selectedColor,
-                  borderRadius: '4px',
-                  border: '1px solid #444'
-                }} />
-                <span style={{ fontSize: '12px', color: '#ccc' }}>
-                  {selectedColor}
-                </span>
-              </div>
             </div>
             
             <button
