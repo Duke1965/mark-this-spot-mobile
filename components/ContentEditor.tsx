@@ -652,7 +652,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         <div
           style={{
             width: "90vw",
-            height: activeTab === "stickers" || activeTab === "text" ? "35vh" : "50vh",
+            height: activeTab === "stickers" || activeTab === "text" ? "30vh" : "45vh", // Reduced height to give more space for controls
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
@@ -743,7 +743,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           </label>
           <div style={{ 
             position: "relative",
-            width: "60%",
+            width: "90%", // Much wider slider
             height: "20px",
             borderRadius: "10px",
             overflow: "hidden",
@@ -834,7 +834,13 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       </div>
 
       {/* Tab Content */}
-      <div style={{flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: 'rgba(0,0,0,0.2)'}}>
+      <div style={{
+        flex: 1, 
+        padding: '16px', 
+        overflowY: 'auto', 
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        maxHeight: '40vh' // Limit height to ensure scrolling works
+      }}>
         {activeTab === "stickers" && (
           <div>
             <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
