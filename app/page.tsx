@@ -773,7 +773,28 @@ export default function PINITApp() {
   // Recommendation form handlers
   const handleRecommendationSubmit = (rating: number, review: string) => {
     console.log("⭐ Recommendation submitted:", { rating, review })
-    // TODO: Save recommendation to storage/database
+    
+    // Create a new recommendation pin
+    const newRecommendation: PinData = {
+      id: Date.now().toString(),
+      latitude: userLocation?.latitude || 0,
+      longitude: userLocation?.longitude || 0,
+      locationName: recommendationData?.locationName || "Unknown Location",
+      mediaUrl: recommendationData?.mediaUrl || null,
+      mediaType: recommendationData?.mediaUrl ? "photo" : null,
+      audioUrl: null,
+      timestamp: new Date().toISOString(),
+      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
+      description: review,
+      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+      isRecommended: true,
+      rating: rating,
+      types: ["recommendation"],
+    }
+
+    // Add the recommendation to pins
+    addPin(newRecommendation)
+    
     setShowRecommendationForm(false)
     setRecommendationData(null)
     setSuccessMessage("Recommendation sent!")
@@ -921,6 +942,7 @@ export default function PINITApp() {
     return (
       <RecommendationsHub
         onBack={() => setCurrentScreen("map")}
+        pins={pins}
       />
     )
   }
