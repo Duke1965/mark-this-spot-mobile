@@ -287,7 +287,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
 
       } catch (error) {
         console.error("🗺️ Error initializing map:", error)
-        setMapError("Failed to initialize map")
+        // If Google Maps fails due to domain restrictions, show beautiful fallback
+        showBeautifulFallback()
       }
     }
 
@@ -318,6 +319,118 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
 
         markersRef.current.push(marker)
       })
+    }
+
+    const showBeautifulFallback = () => {
+      // Create a beautiful interactive fallback map
+      if (mapRef.current) {
+        mapRef.current.innerHTML = `
+          <div style="
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+          ">
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center;
+              color: white;
+              z-index: 10;
+            ">
+              <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+              <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Interactive Recommendations</div>
+              <div style="font-size: 0.875rem; opacity: 0.8;">Tap pins below to explore</div>
+            </div>
+            
+            <!-- Interactive Pins Overlay -->
+            <div style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              pointer-events: none;
+            ">
+              ${recommendations.map((rec, index) => {
+                const angle = (index / recommendations.length) * 2 * Math.PI
+                const radius = 120
+                const centerX = 50
+                const centerY = 50
+                const x = centerX + radius * Math.cos(angle)
+                const y = centerY + radius * Math.sin(angle)
+                
+                return `
+                  <button
+                    onclick="window.handlePinClick('${rec.id}')"
+                    style="
+                      position: absolute;
+                      left: ${x}%;
+                      top: ${y}%;
+                      transform: translate(-50%, -50%);
+                      width: 40px;
+                      height: 40px;
+                      border-radius: 50%;
+                      border: 3px solid white;
+                      background: ${rec.type === "ai" ? "#EF4444" : "#3B82F6"};
+                      cursor: pointer;
+                      pointer-events: auto;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 16px;
+                      color: white;
+                      font-weight: bold;
+                      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                      transition: all 0.2s ease;
+                    "
+                    onmouseover="this.style.transform='translate(-50%, -50%) scale(1.2)'"
+                    onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
+                  >
+                    ${rec.type === "ai" ? "🤖" : "👥"}
+                  </button>
+                `
+              }).join('')}
+            </div>
+            
+            <!-- Animated Background -->
+            <div style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: radial-gradient(circle at 30% 70%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                          radial-gradient(circle at 70% 30%, rgba(239, 68, 68, 0.3) 0%, transparent 50%);
+              animation: pulse 4s ease-in-out infinite;
+            "></div>
+          </div>
+        `
+        
+        // Add global click handler
+        ;(window as any).handlePinClick = (recId: string) => {
+          const rec = recommendations.find(r => r.id === recId)
+          if (rec) {
+            handlePinClick(rec)
+          }
+        }
+        
+        // Add CSS animation
+        const style = document.createElement('style')
+        style.textContent = `
+          @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+          }
+        `
+        document.head.appendChild(style)
+        
+        setMapLoaded(true)
+      }
     }
 
     loadGoogleMaps()
