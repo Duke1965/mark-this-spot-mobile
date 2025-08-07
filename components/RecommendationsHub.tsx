@@ -18,6 +18,18 @@ interface Recommendation {
   pinnedBy?: string
 }
 
+interface ClusteredPin {
+  id: string
+  location: {
+    lat: number
+    lng: number
+  }
+  recommendations: Recommendation[]
+  count: number
+  averageRating: number
+  type: "ai" | "community" | "mixed"
+}
+
 interface MapPin {
   id: string
   lat: number
@@ -38,9 +50,65 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   
+  // Clustering state
+  const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
+  const [selectedCluster, setSelectedCluster] = useState<ClusteredPin | null>(null)
+  const [showClusterDetails, setShowClusterDetails] = useState(false)
+  
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
+
+  // Clustering logic - group recommendations by location
+  const clusterRecommendations = useCallback((recommendations: Recommendation[]): ClusteredPin[] => {
+    const clusters: ClusteredPin[] = []
+    const CLUSTER_RADIUS = 0.001 // Very small radius for clustering (about 100m)
+    
+    recommendations.forEach((rec) => {
+      let addedToCluster = false
+      
+      // Check if this recommendation should be added to an existing cluster
+      for (const cluster of clusters) {
+        const distance = Math.sqrt(
+          Math.pow(rec.location.lat - cluster.location.lat, 2) +
+          Math.pow(rec.location.lng - cluster.location.lng, 2)
+        )
+        
+        if (distance <= CLUSTER_RADIUS) {
+          // Add to existing cluster
+          cluster.recommendations.push(rec)
+          cluster.count++
+          
+          // Update average rating
+          const totalRating = cluster.recommendations.reduce((sum, r) => sum + (r.rating || 0), 0)
+          cluster.averageRating = totalRating / cluster.recommendations.length
+          
+          // Update type (mixed if different types)
+          if (cluster.type !== rec.type) {
+            cluster.type = "mixed"
+          }
+          
+          addedToCluster = true
+          break
+        }
+      }
+      
+      // Create new cluster if not added to existing one
+      if (!addedToCluster) {
+        const newCluster: ClusteredPin = {
+          id: `cluster-${Date.now()}-${Math.random()}`,
+          location: rec.location,
+          recommendations: [rec],
+          count: 1,
+          averageRating: rec.rating || 0,
+          type: rec.type
+        }
+        clusters.push(newCluster)
+      }
+    })
+    
+    return clusters
+  }, [])
 
   // Generate AI recommendations based on user's pin history
   const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
@@ -216,6 +284,15 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     initializeRecommendations()
   }, [generateAIRecommendations, generateCommunityRecommendations])
 
+  // Apply clustering when recommendations change
+  useEffect(() => {
+    if (recommendations.length > 0) {
+      const clusters = clusterRecommendations(recommendations)
+      setClusteredPins(clusters)
+      console.log(`🗺️ Clustered ${recommendations.length} recommendations into ${clusters.length} clusters`)
+    }
+  }, [recommendations, clusterRecommendations])
+
   // Load Google Maps API
   useEffect(() => {
     if (!userLocation || !mapRef.current) return
@@ -366,46 +443,76 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               bottom: 0;
               pointer-events: none;
             ">
-              ${recommendations.length > 0 ? recommendations.map((rec, index) => {
-                const angle = (index / recommendations.length) * 2 * Math.PI
+              ${clusteredPins.length > 0 ? clusteredPins.map((cluster, index) => {
+                const angle = (index / clusteredPins.length) * 2 * Math.PI
                 const radius = 30 // Reduced from 120 to 30 for visible area
                 const centerX = 50
                 const centerY = 50
                 const x = centerX + radius * Math.cos(angle)
                 const y = centerY + radius * Math.sin(angle)
                 
-                console.log(`🗺️ Creating pin ${index + 1}: ${rec.name} at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
+                // Determine color based on average rating
+                const getClusterColor = (rating: number) => {
+                  if (rating >= 4.5) return "#10B981" // Green for high rating
+                  if (rating >= 4.0) return "#F59E0B" // Yellow for good rating
+                  if (rating >= 3.5) return "#EF4444" // Red for average rating
+                  return "#6B7280" // Gray for low rating
+                }
+                
+                const clusterColor = getClusterColor(cluster.averageRating)
+                const clusterIcon = cluster.type === "ai" ? "🤖" : cluster.type === "community" ? "👥" : "🌟"
+                
+                console.log(`🗺️ Creating clustered pin ${index + 1}: ${cluster.count} recommendations at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
                 
                 return `
                   <button
-                    onclick="window.handlePinClick('${rec.id}')"
+                    onclick="window.handleClusterClick('${cluster.id}')"
                     style="
                       position: absolute;
                       left: ${x}%;
                       top: ${y}%;
                       transform: translate(-50%, -50%);
-                      width: 50px;
-                      height: 50px;
+                      width: 60px;
+                      height: 60px;
                       border-radius: 50%;
                       border: 4px solid white;
-                      background: ${rec.type === "ai" ? "#EF4444" : "#3B82F6"};
+                      background: ${clusterColor};
                       cursor: pointer;
                       pointer-events: auto;
                       display: flex;
                       align-items: center;
                       justify-content: center;
-                      font-size: 20px;
+                      font-size: 16px;
                       color: white;
                       font-weight: bold;
                       box-shadow: 0 6px 16px rgba(0,0,0,0.4);
                       transition: all 0.2s ease;
                       z-index: 1000;
+                      position: relative;
                     "
                     onmouseover="this.style.transform='translate(-50%, -50%) scale(1.3)'"
                     onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
-                    title="${rec.name}"
+                    title="${cluster.count} recommendations (${cluster.averageRating.toFixed(1)}★ avg)"
                   >
-                    ${rec.type === "ai" ? "🤖" : "👥"}
+                    ${clusterIcon}
+                    <div style="
+                      position: absolute;
+                      top: -8px;
+                      right: -8px;
+                      background: white;
+                      color: #1F2937;
+                      border-radius: 50%;
+                      width: 24px;
+                      height: 24px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 12px;
+                      font-weight: bold;
+                      border: 2px solid ${clusterColor};
+                    ">
+                      ${cluster.count}
+                    </div>
                   </button>
                 `
               }).join('') : `
@@ -446,6 +553,10 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
           }
         }
         
+        ;(window as any).handleClusterClick = (clusterId: string) => {
+          handleClusterClick(clusterId)
+        }
+        
         // Add CSS animation
         const style = document.createElement('style')
         style.textContent = `
@@ -464,7 +575,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     // Try Google Maps first, fallback to beautiful gradient if it fails
     console.log("🗺️ Loading Google Maps with real pins...")
     loadGoogleMaps()
-  }, [userLocation, recommendations, mapZoom])
+  }, [userLocation, recommendations, mapZoom, clusteredPins])
 
   const handlePinClick = (recommendation: Recommendation) => {
     setSelectedPin(recommendation)
@@ -472,6 +583,20 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
 
   const closePinDetails = () => {
     setSelectedPin(null)
+  }
+
+  // Handle cluster clicks
+  const handleClusterClick = (clusterId: string) => {
+    const cluster = clusteredPins.find(c => c.id === clusterId)
+    if (cluster) {
+      setSelectedCluster(cluster)
+      setShowClusterDetails(true)
+    }
+  }
+
+  const closeClusterDetails = () => {
+    setSelectedCluster(null)
+    setShowClusterDetails(false)
   }
 
   if (isLoading) {
@@ -894,6 +1019,160 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                 }}
               >
                 Navigate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cluster Details Modal */}
+      {showClusterDetails && selectedCluster && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.8)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: "1rem",
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+            borderRadius: "1rem",
+            padding: "1.5rem",
+            maxWidth: "500px",
+            width: "100%",
+            color: "white",
+            border: "2px solid rgba(255,255,255,0.2)",
+            maxHeight: "80vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
+                  background: selectedCluster.type === "ai" ? "#EF4444" : selectedCluster.type === "community" ? "#3B82F6" : "#10B981",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.2rem",
+                }}>
+                  {selectedCluster.type === "ai" ? "🤖" : selectedCluster.type === "community" ? "👥" : "🌟"}
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>
+                    {selectedCluster.count} Recommendations
+                  </h2>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>
+                    ⭐ {selectedCluster.averageRating.toFixed(1)} average rating
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={closeClusterDetails}
+                style={{
+                  padding: "0.5rem",
+                  border: "none",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  borderRadius: "0.5rem",
+                  cursor: "pointer",
+                  fontSize: "1.2rem",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Recommendations List */}
+            <div style={{ flex: 1, overflowY: "auto", marginBottom: "1rem" }}>
+              {selectedCluster.recommendations.map((rec, index) => (
+                <div
+                  key={rec.id}
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    borderRadius: "0.5rem",
+                    padding: "1rem",
+                    marginBottom: "0.5rem",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "1.2rem" }}>
+                        {rec.type === "ai" ? "🤖" : "👥"}
+                      </span>
+                      <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "600" }}>
+                        {rec.name}
+                      </h3>
+                    </div>
+                    {rec.rating && (
+                      <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>
+                        ⭐ {rec.rating}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.9, lineHeight: "1.4" }}>
+                    {rec.description}
+                  </p>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.5rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                    {rec.distance && (
+                      <span>📍 {rec.distance}km away</span>
+                    )}
+                    {rec.pinnedBy && (
+                      <span>👤 {rec.pinnedBy}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                onClick={closeClusterDetails}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Implement navigation to this cluster location
+                  closeClusterDetails()
+                }}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "bold",
+                }}
+              >
+                Navigate Here
               </button>
             </div>
           </div>
