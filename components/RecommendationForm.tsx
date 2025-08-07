@@ -31,8 +31,8 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
     onRecommend(rating, review.trim())
   }
 
-  const handleStarClick = (starNumber: number) => {
-    setRating(starNumber)
+  const handleStarClick = (pinNumber: number) => {
+    setRating(pinNumber)
   }
 
   if (!showForm) {
@@ -194,21 +194,22 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           Rate this place (optional)
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
-          {[1, 2, 3, 4, 5].map((star) => (
+          {[1, 2, 3, 4, 5].map((pin) => (
             <button
-              key={star}
-              onClick={() => handleStarClick(star)}
+              key={pin}
+              onClick={() => handleStarClick(pin)}
               style={{
                 padding: "0.25rem",
                 border: "none",
                 background: "transparent",
                 cursor: "pointer",
                 fontSize: "1.5rem",
-                color: star <= rating ? "#FBBF24" : "rgba(255,255,255,0.3)",
+                color: pin <= rating ? "#FBBF24" : "rgba(255,255,255,0.3)",
                 transition: "color 0.2s ease",
+                transform: `rotate(${pin % 2 === 0 ? '15deg' : '-15deg'})`,
               }}
             >
-              ★
+              📍
             </button>
           ))}
         </div>
