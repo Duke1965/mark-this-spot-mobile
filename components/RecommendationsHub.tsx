@@ -236,7 +236,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       }
       script.onerror = () => {
         console.error("🗺️ Failed to load Google Maps API")
-        setMapError("Failed to load map")
+        showBeautifulFallback()
       }
       document.head.appendChild(script)
     }
@@ -293,35 +293,42 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     }
 
     const addRecommendationMarkers = (map: any) => {
-      // Clear existing markers
-      markersRef.current.forEach(marker => marker.setMap(null))
-      markersRef.current = []
+      try {
+        // Clear existing markers
+        markersRef.current.forEach(marker => marker.setMap(null))
+        markersRef.current = []
 
-      recommendations.forEach((rec) => {
-        const marker = new window.google.maps.Marker({
-          position: { lat: rec.location.lat, lng: rec.location.lng },
-          map: map,
-          title: rec.name,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 2
-          }
+        recommendations.forEach((rec) => {
+          const marker = new window.google.maps.Marker({
+            position: { lat: rec.location.lat, lng: rec.location.lng },
+            map: map,
+            title: rec.name,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 2
+            }
+          })
+
+          // Add click listener
+          marker.addListener("click", () => {
+            handlePinClick(rec)
+          })
+
+          markersRef.current.push(marker)
         })
-
-        // Add click listener
-        marker.addListener("click", () => {
-          handlePinClick(rec)
-        })
-
-        markersRef.current.push(marker)
-      })
+      } catch (error) {
+        console.error("🗺️ Error adding markers:", error)
+        // If markers fail, show fallback
+        showBeautifulFallback()
+      }
     }
 
     const showBeautifulFallback = () => {
+      console.log("🗺️ Showing beautiful fallback map")
       // Create a beautiful interactive fallback map
       if (mapRef.current) {
         mapRef.current.innerHTML = `
@@ -430,10 +437,29 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
         document.head.appendChild(style)
         
         setMapLoaded(true)
+        setMapError(null) // Clear any previous errors
       }
     }
 
+    // Add error listener for Google Maps API errors
+    const handleGoogleMapsError = (event: any) => {
+      if (event.detail && event.detail.error && event.detail.error.message) {
+        console.error("🗺️ Google Maps API Error:", event.detail.error.message)
+        if (event.detail.error.message.includes("RefererNotAllowedMapError")) {
+          showBeautifulFallback()
+        }
+      }
+    }
+
+    // Listen for Google Maps errors
+    window.addEventListener('google-maps-error', handleGoogleMapsError)
+
     loadGoogleMaps()
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('google-maps-error', handleGoogleMapsError)
+    }
   }, [userLocation, recommendations, mapZoom])
 
   const handlePinClick = (recommendation: Recommendation) => {
