@@ -866,6 +866,9 @@ export default function PINITApp() {
             })
             setShowRecommendationForm(true)
           }, 3000)
+          
+          // Return to map after showing success message
+          setTimeout(() => setCurrentScreen("map"), 3000)
         }}
         onSave={(contentData) => {
           // Handle saving with content data
