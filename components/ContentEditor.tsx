@@ -69,10 +69,10 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
       // Single finger - drag
       const touch = e.touches[0]
       const rect = e.currentTarget.getBoundingClientRect()
-      // Convert to percentage-based positioning
+      // Calculate position relative to the container
       const startX = ((touch.clientX - rect.left) / rect.width) * 100
       const startY = ((touch.clientY - rect.top) / rect.height) * 100
-      setStartPos({ x: startX, y: startY })
+      setStartPos({ x: startX - sticker.x, y: startY - sticker.y })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -89,13 +89,17 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
       // Single finger drag
       const touch = e.touches[0]
       const rect = e.currentTarget.getBoundingClientRect()
-      // Convert to percentage-based positioning
+      // Calculate position relative to the container
       const currentX = ((touch.clientX - rect.left) / rect.width) * 100
       const currentY = ((touch.clientY - rect.top) / rect.height) * 100
       
+      // Constrain to container bounds
+      const constrainedX = Math.max(0, Math.min(100, currentX - startPos.x))
+      const constrainedY = Math.max(0, Math.min(100, currentY - startPos.y))
+      
       onUpdate({
-        x: currentX,
-        y: currentY
+        x: constrainedX,
+        y: constrainedY
       })
     } else if (e.touches.length === 2) {
       // Two finger scale and rotate simultaneously
