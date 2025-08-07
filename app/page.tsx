@@ -15,6 +15,7 @@ import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import { RecommendationsHub } from "@/components/RecommendationsHub"
+import { RecommendationForm } from "@/components/RecommendationForm"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
@@ -195,6 +196,14 @@ export default function PINITApp() {
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
   const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
+
+  // Recommendation form state
+  const [showRecommendationForm, setShowRecommendationForm] = useState(false)
+  const [recommendationData, setRecommendationData] = useState<{
+    mediaUrl: string
+    locationName: string
+    platform: string
+  } | null>(null)
 
   // Add location name resolution
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
@@ -761,6 +770,25 @@ export default function PINITApp() {
     setCurrentScreen("map")
   }
 
+  // Recommendation form handlers
+  const handleRecommendationSubmit = (rating: number, review: string) => {
+    console.log("⭐ Recommendation submitted:", { rating, review })
+    // TODO: Save recommendation to storage/database
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setSuccessMessage("Recommendation sent!")
+    setShowSuccessPopup(true)
+    setTimeout(() => setShowSuccessPopup(false), 3000)
+    setCurrentScreen("map")
+  }
+
+  const handleRecommendationSkip = () => {
+    console.log("⏭️ Recommendation skipped")
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setCurrentScreen("map")
+  }
+
   // Handle arrival
   const handleArrival = useCallback(
     (place: any, shouldSave: boolean) => {
@@ -827,8 +855,17 @@ export default function PINITApp() {
           console.log("🚀 Posting with content:", contentData)
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowSuccessPopup(true)
-          setTimeout(() => setShowSuccessPopup(false), 3000)
-          setCurrentScreen("map")
+          
+          // Show recommendation form after success message
+          setTimeout(() => {
+            setShowSuccessPopup(false)
+            setRecommendationData({
+              mediaUrl: capturedMedia.url,
+              locationName: capturedMedia.location,
+              platform: selectedPlatform
+            })
+            setShowRecommendationForm(true)
+          }, 3000)
         }}
         onSave={(contentData) => {
           // Handle saving with content data
@@ -984,6 +1021,17 @@ export default function PINITApp() {
           </div>
         </div>
       )}
+      
+      {/* Recommendation Form */}
+      {showRecommendationForm && recommendationData && (
+        <RecommendationForm
+          mediaUrl={recommendationData.mediaUrl}
+          locationName={recommendationData.locationName}
+          onRecommend={handleRecommendationSubmit}
+          onSkip={handleRecommendationSkip}
+        />
+      )}
+      
       {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
       <ProactiveAI
         userLocation={userLocation}
