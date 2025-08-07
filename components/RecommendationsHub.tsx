@@ -222,6 +222,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
 
     const showBeautifulFallback = () => {
       console.log("🗺️ Creating beautiful interactive fallback map")
+      console.log("🗺️ Recommendations count:", recommendations.length)
+      
       // Create a beautiful interactive fallback map
       if (mapRef.current) {
         mapRef.current.innerHTML = `
@@ -245,6 +247,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
               <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Interactive Recommendations</div>
               <div style="font-size: 0.875rem; opacity: 0.8;">Tap pins below to explore</div>
+              <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.5rem;">Found ${recommendations.length} places near you</div>
             </div>
             
             <!-- Interactive Pins Overlay -->
@@ -256,7 +259,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               bottom: 0;
               pointer-events: none;
             ">
-              ${recommendations.map((rec, index) => {
+              ${recommendations.length > 0 ? recommendations.map((rec, index) => {
                 const angle = (index / recommendations.length) * 2 * Math.PI
                 const radius = 120
                 const centerX = 50
@@ -294,7 +297,20 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                     ${rec.type === "ai" ? "🤖" : "👥"}
                   </button>
                 `
-              }).join('')}
+              }).join('') : `
+                <div style="
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%);
+                  text-align: center;
+                  color: white;
+                  font-size: 0.875rem;
+                  opacity: 0.7;
+                ">
+                  Loading recommendations...
+                </div>
+              `}
             </div>
             
             <!-- Animated Background -->
