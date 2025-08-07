@@ -220,115 +220,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (!userLocation || !mapRef.current) return
 
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps) {
-        initializeMap()
-        return
-      }
-
-      const script = document.createElement("script")
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        console.log("🗺️ Google Maps API loaded successfully!")
-        initializeMap()
-      }
-      script.onerror = () => {
-        console.error("🗺️ Failed to load Google Maps API")
-        showBeautifulFallback()
-      }
-      document.head.appendChild(script)
-    }
-
-    const initializeMap = () => {
-      if (!mapRef.current || !userLocation) return
-
-      try {
-        const mapOptions = {
-          center: { lat: userLocation.lat, lng: userLocation.lng },
-          zoom: mapZoom,
-          mapTypeId: "roadmap",
-          disableDefaultUI: false,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "on" }]
-            }
-          ] as google.maps.MapTypeStyle[]
-        }
-
-        const map = new window.google.maps.Map(mapRef.current, mapOptions)
-        mapInstanceRef.current = map
-        setMapLoaded(true)
-
-        // Add user location marker
-        new window.google.maps.Marker({
-          position: { lat: userLocation.lat, lng: userLocation.lng },
-          map: map,
-          title: "Your Location",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#3B82F6",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 2
-          }
-        })
-
-        // Add recommendation markers
-        addRecommendationMarkers(map)
-
-      } catch (error) {
-        console.error("🗺️ Error initializing map:", error)
-        // If Google Maps fails due to domain restrictions, show beautiful fallback
-        showBeautifulFallback()
-      }
-    }
-
-    const addRecommendationMarkers = (map: any) => {
-      try {
-        // Clear existing markers
-        markersRef.current.forEach(marker => marker.setMap(null))
-        markersRef.current = []
-
-        recommendations.forEach((rec) => {
-          const marker = new window.google.maps.Marker({
-            position: { lat: rec.location.lat, lng: rec.location.lng },
-            map: map,
-            title: rec.name,
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
-              fillOpacity: 1,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 2
-            }
-          })
-
-          // Add click listener
-          marker.addListener("click", () => {
-            handlePinClick(rec)
-          })
-
-          markersRef.current.push(marker)
-        })
-      } catch (error) {
-        console.error("🗺️ Error adding markers:", error)
-        // If markers fail, show fallback
-        showBeautifulFallback()
-      }
-    }
-
     const showBeautifulFallback = () => {
-      console.log("🗺️ Showing beautiful fallback map")
+      console.log("🗺️ Creating beautiful interactive fallback map")
       // Create a beautiful interactive fallback map
       if (mapRef.current) {
         mapRef.current.innerHTML = `
@@ -441,25 +334,9 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       }
     }
 
-    // Add error listener for Google Maps API errors
-    const handleGoogleMapsError = (event: any) => {
-      if (event.detail && event.detail.error && event.detail.error.message) {
-        console.error("🗺️ Google Maps API Error:", event.detail.error.message)
-        if (event.detail.error.message.includes("RefererNotAllowedMapError")) {
-          showBeautifulFallback()
-        }
-      }
-    }
-
-    // Listen for Google Maps errors
-    window.addEventListener('google-maps-error', handleGoogleMapsError)
-
-    loadGoogleMaps()
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('google-maps-error', handleGoogleMapsError)
-    }
+    // Since Google Maps has domain restrictions, show beautiful fallback immediately
+    console.log("🗺️ Showing beautiful interactive recommendations map")
+    showBeautifulFallback()
   }, [userLocation, recommendations, mapZoom])
 
   const handlePinClick = (recommendation: Recommendation) => {
