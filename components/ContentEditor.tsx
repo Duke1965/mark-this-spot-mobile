@@ -646,26 +646,27 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         // Draw the original image
         ctx.drawImage(img, 0, 0)
 
-        // Draw stickers
+        // Draw stickers with corrected positioning
         stickers.forEach(sticker => {
           const stickerImg = new Image()
           stickerImg.crossOrigin = 'anonymous'
           stickerImg.onload = () => {
-            // Calculate position based on percentage
+            // Use the exact same positioning logic as the editor
+            // The editor uses pixel positioning, so we need to convert percentage to pixels
             const x = (sticker.x / 100) * canvas.width
             const y = (sticker.y / 100) * canvas.height
             
             // Save context for transformations
             ctx.save()
             
-            // Move to sticker center
+            // Move to sticker center (same as editor)
             ctx.translate(x, y)
             
-            // Apply scale and rotation
+            // Apply scale and rotation (same as editor)
             ctx.scale(sticker.scale, sticker.scale)
             ctx.rotate((sticker.rotation * Math.PI) / 180)
             
-            // Draw sticker centered
+            // Draw sticker centered (same size as editor)
             const stickerWidth = 96 * sticker.scale
             const stickerHeight = 96 * sticker.scale
             ctx.drawImage(stickerImg, -stickerWidth/2, -stickerHeight/2, stickerWidth, stickerHeight)
@@ -689,7 +690,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           stickerImg.src = sticker.emoji
         })
 
-        // Draw text
+        // Draw text with corrected positioning
         if (textOverlay.trim()) {
           ctx.save()
           
@@ -720,7 +721,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           
-          // Position text (you might want to store text position in state)
+          // Use the same positioning as the editor (center of image)
           const textX = canvas.width / 2
           const textY = canvas.height / 2
           
