@@ -859,7 +859,6 @@ export default function PINITApp() {
           setIsPosting(true)
           
           // Handle posting with content data
-          console.log("🚀 Posting with content:", contentData)
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowSuccessPopup(true)
           
@@ -867,25 +866,24 @@ export default function PINITApp() {
           setTimeout(() => {
             setShowSuccessPopup(false)
             setRecommendationData({
-              mediaUrl: capturedMedia.url,
+              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
               locationName: capturedMedia.location,
               platform: selectedPlatform
             })
             setShowRecommendationForm(true)
-          }, 3000)
+          }, 2000)
           
           // Return to map after showing success message
           setTimeout(() => {
             setCurrentScreen("map")
             setIsPosting(false)
-          }, 3000)
+          }, 2000)
         }}
         onSave={(contentData) => {
           // Handle saving with content data
-          console.log("💾 Saving with content:", contentData)
           setSuccessMessage("Saved to library successfully!")
           setShowSuccessPopup(true)
-          setTimeout(() => setShowSuccessPopup(false), 3000)
+          setTimeout(() => setShowSuccessPopup(false), 2000)
           setCurrentScreen("map")
         }}
       />
