@@ -261,7 +261,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             ">
               ${recommendations.length > 0 ? recommendations.map((rec, index) => {
                 const angle = (index / recommendations.length) * 2 * Math.PI
-                const radius = 120
+                const radius = 30 // Reduced from 120 to 30 for visible area
                 const centerX = 50
                 const centerY = 50
                 const x = centerX + radius * Math.cos(angle)
