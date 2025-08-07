@@ -267,6 +267,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                 const x = centerX + radius * Math.cos(angle)
                 const y = centerY + radius * Math.sin(angle)
                 
+                console.log(`🗺️ Creating pin ${index + 1}: ${rec.name} at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
+                
                 return `
                   <button
                     onclick="window.handlePinClick('${rec.id}')"
@@ -275,24 +277,26 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                       left: ${x}%;
                       top: ${y}%;
                       transform: translate(-50%, -50%);
-                      width: 40px;
-                      height: 40px;
+                      width: 50px;
+                      height: 50px;
                       border-radius: 50%;
-                      border: 3px solid white;
+                      border: 4px solid white;
                       background: ${rec.type === "ai" ? "#EF4444" : "#3B82F6"};
                       cursor: pointer;
                       pointer-events: auto;
                       display: flex;
                       align-items: center;
                       justify-content: center;
-                      font-size: 16px;
+                      font-size: 20px;
                       color: white;
                       font-weight: bold;
-                      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
                       transition: all 0.2s ease;
+                      z-index: 1000;
                     "
-                    onmouseover="this.style.transform='translate(-50%, -50%) scale(1.2)'"
+                    onmouseover="this.style.transform='translate(-50%, -50%) scale(1.3)'"
                     onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
+                    title="${rec.name}"
                   >
                     ${rec.type === "ai" ? "🤖" : "👥"}
                   </button>
