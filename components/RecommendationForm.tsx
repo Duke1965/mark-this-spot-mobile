@@ -44,15 +44,16 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          background: "rgba(0,0,0,0.95)",
+          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
           padding: "2rem",
           borderRadius: "1rem",
-          border: "1px solid rgba(255,255,255,0.2)",
+          border: "2px solid rgba(255,255,255,0.2)",
           zIndex: 1000,
           textAlign: "center",
           minWidth: "300px",
           maxWidth: "400px",
           color: "white",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
         }}
       >
         <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🤔</div>
@@ -78,7 +79,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             onClick={handleSkip}
             style={{
               padding: "0.75rem 1.5rem",
-              border: "1px solid rgba(255,255,255,0.3)",
+              border: "2px solid rgba(255,255,255,0.3)",
               background: "rgba(255,255,255,0.1)",
               color: "white",
               borderRadius: "0.5rem",
@@ -124,15 +125,16 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
-        background: "rgba(0,0,0,0.95)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
         padding: "2rem",
         borderRadius: "1rem",
-        border: "1px solid rgba(255,255,255,0.2)",
+        border: "2px solid rgba(255,255,255,0.2)",
         zIndex: 1000,
         textAlign: "center",
         minWidth: "350px",
         maxWidth: "450px",
         color: "white",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
       }}
     >
       {/* Header */}
@@ -268,15 +270,18 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           justifyContent: "center",
           gap: "0.5rem",
           transition: "all 0.2s ease",
+          boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(16, 185, 129, 0.3)" : "none",
         }}
         onMouseEnter={(e) => {
           if (review.trim().length > 0) {
             e.currentTarget.style.background = "#059669"
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(16, 185, 129, 0.4)"
           }
         }}
         onMouseLeave={(e) => {
           if (review.trim().length > 0) {
             e.currentTarget.style.background = "#10B981"
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.3)"
           }
         }}
       >
