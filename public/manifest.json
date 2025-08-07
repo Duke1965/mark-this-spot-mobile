@@ -8,14 +8,10 @@
   "theme_color": "#1e3a8a",
   "icons": [
     {
-      "src": "/placeholder-logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/placeholder-logo.png",
+      "src": "/pinit-logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "categories": ["travel", "lifestyle", "utilities"],
@@ -24,4 +20,3 @@
   "scope": "/",
   "permissions": ["notifications", "geolocation"]
 } 
-
