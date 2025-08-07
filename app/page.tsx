@@ -789,6 +789,9 @@ export default function PINITApp() {
     setCurrentScreen("map")
   }
 
+  // Debounce for post button to prevent multiple clicks
+  const [isPosting, setIsPosting] = useState(false)
+
   // Handle arrival
   const handleArrival = useCallback(
     (place: any, shouldSave: boolean) => {
@@ -851,6 +854,10 @@ export default function PINITApp() {
         platform={selectedPlatform}
         onBack={() => setCurrentScreen("platform-select")}
         onPost={(contentData) => {
+          // Prevent multiple rapid clicks
+          if (isPosting) return
+          setIsPosting(true)
+          
           // Handle posting with content data
           console.log("🚀 Posting with content:", contentData)
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
@@ -868,7 +875,10 @@ export default function PINITApp() {
           }, 3000)
           
           // Return to map after showing success message
-          setTimeout(() => setCurrentScreen("map"), 3000)
+          setTimeout(() => {
+            setCurrentScreen("map")
+            setIsPosting(false)
+          }, 3000)
         }}
         onSave={(contentData) => {
           // Handle saving with content data
