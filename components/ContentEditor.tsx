@@ -210,12 +210,22 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
           userSelect: "none",
           pointerEvents: "none"
         }} 
+        loading="lazy"
+        onError={(e) => {
+          // Fallback to emoji if image fails to load
+          const target = e.target as HTMLImageElement
+          target.style.display = 'none'
+          const emoji = document.createElement('div')
+          emoji.textContent = '🎯'
+          emoji.style.cssText = 'width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; font-size: 48px; user-select: none; pointer-events: none;'
+          target.parentNode?.appendChild(emoji)
+        }}
       />
     </div>
   )
 }
 
-function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
+function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bangers", onUpdate, isActive = true }: DraggableTextProps) {
   const [position, setPosition] = useState({ x: 10, y: 10 })
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -294,6 +304,26 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
     setInitialDistance(0)
   }
 
+  // Get font style based on selectedFont
+  const getFontStyle = () => {
+    switch (selectedFont) {
+      case "bangers":
+        return { fontFamily: "Bangers, cursive", fontSize: "24px", letterSpacing: "2px" }
+      case "chewy":
+        return { fontFamily: "Chewy, cursive", fontSize: "20px" }
+      case "bubblegum":
+        return { fontFamily: "Bubblegum Sans, cursive", fontSize: "22px" }
+      case "indie":
+        return { fontFamily: "Indie Flower, cursive", fontSize: "20px" }
+      case "righteous":
+        return { fontFamily: "Righteous, cursive", fontSize: "18px" }
+      case "audiowide":
+        return { fontFamily: "Audiowide, cursive", fontSize: "16px", letterSpacing: "1px" }
+      default:
+        return { fontWeight: "bold", fontSize: "24px" }
+    }
+  }
+
   return (
     <div
       style={{
@@ -301,9 +331,7 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
         left: position.x,
         top: position.y,
         transform: `scale(${scale}) rotate(${rotation}deg)`,
-        fontSize: style === "bold" ? "16px" : "14px",
-        fontWeight: style === "bold" ? "bold" : "normal",
-        color: "white",
+        color: textColor,
         textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
         cursor: "move",
         userSelect: "none",
@@ -313,6 +341,7 @@ function DraggableText({ text, style, onUpdate, isActive = true }: DraggableText
         wordWrap: "break-word",
         padding: "20px", // Bigger touch area
         margin: "-20px", // Compensate for padding
+        ...getFontStyle()
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -493,6 +522,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const [textColor, setTextColor] = useState("#ffffff") // White default
   const [selectedFont, setSelectedFont] = useState("bangers")
   const [photoMode, setPhotoMode] = useState<"selection" | "active">("selection") // New state for photo visibility
+  const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -529,29 +559,189 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   }
 
   // Handle post
-  const handlePost = () => {
-    const contentData = {
-      stickers,
-      text: textOverlay,
-      textStyle,
-      textColor,
-      selectedFont,
-      platform,
+  const handlePost = async () => {
+    setIsRendering(true)
+    try {
+      // Render stickers and text onto the photo
+      const finalImageUrl = await renderContentToImage()
+      
+      const contentData = {
+        stickers,
+        text: textOverlay,
+        textStyle,
+        textColor,
+        selectedFont,
+        platform,
+        finalImageUrl, // Include the rendered image
+      }
+      onPost(contentData)
+    } catch (error) {
+      console.error('Error rendering image:', error)
+      // Fallback to original image
+      const contentData = {
+        stickers,
+        text: textOverlay,
+        textStyle,
+        textColor,
+        selectedFont,
+        platform,
+      }
+      onPost(contentData)
+    } finally {
+      setIsRendering(false)
     }
-    onPost(contentData)
   }
 
   // Handle save
-  const handleSave = () => {
-    const contentData = {
-      stickers,
-      text: textOverlay,
-      textStyle,
-      textColor,
-      selectedFont,
-      platform,
+  const handleSave = async () => {
+    setIsRendering(true)
+    try {
+      // Render stickers and text onto the photo
+      const finalImageUrl = await renderContentToImage()
+      
+      const contentData = {
+        stickers,
+        text: textOverlay,
+        textStyle,
+        textColor,
+        selectedFont,
+        platform,
+        finalImageUrl, // Include the rendered image
+      }
+      onSave(contentData)
+    } catch (error) {
+      console.error('Error rendering image:', error)
+      // Fallback to original image
+      const contentData = {
+        stickers,
+        text: textOverlay,
+        textStyle,
+        textColor,
+        selectedFont,
+        platform,
+      }
+      onSave(contentData)
+    } finally {
+      setIsRendering(false)
     }
-    onSave(contentData)
+  }
+
+  // Function to render stickers and text onto the photo
+  const renderContentToImage = async (): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(mediaUrl) // Fallback to original image
+        return
+      }
+
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        // Set canvas size to match image
+        canvas.width = img.width
+        canvas.height = img.height
+
+        // Draw the original image
+        ctx.drawImage(img, 0, 0)
+
+        // Draw stickers
+        stickers.forEach(sticker => {
+          const stickerImg = new Image()
+          stickerImg.crossOrigin = 'anonymous'
+          stickerImg.onload = () => {
+            // Calculate position based on percentage
+            const x = (sticker.x / 100) * canvas.width
+            const y = (sticker.y / 100) * canvas.height
+            
+            // Save context for transformations
+            ctx.save()
+            
+            // Move to sticker center
+            ctx.translate(x, y)
+            
+            // Apply scale and rotation
+            ctx.scale(sticker.scale, sticker.scale)
+            ctx.rotate((sticker.rotation * Math.PI) / 180)
+            
+            // Draw sticker centered
+            const stickerWidth = 96 * sticker.scale
+            const stickerHeight = 96 * sticker.scale
+            ctx.drawImage(stickerImg, -stickerWidth/2, -stickerHeight/2, stickerWidth, stickerHeight)
+            
+            // Restore context
+            ctx.restore()
+          }
+          stickerImg.onerror = () => {
+            // Fallback to emoji if image fails
+            ctx.save()
+            ctx.translate((sticker.x / 100) * canvas.width, (sticker.y / 100) * canvas.height)
+            ctx.scale(sticker.scale, sticker.scale)
+            ctx.rotate((sticker.rotation * Math.PI) / 180)
+            ctx.font = '48px Arial'
+            ctx.fillStyle = 'white'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText('🎯', 0, 0)
+            ctx.restore()
+          }
+          stickerImg.src = sticker.emoji
+        })
+
+        // Draw text
+        if (textOverlay.trim()) {
+          ctx.save()
+          
+          // Get font style
+          const getFontStyle = () => {
+            switch (selectedFont) {
+              case "bangers":
+                return "48px 'Bangers', cursive"
+              case "chewy":
+                return "40px 'Chewy', cursive"
+              case "bubblegum":
+                return "44px 'Bubblegum Sans', cursive"
+              case "indie":
+                return "40px 'Indie Flower', cursive"
+              case "righteous":
+                return "36px 'Righteous', cursive"
+              case "audiowide":
+                return "32px 'Audiowide', cursive"
+              default:
+                return "48px bold"
+            }
+          }
+
+          ctx.font = getFontStyle()
+          ctx.fillStyle = textColor
+          ctx.strokeStyle = 'black'
+          ctx.lineWidth = 4
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          
+          // Position text (you might want to store text position in state)
+          const textX = canvas.width / 2
+          const textY = canvas.height / 2
+          
+          // Draw text with stroke for better visibility
+          ctx.strokeText(textOverlay, textX, textY)
+          ctx.fillText(textOverlay, textX, textY)
+          
+          ctx.restore()
+        }
+
+        // Convert canvas to data URL
+        const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
+        resolve(finalImageUrl)
+      }
+      
+      img.onerror = () => {
+        resolve(mediaUrl) // Fallback to original image
+      }
+      
+      img.src = mediaUrl
+    })
   }
 
   return (
@@ -699,13 +889,14 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <DraggableText
               text={textOverlay}
               style={selectedFont}
+              textColor={textColor}
+              selectedFont={selectedFont}
               onUpdate={(updates) => {
                 if (activeTab === "text") {
                   if (updates.remove) {
                     setTextOverlay("")
                   } else {
                     // Update text position, scale, rotation
-                    console.log("Text updated:", updates)
                   }
                 }
               }}
@@ -741,7 +932,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               type="range"
               min="0"
               max="360"
-              value={textColor === "#ffffff" ? 0 : parseInt(textColor.replace('#', ''), 16) % 360}
+              value={textColor.startsWith('hsl') ? parseInt(textColor.match(/hsl\((\d+)/)?.[1] || '0') : 0}
               onChange={(e) => {
                 const hue = parseInt(e.target.value)
                 const color = `hsl(${hue}, 70%, 50%)`
@@ -762,7 +953,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             <div style={{
               position: "absolute",
               top: "50%",
-              left: `${((textColor === "#ffffff" ? 0 : parseInt(textColor.replace('#', ''), 16) % 360) / 360) * 100}%`,
+              left: `${(textColor.startsWith('hsl') ? parseInt(textColor.match(/hsl\((\d+)/)?.[1] || '0') : 0) / 360 * 100}%`,
               transform: "translate(-50%, -50%)",
               width: "12px", // Slightly bigger indicator
               height: "12px",
@@ -928,6 +1119,16 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                       maxWidth: '60px', // Bigger stickers in selection
                       maxHeight: '60px'
                     }} 
+                    loading="lazy"
+                    onError={(e) => {
+                      // Fallback to emoji if image fails to load
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const emoji = document.createElement('div')
+                      emoji.textContent = '🎯'
+                      emoji.style.cssText = 'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px;'
+                      target.parentNode?.appendChild(emoji)
+                    }}
                   />
                 </button>
               ))}
@@ -1022,16 +1223,17 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         <div style={{display: 'flex', gap: '8px'}}>
           <button
             onClick={handleSave}
+            disabled={isRendering}
             style={{
               flex: 1,
               padding: '12px',
               borderRadius: '8px',
               border: '1px solid rgba(255,255,255,0.3)',
-              background: 'rgba(255,255,255,0.1)',
-              color: 'white',
+              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+              color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: isRendering ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1039,20 +1241,21 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             }}
           >
             <Save size={16} />
-            Save
+            {isRendering ? 'Rendering...' : 'Save'}
           </button>
           <button
             onClick={handlePost}
+            disabled={isRendering}
             style={{
               flex: 1,
               padding: '12px',
               borderRadius: '8px',
               border: '1px solid rgba(255,255,255,0.3)',
-              background: 'rgba(255,255,255,0.1)',
-              color: 'white',
+              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+              color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: isRendering ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1060,7 +1263,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             }}
           >
             <Share2 size={16} />
-            Post
+            {isRendering ? 'Rendering...' : 'Post'}
           </button>
         </div>
       </div>
