@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { MapPin, Users, Sparkles, ArrowLeft, List, Map } from "lucide-react"
 
 interface Recommendation {
@@ -35,8 +35,12 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   const [selectedPin, setSelectedPin] = useState<Recommendation | null>(null)
   const [mapZoom, setMapZoom] = useState(14)
   const [isLoading, setIsLoading] = useState(true)
-  const [mapUrl, setMapUrl] = useState("")
-  const [currentMapAttempt, setCurrentMapAttempt] = useState(0)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
+  
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
 
   // Generate AI recommendations based on user's pin history
   const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
@@ -100,56 +104,56 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     const communityRecommendations: Recommendation[] = [
       {
         id: "community-1",
-        name: "Sarah's Secret Garden",
-        description: "Beautiful hidden garden discovered by Sarah",
+        name: "Local Favorites Spot",
+        description: "Recommended by Sarah M. - amazing atmosphere!",
         location: { lat: lat + 0.004, lng: lng - 0.001 },
         rating: 4.8,
         type: "community",
         distance: 0.7,
-        photo: "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400&h=300&fit=crop",
-        pinnedBy: "Sarah"
+        photo: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop",
+        pinnedBy: "Sarah M."
       },
       {
         id: "community-2",
-        name: "Mike's Mountain View",
-        description: "Incredible sunset spot shared by Mike",
-        location: { lat: lat - 0.004, lng: lng + 0.004 },
-        rating: 4.9,
-        type: "community", 
+        name: "Hidden Garden",
+        description: "Mike says: Perfect for quiet moments",
+        location: { lat: lat - 0.002, lng: lng + 0.004 },
+        rating: 4.6,
+        type: "community",
         distance: 0.8,
-        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
+        photo: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
         pinnedBy: "Mike"
       },
       {
         id: "community-3",
-        name: "Emma's Coffee Corner",
-        description: "Best latte in town - Emma's favorite",
-        location: { lat: lat + 0.002, lng: lng + 0.004 },
-        rating: 4.6,
+        name: "Street Art Corner",
+        description: "Emma's pick: Instagram-worthy murals everywhere",
+        location: { lat: lat + 0.001, lng: lng + 0.005 },
+        rating: 4.3,
         type: "community",
-        distance: 0.4,
-        photo: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop",
+        distance: 0.9,
+        photo: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
         pinnedBy: "Emma"
       },
       {
         id: "community-4",
-        name: "David's Street Art",
-        description: "Amazing murals discovered by David",
-        location: { lat: lat - 0.002, lng: lng - 0.004 },
-        rating: 4.7,
+        name: "Sunset Beach Walk",
+        description: "David's discovery: Best sunset views in the area",
+        location: { lat: lat - 0.005, lng: lng - 0.002 },
+        rating: 4.9,
         type: "community",
-        distance: 0.5,
-        photo: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
+        distance: 1.1,
+        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
         pinnedBy: "David"
       },
       {
         id: "community-5",
-        name: "Lisa's Local Market",
-        description: "Fresh produce and friendly vendors - Lisa's pick",
-        location: { lat: lat + 0.005, lng: lng + 0.002 },
-        rating: 4.5,
+        name: "Local Craft Market",
+        description: "Lisa's find: Unique handmade souvenirs",
+        location: { lat: lat + 0.003, lng: lng - 0.004 },
+        rating: 4.4,
         type: "community",
-        distance: 0.9,
+        distance: 1.2,
         photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
         pinnedBy: "Lisa"
       }
@@ -157,73 +161,167 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     return communityRecommendations
   }, [])
 
-  // Get user location and generate recommendations
+  // Initialize recommendations and user location
   useEffect(() => {
     const initializeRecommendations = async () => {
-      setIsLoading(true)
-      
-      // Get user location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords
-            setUserLocation({ lat: latitude, lng: longitude })
-            
-            // Generate recommendations
-            const aiRecs = generateAIRecommendations(latitude, longitude)
-            const communityRecs = generateCommunityRecommendations(latitude, longitude)
-            
-            setRecommendations([...aiRecs, ...communityRecs])
-            setIsLoading(false)
-            
-            // Set initial map URL
-            setMapUrl(getMapUrl())
-          },
-          (error) => {
-            console.error("Location error:", error)
-            // Fallback to default location (Cape Town area)
-            const defaultLocation = { lat: -33.8788, lng: 18.6188 }
-            setUserLocation(defaultLocation)
-            
-            const aiRecs = generateAIRecommendations(defaultLocation.lat, defaultLocation.lng)
-            const communityRecs = generateCommunityRecommendations(defaultLocation.lat, defaultLocation.lng)
-            
-            setRecommendations([...aiRecs, ...communityRecs])
-            setIsLoading(false)
-            
-            // Set initial map URL
-            setMapUrl(getMapUrl())
-          }
-        )
-      } else {
-        // Fallback for browsers without geolocation
-        const defaultLocation = { lat: -33.8788, lng: 18.6188 }
-        setUserLocation(defaultLocation)
-        
-        const aiRecs = generateAIRecommendations(defaultLocation.lat, defaultLocation.lng)
-        const communityRecs = generateCommunityRecommendations(defaultLocation.lat, defaultLocation.lng)
-        
-        setRecommendations([...aiRecs, ...communityRecs])
+      try {
+        // Get user location
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords
+              console.log("🗺️ User location:", latitude, longitude)
+              
+              setUserLocation({ lat: latitude, lng: longitude })
+              
+              // Generate recommendations based on location
+              const aiRecs = generateAIRecommendations(latitude, longitude)
+              const communityRecs = generateCommunityRecommendations(latitude, longitude)
+              
+              setRecommendations([...aiRecs, ...communityRecs])
+              setIsLoading(false)
+            },
+            (error) => {
+              console.error("🗺️ Location error:", error)
+              // Fallback to Cape Town coordinates
+              const fallbackLat = -33.8788
+              const fallbackLng = 18.6188
+              
+              setUserLocation({ lat: fallbackLat, lng: fallbackLng })
+              
+              const aiRecs = generateAIRecommendations(fallbackLat, fallbackLng)
+              const communityRecs = generateCommunityRecommendations(fallbackLat, fallbackLng)
+              
+              setRecommendations([...aiRecs, ...communityRecs])
+              setIsLoading(false)
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 60000
+            }
+          )
+        } else {
+          console.error("🗺️ Geolocation not supported")
+          setMapError("Location services not available")
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error("🗺️ Error initializing recommendations:", error)
+        setMapError("Failed to load recommendations")
         setIsLoading(false)
-        
-        // Set initial map URL
-        setMapUrl(getMapUrl())
       }
     }
 
     initializeRecommendations()
   }, [generateAIRecommendations, generateCommunityRecommendations])
 
-  // Generate map pins with clustering
-  const generateMapPins = (): MapPin[] => {
-    return recommendations.map(rec => ({
-      id: rec.id,
-      lat: rec.location.lat,
-      lng: rec.location.lng,
-      type: rec.type,
-      data: rec
-    }))
-  }
+  // Load Google Maps API
+  useEffect(() => {
+    if (!userLocation || !mapRef.current) return
+
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        initializeMap()
+        return
+      }
+
+      const script = document.createElement("script")
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        console.log("🗺️ Google Maps API loaded successfully!")
+        initializeMap()
+      }
+      script.onerror = () => {
+        console.error("🗺️ Failed to load Google Maps API")
+        setMapError("Failed to load map")
+      }
+      document.head.appendChild(script)
+    }
+
+    const initializeMap = () => {
+      if (!mapRef.current || !userLocation) return
+
+      try {
+        const mapOptions = {
+          center: { lat: userLocation.lat, lng: userLocation.lng },
+          zoom: mapZoom,
+          mapTypeId: "roadmap",
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          styles: [
+            {
+              featureType: "poi",
+              elementType: "labels",
+              stylers: [{ visibility: "on" }]
+            }
+          ] as google.maps.MapTypeStyle[]
+        }
+
+        const map = new window.google.maps.Map(mapRef.current, mapOptions)
+        mapInstanceRef.current = map
+        setMapLoaded(true)
+
+        // Add user location marker
+        new window.google.maps.Marker({
+          position: { lat: userLocation.lat, lng: userLocation.lng },
+          map: map,
+          title: "Your Location",
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#3B82F6",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 2
+          }
+        })
+
+        // Add recommendation markers
+        addRecommendationMarkers(map)
+
+      } catch (error) {
+        console.error("🗺️ Error initializing map:", error)
+        setMapError("Failed to initialize map")
+      }
+    }
+
+    const addRecommendationMarkers = (map: any) => {
+      // Clear existing markers
+      markersRef.current.forEach(marker => marker.setMap(null))
+      markersRef.current = []
+
+      recommendations.forEach((rec) => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: rec.location.lat, lng: rec.location.lng },
+          map: map,
+          title: rec.name,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 2
+          }
+        })
+
+        // Add click listener
+        marker.addListener("click", () => {
+          handlePinClick(rec)
+        })
+
+        markersRef.current.push(marker)
+      })
+    }
+
+    loadGoogleMaps()
+  }, [userLocation, recommendations, mapZoom])
 
   const handlePinClick = (recommendation: Recommendation) => {
     setSelectedPin(recommendation)
@@ -231,77 +329,6 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
 
   const closePinDetails = () => {
     setSelectedPin(null)
-  }
-
-  const getMapUrl = () => {
-    if (!userLocation) {
-      console.log("🗺️ No user location available")
-      return ""
-    }
-    
-    const pins = generateMapPins()
-    console.log("🗺️ Generated pins:", pins)
-    
-    // Simplify the markers - just use basic format
-    const markers = pins.map(pin => 
-      `markers=color:${pin.type === "ai" ? "red" : "blue"}|${pin.lat},${pin.lng}`
-    ).join("&")
-    
-    const center = `${userLocation.lat},${userLocation.lng}`
-    const size = "600x400"
-    const zoom = mapZoom
-    const maptype = "roadmap"
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-    
-    console.log("🗺️ API Key available:", !!apiKey)
-    console.log("🗺️ Center:", center)
-    console.log("🗺️ Markers:", markers)
-    
-    // Try with markers first, fallback to basic map
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&${markers}&key=${apiKey}`
-    
-    console.log("🗺️ Generated map URL:", mapUrl)
-    
-    // Test the URL to see what error we get
-    fetch(mapUrl)
-      .then(response => {
-        if (!response.ok) {
-          console.log("🗺️ Map API Error:", response.status, response.statusText)
-          return response.text()
-        }
-        console.log("🗺️ Map API Success!")
-        return null
-      })
-      .then(errorText => {
-        if (errorText) {
-          console.log("🗺️ Map API Error Details:", errorText)
-        }
-      })
-      .catch(error => {
-        console.log("🗺️ Map API Fetch Error:", error)
-      })
-    
-    return mapUrl
-  }
-
-  const getBasicMapUrl = () => {
-    if (!userLocation) return ""
-    
-    const center = `${userLocation.lat},${userLocation.lng}`
-    const size = "600x400"
-    const zoom = mapZoom
-    const maptype = "roadmap"
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-    
-    const basicUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&maptype=${maptype}&key=${apiKey}`
-    console.log("🗺️ Basic map URL:", basicUrl)
-    
-    return basicUrl
-  }
-
-  const getTestMapUrl = () => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-    return `https://maps.googleapis.com/maps/api/staticmap?center=New+York&zoom=10&size=600x400&maptype=roadmap&key=${apiKey}`
   }
 
   if (isLoading) {
@@ -349,12 +376,11 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          flexDirection: "column",
-          gap: "1rem"
         }}>
-          <div style={{ fontSize: "3rem" }}>🗺️</div>
-          <div style={{ fontSize: "1.2rem", textAlign: "center" }}>
-            Loading your personalized recommendations...
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
+            <div style={{ fontSize: "1.2rem", marginBottom: "0.5rem" }}>Loading Recommendations...</div>
+            <div style={{ fontSize: "0.875rem", opacity: 0.7 }}>Finding places near you</div>
           </div>
         </div>
       </div>
@@ -397,23 +423,8 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>Discover</h1>
-        <button
-          onClick={() => setViewMode(viewMode === "map" ? "list" : "map")}
-          style={{
-            padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {viewMode === "map" ? <List size={24} /> : <Map size={24} />}
-        </button>
+        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>Recommendations</h1>
+        <div style={{ width: "48px" }} />
       </div>
 
       {/* View Mode Toggle */}
@@ -464,7 +475,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       {viewMode === "map" ? (
         /* MAP VIEW */
         <div style={{ flex: 1, position: "relative" }}>
-          {/* Live Map */}
+          {/* Live Google Map */}
           <div style={{
             position: "absolute",
             top: 0,
@@ -477,36 +488,35 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             border: "2px solid rgba(255,255,255,0.2)",
             background: "transparent",
           }}>
-            <div style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-              color: "white",
-              textAlign: "center",
-              fontSize: "1.2rem",
-              opacity: 0.9,
-            }}>
-              <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
-              <div>Interactive Recommendations Map</div>
-              <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
-                Pins are interactive below
-              </div>
-              <div style={{ 
-                fontSize: "0.75rem", 
-                marginTop: "1rem", 
-                opacity: 0.6,
-                background: "rgba(255,255,255,0.1)",
-                padding: "0.5rem",
-                borderRadius: "0.5rem"
+            {mapError ? (
+              <div style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+                color: "white",
+                textAlign: "center",
+                fontSize: "1.2rem",
               }}>
-                🤖 AI Recommendations (Red)<br/>
-                👥 Community Pins (Blue)
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗺️</div>
+                <div>Map Unavailable</div>
+                <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>
+                  {mapError}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div 
+                ref={mapRef} 
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "0.5rem",
+                }}
+              />
+            )}
             
             {/* Map Overlay Controls */}
             <div style={{
@@ -518,7 +528,11 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               gap: "0.5rem",
             }}>
               <button
-                onClick={() => setMapZoom(Math.min(20, mapZoom + 1))}
+                onClick={() => {
+                  if (mapInstanceRef.current) {
+                    mapInstanceRef.current.setZoom(mapInstanceRef.current.getZoom() + 1)
+                  }
+                }}
                 style={{
                   width: "40px",
                   height: "40px",
@@ -533,7 +547,11 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                 +
               </button>
               <button
-                onClick={() => setMapZoom(Math.max(10, mapZoom - 1))}
+                onClick={() => {
+                  if (mapInstanceRef.current) {
+                    mapInstanceRef.current.setZoom(mapInstanceRef.current.getZoom() - 1)
+                  }
+                }}
                 style={{
                   width: "40px",
                   height: "40px",
@@ -557,73 +575,28 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               background: "rgba(0,0,0,0.8)",
               padding: "0.75rem",
               borderRadius: "0.5rem",
-              fontSize: "0.875rem",
+              fontSize: "0.75rem",
             }}>
+              <div style={{ marginBottom: "0.5rem", fontWeight: "bold" }}>Legend</div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "red" }}></div>
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#EF4444" }}></div>
                 <span>AI Recommendations</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "blue" }}></div>
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }}></div>
                 <span>Community Pins</span>
               </div>
             </div>
           </div>
-
-          {/* Interactive Pins Overlay */}
-          <div style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: "none",
-          }}>
-            {generateMapPins().map((pin) => (
-              <button
-                key={pin.id}
-                onClick={() => handlePinClick(pin.data)}
-                style={{
-                  position: "absolute",
-                  left: `${((pin.lng - (userLocation?.lng || 0)) / 0.01) * 50 + 50}%`,
-                  top: `${((pin.lat - (userLocation?.lat || 0)) / 0.01) * 50 + 50}%`,
-                  transform: "translate(-50%, -50%)",
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  border: "2px solid white",
-                  background: pin.type === "ai" ? "red" : "blue",
-                  cursor: "pointer",
-                  pointerEvents: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "12px",
-                  color: "white",
-                  fontWeight: "bold",
-                }}
-              >
-                {pin.type === "ai" ? "🤖" : "👥"}
-              </button>
-            ))}
-          </div>
         </div>
       ) : (
         /* LIST VIEW */
-        <div style={{
-          flex: 1,
-          padding: "1rem",
-          overflowY: "auto",
-        }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}>
-            {recommendations.map((recommendation) => (
+        <div style={{ flex: 1, padding: "1rem", overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {recommendations.map((rec) => (
               <div
-                key={recommendation.id}
-                onClick={() => handlePinClick(recommendation)}
+                key={rec.id}
+                onClick={() => handlePinClick(rec)}
                 style={{
                   background: "rgba(255,255,255,0.1)",
                   borderRadius: "1rem",
@@ -633,21 +606,17 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                   transition: "all 0.2s ease",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.background = "rgba(255,255,255,0.15)"
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "rgba(255,255,255,0.1)"
                 }}
               >
-                <div style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "1rem",
-                }}>
-                  {recommendation.photo && (
+                <div style={{ display: "flex", gap: "1rem" }}>
+                  {rec.photo && (
                     <img
-                      src={recommendation.photo}
-                      alt={recommendation.name}
+                      src={rec.photo}
+                      alt={rec.name}
                       style={{
                         width: "80px",
                         height: "80px",
@@ -656,73 +625,28 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                       }}
                     />
                   )}
-                  
                   <div style={{ flex: 1 }}>
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      marginBottom: "0.5rem",
-                    }}>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.25rem",
-                        fontSize: "0.875rem",
-                        opacity: 0.8,
-                      }}>
-                        {recommendation.type === "ai" ? (
-                          <>
-                            <Sparkles size={16} />
-                            AI Recommended
-                          </>
-                        ) : (
-                          <>
-                            <Users size={16} />
-                            {recommendation.pinnedBy}'s Pick
-                          </>
-                        )}
-                      </div>
-                      
-                      {recommendation.rating && (
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                          fontSize: "0.875rem",
-                          opacity: 0.8,
-                        }}>
-                          ⭐ {recommendation.rating}
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{rec.name}</span>
+                      {rec.type === "ai" ? (
+                        <Sparkles size={16} style={{ color: "#EF4444" }} />
+                      ) : (
+                        <Users size={16} style={{ color: "#3B82F6" }} />
                       )}
                     </div>
-                    
-                    <h3 style={{
-                      margin: "0 0 0.5rem 0",
-                      fontSize: "1.1rem",
-                      fontWeight: "bold",
-                    }}>
-                      {recommendation.name}
-                    </h3>
-                    
-                    <p style={{
-                      margin: "0 0 0.5rem 0",
-                      fontSize: "0.875rem",
-                      opacity: 0.8,
-                      lineHeight: "1.4",
-                    }}>
-                      {recommendation.description}
+                    <p style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+                      {rec.description}
                     </p>
-                    
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      fontSize: "0.75rem",
-                      opacity: 0.7,
-                    }}>
-                      <MapPin size={14} />
-                      {recommendation.distance}km away
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                      {rec.rating && (
+                        <span>⭐ {rec.rating}</span>
+                      )}
+                      {rec.distance && (
+                        <span>📍 {rec.distance}km away</span>
+                      )}
+                      {rec.pinnedBy && (
+                        <span>👤 {rec.pinnedBy}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -754,28 +678,16 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
             maxWidth: "400px",
             width: "100%",
             color: "white",
-            position: "relative",
+            border: "2px solid rgba(255,255,255,0.2)",
           }}>
-            <button
-              onClick={closePinDetails}
-              style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                background: "rgba(255,255,255,0.2)",
-                border: "none",
-                borderRadius: "50%",
-                width: "32px",
-                height: "32px",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              ×
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              {selectedPin.type === "ai" ? (
+                <Sparkles size={24} style={{ color: "#EF4444" }} />
+              ) : (
+                <Users size={24} style={{ color: "#3B82F6" }} />
+              )}
+              <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>{selectedPin.name}</h2>
+            </div>
             
             {selectedPin.photo && (
               <img
@@ -791,76 +703,23 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               />
             )}
             
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "0.5rem",
-            }}>
-              {selectedPin.type === "ai" ? (
-                <>
-                  <Sparkles size={20} />
-                  <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>AI Recommended</span>
-                </>
-              ) : (
-                <>
-                  <Users size={20} />
-                  <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{selectedPin.pinnedBy}'s Pick</span>
-                </>
-              )}
-            </div>
+            <p style={{ marginBottom: "1rem", opacity: 0.9 }}>{selectedPin.description}</p>
             
-            <h2 style={{
-              margin: "0 0 0.5rem 0",
-              fontSize: "1.5rem",
-              fontWeight: "bold",
-            }}>
-              {selectedPin.name}
-            </h2>
-            
-            <p style={{
-              margin: "0 0 1rem 0",
-              fontSize: "1rem",
-              lineHeight: "1.5",
-              opacity: 0.9,
-            }}>
-              {selectedPin.description}
-            </p>
-            
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.875rem",
-                opacity: 0.8,
-              }}>
-                <MapPin size={16} />
-                {selectedPin.distance}km away
-              </div>
-              
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", fontSize: "0.875rem", opacity: 0.8 }}>
               {selectedPin.rating && (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  fontSize: "0.875rem",
-                }}>
-                  ⭐ {selectedPin.rating}
-                </div>
+                <span>⭐ {selectedPin.rating}</span>
+              )}
+              {selectedPin.distance && (
+                <span>📍 {selectedPin.distance}km away</span>
+              )}
+              {selectedPin.pinnedBy && (
+                <span>👤 {selectedPin.pinnedBy}</span>
               )}
             </div>
             
-            <div style={{
-              display: "flex",
-              gap: "0.5rem",
-              marginTop: "1rem",
-            }}>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
               <button
+                onClick={closePinDetails}
                 style={{
                   flex: 1,
                   padding: "0.75rem",
@@ -872,22 +731,26 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
                   fontSize: "0.875rem",
                 }}
               >
-                Save to Library
+                Close
               </button>
               <button
+                onClick={() => {
+                  // TODO: Implement navigation
+                  closePinDetails()
+                }}
                 style={{
                   flex: 1,
                   padding: "0.75rem",
                   borderRadius: "0.5rem",
-                  border: "none",
-                  background: "#10B981",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.2)",
                   color: "white",
                   cursor: "pointer",
                   fontSize: "0.875rem",
                   fontWeight: "bold",
                 }}
               >
-                Get Directions
+                Navigate
               </button>
             </div>
           </div>
