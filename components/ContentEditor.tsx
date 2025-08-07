@@ -40,7 +40,7 @@ interface DraggableTextProps {
 
 function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: DraggableStickerProps) {
   const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
   const [initialDistance, setInitialDistance] = useState(0)
   const [initialScale, setInitialScale] = useState(1)
   const [initialRotation, setInitialRotation] = useState(0)
@@ -60,20 +60,13 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isActive) return
+    if (!isActive) return // Disable interactions when not active
     e.preventDefault()
     
     if (e.touches.length === 1) {
-      // Single finger - start drag
+      // Single finger - drag
       const touch = e.touches[0]
-      const rect = e.currentTarget.getBoundingClientRect()
-      const centerX = rect.width / 2
-      const centerY = rect.height / 2
-      
-      // Calculate offset from sticker center
-      const offsetX = touch.clientX - rect.left - centerX
-      const offsetY = touch.clientY - rect.top - centerY
-      setDragOffset({ x: offsetX, y: offsetY })
+      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -89,24 +82,12 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
-      const rect = e.currentTarget.getBoundingClientRect()
-      const centerX = rect.width / 2
-      const centerY = rect.height / 2
-      
-      // Calculate new position
-      const newX = ((touch.clientX - rect.left - centerX - dragOffset.x) / rect.width) * 100
-      const newY = ((touch.clientY - rect.top - centerY - dragOffset.y) / rect.height) * 100
-      
-      // Constrain to container bounds (0-100%)
-      const constrainedX = Math.max(0, Math.min(100, newX))
-      const constrainedY = Math.max(0, Math.min(100, newY))
-      
       onUpdate({
-        x: constrainedX,
-        y: constrainedY
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
       })
     } else if (e.touches.length === 2) {
-      // Two finger scale and rotate
+      // Two finger scale and rotate simultaneously
       const currentDistance = getDistance(e.touches)
       const currentAngle = getAngle(e.touches)
       
@@ -115,7 +96,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
         const scaleChange = currentDistance / initialDistance
         const newScale = Math.max(0.5, Math.min(3, initialScale * scaleChange))
         
-        // Calculate rotation
+        // Calculate rotation (simplified for better performance)
         const angleDiff = currentAngle - getAngle(e.touches)
         const newRotation = initialRotation + angleDiff
         
@@ -132,44 +113,20 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     setInitialDistance(0)
   }
 
-  const handleRotationStart = (e: React.TouchEvent) => {
-    e.stopPropagation()
-    const touch = e.touches[0]
-    const rect = e.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-    onUpdate({ rotation: angle })
-  }
-
-  const handleRotationMove = (e: React.TouchEvent) => {
-    e.stopPropagation()
-    const touch = e.touches[0]
-    const rect = e.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-    onUpdate({ rotation: angle })
-  }
-
-  const handleRotationEnd = () => {
-    // Rotation ended
-  }
-
   return (
     <div
       style={{
         position: "absolute",
-        left: `${sticker.x}%`, // Use percentage-based positioning
-        top: `${sticker.y}%`, // Use percentage-based positioning
-        transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`, // Center the sticker
+        left: sticker.x,
+        top: sticker.y,
+        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
         fontSize: "96px",
         zIndex: isDragging ? 1000 : 1,
-        padding: "40px", // Much bigger touch area since only stickers are active
-        margin: "-40px", // Compensate for padding so sticker position stays the same
+        padding: "20px", // Bigger touch area around sticker
+        margin: "-20px", // Compensate for padding so sticker position stays the same
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -202,9 +159,24 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
       
       {/* Draggable rotate handle */}
       <div
-        onTouchStart={handleRotationStart}
-        onTouchMove={handleRotationMove}
-        onTouchEnd={handleRotationEnd}
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          onUpdate({ rotation: angle })
+        }}
         style={{
           position: "absolute",
           top: "-10px",
