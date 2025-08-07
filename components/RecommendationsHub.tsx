@@ -38,7 +38,27 @@ interface MapPin {
   data: Recommendation
 }
 
-export function RecommendationsHub({ onBack }: { onBack: () => void }) {
+interface PinData {
+  id: string
+  latitude: number
+  longitude: number
+  locationName: string
+  mediaUrl: string | null
+  mediaType: "photo" | "video" | null
+  audioUrl: string | null
+  timestamp: string
+  title: string
+  description?: string
+  tags?: string[]
+  isRecommended?: boolean
+  googlePlaceId?: string
+  rating?: number
+  priceLevel?: number
+  types?: string[]
+  isAISuggestion?: boolean
+}
+
+export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; pins?: PinData[] }) {
   console.log("🗺️ RecommendationsHub component loaded!")
   
   const [viewMode, setViewMode] = useState<"map" | "list">("map")
@@ -242,11 +262,32 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               
               setUserLocation({ lat: latitude, lng: longitude })
               
-              // Generate recommendations based on location
+              // Convert pins to recommendations
+              const pinRecommendations = pins
+                .filter(pin => pin.isRecommended)
+                .map(pin => ({
+                  id: pin.id,
+                  name: pin.title,
+                  description: pin.description || `Recommendation for ${pin.locationName}`,
+                  location: {
+                    lat: pin.latitude,
+                    lng: pin.longitude
+                  },
+                  rating: pin.rating,
+                  type: pin.isAISuggestion ? "ai" : "community" as "ai" | "community",
+                  distance: Math.sqrt(
+                    Math.pow(latitude - pin.latitude, 2) +
+                    Math.pow(longitude - pin.longitude, 2)
+                  ),
+                  photo: pin.mediaUrl || undefined,
+                  pinnedBy: "user"
+                }))
+              
+              // Generate additional AI recommendations based on location
               const aiRecs = generateAIRecommendations(latitude, longitude)
               const communityRecs = generateCommunityRecommendations(latitude, longitude)
               
-              setRecommendations([...aiRecs, ...communityRecs])
+              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
               setIsLoading(false)
             },
             (error) => {
@@ -257,10 +298,31 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
               
               setUserLocation({ lat: fallbackLat, lng: fallbackLng })
               
+              // Convert pins to recommendations
+              const pinRecommendations = pins
+                .filter(pin => pin.isRecommended)
+                .map(pin => ({
+                  id: pin.id,
+                  name: pin.title,
+                  description: pin.description || `Recommendation for ${pin.locationName}`,
+                  location: {
+                    lat: pin.latitude,
+                    lng: pin.longitude
+                  },
+                  rating: pin.rating,
+                  type: pin.isAISuggestion ? "ai" : "community" as "ai" | "community",
+                  distance: Math.sqrt(
+                    Math.pow(fallbackLat - pin.latitude, 2) +
+                    Math.pow(fallbackLng - pin.longitude, 2)
+                  ),
+                  photo: pin.mediaUrl || undefined,
+                  pinnedBy: "user"
+                }))
+              
               const aiRecs = generateAIRecommendations(fallbackLat, fallbackLng)
               const communityRecs = generateCommunityRecommendations(fallbackLat, fallbackLng)
               
-              setRecommendations([...aiRecs, ...communityRecs])
+              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
               setIsLoading(false)
             },
             {
@@ -282,7 +344,7 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
     }
 
     initializeRecommendations()
-  }, [generateAIRecommendations, generateCommunityRecommendations])
+  }, [generateAIRecommendations, generateCommunityRecommendations, pins])
 
   // Apply clustering when recommendations change
   useEffect(() => {
