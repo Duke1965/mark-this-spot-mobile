@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   generator: 'v0.dev',
   manifest: '/manifest.json',
   icons: {
-    icon: '/placeholder-logo.png',
-    apple: '/placeholder-logo.png',
+    icon: '/pinit-logo-192.png',
+    apple: '/pinit-logo-192.png',
   },
 }
 
