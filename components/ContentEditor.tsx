@@ -215,7 +215,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
   )
 }
 
-function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bold", onUpdate, isActive = true }: DraggableTextProps) {
+function DraggableText({ text, style, onUpdate, isActive = true }: DraggableTextProps) {
   const [position, setPosition] = useState({ x: 10, y: 10 })
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -224,8 +224,6 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
   const [initialDistance, setInitialDistance] = useState(0)
   const [initialScale, setInitialScale] = useState(1)
   const [initialRotation, setInitialRotation] = useState(0)
-  const [isRotating, setIsRotating] = useState(false)
-  const [rotationStartAngle, setRotationStartAngle] = useState(0)
 
   const getDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return 0
@@ -248,11 +246,7 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
     if (e.touches.length === 1) {
       // Single finger - drag
       const touch = e.touches[0]
-      const rect = e.currentTarget.getBoundingClientRect()
-      // Convert to percentage-based positioning
-      const startX = ((touch.clientX - rect.left) / rect.width) * 100
-      const startY = ((touch.clientY - rect.top) / rect.height) * 100
-      setStartPos({ x: startX, y: startY })
+      setStartPos({ x: touch.clientX - position.x, y: touch.clientY - position.y })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -268,14 +262,9 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
-      const rect = e.currentTarget.getBoundingClientRect()
-      // Convert to percentage-based positioning
-      const currentX = ((touch.clientX - rect.left) / rect.width) * 100
-      const currentY = ((touch.clientY - rect.top) / rect.height) * 100
-      
       const newPosition = {
-        x: currentX,
-        y: currentY
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y
       }
       setPosition(newPosition)
       onUpdate(newPosition)
@@ -303,66 +292,18 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
   const handleTouchEnd = () => {
     setIsDragging(false)
     setInitialDistance(0)
-    setIsRotating(false)
-  }
-
-  const handleRotationStart = (e: React.TouchEvent) => {
-    e.stopPropagation()
-    setIsRotating(true)
-    const touch = e.touches[0]
-    const rect = e.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-    setRotationStartAngle(angle - rotation)
-  }
-
-  const handleRotationMove = (e: React.TouchEvent) => {
-    e.stopPropagation()
-    if (!isRotating) return
-    
-    const touch = e.touches[0]
-    const rect = e.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-    const newRotation = angle - rotationStartAngle
-    setRotation(newRotation)
-    onUpdate({ rotation: newRotation })
-  }
-
-  const handleRotationEnd = () => {
-    setIsRotating(false)
-  }
-
-  // Get font style based on selectedFont
-  const getFontStyle = () => {
-    switch (selectedFont) {
-      case "bangers":
-        return { fontFamily: "Bangers, cursive", fontSize: "24px", letterSpacing: "2px" }
-      case "chewy":
-        return { fontFamily: "Chewy, cursive", fontSize: "20px" }
-      case "bubblegum":
-        return { fontFamily: "Bubblegum Sans, cursive", fontSize: "22px" }
-      case "indie":
-        return { fontFamily: "Indie Flower, cursive", fontSize: "20px" }
-      case "righteous":
-        return { fontFamily: "Righteous, cursive", fontSize: "18px" }
-      case "audiowide":
-        return { fontFamily: "Audiowide, cursive", fontSize: "16px", letterSpacing: "1px" }
-      default:
-        return { fontWeight: "bold", fontSize: "24px" }
-    }
   }
 
   return (
     <div
       style={{
         position: "absolute",
-        left: `${position.x}%`, // Use percentage-based positioning
-        top: `${position.y}%`, // Use percentage-based positioning
-        transform: `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`, // Center the text
-        color: textColor,
+        left: position.x,
+        top: position.y,
+        transform: `scale(${scale}) rotate(${rotation}deg)`,
+        fontSize: style === "bold" ? "16px" : "14px",
+        fontWeight: style === "bold" ? "bold" : "normal",
+        color: "white",
         textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
         cursor: "move",
         userSelect: "none",
@@ -370,9 +311,8 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
         zIndex: isDragging ? 1000 : 1,
         maxWidth: "calc(100% - 20px)",
         wordWrap: "break-word",
-        padding: "40px", // Much bigger touch area since only text is active
-        margin: "-40px", // Compensate for padding
-        ...getFontStyle()
+        padding: "20px", // Bigger touch area
+        margin: "-20px", // Compensate for padding
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -405,9 +345,26 @@ function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bol
       
       {/* Draggable rotate handle */}
       <div
-        onTouchStart={handleRotationStart}
-        onTouchMove={handleRotationMove}
-        onTouchEnd={handleRotationEnd}
+        onTouchStart={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation()
+          const touch = e.touches[0]
+          const rect = e.currentTarget.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+          setRotation(angle)
+          onUpdate({ rotation: angle })
+        }}
         style={{
           position: "absolute",
           top: "-10px",
@@ -742,8 +699,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <DraggableText
               text={textOverlay}
               style={selectedFont}
-              textColor={textColor}
-              selectedFont={selectedFont}
               onUpdate={(updates) => {
                 if (activeTab === "text") {
                   if (updates.remove) {
