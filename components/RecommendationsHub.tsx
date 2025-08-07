@@ -220,6 +220,113 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (!userLocation || !mapRef.current) return
 
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        initializeMap()
+        return
+      }
+
+      const script = document.createElement("script")
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        console.log("🗺️ Google Maps API loaded successfully!")
+        initializeMap()
+      }
+      script.onerror = () => {
+        console.error("🗺️ Failed to load Google Maps API")
+        showBeautifulFallback()
+      }
+      document.head.appendChild(script)
+    }
+
+    const initializeMap = () => {
+      if (!mapRef.current || !userLocation) return
+
+      try {
+        const mapOptions = {
+          center: { lat: userLocation.lat, lng: userLocation.lng },
+          zoom: mapZoom,
+          mapTypeId: "roadmap",
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          styles: [
+            {
+              featureType: "poi",
+              elementType: "labels",
+              stylers: [{ visibility: "on" }]
+            }
+          ] as google.maps.MapTypeStyle[]
+        }
+
+        const map = new window.google.maps.Map(mapRef.current, mapOptions)
+        mapInstanceRef.current = map
+        setMapLoaded(true)
+
+        // Add user location marker
+        new window.google.maps.Marker({
+          position: { lat: userLocation.lat, lng: userLocation.lng },
+          map: map,
+          title: "Your Location",
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#3B82F6",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 2
+          }
+        })
+
+        // Add recommendation markers
+        addRecommendationMarkers(map)
+
+      } catch (error) {
+        console.error("🗺️ Error initializing map:", error)
+        // If Google Maps fails, show beautiful fallback
+        showBeautifulFallback()
+      }
+    }
+
+    const addRecommendationMarkers = (map: any) => {
+      try {
+        // Clear existing markers
+        markersRef.current.forEach(marker => marker.setMap(null))
+        markersRef.current = []
+
+        recommendations.forEach((rec) => {
+          const marker = new window.google.maps.Marker({
+            position: { lat: rec.location.lat, lng: rec.location.lng },
+            map: map,
+            title: rec.name,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 2
+            }
+          })
+
+          // Add click listener
+          marker.addListener("click", () => {
+            handlePinClick(rec)
+          })
+
+          markersRef.current.push(marker)
+        })
+      } catch (error) {
+        console.error("🗺️ Error adding markers:", error)
+        // If markers fail, show fallback
+        showBeautifulFallback()
+      }
+    }
+
     const showBeautifulFallback = () => {
       console.log("🗺️ Creating beautiful interactive fallback map")
       console.log("🗺️ Recommendations count:", recommendations.length)
@@ -354,9 +461,9 @@ export function RecommendationsHub({ onBack }: { onBack: () => void }) {
       }
     }
 
-    // Since Google Maps has domain restrictions, show beautiful fallback immediately
-    console.log("🗺️ Showing beautiful interactive recommendations map")
-    showBeautifulFallback()
+    // Try Google Maps first, fallback to beautiful gradient if it fails
+    console.log("🗺️ Loading Google Maps with real pins...")
+    loadGoogleMaps()
   }, [userLocation, recommendations, mapZoom])
 
   const handlePinClick = (recommendation: Recommendation) => {
