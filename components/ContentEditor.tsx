@@ -226,7 +226,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
 }
 
 function DraggableText({ text, style, textColor = "#ffffff", selectedFont = "bangers", onUpdate, isActive = true }: DraggableTextProps) {
-  const [position, setPosition] = useState({ x: 10, y: 10 })
+  const [position, setPosition] = useState({ x: 50, y: 50 }) // Center position
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -541,13 +541,13 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       scale: 1,
       rotation: 0,
     }
-    setStickers([...stickers, newSticker])
+    setStickers(prevStickers => [...prevStickers, newSticker])
     setPhotoMode("active") // Switch to active mode when sticker is added
   }
 
   // Remove sticker
   const removeSticker = (id: string) => {
-    setStickers(stickers.filter(s => s.id !== id))
+    setStickers(prevStickers => prevStickers.filter(s => s.id !== id))
   }
 
   // Handle text input change
@@ -871,7 +871,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             sticker={sticker}
               onUpdate={(updates) => {
                 if (activeTab === "stickers") {
-                  setStickers(stickers.map(s => 
+                  setStickers(prevStickers => prevStickers.map(s => 
                     s.id === sticker.id ? { ...s, ...updates } : s
                   ))
                 }
@@ -886,7 +886,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         ))}
         
           {/* Draggable Text Overlay - Always visible, but only interactive when text tab is active */}
-          {textOverlay && (
+          {textOverlay && textOverlay.trim() && (
           <DraggableText
               text={textOverlay}
               style={selectedFont}
@@ -896,9 +896,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 if (activeTab === "text") {
                   if (updates.remove) {
                     setTextOverlay("")
-                  } else {
-                    // Update text position, scale, rotation
                   }
+                  // Text position, scale, rotation are handled internally by DraggableText component
                 }
               }}
               isActive={activeTab === "text"}
