@@ -314,7 +314,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
-  const [photoMode, setPhotoMode] = useState<"selection" | "active">("selection") // New state for photo visibility
+  const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("locked") // Photo is locked in social media frame
   const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
 
   // Filter stickers by category
@@ -335,7 +335,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       rotation: 0,
     }
     setStickers(prevStickers => [...prevStickers, newSticker])
-    setPhotoMode("active") // Switch to active mode when sticker is added
+    setPhotoMode("locked") // Photo stays locked in social media frame
   }
 
   // Remove sticker
@@ -532,10 +532,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           position: "relative", // For positioning the Done button
         }}
       >
-        {/* Done Button - Only show in active mode */}
-        {photoMode === "active" && (
+        {/* Done Button - Only show when stickers are placed */}
+        {stickers.length > 0 && (
           <button
-            onClick={() => setPhotoMode("selection")}
+            onClick={() => setPhotoMode("sticker-selection")}
             style={{
               position: "absolute",
               top: "1rem",
@@ -561,8 +561,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
         <div
           style={{
-            width: photoMode === "active" ? "95vw" : "90vw",
-            height: photoMode === "active" ? "70vh" : "25vh", // Much bigger in active mode
+            width: "90vw", // Photo stays fixed size in social media frame
+            height: "60vh", // Fixed height for social media frame
             borderRadius: "0.5rem",
             overflow: "hidden",
             border: "2px solid rgba(255,255,255,0.2)",
@@ -616,17 +616,18 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
 
 
-      {/* Tab Content */}
+      {/* Sticker Selection Panel */}
           <div style={{ 
-        flex: photoMode === "active" ? 0 : 1, // Take less space in active mode
+        flex: photoMode === "sticker-selection" ? 1 : 0, // Full screen when selecting stickers
         padding: '16px', 
         overflowY: 'auto', 
         backgroundColor: 'rgba(0,0,0,0.2)',
-        maxHeight: photoMode === "active" ? '20vh' : '40vh', // Much smaller in active mode
-        transition: 'all 0.3s ease'
+        maxHeight: photoMode === "sticker-selection" ? '60vh' : '0vh', // Slides up when selecting
+        transition: 'all 0.3s ease',
+        transform: photoMode === "sticker-selection" ? 'translateY(0)' : 'translateY(100%)'
       }}>
-        {/* Mode Indicator */}
-        {photoMode === "active" && (
+        {/* Sticker Selection Mode Indicator */}
+        {photoMode === "sticker-selection" && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -638,10 +639,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             border: '1px solid rgba(255,255,255,0.2)'
           }}>
             <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
-              🎯 Active Mode - Photo visible for precise positioning
+              🎯 Sticker Selection - Choose your sticker
             </span>
             <button
-              onClick={() => setPhotoMode("selection")}
+              onClick={() => setPhotoMode("locked")}
               style={{
                 padding: '4px 8px',
                 borderRadius: '4px',
@@ -652,7 +653,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                 cursor: 'pointer'
               }}
             >
-              Back to Selection
+              Back to Photo
             </button>
         </div>
       )}
