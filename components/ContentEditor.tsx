@@ -27,11 +27,12 @@ interface DraggableStickerProps {
   onUpdate: (updates: Partial<Sticker>) => void
   onRemove: () => void
   isActive?: boolean
+  stickersLocked?: boolean
 }
 
 
 
-function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: DraggableStickerProps) {
+function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, stickersLocked = false }: DraggableStickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
   const [initialDistance, setInitialDistance] = useState(0)
@@ -125,73 +126,77 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* X button for removal */}
-      <button
-        onClick={onRemove}
-        style={{
-          position: "absolute",
-          top: "-10px",
-          right: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(255, 0, 0, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "14px",
-          fontWeight: "bold",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
-        }}
-      >
-        ×
-      </button>
+      {/* X button for removal - Only show when not locked */}
+      {!stickersLocked && (
+        <button
+          onClick={onRemove}
+          style={{
+            position: "absolute",
+            top: "-10px",
+            right: "-10px",
+            width: "24px",
+            height: "24px",
+            borderRadius: "50%",
+            background: "rgba(255, 0, 0, 0.8)",
+            border: "2px solid white",
+            color: "white",
+            fontSize: "14px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1001,
+          }}
+        >
+          ×
+        </button>
+      )}
       
-      {/* Draggable rotate handle */}
-      <div
-        onTouchStart={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          onUpdate({ rotation: angle })
-        }}
-        onTouchMove={(e) => {
-          e.stopPropagation()
-          const touch = e.touches[0]
-          const rect = e.currentTarget.getBoundingClientRect()
-          const centerX = rect.left + rect.width / 2
-          const centerY = rect.top + rect.height / 2
-          const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
-          onUpdate({ rotation: angle })
-        }}
-        style={{
-          position: "absolute",
-          top: "-10px",
-          left: "-10px",
-          width: "24px",
-          height: "24px",
-          borderRadius: "50%",
-          background: "rgba(0, 0, 255, 0.8)",
-          border: "2px solid white",
-          color: "white",
-          fontSize: "12px",
-          cursor: "grab",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1001,
-          userSelect: "none",
-          touchAction: "none",
-        }}
-      >
-        🔄
-      </div>
+      {/* Draggable rotate handle - Only show when not locked */}
+      {!stickersLocked && (
+        <div
+          onTouchStart={(e) => {
+            e.stopPropagation()
+            const touch = e.touches[0]
+            const rect = e.currentTarget.getBoundingClientRect()
+            const centerX = rect.left + rect.width / 2
+            const centerY = rect.top + rect.height / 2
+            const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+            onUpdate({ rotation: angle })
+          }}
+          onTouchMove={(e) => {
+            e.stopPropagation()
+            const touch = e.touches[0]
+            const rect = e.currentTarget.getBoundingClientRect()
+            const centerX = rect.left + rect.width / 2
+            const centerY = rect.top + rect.height / 2
+            const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI
+            onUpdate({ rotation: angle })
+          }}
+          style={{
+            position: "absolute",
+            top: "-10px",
+            left: "-10px",
+            width: "24px",
+            height: "24px",
+            borderRadius: "50%",
+            background: "rgba(0, 0, 255, 0.8)",
+            border: "2px solid white",
+            color: "white",
+            fontSize: "12px",
+            cursor: "grab",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1001,
+            userSelect: "none",
+            touchAction: "none",
+          }}
+        >
+          🔄
+        </div>
+      )}
       
       <img 
         src={sticker.emoji} 
@@ -316,6 +321,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("sticker-selection") // Start with sticker selection open
   const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
+  const [stickersLocked, setStickersLocked] = useState(false) // Track if stickers are locked (handles hidden)
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -336,6 +342,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     }
     setStickers(prevStickers => [...prevStickers, newSticker])
     setPhotoMode("locked") // Photo stays locked in social media frame
+    setStickersLocked(false) // Unlock stickers when adding new one
   }
 
   // Remove sticker
@@ -535,7 +542,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         {/* Done Button - Only show when stickers are placed */}
         {stickers.length > 0 && (
           <button
-            onClick={() => setPhotoMode("sticker-selection")}
+            onClick={() => {
+              setStickersLocked(true) // Lock stickers when Done is clicked
+              setPhotoMode("sticker-selection")
+            }}
             style={{
               position: "absolute",
               top: "1rem",
@@ -608,7 +618,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               onRemove={() => {
                 removeSticker(sticker.id)
               }}
-              isActive={true}
+              isActive={!stickersLocked} // Disable interactions when locked
+              stickersLocked={stickersLocked}
           />
         ))}
         </div>
@@ -616,18 +627,42 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
 
 
-      {/* Sticker Selection Panel */}
+      {/* Sticker Selection Panel - Slides over photo */}
           <div style={{ 
-        flex: photoMode === "sticker-selection" ? 1 : 0, // Full screen when selecting stickers
-        padding: '16px', 
-        overflowY: 'auto', 
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        maxHeight: photoMode === "sticker-selection" ? '60vh' : '0vh', // Slides up when selecting
+        position: 'absolute',
+        bottom: photoMode === "sticker-selection" ? '0' : '-100%',
+        left: '0',
+        right: '0',
+        height: '60vh',
+        backgroundColor: 'rgba(0,0,0,0.95)',
+        borderTopLeftRadius: '20px',
+        borderTopRightRadius: '20px',
+        padding: '16px',
+        overflowY: 'auto',
         transition: 'all 0.3s ease',
-        transform: photoMode === "sticker-selection" ? 'translateY(0)' : 'translateY(100%)',
-        position: 'relative',
-        zIndex: 1000 // Ensure it appears above action buttons
+        zIndex: 1000,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.3)'
       }}>
+        {/* Draggable Handle */}
+        <div style={{
+          width: '40px',
+          height: '4px',
+          backgroundColor: 'rgba(255,255,255,0.3)',
+          borderRadius: '2px',
+          margin: '0 auto 16px auto',
+          cursor: 'grab'
+        }} 
+        onMouseDown={(e) => {
+          e.preventDefault()
+          setPhotoMode("locked")
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault()
+          setPhotoMode("locked")
+        }}
+        title="Drag down to close"
+        />
+
         {/* Sticker Selection Mode Indicator */}
         {photoMode === "sticker-selection" && (
           <div style={{
