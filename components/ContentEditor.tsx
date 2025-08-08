@@ -30,8 +30,6 @@ interface DraggableStickerProps {
   stickersLocked?: boolean
 }
 
-
-
 function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, stickersLocked = false }: DraggableStickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
@@ -223,8 +221,6 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
   )
 }
 
-
-
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
   // Available stickers (matching exact GitHub file names)
   const availableStickers = [
@@ -307,16 +303,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
   ]
 
-  // Font styles from PhotoEditor
-  const textStyles = [
-    { name: "bangers", label: "Bangers", style: "font-family: 'Bangers', cursive; font-size: 24px; letter-spacing: 2px;" },
-    { name: "chewy", label: "Chewy", style: "font-family: 'Chewy', cursive; font-size: 20px;" },
-    { name: "bubblegum", label: "Bubblegum", style: "font-family: 'Bubblegum Sans', cursive; font-size: 22px;" },
-    { name: "indie", label: "Indie", style: "font-family: 'Indie Flower', cursive; font-size: 20px;" },
-    { name: "righteous", label: "Righteous", style: "font-family: 'Righteous', cursive; font-size: 18px;" },
-    { name: "audiowide", label: "Audiowide", style: "font-family: 'Audiowide', cursive; font-size: 16px; letter-spacing: 1px;" },
-  ]
-
   const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("sticker-selection") // Start with sticker selection open
@@ -349,8 +335,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const removeSticker = (id: string) => {
     setStickers(prevStickers => prevStickers.filter(s => s.id !== id))
   }
-
-
 
   // Handle post
   const handlePost = async () => {
@@ -468,8 +452,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           stickerImg.src = sticker.emoji
         })
 
-
-
         // Convert canvas to data URL
         const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
         resolve(finalImageUrl)
@@ -544,7 +526,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <button
             onClick={() => {
               setStickersLocked(true) // Lock stickers when Done is clicked
-              setPhotoMode("sticker-selection")
+              // Don't change photoMode - keep slider down
             }}
             style={{
               position: "absolute",
@@ -625,8 +607,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         </div>
       </div>
 
-
-
       {/* Sticker Selection Panel - Slides over photo */}
           <div style={{ 
         position: 'absolute',
@@ -634,7 +614,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         left: '0',
         right: '0',
         height: '60vh',
-        backgroundColor: 'rgba(0,0,0,0.95)',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)', // PINIT dark theme
         borderTopLeftRadius: '20px',
         borderTopRightRadius: '20px',
         padding: '16px',
@@ -671,33 +651,19 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             alignItems: 'center',
             marginBottom: '12px',
             padding: '8px 12px',
-            background: 'rgba(255,255,255,0.1)',
+            background: 'rgba(59, 130, 246, 0.1)',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.2)'
+            border: '1px solid rgba(59, 130, 246, 0.2)'
           }}>
-            <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>
+            <span style={{ fontSize: '14px', color: '#e2e8f0', fontWeight: '600' }}>
               🎯 Choose a Fun Sticker!
             </span>
-            <button
-              onClick={() => setPhotoMode("locked")}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255,255,255,0.3)',
-                background: 'rgba(255,255,255,0.1)',
-                color: 'white',
-                fontSize: '10px',
-                cursor: 'pointer'
-              }}
-            >
-              Back to Photo
-            </button>
         </div>
       )}
 
         <div>
           <div>
-            <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'white'}}>
+            <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#f1f5f9'}}>
               Add Stickers
             </h3>
             
