@@ -66,7 +66,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     if (e.touches.length === 1) {
       // Single finger - drag
       const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+      const rect = e.currentTarget.getBoundingClientRect()
+      setStartPos({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -82,9 +83,13 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      const newX = touch.clientX - rect.left - startPos.x
+      const newY = touch.clientY - rect.top - startPos.y
+      
       onUpdate({
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
+        x: newX,
+        y: newY
       })
     } else if (e.touches.length === 2) {
       // Two finger scale and rotate simultaneously
@@ -117,8 +122,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true }: Drag
     <div
       style={{
         position: "absolute",
-        left: sticker.x,
-        top: sticker.y,
+        left: `${sticker.x}px`,
+        top: `${sticker.y}px`,
         transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
         cursor: "move",
         userSelect: "none",
@@ -536,8 +541,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       id: Date.now().toString(),
       emoji: stickerData.imageUrl, // Store image URL instead of emoji
       name: stickerData.name,
-      x: 50, // Center the sticker (50% from left)
-      y: 50, // Center the sticker (50% from top)
+      x: 150, // Fixed pixel position from left
+      y: 100, // Fixed pixel position from top
       scale: 1,
       rotation: 0,
     }
@@ -651,10 +656,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           const stickerImg = new Image()
           stickerImg.crossOrigin = 'anonymous'
           stickerImg.onload = () => {
-            // Use the exact same positioning logic as the editor
-            // The editor uses pixel positioning, so we need to convert percentage to pixels
-            const x = (sticker.x / 100) * canvas.width
-            const y = (sticker.y / 100) * canvas.height
+            // Use pixel positioning directly
+            const x = sticker.x
+            const y = sticker.y
             
             // Save context for transformations
             ctx.save()
@@ -677,7 +681,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           stickerImg.onerror = () => {
             // Fallback to emoji if image fails
             ctx.save()
-            ctx.translate((sticker.x / 100) * canvas.width, (sticker.y / 100) * canvas.height)
+            ctx.translate(sticker.x, sticker.y)
             ctx.scale(sticker.scale, sticker.scale)
             ctx.rotate((sticker.rotation * Math.PI) / 180)
             ctx.font = '48px Arial'
