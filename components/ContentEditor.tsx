@@ -740,9 +740,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               ))}
             </div>
           </div>
-        )}
-
-
+        </div>
       </div>
 
       {/* Action Buttons */}
