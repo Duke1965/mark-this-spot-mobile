@@ -314,7 +314,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
-  const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("locked") // Photo is locked in social media frame
+  const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("sticker-selection") // Start with sticker selection open
   const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
 
   // Filter stickers by category
@@ -624,7 +624,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         backgroundColor: 'rgba(0,0,0,0.2)',
         maxHeight: photoMode === "sticker-selection" ? '60vh' : '0vh', // Slides up when selecting
         transition: 'all 0.3s ease',
-        transform: photoMode === "sticker-selection" ? 'translateY(0)' : 'translateY(100%)'
+        transform: photoMode === "sticker-selection" ? 'translateY(0)' : 'translateY(100%)',
+        position: 'relative',
+        zIndex: 1000 // Ensure it appears above action buttons
       }}>
         {/* Sticker Selection Mode Indicator */}
         {photoMode === "sticker-selection" && (
@@ -638,8 +640,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             borderRadius: '8px',
             border: '1px solid rgba(255,255,255,0.2)'
           }}>
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
-              🎯 Sticker Selection - Choose your sticker
+            <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>
+              🎯 Choose a Fun Sticker!
             </span>
             <button
               onClick={() => setPhotoMode("locked")}
