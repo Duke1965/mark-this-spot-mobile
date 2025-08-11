@@ -150,6 +150,24 @@ export default function PINITApp() {
     }
   }, [])
 
+  // FORCE RESET ON APP START - Clear any corrupted state
+  useEffect(() => {
+    console.log("🚀 PINIT App starting - clearing any corrupted state")
+    try {
+      // Clear any potentially corrupted state immediately
+      localStorage.removeItem("pinit-app-state")
+      console.log("🧹 Cleared app state on startup")
+      
+      // Force start on map screen
+      setCurrentScreen("map")
+      setLastActivity("app-start-fresh")
+      
+      console.log("✅ App started fresh on map screen")
+    } catch (error) {
+      console.error("❌ Error during app startup reset:", error)
+    }
+  }, [])
+
   // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
   useEffect(() => {
     // Load saved app state on mount
