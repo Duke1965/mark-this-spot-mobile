@@ -16,7 +16,10 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
   const [review, setReview] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  console.log("🎯 RecommendationForm rendered with:", { mediaUrl, locationName, showForm, rating, review, isSubmitting })
+
   const handleRecommendClick = () => {
+    console.log("🔍 handleRecommendClick called")
     setShowForm(true)
   }
 
@@ -25,9 +28,17 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
   }
 
   const handleSubmit = () => {
-    if (review.trim().length === 0) return
+    console.log("🔍 handleSubmit called with:", { rating, review, reviewLength: review.trim().length })
     
+    if (review.trim().length === 0) {
+      console.log("❌ Review is empty, submission blocked")
+      return
+    }
+    
+    console.log("✅ Submitting recommendation:", { rating, review: review.trim() })
     setIsSubmitting(true)
+    
+    // Call the onRecommend callback
     onRecommend(rating, review.trim())
   }
 
@@ -160,24 +171,39 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         </button>
       </div>
 
-      {/* Media Preview */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <img
-          src={mediaUrl}
-          alt="Your post"
-          style={{
-            width: "100%",
-            maxWidth: "200px",
-            height: "150px",
-            objectFit: "cover",
-            borderRadius: "0.5rem",
-            border: "2px solid rgba(255,255,255,0.2)",
-          }}
-        />
+      {/* Media Preview - FIXED: Proper centering and social media dimensions */}
+      <div style={{ 
+        marginBottom: "1.5rem",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center"
+      }}>
+        <div style={{
+          width: "280px", // Instagram story width
+          height: "500px", // Instagram story height
+          borderRadius: "0.75rem",
+          overflow: "hidden",
+          border: "2px solid rgba(255,255,255,0.2)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#000",
+          marginBottom: "0.5rem"
+        }}>
+          <img
+            src={mediaUrl}
+            alt="Your post"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain", // Changed from "cover" to "contain" to show full image
+              objectPosition: "center",
+            }}
+          />
+        </div>
         <div style={{ 
           fontSize: "0.875rem", 
           opacity: 0.8, 
-          marginTop: "0.5rem",
           fontWeight: "500"
         }}>
           {locationName}
@@ -305,6 +331,14 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           </>
         )}
       </button>
+      
+      {/* CSS Animation for spinner */}
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 } 
