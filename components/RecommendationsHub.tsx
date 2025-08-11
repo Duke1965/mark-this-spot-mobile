@@ -206,13 +206,16 @@ export function RecommendationsHub({
                   name: rec.title,
                   description: rec.description,
                   location: {
-                    lat: userLocation?.lat || latitude,
-                    lng: userLocation?.lng || longitude
+                    lat: rec.latitude, // Use actual coordinates from nearbyPins instead of user location
+                    lng: rec.longitude  // Use actual coordinates from nearbyPins instead of user location
                   },
-                  rating: 4.5, // Default rating for AI recommendations
+                  rating: rec.rating || 4.5, // Use actual rating if available
                   type: "ai" as "ai",
-                  distance: 0.1, // Close to user
-                  photo: undefined,
+                  distance: Math.sqrt(
+                    Math.pow(latitude - rec.latitude, 2) +
+                    Math.pow(longitude - rec.longitude, 2)
+                  ), // Calculate actual distance
+                  photo: rec.mediaUrl || undefined,
                   pinnedBy: "AI Assistant"
                 }))
               
