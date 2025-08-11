@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { MapPin, Calendar, Edit3, Share2, Navigation, ArrowLeft, ChevronLeft, ChevronRight, Save, X } from "lucide-react"
 import type { PinData } from "@/app/page"
-import { AdvancedPhotoEditor } from "./AdvancedPhotoEditor"
 
 interface PinResultsProps {
   pin: PinData
@@ -35,7 +34,7 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
         console.log("📸 Fetching area photos for results page...")
 
         // Use our API route instead of calling Google Maps directly
-        const response = await fetch(`/api/places?lat=${pin.latitude}&lng=${pin.longitude}&radius=1000`)
+        const response = await fetch(`/api/places?lat=${pin.latitude}&lng=${pin.longitude}&radius=5000`)
         
         if (!response.ok) {
           throw new Error("Failed to fetch location data")
@@ -128,23 +127,42 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
     onBack()
   }
 
-  // Show editor if active
+  // Show editor if active - REMOVED: AdvancedPhotoEditor functionality
   if (showEditor && selectedPhotoUrl) {
     return (
-      <AdvancedPhotoEditor
-        imageUrl={selectedPhotoUrl}
-        onSave={(editedImageUrl) => {
-          // Update the pin with edited image
-          const updatedPin = { ...pin, mediaUrl: editedImageUrl }
-          onSave(updatedPin)
-        }}
-        onShare={(editedImageUrl) => {
-          // Update the pin with edited image
-          const updatedPin = { ...pin, mediaUrl: editedImageUrl }
-          onShare(updatedPin)
-        }}
-        onBack={() => setShowEditor(false)}
-      />
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #002c7c 0%, #9ddbeb 100%)",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        zIndex: 1000,
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{ textAlign: "center", padding: "2rem" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎨</div>
+          <div style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Photo Editor</div>
+          <div style={{ marginBottom: "2rem", opacity: 0.8 }}>Coming soon with new features!</div>
+          <button
+            onClick={() => setShowEditor(false)}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              cursor: "pointer"
+            }}
+          >
+            Back to Results
+          </button>
+        </div>
+      </div>
     )
   }
 
