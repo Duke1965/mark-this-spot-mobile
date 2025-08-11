@@ -85,6 +85,9 @@ export function RecommendationsHub({
   const [selectedCluster, setSelectedCluster] = useState<ClusteredPin | null>(null)
   const [showClusterDetails, setShowClusterDetails] = useState(false)
   
+  // Map persistence state
+  const [mapInitialized, setMapInitialized] = useState(false)
+  
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
@@ -306,6 +309,19 @@ export function RecommendationsHub({
     }
   }, [recommendations, clusterRecommendations])
 
+  // Preserve map when switching views
+  useEffect(() => {
+    if (viewMode === "map" && mapInitialized && mapInstanceRef.current) {
+      console.log("🗺️ Map view selected, ensuring map is visible")
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (mapRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.setMap(mapRef.current)
+        }
+      }, 100)
+    }
+  }, [viewMode, mapInitialized])
+
   // Function to add recommendation markers to the map
   const addRecommendationMarkers = (map: any) => {
     try {
@@ -418,6 +434,12 @@ export function RecommendationsHub({
   useEffect(() => {
     if (!userLocation || !mapRef.current) return
 
+    // Don't reinitialize if map is already working
+    if (mapInitialized && mapInstanceRef.current) {
+      console.log("🗺️ Map already initialized, skipping reinitialization")
+      return
+    }
+
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps) {
         console.log("🗺️ Google Maps already loaded, initializing...")
@@ -467,6 +489,7 @@ export function RecommendationsHub({
         const map = new window.google.maps.Map(mapRef.current, mapOptions)
         mapInstanceRef.current = map
         setMapLoaded(true)
+        setMapInitialized(true) // Mark map as initialized
 
         // Add user location marker
         new window.google.maps.Marker({
