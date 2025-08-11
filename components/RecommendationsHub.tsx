@@ -334,40 +334,6 @@ export function RecommendationsHub({
     }
   }, [recommendations, clusterRecommendations])
 
-  // Preserve map when switching views
-  useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current) {
-      console.log("🗺️ Map view selected, ensuring map is visible")
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        if (mapRef.current && mapInstanceRef.current) {
-          mapInstanceRef.current.setMap(mapRef.current)
-        }
-      }, 100)
-    }
-  }, [viewMode, mapInstanceRef.current])
-
-  // Stronger map preservation - prevent map destruction
-  useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current) {
-      console.log("🗺️ Ensuring map container is preserved")
-      // Force map to stay attached to container
-      if (mapRef.current && mapInstanceRef.current) {
-        try {
-          mapInstanceRef.current.setMap(mapRef.current)
-          // Trigger a resize event to ensure map renders properly
-          setTimeout(() => {
-            if (window.google && window.google.maps && mapInstanceRef.current) {
-              window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-            }
-          }, 200)
-        } catch (error) {
-          console.log("🗺️ Map preservation error:", error)
-        }
-      }
-    }
-  }, [viewMode, mapInstanceRef.current])
-
   // Function to add recommendation markers to the map
   const addRecommendationMarkers = (map: any) => {
     try {
@@ -476,31 +442,13 @@ export function RecommendationsHub({
     }
   }, [clusteredPins])
 
-  // Ensure map stays visible when switching views
+  // SINGLE map loading useEffect - no more cycling!
   useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current && mapRef.current) {
-      console.log("🗺️ View changed to map, preserving existing markers")
-      
-      // If map is already loaded and working, don't reinitialize
-      if (mapPersisted && mapInstanceRef.current) {
-        console.log("🗺️ Map already persisted, skipping reinitialization")
-        return
-      }
-      
-      // Don't reinitialize the map, just ensure it's visible
-      if (mapInstanceRef.current && typeof mapInstanceRef.current.setMap === 'function') {
-        try {
-          // Trigger a resize event to ensure map is properly displayed
-          if (window.google && window.google.maps) {
-            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-            setMapPersisted(true)
-          }
-        } catch (error) {
-          console.log("🗺️ Map resize trigger failed:", error)
-        }
-      }
+    if (userLocation && recommendations.length > 0 && !mapPersisted) {
+      console.log("🗺️ Initial map load triggered")
+      loadGoogleMaps()
     }
-  }, [viewMode, mapPersisted])
+  }, [userLocation, recommendations.length, mapPersisted])
 
   // Ensure markers remain visible
   useEffect(() => {
@@ -568,6 +516,7 @@ export function RecommendationsHub({
       const map = new window.google.maps.Map(mapRef.current, mapOptions)
       mapInstanceRef.current = map
       setMapLoaded(true)
+      setMapPersisted(true) // Mark map as persisted to prevent reinitialization
 
       // Add user location marker
       new window.google.maps.Marker({
@@ -762,20 +711,6 @@ export function RecommendationsHub({
     }
   }
 
-  // Load Google Maps API
-  useEffect(() => {
-    if (userLocation && recommendations.length > 0) {
-      // Debounce map loading to prevent excessive reinitializations
-      const timeoutId = setTimeout(() => {
-        if (!mapPersisted) {
-          loadGoogleMaps()
-        }
-      }, 100)
-      
-      return () => clearTimeout(timeoutId)
-    }
-  }, [userLocation, recommendations, mapZoom, clusteredPins, mapPersisted])
-
   const handlePinClick = (recommendation: Recommendation) => {
     console.log("🎯 handlePinClick called with:", recommendation)
     setSelectedPin(recommendation)
@@ -797,6 +732,26 @@ export function RecommendationsHub({
   const closeClusterDetails = () => {
     setSelectedCluster(null)
     setShowClusterDetails(false)
+  }
+
+  // Simple view mode change handler - no map reinitialization
+  const handleViewModeChange = (newMode: "map" | "list") => {
+    setViewMode(newMode)
+    
+    // If switching to map and map is already loaded, just ensure it's visible
+    if (newMode === "map" && mapInstanceRef.current && mapPersisted) {
+      console.log("🗺️ Switching to map view - map already loaded, ensuring visibility")
+      // Small delay to ensure DOM is ready, then trigger resize
+      setTimeout(() => {
+        if (window.google && window.google.maps && mapInstanceRef.current) {
+          try {
+            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          } catch (error) {
+            console.log("🗺️ Map resize trigger failed:", error)
+          }
+        }
+      }, 100)
+    }
   }
 
   if (isLoading) {
@@ -903,7 +858,7 @@ export function RecommendationsHub({
         background: "rgba(0,0,0,0.1)",
       }}>
         <button
-          onClick={() => setViewMode("map")}
+          onClick={() => handleViewModeChange("map")}
           style={{
             padding: "0.5rem 1rem",
             borderRadius: "0.5rem",
@@ -921,7 +876,7 @@ export function RecommendationsHub({
           Map View
         </button>
         <button
-          onClick={() => setViewMode("list")}
+          onClick={() => handleViewModeChange("list")}
           style={{
             padding: "0.5rem 1rem",
             borderRadius: "0.5rem",
