@@ -654,13 +654,19 @@ export default function PINITApp() {
   // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
   const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
     console.log("🤖 AI generated recommendations:", newRecommendations)
+    console.log("🤖 Current recommendations count before:", recommendations.length)
+    
     setRecommendations((prev) => {
       // Avoid duplicates by checking IDs
       const existingIds = new Set(prev.map((r) => r.id))
       const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
+      
+      console.log("🤖 Unique new recommendations:", uniqueRecommendations.length)
+      console.log("🤖 Total recommendations after adding:", prev.length + uniqueRecommendations.length)
+      
       return [...prev, ...uniqueRecommendations]
     })
-  }, [])
+  }, [recommendations.length])
 
   // Handle notification tap - GO TO RECOMMENDATIONS PAGE
   const handleNotificationTap = useCallback(() => {
@@ -734,6 +740,12 @@ export default function PINITApp() {
       findNearbyPins()
     }
   }, [currentScreen, location, nearbyPins.length, findNearbyPins])
+
+  // Debug: Monitor recommendations state changes
+  useEffect(() => {
+    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
+    console.log("🤖 Recommendations content:", recommendations)
+  }, [recommendations])
 
   // NEW: Fetch location photo for pins
   const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
@@ -997,11 +1009,16 @@ export default function PINITApp() {
 
   // NEW RECOMMENDATIONS HUB SCREEN
   if (currentScreen === "recommendations") {
+    console.log("🗺️ Opening RecommendationsHub with:")
+    console.log("🗺️ - recommendations count:", recommendations.length)
+    console.log("🗺️ - nearbyPins count:", nearbyPins.length)
+    console.log("🗺️ - combined aiRecommendations count:", [...recommendations, ...nearbyPins].length)
+    
     return (
       <RecommendationsHub
         onBack={() => setCurrentScreen("map")}
         pins={pins}
-        aiRecommendations={nearbyPins} // Changed from recommendations to nearbyPins - these have real coordinates!
+        aiRecommendations={[...recommendations, ...nearbyPins]} // Combine both existing AI recommendations AND new nearby places
       />
     )
   }
@@ -1198,7 +1215,53 @@ export default function PINITApp() {
             transition: "color 0.2s ease",
               }}
             >
-          🌐
+          ��
+        </button>
+
+        {/* TEMPORARY TEST: Add AI Recommendations */}
+        <button
+          onClick={() => {
+            console.log("🧪 Test button clicked - adding sample AI recommendations")
+            const testRecommendations = [
+              {
+                id: `test-${Date.now()}-1`,
+                type: "ai-suggestion",
+                title: "🧪 Test Coffee Shop",
+                description: "This is a test AI recommendation",
+                action: "test",
+                priority: 5,
+                color: "#EF4444",
+                isAISuggestion: true,
+                timestamp: Date.now(),
+                category: "Test"
+              },
+              {
+                id: `test-${Date.now()}-2`,
+                type: "ai-suggestion", 
+                title: "🧪 Test Park",
+                description: "Another test AI recommendation",
+                action: "test",
+                priority: 6,
+                color: "#EF4444",
+                isAISuggestion: true,
+                timestamp: Date.now(),
+                category: "Test"
+              }
+            ]
+            handleAIRecommendations(testRecommendations)
+          }}
+          style={{
+            padding: "0.5rem",
+            border: "none",
+            background: "rgba(239, 68, 68, 0.8)",
+            color: "white",
+            cursor: "pointer",
+            borderRadius: "0.5rem",
+            fontSize: "0.75rem",
+            fontWeight: "bold"
+          }}
+        >
+          🧪 Test AI
         </button>
       </div>
 
