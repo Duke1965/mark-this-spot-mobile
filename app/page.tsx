@@ -335,7 +335,7 @@ export default function PINITApp() {
       console.log("📍 Fetching real location name...")
       
       // Use our API route instead of calling Google Maps directly
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=2000`)
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
       
       if (!response.ok) {
         throw new Error("Failed to fetch location data")
@@ -388,141 +388,74 @@ export default function PINITApp() {
   // Google Places API Integration
   const fetchNearbyPlaces = useCallback(async (lat: number, lng: number): Promise<PinData[]> => {
     try {
-      setIsLoadingPlaces(true)
-      console.log("🌐 Fetching real places from Google Places API...")
-
-      // Google Places Nearby Search API
-      const radius = 1000 // 1km radius
-      const types = [
-        "tourist_attraction",
-        "restaurant",
-        "cafe",
-        "museum",
-        "park",
-        "shopping_mall",
-        "art_gallery",
-        "amusement_park",
-        "zoo",
-        "aquarium",
-      ]
-
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-        "|",
-      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-
-      // Note: In production, this should be called from a server-side API route
-      // to avoid exposing the API key. For demo purposes, we'll use a proxy or mock data
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}`)
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch places")
+      const types = ["restaurant", "cafe", "tourist_attraction", "park", "museum", "shopping_mall"]
+      const radius = 5000 // Increased from 1000 to 5000 (5km radius instead of 1km)
+      
+      // Try to get real places from Google Places API
+      if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+        const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
+          "|"
+        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        
+        const response = await fetch(placesUrl)
+        const data = await response.json()
+        
+        if (data.results && data.results.length > 0) {
+          return data.results.map((place: any) => ({
+            id: place.place_id,
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng,
+            locationName: place.vicinity || place.name,
+            mediaUrl: place.photos?.[0]?.photo_reference
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+              : null,
+            mediaType: "photo",
+            audioUrl: null,
+            timestamp: new Date().toISOString(),
+            title: place.name,
+            description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
+            tags: place.types || [],
+            isRecommended: true,
+            googlePlaceId: place.place_id,
+            rating: place.rating,
+            priceLevel: place.price_level,
+            types: place.types,
+            isAISuggestion: true,
+          }))
+        }
       }
-
+      
+      // Fallback to mock places with increased radius
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}`
+      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}`)
       const data = await response.json()
-      const places: GooglePlace[] = data.results || []
-
-      console.log(`📍 Found ${places.length} real places nearby!`)
-
-      // Transform Google Places to PinData format
-      const transformedPins: PinData[] = places.slice(0, 6).map((place) => {
-        // Generate appropriate emoji based on place type
-        const getPlaceEmoji = (types: string[]): string => {
-          if (types.includes("restaurant")) return "🍽️"
-          if (types.includes("cafe")) return "☕"
-          if (types.includes("tourist_attraction")) return "🏛️"
-          if (types.includes("museum")) return "🏛️"
-          if (types.includes("park")) return "🌳"
-          if (types.includes("shopping_mall")) return "🛍️"
-          if (types.includes("art_gallery")) return "🎨"
-          if (types.includes("amusement_park")) return "🎢"
-          if (types.includes("zoo")) return "🦁"
-          if (types.includes("aquarium")) return "🐠"
-          return "📍"
-        }
-
-        // Generate description based on rating and types
-        const generateDescription = (place: GooglePlace): string => {
-          const placeType = place.types[0]?.replace(/_/g, ' ') || 'amazing place'
-          
-          const descriptions = [
-            `Scenic ${placeType} with breathtaking views. Perfect for sunset photos and worth stopping to explore this hidden gem.`,
-            `Beautiful ${placeType} that's perfect for photos. Great spot to capture memories and enjoy the atmosphere.`,
-            `Amazing ${placeType} with stunning surroundings. Ideal for a quick stop and definitely worth the visit.`,
-            `Hidden ${placeType} gem with incredible charm. Perfect spot for photos and a memorable experience.`,
-            `Stunning ${placeType} with spectacular views. Great for capturing moments and exploring the area.`,
-          ]
-          return descriptions[Math.floor(Math.random() * descriptions.length)]
-        }
-
-        // Generate photo URL if available
-        const getPhotoUrl = (place: GooglePlace): string | null => {
-          if (place.photos && place.photos.length > 0) {
-            const photoRef = place.photos[0].photo_reference
-            return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          }
-          return `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(place.name)}`
-        }
-
-        return {
-          id: `google-${place.place_id}`,
+      
+      if (data.results && data.results.length > 0) {
+        return data.results.map((place: any) => ({
+          id: place.place_id,
           latitude: place.geometry.location.lat,
           longitude: place.geometry.location.lng,
           locationName: place.vicinity || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-          mediaUrl: getPhotoUrl(place),
-          mediaType: "photo" as const,
+          mediaUrl: null,
+          mediaType: null,
           audioUrl: null,
           timestamp: new Date().toISOString(),
-          title: `${getPlaceEmoji(place.types)} ${place.name}`,
-          description: generateDescription(place),
-          tags: ["google-places", "recommended", ...place.types.slice(0, 3).map((type) => type.replace(/_/g, "-"))],
+          title: place.name,
+          description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
+          tags: place.types || [],
           isRecommended: true,
           googlePlaceId: place.place_id,
           rating: place.rating,
           priceLevel: place.price_level,
           types: place.types,
-        }
-      })
-
-      console.log("✅ Transformed places:", transformedPins)
-      return transformedPins
+          isAISuggestion: true,
+        }))
+      }
+      
+      return []
     } catch (error) {
-      console.error("❌ Failed to fetch Google Places:", error)
-
-      // Fallback to enhanced mock data if API fails
-      return [
-        {
-          id: "fallback-1",
-          latitude: lat + 0.001,
-          longitude: lng + 0.001,
-          locationName: "Nearby Area",
-          mediaUrl: "/placeholder.svg?height=200&width=200&text=Coffee%20Shop",
-          mediaType: "photo",
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: "☕ Local Coffee Spot",
-          description: "Popular local cafe with great reviews",
-          tags: ["fallback", "coffee", "recommended"],
-          isRecommended: true,
-          rating: 4.5,
-        },
-        {
-          id: "fallback-2",
-          latitude: lat - 0.002,
-          longitude: lng + 0.001,
-          locationName: "Scenic Area",
-          mediaUrl: "/placeholder.svg?height=200&width=200&text=Viewpoint",
-          mediaType: "photo",
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: "🏔️ Beautiful Viewpoint",
-          description: "Perfect spot for photos and relaxation",
-          tags: ["fallback", "nature", "views", "recommended"],
-          isRecommended: true,
-          rating: 4.8,
-        },
-      ]
-    } finally {
-      setIsLoadingPlaces(false)
+      console.error("Error fetching nearby places:", error)
+      return []
     }
   }, [])
 
@@ -800,13 +733,13 @@ export default function PINITApp() {
       console.log("📸 Fetching location photo...")
       
       // Use our API route instead of calling Google Maps directly
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=1000`)
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
       
-      if (!response.ok) {
+      if (!photoResponse.ok) {
         throw new Error("Failed to fetch location data")
       }
 
-      const data = await response.json()
+      const data = await photoResponse.json()
 
       if (data.results && data.results.length > 0) {
         // Find the first place with photos
