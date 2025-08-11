@@ -141,7 +141,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
         position: "absolute",
         left: `${sticker.x}%`, // Use percentage positioning to match stored values
         top: `${sticker.y}%`, // Use percentage positioning to match stored values
-        transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`, // Center the sticker and apply transformations
+        transform: `translate(-50%, -50%)`, // Only center the sticker, no scale/rotation here
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
@@ -149,11 +149,30 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
         zIndex: isDragging ? 1000 : 1,
         padding: "20px", // Bigger touch area around sticker
         margin: "-20px", // Compensate for padding so sticker position stays the same
+        // Ensure consistent sizing
+        width: "96px",
+        height: "96px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Sticker Image with Scale and Rotation */}
+      <img
+        src={sticker.emoji}
+        alt={sticker.name}
+        style={{
+          width: "100%",
+          height: "100%",
+          transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`, // Apply scale and rotation to the image itself
+          transformOrigin: "center center", // Ensure transformations happen from center
+          pointerEvents: "none", // Prevent image from interfering with touch events
+        }}
+      />
+      
       {/* X button for removal - Only show when not locked */}
       {!stickersLocked && (
         <button
@@ -226,27 +245,6 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
         </div>
       )}
       
-      <img 
-        src={sticker.emoji} 
-        alt={sticker.name}
-        style={{ 
-          width: "96px", 
-          height: "96px", 
-          objectFit: "contain",
-          userSelect: "none",
-          pointerEvents: "none"
-        }} 
-        loading="lazy"
-        onError={(e) => {
-          // Fallback to emoji if image fails to load
-          const target = e.target as HTMLImageElement
-          target.style.display = 'none'
-          const emoji = document.createElement('div')
-          emoji.textContent = '🎯'
-          emoji.style.cssText = 'width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; font-size: 48px; user-select: none; pointer-events: none;'
-          target.parentNode?.appendChild(emoji)
-        }}
-      />
     </div>
   )
 }
