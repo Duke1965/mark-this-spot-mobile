@@ -58,7 +58,15 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
     if (e.touches.length === 1) {
       // Single finger - drag
       const touch = e.touches[0]
-      setStartPos({ x: touch.clientX - sticker.x, y: touch.clientY - sticker.y })
+      // Find the photo container using the data attribute
+      const photoContainer = e.currentTarget.closest('[data-photo-container="true"]')
+      const rect = photoContainer?.getBoundingClientRect()
+      if (rect) {
+        // Convert touch position to percentage relative to photo container
+        const touchX = ((touch.clientX - rect.left) / rect.width) * 100
+        const touchY = ((touch.clientY - rect.top) / rect.height) * 100
+        setStartPos({ x: touchX - sticker.x, y: touchY - sticker.y })
+      }
       setIsDragging(true)
     } else if (e.touches.length === 2) {
       // Two fingers - scale and rotate
@@ -74,10 +82,32 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
     if (e.touches.length === 1 && isDragging) {
       // Single finger drag
       const touch = e.touches[0]
-      onUpdate({
-        x: touch.clientX - startPos.x,
-        y: touch.clientY - startPos.y
-      })
+      // Find the photo container using the data attribute
+      const photoContainer = e.currentTarget.closest('[data-photo-container="true"]')
+      const rect = photoContainer?.getBoundingClientRect()
+      if (rect) {
+        // Convert touch position to percentage relative to photo container
+        const touchX = ((touch.clientX - rect.left) / rect.width) * 100
+        const touchY = ((touch.clientY - rect.top) / rect.height) * 100
+        
+        // Calculate new position as percentage
+        const newX = Math.max(0, Math.min(100, touchX - startPos.x))
+        const newY = Math.max(0, Math.min(100, touchY - startPos.y))
+        
+        console.log("🎯 Touch position update:", { 
+          touchX, 
+          touchY, 
+          startPos, 
+          newX, 
+          newY, 
+          rect: { width: rect.width, height: rect.height }
+        })
+        
+        onUpdate({
+          x: newX,
+          y: newY
+        })
+      }
     } else if (e.touches.length === 2) {
       // Two finger scale and rotate simultaneously
       const currentDistance = getDistance(e.touches)
@@ -109,9 +139,9 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
     <div
       style={{
         position: "absolute",
-        left: sticker.x,
-        top: sticker.y,
-        transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+        left: `${sticker.x}%`, // Use percentage positioning to match stored values
+        top: `${sticker.y}%`, // Use percentage positioning to match stored values
+        transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`, // Center the sticker and apply transformations
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
@@ -427,12 +457,25 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
         // Draw stickers with corrected positioning
         stickers.forEach(sticker => {
+          console.log("🎨 Rendering sticker:", { 
+            id: sticker.id, 
+            x: sticker.x, 
+            y: sticker.y, 
+            scale: sticker.scale, 
+            rotation: sticker.rotation,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height
+          })
+          
           const stickerImg = new Image()
           stickerImg.crossOrigin = 'anonymous'
           
           stickerImg.onload = () => {
-            // Use the exact same positioning logic as the editor
-            // The editor uses percentage positioning, so we need to convert to pixels
+            // CRITICAL FIX: Use the exact same positioning logic as the editor
+            // The editor shows stickers positioned relative to the photo container
+            // We need to maintain the same visual positioning when rendering
+            
+            // Calculate sticker position as percentage of the canvas dimensions
             const x = (sticker.x / 100) * canvas.width
             const y = (sticker.y / 100) * canvas.height
             
@@ -446,9 +489,12 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             ctx.scale(sticker.scale, sticker.scale)
             ctx.rotate((sticker.rotation * Math.PI) / 180)
             
-            // Draw sticker centered (same size as editor)
+            // CRITICAL FIX: Use the same sticker size as in the editor
+            // The editor uses 96px base size, maintain this exactly
             const stickerWidth = 96 * sticker.scale
             const stickerHeight = 96 * sticker.scale
+            
+            // Draw sticker centered at the calculated position
             ctx.drawImage(stickerImg, -stickerWidth/2, -stickerHeight/2, stickerWidth, stickerHeight)
             
             // Restore context
@@ -609,6 +655,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             touchAction: "none",
             transition: "all 0.3s ease", // Smooth transition between modes
           }}
+          data-photo-container="true" // Identifier for sticker positioning
         >
           {mediaType === "photo" ? (
         <img 
@@ -639,16 +686,17 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           <DraggableSticker
             key={sticker.id}
             sticker={sticker}
-              onUpdate={(updates) => {
-                setStickers(prevStickers => prevStickers.map(s => 
-                  s.id === sticker.id ? { ...s, ...updates } : s
-                ))
-              }}
-              onRemove={() => {
-                removeSticker(sticker.id)
-              }}
-              isActive={!stickersLocked} // Disable interactions when locked
-              stickersLocked={stickersLocked}
+            onUpdate={(updates) => {
+              console.log("🎯 Sticker update:", { stickerId: sticker.id, updates, currentSticker: sticker })
+              setStickers(prevStickers => prevStickers.map(s => 
+                s.id === sticker.id ? { ...s, ...updates } : s
+              ))
+            }}
+            onRemove={() => {
+              removeSticker(sticker.id)
+            }}
+            isActive={!stickersLocked} // Disable interactions when locked
+            stickersLocked={stickersLocked}
           />
         ))}
         </div>
