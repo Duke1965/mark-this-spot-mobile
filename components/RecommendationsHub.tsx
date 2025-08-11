@@ -132,10 +132,84 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
   // REMOVED: generateAIRecommendations and generateCommunityRecommendations functions
   // Now only real user pins are used
 
+  // Test function to create sample pins for testing
+  const createTestPins = useCallback(() => {
+    console.log("🧪 Creating test pins for debugging...")
+    
+    // Create some test AI recommendations
+    const testAIRecs: Recommendation[] = [
+      {
+        id: "ai-test-1",
+        name: "🤖 AI Coffee Spot",
+        description: "AI discovered this hidden gem based on your preferences",
+        location: {
+          lat: (userLocation?.lat || -33.8788) + 0.001,
+          lng: (userLocation?.lng || 18.6188) + 0.001
+        },
+        rating: 4.7,
+        type: "ai",
+        distance: 0.1,
+        photo: "/placeholder.svg?height=200&width=200&text=AI%20Coffee",
+        pinnedBy: "AI Assistant"
+      },
+      {
+        id: "ai-test-2", 
+        name: "🤖 AI Scenic View",
+        description: "Perfect photo opportunity recommended by AI",
+        location: {
+          lat: (userLocation?.lat || -33.8788) - 0.002,
+          lng: (userLocation?.lng || 18.6188) + 0.002
+        },
+        rating: 4.9,
+        type: "ai",
+        distance: 0.2,
+        photo: "/placeholder.svg?height=200&width=200&text=AI%20View",
+        pinnedBy: "AI Assistant"
+      }
+    ]
+    
+    // Create some test community pins
+    const testCommunityRecs: Recommendation[] = [
+      {
+        id: "community-test-1",
+        name: "👥 Local Market",
+        description: "Popular local market recommended by community",
+        location: {
+          lat: (userLocation?.lat || -33.8788) + 0.003,
+          lng: (userLocation?.lng || 18.6188) - 0.001
+        },
+        rating: 4.3,
+        type: "community",
+        distance: 0.3,
+        photo: "/placeholder.svg?height=200&width=200&text=Community%20Market",
+        pinnedBy: "Local User"
+      }
+    ]
+    
+    const allTestRecs = [...testAIRecs, ...testCommunityRecs]
+    console.log("🧪 Test pins created:", allTestRecs)
+    
+    // Add to recommendations
+    setRecommendations(prev => [...prev, ...allTestRecs])
+    
+    // Force clustering update
+    setTimeout(() => {
+      const clusters = clusterRecommendations([...recommendations, ...allTestRecs])
+      setClusteredPins(clusters)
+      console.log("🧪 Test pins clustered:", clusters)
+    }, 100)
+  }, [userLocation, recommendations, clusterRecommendations])
+
   // Initialize recommendations and user location
   useEffect(() => {
     const initializeRecommendations = async () => {
       try {
+        // DEBUG: Log all received pins
+        console.log("🗺️ RecommendationsHub - All pins received:", pins)
+        console.log("🗺️ RecommendationsHub - Pins with isRecommended:", pins.filter(pin => pin.isRecommended))
+        console.log("🗺️ RecommendationsHub - Pins with isAISuggestion:", pins.filter(pin => pin.isAISuggestion))
+        console.log("🗺️ RecommendationsHub - Total pins count:", pins.length)
+        
         // Get user location
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
@@ -165,6 +239,11 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
                 }))
+              
+              // DEBUG: Log the conversion process
+              console.log("🗺️ Pin recommendations created:", pinRecommendations)
+              console.log("🗺️ AI recommendations count:", pinRecommendations.filter(r => r.type === "ai").length)
+              console.log("🗺️ Community recommendations count:", pinRecommendations.filter(r => r.type === "community").length)
               
               // NO MORE DUMMY RECOMMENDATIONS - Only real user pins
               console.log(`🗺️ Loaded ${pinRecommendations.length} real user recommendations`)
@@ -199,6 +278,11 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
                 }))
+              
+              // DEBUG: Log the conversion process
+              console.log("🗺️ Pin recommendations created (fallback):", pinRecommendations)
+              console.log("🗺️ AI recommendations count (fallback):", pinRecommendations.filter(r => r.type === "ai").length)
+              console.log("🗺️ Community recommendations count (fallback):", pinRecommendations.filter(r => r.type === "community").length)
               
               // NO MORE DUMMY RECOMMENDATIONS - Only real user pins
               console.log(`🗺️ Loaded ${pinRecommendations.length} real user recommendations (fallback location)`)
@@ -711,7 +795,24 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
           <ArrowLeft size={24} />
         </button>
         <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>Recommendations</h1>
-        <div style={{ width: "48px" }} />
+        <button
+          onClick={createTestPins}
+          style={{
+            padding: "0.5rem 0.75rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: "rgba(255,255,255,0.2)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.25rem",
+          }}
+          title="Create test pins for debugging"
+        >
+          🧪 Test
+        </button>
       </div>
 
       {/* View Mode Toggle */}
