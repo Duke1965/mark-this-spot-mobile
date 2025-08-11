@@ -385,271 +385,69 @@ export default function PINITApp() {
     }
   }
 
-  // Google Places API Integration
-  const fetchNearbyPlaces = useCallback(async (lat: number, lng: number): Promise<PinData[]> => {
+  // ENHANCED: Real Google Places Integration
+  const findNearbyPins = useCallback(async () => {
+    if (!location) return
+
+    console.log("🌐 Discovering real nearby places...")
+    
     try {
-      const types = ["restaurant", "cafe", "tourist_attraction", "park", "museum", "shopping_mall"]
-      const radius = 5000 // Increased from 1000 to 5000 (5km radius instead of 1km)
+      // Use our API route to avoid CORS issues
+      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
       
-      // Try to get real places from Google Places API
-      if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-        const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-          "|"
-        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        
-        const response = await fetch(placesUrl)
-        const data = await response.json()
-        
-        if (data.results && data.results.length > 0) {
-          return data.results.map((place: any) => ({
-            id: place.place_id,
-            latitude: place.geometry.location.lat,
-            longitude: place.geometry.location.lng,
-            locationName: place.vicinity || place.name,
-            mediaUrl: place.photos?.[0]?.photo_reference
-              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-              : null,
-            mediaType: "photo",
-            audioUrl: null,
-            timestamp: new Date().toISOString(),
-            title: place.name,
-            description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
-            tags: place.types || [],
-            isRecommended: true,
-            googlePlaceId: place.place_id,
-            rating: place.rating,
-            priceLevel: place.price_level,
-            types: place.types,
-            isAISuggestion: true,
-          }))
-        }
+      if (!response.ok) {
+        throw new Error("Failed to fetch places from API")
       }
       
-      // Fallback to mock places with increased radius
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}`
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}`)
       const data = await response.json()
+      const realPlaces = data.results || []
       
-      if (data.results && data.results.length > 0) {
-        return data.results.map((place: any) => ({
-          id: place.place_id,
-          latitude: place.geometry.location.lat,
-          longitude: place.geometry.location.lng,
-          locationName: place.vicinity || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-          mediaUrl: null,
-          mediaType: null,
-          audioUrl: null,
-          timestamp: new Date().toISOString(),
-          title: place.name,
-          description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
-          tags: place.types || [],
-          isRecommended: true,
-          googlePlaceId: place.place_id,
-          rating: place.rating,
-          priceLevel: place.price_level,
-          types: place.types,
-          isAISuggestion: true,
-        }))
-      }
+      console.log("🌐 Found", realPlaces.length, "places via API route")
       
-      return []
-    } catch (error) {
-      console.error("Error fetching nearby places:", error)
-      return []
-    }
-  }, [])
-
-  // Quick Pin Function (Shazam-like) - ENHANCED WITH SPEED-BASED LOCATION ADJUSTMENT
-  const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
-
-    setIsQuickPinning(true)
-    setLastActivity("quick-pin")
-
-    try {
-      const currentLocation = await getCurrentLocation()
-
-      // 🚗 SPEED-BASED LOCATION ADJUSTMENT
-      let adjustedLatitude = currentLocation.latitude
-      let adjustedLongitude = currentLocation.longitude
-
-      // If user is moving, adjust the pin location backwards
-      if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
-        console.log("🚗 User is moving at", motionData.speed.toFixed(1), "km/h - adjusting pin location...")
-        
-        // Estimate time passed since user noticed the spot (5-10 seconds)
-        const timePassedSeconds = 7 // Average reaction time + app opening time
-        const timePassedHours = timePassedSeconds / 3600
-        
-        // Calculate distance traveled backwards
-        const distanceTraveledKm = motionData.speed * timePassedHours
-        
-        // Convert distance to coordinate changes (approximate)
-        // 1 degree latitude ≈ 111 km
-        // 1 degree longitude ≈ 111 km * cos(latitude)
-        const latChange = distanceTraveledKm / 111
-        const lngChange = distanceTraveledKm / (111 * Math.cos(currentLocation.latitude * Math.PI / 180))
-        
-        // Adjust coordinates backwards (opposite to travel direction)
-        // For simplicity, we'll adjust based on the last known direction
-        if (motionData.lastPosition) {
-          const latDiff = currentLocation.latitude - motionData.lastPosition.latitude
-          const lngDiff = currentLocation.longitude - motionData.lastPosition.longitude
-          
-          // Calculate direction and apply adjustment
-          const direction = Math.atan2(lngDiff, latDiff)
-          adjustedLatitude = currentLocation.latitude - (latChange * Math.cos(direction))
-          adjustedLongitude = currentLocation.longitude - (lngChange * Math.sin(direction))
-          
-          console.log("📍 Adjusted pin location:", {
-            original: `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`,
-            adjusted: `${adjustedLatitude.toFixed(6)}, ${adjustedLongitude.toFixed(6)}`,
-            distanceBack: (distanceTraveledKm * 1000).toFixed(0) + "m",
-            speed: motionData.speed.toFixed(1) + " km/h"
-          })
-        }
-      } else {
-        console.log("🚶 User is stationary or moving slowly - using current location")
-      }
-
-      // Get real location name from the ADJUSTED location
-      const realLocationName = await getRealLocationName(adjustedLatitude, adjustedLongitude)
-
-      // Generate AI location name (simplified for demo)
-      const locationNames = [
-        "Beautiful Scenic Spot",
-        "Hidden Gem Location",
-        "Amazing Discovery",
-        "Perfect Photo Spot",
-        "Memorable Place",
-        "Stunning Viewpoint",
-      ]
-      const aiLocationName = locationNames[Math.floor(Math.random() * locationNames.length)]
-
-      // Fetch location photo for the ADJUSTED location
-      const locationPhoto = await fetchLocationPhoto(adjustedLatitude, adjustedLongitude)
-
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: adjustedLatitude,  // Use adjusted coordinates
-        longitude: adjustedLongitude, // Use adjusted coordinates
-        locationName: realLocationName,
-        mediaUrl: locationPhoto,
-        mediaType: locationPhoto ? "photo" : null,
+      // Transform API results to PinData format
+      const transformedPlaces = realPlaces.map((place: any) => ({
+        id: place.place_id,
+        latitude: place.geometry.location.lat,
+        longitude: place.geometry.location.lng,
+        locationName: place.vicinity || place.name,
+        mediaUrl: null,
+        mediaType: null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: `📍 ${aiLocationName}`,
-        description: `Amazing discovery! Perfect spot for photos and memories. Worth stopping to explore this hidden gem.`,
-        tags: ["quick-pin", "ai-generated", motionData.isMoving ? "speed-adjusted" : "stationary"],
-      }
-
-      // Set the pin for results page instead of immediately adding to library
-      setCurrentResultPin(newPin)
-      setCurrentScreen("results")
-
-      console.log("📍 Quick pin created with speed adjustment:", newPin)
+        title: place.name,
+        description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
+        tags: place.types || [],
+        isRecommended: true,
+        googlePlaceId: place.place_id,
+        rating: place.rating,
+        priceLevel: place.price_level,
+        types: place.types,
+        isAISuggestion: true,
+      }))
+      
+      setNearbyPins(transformedPlaces)
+      setShowNearbyPins(true)
+      setLastActivity("discovery")
+      
     } catch (error) {
-      console.error("❌ Failed to create quick pin:", error)
-    } finally {
-      setIsQuickPinning(false)
+      console.error("🌐 Error fetching nearby places:", error)
+      // Don't set error state, just log it
     }
-  }, [getCurrentLocation, getRealLocationName, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+  }, [location])
 
-  const handleCameraCapture = useCallback(
-    async (mediaUrl: string, type: "photo" | "video") => {
-      if (!location) return
+  // Auto-fetch nearby places when recommendations screen is opened
+  useEffect(() => {
+    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
+      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
+      findNearbyPins()
+    }
+  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
 
-      // Get real location name
-      const realLocationName = await getRealLocationName(location.latitude, location.longitude)
-
-      setCapturedMedia({
-        url: mediaUrl,
-        type,
-        location: realLocationName,
-      })
-
-      setLastActivity(`camera-${type}`)
-      // Go to editor first
-      setCurrentScreen("editor")
-    },
-    [location, getRealLocationName],
-  )
-
-  const handlePlatformSelect = useCallback((platform: string) => {
-    setSelectedPlatform(platform)
-    // Go to content editor for stickers and text
-    setCurrentScreen("content-editor")
-  }, [])
-
-  const handleSavePin = useCallback(
-    async (postcardData?: any) => {
-      if (!capturedMedia || !location) return
-
-      // Fetch location photo for the pin
-      const locationPhoto = await fetchLocationPhoto(location.latitude, location.longitude)
-
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: location.latitude,
-        longitude: location.longitude,
-        locationName: capturedMedia.location,
-        mediaUrl: capturedMedia.url, // Keep the captured media as primary
-        mediaType: capturedMedia.type,
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: `${capturedMedia.type === "photo" ? "📸" : "🎥"} ${selectedPlatform} Post`,
-        description: postcardData?.text || "",
-        tags: ["social-media", selectedPlatform],
-        // Store location photo as additional metadata for future use
-        googlePlaceId: locationPhoto ? "location-photo" : undefined,
-      }
-
-      addPin(newPin)
-      console.log("💾 Pin saved:", newPin)
-
-      setLastActivity("pin-saved")
-      // Reset state and go back to map
-      setCapturedMedia(null)
-      setSelectedPlatform("")
-      setCurrentScreen("map")
-    },
-    [capturedMedia, location, selectedPlatform, addPin],
-  )
-
-
-
-  // Handle proactive AI suggestions
-  const handleProactiveSuggestion = useCallback(
-    (action: string, data?: any) => {
-      console.log("🤖 Proactive AI suggestion:", action, data)
-
-      switch (action) {
-        case "quick-pin":
-          handleQuickPin()
-          break
-        case "open-camera":
-          setCameraMode(data?.mode || "photo")
-          setCurrentScreen("camera")
-          break
-        case "create-story":
-          setCurrentScreen("story-builder")
-          break
-        case "discovery-mode":
-          setDiscoveryMode(true)
-          findNearbyPins()
-          break
-        case "suggest-pin":
-          // Show recommendations instead of AI assistant
-          setCurrentScreen("recommendations")
-          break
-        default:
-          console.log("Unknown proactive suggestion:", action)
-      }
-
-      setLastActivity(`proactive-${action}`)
-    },
-    [handleQuickPin],
-  )
+  // Debug: Monitor recommendations state changes
+  useEffect(() => {
+    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
+    console.log("🤖 Recommendations content:", recommendations)
+  }, [recommendations])
 
   // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
   const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
@@ -678,11 +476,10 @@ export default function PINITApp() {
   const handleRecommendationAction = useCallback(
     (action: string, data?: any) => {
       console.log("🎯 Taking recommendation action:", action, data)
-      handleProactiveSuggestion(action, data)
       // Go back to map after action
       setCurrentScreen("map")
     },
-    [handleProactiveSuggestion],
+    [],
   )
 
   // Handle recommendation dismiss
@@ -695,57 +492,82 @@ export default function PINITApp() {
     setRecommendations((prev) => prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r)))
   }, [])
 
-  const handleRecommendPin = useCallback(
-    (pinId: string, isRecommended: boolean) => {
-      const updatedPins = pins.map((pin) =>
-        pin.id === pinId
-          ? { ...pin, isRecommended, tags: [...(pin.tags || []), ...(isRecommended ? ["recommended"] : [])] }
-          : pin,
-      )
-      // Update pins in storage
-      localStorage.setItem("pinit-pins", JSON.stringify(updatedPins))
+  // Handle proactive AI suggestions
+  const handleProactiveSuggestion = useCallback(
+    (action: string, data?: any) => {
+      console.log("🤖 Proactive AI suggestion:", action, data)
+
+      switch (action) {
+        case "suggest-pin":
+          // Show recommendations instead of AI assistant
+          setCurrentScreen("recommendations")
+          break
+        default:
+          console.log("Unknown proactive suggestion:", action)
+      }
+
+      setLastActivity(`proactive-${action}`)
     },
-    [pins],
+    [],
   )
 
-  const generateShareableLink = useCallback((pin: PinData) => {
-    const baseUrl = window.location.origin
-    const pinData = encodeURIComponent(
-      JSON.stringify({
-        id: pin.id,
-        title: pin.title,
-        lat: pin.latitude,
-        lng: pin.longitude,
-        locationName: pin.locationName,
-      }),
-    )
-    return `${baseUrl}/shared-pin?data=${pinData}`
+  // Handle camera capture
+  const handleCameraCapture = useCallback(
+    async (mediaUrl: string, type: "photo" | "video") => {
+      if (!location) return
+
+      setCapturedMedia({
+        url: mediaUrl,
+        type,
+        location: "Camera Capture",
+      })
+
+      setLastActivity(`camera-${type}`)
+      setCurrentScreen("editor")
+    },
+    [location],
+  )
+
+  // Handle platform select
+  const handlePlatformSelect = useCallback((platform: string) => {
+    setSelectedPlatform(platform)
+    setCurrentScreen("content-editor")
   }, [])
 
-  // ENHANCED: Real Google Places Integration
-  const findNearbyPins = useCallback(async () => {
-    if (!location) return
+  // Handle quick pin
+  const handleQuickPin = useCallback(async () => {
+    if (isQuickPinning) return
 
-    console.log("🌐 Discovering real nearby places...")
-    const realPlaces = await fetchNearbyPlaces(location.latitude, location.longitude)
-    setNearbyPins(realPlaces)
-    setShowNearbyPins(true)
-    setLastActivity("discovery")
-  }, [location, fetchNearbyPlaces])
+    setIsQuickPinning(true)
+    setLastActivity("quick-pin")
 
-  // Auto-fetch nearby places when recommendations screen is opened
-  useEffect(() => {
-    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
-      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
-      findNearbyPins()
+    try {
+      const currentLocation = await getCurrentLocation()
+      
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        locationName: "Quick Pin Location",
+        mediaUrl: null,
+        mediaType: null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: "📍 Quick Pin",
+        description: "Quick pin created for this location",
+        tags: ["quick-pin"],
+      }
+
+      setCurrentResultPin(newPin)
+      setCurrentScreen("results")
+
+      console.log("📍 Quick pin created:", newPin)
+    } catch (error) {
+      console.error("❌ Failed to create quick pin:", error)
+    } finally {
+      setIsQuickPinning(false)
     }
-  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
-
-  // Debug: Monitor recommendations state changes
-  useEffect(() => {
-    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
-    console.log("🤖 Recommendations content:", recommendations)
-  }, [recommendations])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen])
 
   // NEW: Fetch location photo for pins
   const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
@@ -1233,7 +1055,10 @@ export default function PINITApp() {
                 color: "#EF4444",
                 isAISuggestion: true,
                 timestamp: Date.now(),
-                category: "Test"
+                category: "Test",
+                latitude: userLocation?.latitude ? userLocation.latitude + 0.01 : -33.8197, // 1km north of user
+                longitude: userLocation?.longitude ? userLocation.longitude + 0.01 : 18.6386, // 1km east of user
+                rating: 4.5
               },
               {
                 id: `test-${Date.now()}-2`,
@@ -1245,7 +1070,10 @@ export default function PINITApp() {
                 color: "#EF4444",
                 isAISuggestion: true,
                 timestamp: Date.now(),
-                category: "Test"
+                category: "Test",
+                latitude: userLocation?.latitude ? userLocation.latitude - 0.015 : -33.8447, // 1.5km south of user
+                longitude: userLocation?.longitude ? userLocation.longitude - 0.01 : 18.6186, // 1km west of user
+                rating: 4.8
               }
             ]
             handleAIRecommendations(testRecommendations)
