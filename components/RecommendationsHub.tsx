@@ -103,7 +103,7 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
           const totalRating = cluster.recommendations.reduce((sum, r) => sum + (r.rating || 0), 0)
           cluster.averageRating = totalRating / cluster.recommendations.length
           
-          // Update type (mixed if different types)
+          // Update type if mixed
           if (cluster.type !== rec.type) {
             cluster.type = "mixed"
           }
@@ -113,141 +113,24 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
         }
       }
       
-      // Create new cluster if not added to existing one
       if (!addedToCluster) {
-        const newCluster: ClusteredPin = {
-          id: `cluster-${Date.now()}-${Math.random()}`,
-          location: rec.location,
+        // Create new cluster
+        clusters.push({
+          id: `cluster-${clusters.length}`,
+          location: { lat: rec.location.lat, lng: rec.location.lng },
           recommendations: [rec],
           count: 1,
           averageRating: rec.rating || 0,
           type: rec.type
-        }
-        clusters.push(newCluster)
+        })
       }
     })
     
     return clusters
   }, [])
 
-  // Generate AI recommendations based on user's pin history
-  const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
-    const aiRecommendations: Recommendation[] = [
-      {
-        id: "ai-1",
-        name: "Hidden Gem Café",
-        description: "Cozy spot perfect for your coffee-loving style",
-        location: { lat: lat + 0.002, lng: lng + 0.001 },
-        rating: 4.7,
-        type: "ai",
-        distance: 0.3,
-        photo: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop"
-      },
-      {
-        id: "ai-2", 
-        name: "Scenic Overlook",
-        description: "Perfect sunset spot based on your nature pins",
-        location: { lat: lat - 0.003, lng: lng + 0.002 },
-        rating: 4.9,
-        type: "ai",
-        distance: 0.5,
-        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
-      },
-      {
-        id: "ai-3",
-        name: "Artisan Market",
-        description: "Local crafts and food - matches your cultural interests",
-        location: { lat: lat + 0.001, lng: lng - 0.002 },
-        rating: 4.5,
-        type: "ai",
-        distance: 0.2,
-        photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop"
-      },
-      {
-        id: "ai-4",
-        name: "Historic Walking Trail",
-        description: "Perfect for your adventure-seeking style",
-        location: { lat: lat - 0.001, lng: lng - 0.003 },
-        rating: 4.6,
-        type: "ai",
-        distance: 0.4,
-        photo: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop"
-      },
-      {
-        id: "ai-5",
-        name: "Local Brewery",
-        description: "Craft beers and atmosphere you'll love",
-        location: { lat: lat + 0.003, lng: lng + 0.003 },
-        rating: 4.4,
-        type: "ai",
-        distance: 0.6,
-        photo: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&h=300&fit=crop"
-      }
-    ]
-    return aiRecommendations
-  }, [])
-
-  // Generate community recommendations (simulated from other PINIT users)
-  const generateCommunityRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
-    const communityRecommendations: Recommendation[] = [
-      {
-        id: "community-1",
-        name: "Local Favorites Spot",
-        description: "Recommended by Sarah M. - amazing atmosphere!",
-        location: { lat: lat + 0.004, lng: lng - 0.001 },
-        rating: 4.8,
-        type: "community",
-        distance: 0.7,
-        photo: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop",
-        pinnedBy: "Sarah M."
-      },
-      {
-        id: "community-2",
-        name: "Hidden Garden",
-        description: "Mike says: Perfect for quiet moments",
-        location: { lat: lat - 0.002, lng: lng + 0.004 },
-        rating: 4.6,
-        type: "community",
-        distance: 0.8,
-        photo: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
-        pinnedBy: "Mike"
-      },
-      {
-        id: "community-3",
-        name: "Street Art Corner",
-        description: "Emma's pick: Instagram-worthy murals everywhere",
-        location: { lat: lat + 0.001, lng: lng + 0.005 },
-        rating: 4.3,
-        type: "community",
-        distance: 0.9,
-        photo: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
-        pinnedBy: "Emma"
-      },
-      {
-        id: "community-4",
-        name: "Sunset Beach Walk",
-        description: "David's discovery: Best sunset views in the area",
-        location: { lat: lat - 0.005, lng: lng - 0.002 },
-        rating: 4.9,
-        type: "community",
-        distance: 1.1,
-        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
-        pinnedBy: "David"
-      },
-      {
-        id: "community-5",
-        name: "Local Craft Market",
-        description: "Lisa's find: Unique handmade souvenirs",
-        location: { lat: lat + 0.003, lng: lng - 0.004 },
-        rating: 4.4,
-        type: "community",
-        distance: 1.2,
-        photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
-        pinnedBy: "Lisa"
-      }
-    ]
-    return communityRecommendations
-  }, [])
+  // REMOVED: generateAIRecommendations and generateCommunityRecommendations functions
+  // Now only real user pins are used
 
   // Initialize recommendations and user location
   useEffect(() => {
@@ -262,7 +145,7 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
               
               setUserLocation({ lat: latitude, lng: longitude })
               
-              // Convert pins to recommendations
+              // Convert pins to recommendations - ONLY REAL USER PINS
               const pinRecommendations = pins
                 .filter(pin => pin.isRecommended)
                 .map(pin => ({
@@ -283,11 +166,9 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
                   pinnedBy: "user"
                 }))
               
-              // Generate additional AI recommendations based on location
-              const aiRecs = generateAIRecommendations(latitude, longitude)
-              const communityRecs = generateCommunityRecommendations(latitude, longitude)
-              
-              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
+              // NO MORE DUMMY RECOMMENDATIONS - Only real user pins
+              console.log(`🗺️ Loaded ${pinRecommendations.length} real user recommendations`)
+              setRecommendations(pinRecommendations)
               setIsLoading(false)
             },
             (error) => {
@@ -298,7 +179,7 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
               
               setUserLocation({ lat: fallbackLat, lng: fallbackLng })
               
-              // Convert pins to recommendations
+              // Convert pins to recommendations - ONLY REAL USER PINS
               const pinRecommendations = pins
                 .filter(pin => pin.isRecommended)
                 .map(pin => ({
@@ -319,10 +200,9 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
                   pinnedBy: "user"
                 }))
               
-              const aiRecs = generateAIRecommendations(fallbackLat, fallbackLng)
-              const communityRecs = generateCommunityRecommendations(fallbackLat, fallbackLng)
-              
-              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
+              // NO MORE DUMMY RECOMMENDATIONS - Only real user pins
+              console.log(`🗺️ Loaded ${pinRecommendations.length} real user recommendations (fallback location)`)
+              setRecommendations(pinRecommendations)
               setIsLoading(false)
             },
             {
@@ -344,7 +224,7 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
     }
 
     initializeRecommendations()
-  }, [generateAIRecommendations, generateCommunityRecommendations, pins])
+  }, [pins]) // Removed dummy generation functions from dependencies
 
   // Apply clustering when recommendations change
   useEffect(() => {
@@ -355,16 +235,26 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
     }
   }, [recommendations, clusterRecommendations])
 
+  // Update map markers when clustered pins change
+  useEffect(() => {
+    if (mapInstanceRef.current && clusteredPins.length > 0) {
+      console.log("🗺️ Updating map markers with clustered pins:", clusteredPins.length)
+      addRecommendationMarkers(mapInstanceRef.current)
+    }
+  }, [clusteredPins])
+
   // Load Google Maps API
   useEffect(() => {
     if (!userLocation || !mapRef.current) return
 
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps) {
+        console.log("🗺️ Google Maps already loaded, initializing...")
         initializeMap()
         return
       }
 
+      console.log("🗺️ Loading Google Maps API...")
       const script = document.createElement("script")
       script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
       script.async = true
@@ -375,6 +265,7 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
       }
       script.onerror = () => {
         console.error("🗺️ Failed to load Google Maps API")
+        setMapError("Failed to load Google Maps")
         showBeautifulFallback()
       }
       document.head.appendChild(script)
@@ -427,41 +318,6 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
       } catch (error) {
         console.error("🗺️ Error initializing map:", error)
         // If Google Maps fails, show beautiful fallback
-        showBeautifulFallback()
-      }
-    }
-
-    const addRecommendationMarkers = (map: any) => {
-      try {
-        // Clear existing markers
-        markersRef.current.forEach(marker => marker.setMap(null))
-        markersRef.current = []
-
-        recommendations.forEach((rec) => {
-          const marker = new window.google.maps.Marker({
-            position: { lat: rec.location.lat, lng: rec.location.lng },
-            map: map,
-            title: rec.name,
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
-              fillOpacity: 1,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 2
-            }
-          })
-
-          // Add click listener
-          marker.addListener("click", () => {
-            handlePinClick(rec)
-          })
-
-          markersRef.current.push(marker)
-        })
-      } catch (error) {
-        console.error("🗺️ Error adding markers:", error)
-        // If markers fail, show fallback
         showBeautifulFallback()
       }
     }
@@ -631,6 +487,92 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
         
         setMapLoaded(true)
         setMapError(null) // Clear any previous errors
+      }
+    }
+
+    // Function to add recommendation markers to the map
+    const addRecommendationMarkers = (map: any) => {
+      try {
+        // Clear existing markers
+        markersRef.current.forEach(marker => marker.setMap(null))
+        markersRef.current = []
+
+        // Use clustered pins instead of individual recommendations
+        clusteredPins.forEach((cluster) => {
+          if (cluster.count === 1) {
+            // Single pin - show individual marker
+            const rec = cluster.recommendations[0]
+            const marker = new window.google.maps.Marker({
+              position: { lat: cluster.location.lat, lng: cluster.location.lng },
+              map: map,
+              title: rec.name,
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+                fillOpacity: 1,
+                strokeColor: "#FFFFFF",
+                strokeWeight: 2
+              }
+            })
+
+            // Add click listener
+            marker.addListener("click", () => {
+              handlePinClick(rec)
+            })
+
+            markersRef.current.push(marker)
+          } else {
+            // Multiple pins - show cluster marker with count
+            const marker = new window.google.maps.Marker({
+              position: { lat: cluster.location.lat, lng: cluster.location.lng },
+              map: map,
+              title: `${cluster.count} recommendations`,
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 12, // Slightly larger for clusters
+                fillColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
+                fillOpacity: 1,
+                strokeColor: "#FFFFFF",
+                strokeWeight: 3
+              }
+            })
+
+            // Add click listener for cluster
+            marker.addListener("click", () => {
+              handleClusterClick(cluster.id)
+            })
+
+            markersRef.current.push(marker)
+
+            // Add count label on top of cluster marker
+            const countLabel = new window.google.maps.Marker({
+              position: { lat: cluster.location.lat, lng: cluster.location.lng },
+              map: map,
+              title: `${cluster.count} recommendations`,
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: "#FFFFFF",
+                fillOpacity: 1,
+                strokeColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
+                strokeWeight: 2
+              },
+              label: {
+                text: cluster.count.toString(),
+                color: "#1F2937",
+                fontSize: "12px",
+                fontWeight: "bold"
+              }
+            })
+
+            markersRef.current.push(countLabel)
+          }
+        })
+      } catch (error) {
+        console.error("🗺️ Error adding markers:", error)
+        // If markers fail, show fallback
+        showBeautifulFallback()
       }
     }
 
