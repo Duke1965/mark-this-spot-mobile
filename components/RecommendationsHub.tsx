@@ -96,7 +96,10 @@ export function RecommendationsHub({
   // Clustering logic - group recommendations by location
   const clusterRecommendations = useCallback((recommendations: Recommendation[]): ClusteredPin[] => {
     const clusters: ClusteredPin[] = []
-    const CLUSTER_RADIUS = 0.001 // Very small radius for clustering (about 100m)
+    const CLUSTER_RADIUS = 0.01 // Increased from 0.001 to 0.01 (about 1km instead of 100m)
+    
+    console.log("🗺️ Clustering recommendations with radius:", CLUSTER_RADIUS, "degrees (about 1km)")
+    console.log("🗺️ Total recommendations to cluster:", recommendations.length)
     
     recommendations.forEach((rec) => {
       let addedToCluster = false
@@ -122,6 +125,7 @@ export function RecommendationsHub({
             cluster.type = "mixed"
           }
           
+          console.log("🗺️ Added to existing cluster:", rec.name, "distance:", distance.toFixed(4), "cluster count:", cluster.count)
           addedToCluster = true
           break
         }
@@ -129,15 +133,22 @@ export function RecommendationsHub({
       
       if (!addedToCluster) {
         // Create new cluster
-        clusters.push({
+        const newCluster = {
           id: `cluster-${clusters.length}`,
           location: { lat: rec.location.lat, lng: rec.location.lng },
           recommendations: [rec],
           count: 1,
           averageRating: rec.rating || 0,
           type: rec.type
-        })
+        }
+        clusters.push(newCluster)
+        console.log("🗺️ Created new cluster:", rec.name, "at", rec.location.lat.toFixed(4), rec.location.lng.toFixed(4))
       }
+    })
+    
+    console.log("🗺️ Final clustering result:", clusters.length, "clusters created")
+    clusters.forEach((cluster, index) => {
+      console.log(`🗺️ Cluster ${index + 1}:`, cluster.count, "pins, type:", cluster.type, "at", cluster.location.lat.toFixed(4), cluster.location.lng.toFixed(4))
     })
     
     return clusters
