@@ -137,15 +137,18 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         left: "50%",
         transform: "translate(-50%, -50%)",
         background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-        padding: "2rem",
+        padding: "1.5rem", // Reduced padding for mobile
         borderRadius: "1rem",
         border: "2px solid rgba(255,255,255,0.2)",
         zIndex: 1000,
         textAlign: "center",
-        minWidth: "350px",
-        maxWidth: "450px",
+        minWidth: "320px", // Reduced for mobile
+        maxWidth: "90vw", // Responsive width
+        maxHeight: "90vh", // Ensure it fits on screen
         color: "white",
         boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+        overflowY: "auto", // Enable scrolling if content is too tall
+        overflowX: "hidden", // Prevent horizontal scrolling
       }}
     >
       {/* Header */}
@@ -173,14 +176,14 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
 
       {/* Media Preview - FIXED: Proper centering and social media dimensions */}
       <div style={{ 
-        marginBottom: "1.5rem",
+        marginBottom: "1rem", // Reduced from 1.5rem
         display: "flex",
         flexDirection: "column",
         alignItems: "center"
       }}>
         <div style={{
-          width: "280px", // Instagram story width
-          height: "500px", // Instagram story height
+          width: "280px", // Instagram story width (scaled down for mobile)
+          height: "350px", // Reduced height for mobile - was 500px
           borderRadius: "0.75rem",
           overflow: "hidden",
           border: "2px solid rgba(255,255,255,0.2)",
@@ -192,11 +195,11 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         }}>
           <img
             src={mediaUrl}
-            alt="Your post"
+            alt="Your post with stickers"
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "contain", // Changed from "cover" to "contain" to show full image
+              objectFit: "contain", // Show full image including stickers
               objectPosition: "center",
             }}
           />
@@ -204,14 +207,15 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         <div style={{ 
           fontSize: "0.875rem", 
           opacity: 0.8, 
-          fontWeight: "500"
+          fontWeight: "500",
+          textAlign: "center"
         }}>
           {locationName}
         </div>
       </div>
 
       {/* Star Rating */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "1rem" }}> {/* Reduced from 1.5rem */}
         <div style={{ 
           fontSize: "0.875rem", 
           marginBottom: "0.5rem",
@@ -242,7 +246,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
       </div>
 
       {/* Review Text */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "1rem" }}> {/* Reduced from 1.5rem */}
         <div style={{ 
           fontSize: "0.875rem", 
           marginBottom: "0.5rem",
