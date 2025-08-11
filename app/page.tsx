@@ -135,6 +135,21 @@ export default function PINITApp() {
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
+  // Function to clear corrupted app state and reset to map
+  const clearAppState = useCallback(() => {
+    try {
+      localStorage.removeItem("pinit-app-state")
+      console.log("🧹 App state cleared manually")
+      setCurrentScreen("map")
+      setRecommendations([])
+      setDiscoveryMode(false)
+      setShowRecommendToggle(false)
+      setLastActivity("app-reset")
+    } catch (error) {
+      console.error("❌ Failed to clear app state:", error)
+    }
+  }, [])
+
   // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
   useEffect(() => {
     // Load saved app state on mount
@@ -144,13 +159,24 @@ export default function PINITApp() {
         const parsedState = JSON.parse(savedState)
         console.log("🔄 Restoring app state from localStorage:", parsedState)
         
-        // Restore current screen
-        if (parsedState.currentScreen) {
-          setCurrentScreen(parsedState.currentScreen)
+        // Validate and restore current screen with fallback to map
+        if (parsedState.currentScreen && 
+            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
+          // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
+          if (parsedState.currentScreen !== "camera") {
+            setCurrentScreen(parsedState.currentScreen)
+            console.log("✅ Restored screen:", parsedState.currentScreen)
+          } else {
+            console.log("⚠️ Preventing camera from opening on app start, staying on map")
+            setCurrentScreen("map")
+          }
+        } else {
+          console.log("⚠️ Invalid screen state, defaulting to map")
+          setCurrentScreen("map")
         }
         
         // Restore recommendations
-        if (parsedState.recommendations) {
+        if (parsedState.recommendations && Array.isArray(parsedState.recommendations)) {
           setRecommendations(parsedState.recommendations)
         }
         
@@ -168,9 +194,20 @@ export default function PINITApp() {
         }
         
         console.log("✅ App state restored successfully")
+      } else {
+        console.log("🆕 No saved state found, starting fresh on map")
+        setCurrentScreen("map")
       }
     } catch (error) {
       console.error("❌ Failed to restore app state:", error)
+      // Clear corrupted state and start fresh
+      try {
+        localStorage.removeItem("pinit-app-state")
+        console.log("🧹 Cleared corrupted app state")
+      } catch (clearError) {
+        console.error("❌ Failed to clear corrupted state:", clearError)
+      }
+      setCurrentScreen("map")
     }
   }, [])
 
