@@ -196,7 +196,7 @@ export function RecommendationsHub({
                   ),
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
-                }))
+                } as Recommendation))
               
               // Convert AI recommendations to the same format
               const aiRecommendationsFormatted = aiRecommendations
@@ -224,7 +224,7 @@ export function RecommendationsHub({
                     ), // Calculate actual distance
                     photo: rec.mediaUrl || undefined,
                     pinnedBy: "AI Assistant"
-                  }
+                  } as Recommendation
                 })
                 .filter((rec): rec is Recommendation => rec !== null) // Type-safe filter to remove null entries
               
@@ -269,7 +269,7 @@ export function RecommendationsHub({
                   ),
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
-                }))
+                } as Recommendation))
               
               // Convert AI recommendations to the same format
               const aiRecommendationsFormatted = aiRecommendations
@@ -287,7 +287,7 @@ export function RecommendationsHub({
                   distance: 0.1, // Close to user
                   photo: undefined,
                   pinnedBy: "AI Assistant"
-                }))
+                } as Recommendation))
               
               // Combine both types of recommendations
               const allRecommendations = [...pinRecommendations, ...aiRecommendationsFormatted]
@@ -475,276 +475,280 @@ export function RecommendationsHub({
     }
   }, [clusteredPins])
 
-  // Prevent map marker clearing during view changes
+  // Ensure map stays visible when switching views
   useEffect(() => {
-    if (viewMode === "map" && mapInitialized && mapInstanceRef.current && clusteredPins.length > 0) {
+    if (viewMode === "map" && mapInstanceRef.current && mapRef.current) {
       console.log("🗺️ View changed to map, preserving existing markers")
-      // Don't clear markers, just ensure they're visible
-      setTimeout(() => {
-        if (mapInstanceRef.current && markersRef.current.length > 0) {
-          console.log("🗺️ Ensuring markers remain visible")
+      
+      // Don't reinitialize the map, just ensure it's visible
+      if (mapInstanceRef.current && typeof mapInstanceRef.current.setMap === 'function') {
+        try {
+          // Trigger a resize event to ensure map is properly displayed
+          if (window.google && window.google.maps) {
+            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          }
+        } catch (error) {
+          console.log("🗺️ Map resize trigger failed:", error)
         }
-      }, 100)
+      }
     }
-  }, [viewMode, mapInitialized, clusteredPins])
+  }, [viewMode])
 
-  // Load Google Maps API
+  // Ensure markers remain visible
   useEffect(() => {
-    if (!userLocation || !mapRef.current) return
+    if (viewMode === "map" && clusteredPins.length > 0) {
+      console.log("🗺️ Ensuring markers remain visible")
+    }
+  }, [viewMode, clusteredPins.length])
 
-    // Don't reinitialize if map is already working
-    if (mapInitialized && mapInstanceRef.current) {
-      console.log("🗺️ Map already initialized, skipping reinitialization")
+  const loadGoogleMaps = () => {
+    if (window.google && window.google.maps) {
+      console.log("🗺️ Google Maps already loaded, initializing...")
+      initializeMap()
       return
     }
 
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps) {
-        console.log("🗺️ Google Maps already loaded, initializing...")
-        initializeMap()
-        return
-      }
-
-      console.log("🗺️ Loading Google Maps API...")
-      const script = document.createElement("script")
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        console.log("🗺️ Google Maps API loaded successfully!")
-        initializeMap()
-      }
-      script.onerror = () => {
-        console.error("🗺️ Failed to load Google Maps API")
-        setMapError("Failed to load Google Maps")
-        showBeautifulFallback()
-      }
-      document.head.appendChild(script)
+    console.log("🗺️ Loading Google Maps API...")
+    const script = document.createElement("script")
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      console.log("🗺️ Google Maps API loaded successfully!")
+      initializeMap()
     }
+    script.onerror = () => {
+      console.error("🗺️ Failed to load Google Maps API")
+      setMapError("Failed to load Google Maps")
+      showBeautifulFallback()
+    }
+    document.head.appendChild(script)
+  }
 
-    const initializeMap = () => {
-      if (!mapRef.current || !userLocation) return
+  const initializeMap = () => {
+    if (!mapRef.current || !userLocation) return
 
-      try {
-        const mapOptions = {
-          center: { lat: userLocation.lat, lng: userLocation.lng },
-          zoom: mapZoom,
-          mapTypeId: "roadmap",
-          disableDefaultUI: false,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "on" }]
-            }
-          ] as google.maps.MapTypeStyle[]
-        }
-
-        const map = new window.google.maps.Map(mapRef.current, mapOptions)
-        mapInstanceRef.current = map
-        setMapLoaded(true)
-        setMapInitialized(true) // Mark map as initialized
-
-        // Add user location marker
-        new window.google.maps.Marker({
-          position: { lat: userLocation.lat, lng: userLocation.lng },
-          map: map,
-          title: "Your Location",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#3B82F6",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 2
+    try {
+      const mapOptions = {
+        center: { lat: userLocation.lat, lng: userLocation.lng },
+        zoom: mapZoom,
+        mapTypeId: "roadmap",
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "on" }]
           }
-        })
-
-        // Add recommendation markers
-        addRecommendationMarkers(map)
-
-      } catch (error) {
-        console.error("🗺️ Error initializing map:", error)
-        // If Google Maps fails, show beautiful fallback
-        showBeautifulFallback()
+        ] as google.maps.MapTypeStyle[]
       }
-    }
 
-    const showBeautifulFallback = () => {
-      console.log("🗺️ Creating beautiful interactive fallback map")
-      console.log("🗺️ Recommendations count:", recommendations.length)
-      
-      // Create a beautiful interactive fallback map
-      if (mapRef.current) {
-        mapRef.current.innerHTML = `
+      const map = new window.google.maps.Map(mapRef.current, mapOptions)
+      mapInstanceRef.current = map
+      setMapLoaded(true)
+
+      // Add user location marker
+      new window.google.maps.Marker({
+        position: { lat: userLocation.lat, lng: userLocation.lng },
+        map: map,
+        title: "Your Location",
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: "#3B82F6",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 2
+        }
+      })
+
+      // Add recommendation markers
+      addRecommendationMarkers(map)
+
+    } catch (error) {
+      console.error("🗺️ Error initializing map:", error)
+      // If Google Maps fails, show beautiful fallback
+      showBeautifulFallback()
+    }
+  }
+
+  const showBeautifulFallback = () => {
+    console.log("🗺️ Creating beautiful interactive fallback map")
+    console.log("🗺️ Recommendations count:", recommendations.length)
+    
+    // Create a beautiful interactive fallback map
+    if (mapRef.current) {
+      mapRef.current.innerHTML = `
+        <div style="
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
+          position: relative;
+          border-radius: 0.5rem;
+          overflow: hidden;
+        ">
           <div style="
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
-            position: relative;
-            border-radius: 0.5rem;
-            overflow: hidden;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            z-index: 10;
           ">
-            <div style="
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              text-align: center;
-              color: white;
-              z-index: 10;
-            ">
-              <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
-              <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Interactive Recommendations</div>
-              <div style="font-size: 0.875rem; opacity: 0.8;">Tap pins below to explore</div>
-              <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.5rem;">Found ${recommendations.length} places near you</div>
-            </div>
-            
-            <!-- Interactive Pins Overlay -->
-            <div style="
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              pointer-events: none;
-            ">
-              ${clusteredPins.length > 0 ? clusteredPins.map((cluster, index) => {
-                const angle = (index / clusteredPins.length) * 2 * Math.PI
-                const radius = 30 // Reduced from 120 to 30 for visible area
-                const centerX = 50
-                const centerY = 50
-                const x = centerX + radius * Math.cos(angle)
-                const y = centerY + radius * Math.sin(angle)
-                
-                // Determine color based on average rating
-                const getClusterColor = (rating: number) => {
-                  if (rating >= 4.5) return "#10B981" // Green for high rating
-                  if (rating >= 4.0) return "#F59E0B" // Yellow for good rating
-                  if (rating >= 3.5) return "#EF4444" // Red for average rating
-                  return "#6B7280" // Gray for low rating
-                }
-                
-                const clusterColor = getClusterColor(cluster.averageRating)
-                const clusterIcon = cluster.type === "ai" ? "🤖" : cluster.type === "community" ? "👥" : "🌟"
-                
-                console.log(`🗺️ Creating clustered pin ${index + 1}: ${cluster.count} recommendations at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
-                
-                return `
-                  <button
-                    onclick="window.handleClusterClick('${cluster.id}')"
-                    style="
-                      position: absolute;
-                      left: ${x}%;
-                      top: ${y}%;
-                      transform: translate(-50%, -50%);
-                      width: 60px;
-                      height: 60px;
-                      border-radius: 50%;
-                      border: 4px solid white;
-                      background: ${clusterColor};
-                      cursor: pointer;
-                      pointer-events: auto;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      font-size: 16px;
-                      color: white;
-                      font-weight: bold;
-                      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-                      transition: all 0.2s ease;
-                      z-index: 1000;
-                      position: relative;
-                    "
-                    onmouseover="this.style.transform='translate(-50%, -50%) scale(1.3)'"
-                    onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
-                    title="${cluster.count} recommendations (${cluster.averageRating.toFixed(1)}★ avg)"
-                  >
-                    ${clusterIcon}
-                    <div style="
-                      position: absolute;
-                      top: -8px;
-                      right: -8px;
-                      background: white;
-                      color: #1F2937;
-                      border-radius: 50%;
-                      width: 24px;
-                      height: 24px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      font-size: 12px;
-                      font-weight: bold;
-                      border: 2px solid ${clusterColor};
-                    ">
-                      ${cluster.count}
-                    </div>
-                  </button>
-                `
-              }).join('') : `
-                <div style="
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  transform: translate(-50%, -50%);
-                  text-align: center;
-                  color: white;
-                  font-size: 0.875rem;
-                  opacity: 0.7;
-                ">
-                  Loading recommendations...
-                </div>
-              `}
-            </div>
-            
-            <!-- Animated Background -->
-            <div style="
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: radial-gradient(circle at 30% 70%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
-                          radial-gradient(circle at 70% 30%, rgba(239, 68, 68, 0.3) 0%, transparent 50%);
-              animation: pulse 4s ease-in-out infinite;
-            "></div>
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Interactive Recommendations</div>
+            <div style="font-size: 0.875rem; opacity: 0.8;">Tap pins below to explore</div>
+            <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.5rem;">Found ${recommendations.length} places near you</div>
           </div>
-        `
-        
-        // Add global click handler
-        ;(window as any).handlePinClick = (recId: string) => {
-          const rec = recommendations.find(r => r.id === recId)
-          if (rec) {
-            handlePinClick(rec)
-          }
+          
+          <!-- Interactive Pins Overlay -->
+          <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+          ">
+            ${clusteredPins.length > 0 ? clusteredPins.map((cluster, index) => {
+              const angle = (index / clusteredPins.length) * 2 * Math.PI
+              const radius = 30 // Reduced from 120 to 30 for visible area
+              const centerX = 50
+              const centerY = 50
+              const x = centerX + radius * Math.cos(angle)
+              const y = centerY + radius * Math.sin(angle)
+              
+              // Determine color based on average rating
+              const getClusterColor = (rating: number) => {
+                if (rating >= 4.5) return "#10B981" // Green for high rating
+                if (rating >= 4.0) return "#F59E0B" // Yellow for good rating
+                if (rating >= 3.5) return "#EF4444" // Red for average rating
+                return "#6B7280" // Gray for low rating
+              }
+              
+              const clusterColor = getClusterColor(cluster.averageRating)
+              const clusterIcon = cluster.type === "ai" ? "🤖" : cluster.type === "community" ? "👥" : "🌟"
+              
+              console.log(`🗺️ Creating clustered pin ${index + 1}: ${cluster.count} recommendations at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
+              
+              return `
+                <button
+                  onclick="window.handleClusterClick('${cluster.id}')"
+                  style="
+                    position: absolute;
+                    left: ${x}%;
+                    top: ${y}%;
+                    transform: translate(-50%, -50%);
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    border: 4px solid white;
+                    background: ${clusterColor};
+                    cursor: pointer;
+                    pointer-events: auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 16px;
+                    color: white;
+                    font-weight: bold;
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+                    transition: all 0.2s ease;
+                    z-index: 1000;
+                    position: relative;
+                  "
+                  onmouseover="this.style.transform='translate(-50%, -50%) scale(1.3)'"
+                  onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
+                  title="${cluster.count} recommendations (${cluster.averageRating.toFixed(1)}★ avg)"
+                >
+                  ${clusterIcon}
+                  <div style="
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    background: white;
+                    color: #1F2937;
+                    border-radius: 50%;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 12px;
+                    font-weight: bold;
+                    border: 2px solid ${clusterColor};
+                  ">
+                    ${cluster.count}
+                  </div>
+                </button>
+              `
+            }).join('') : `
+              <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                color: white;
+                font-size: 0.875rem;
+                opacity: 0.7;
+              ">
+                Loading recommendations...
+              </div>
+            `}
+          </div>
+          
+          <!-- Animated Background -->
+          <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 70%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 30%, rgba(239, 68, 68, 0.3) 0%, transparent 50%);
+            animation: pulse 4s ease-in-out infinite;
+          "></div>
+        </div>
+      `
+      
+      // Add global click handler
+      ;(window as any).handlePinClick = (recId: string) => {
+        const rec = recommendations.find(r => r.id === recId)
+        if (rec) {
+          handlePinClick(rec)
         }
-        
-        ;(window as any).handleClusterClick = (clusterId: string) => {
-          handleClusterClick(clusterId)
-        }
-        
-        // Add CSS animation
-        const style = document.createElement('style')
-        style.textContent = `
-          @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-          }
-        `
-        document.head.appendChild(style)
-        
-        setMapLoaded(true)
-        setMapError(null) // Clear any previous errors
       }
+      
+      ;(window as any).handleClusterClick = (clusterId: string) => {
+        handleClusterClick(clusterId)
+      }
+      
+      // Add CSS animation
+      const style = document.createElement('style')
+      style.textContent = `
+        @keyframes pulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+      `
+      document.head.appendChild(style)
+      
+      setMapLoaded(true)
+      setMapError(null) // Clear any previous errors
     }
+  }
 
-    // Try Google Maps first, fallback to beautiful gradient if it fails
-    console.log("🗺️ Loading Google Maps with real pins...")
-    loadGoogleMaps()
+  // Load Google Maps API
+  useEffect(() => {
+    if (userLocation && recommendations.length > 0) {
+      loadGoogleMaps()
+    }
   }, [userLocation, recommendations, mapZoom, clusteredPins])
 
   const handlePinClick = (recommendation: Recommendation) => {
