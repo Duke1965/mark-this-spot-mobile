@@ -401,17 +401,35 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
-        // Set canvas size to match image
-        canvas.width = img.width
-        canvas.height = img.height
+        // Get platform dimensions for consistent sizing
+        const platformDims = getPlatformDimensions(platform)
+        
+        // Set canvas size to match platform dimensions
+        canvas.width = platformDims.width
+        canvas.height = platformDims.height
 
-        // Draw the original image
-        ctx.drawImage(img, 0, 0)
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+        // Draw the original image scaled to fit platform dimensions
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+        // Track sticker loading
+        let stickersLoaded = 0
+        const totalStickers = stickers.length
+
+        if (totalStickers === 0) {
+          // No stickers, resolve immediately
+          const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
+          resolve(finalImageUrl)
+          return
+        }
 
         // Draw stickers with corrected positioning
         stickers.forEach(sticker => {
           const stickerImg = new Image()
           stickerImg.crossOrigin = 'anonymous'
+          
           stickerImg.onload = () => {
             // Use the exact same positioning logic as the editor
             // The editor uses percentage positioning, so we need to convert to pixels
@@ -435,7 +453,15 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             
             // Restore context
             ctx.restore()
+            
+            // Check if all stickers are loaded
+            stickersLoaded++
+            if (stickersLoaded === totalStickers) {
+              const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
+              resolve(finalImageUrl)
+            }
           }
+          
           stickerImg.onerror = () => {
             // Fallback to emoji if image fails
             ctx.save()
@@ -448,13 +474,17 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             ctx.textBaseline = 'middle'
             ctx.fillText('🎯', 0, 0)
             ctx.restore()
+            
+            // Check if all stickers are processed
+            stickersLoaded++
+            if (stickersLoaded === totalStickers) {
+              const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
+              resolve(finalImageUrl)
+            }
           }
+          
           stickerImg.src = sticker.emoji
         })
-
-        // Convert canvas to data URL
-        const finalImageUrl = canvas.toDataURL('image/jpeg', 0.9)
-        resolve(finalImageUrl)
       }
       
       img.onerror = () => {
@@ -463,6 +493,23 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       
       img.src = mediaUrl
     })
+  }
+
+  // Helper function to get platform dimensions
+  const getPlatformDimensions = (platform: string) => {
+    switch (platform.toLowerCase()) {
+      case 'instagram':
+      case 'instagram story':
+        return { width: 1080, height: 1920 }
+      case 'tiktok':
+        return { width: 1080, height: 1920 }
+      case 'facebook':
+        return { width: 1200, height: 630 }
+      case 'twitter':
+        return { width: 1200, height: 675 }
+      default:
+        return { width: 1080, height: 1920 } // Default to Instagram story size
+    }
   }
 
   return (
