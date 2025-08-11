@@ -19,10 +19,6 @@ const nextConfig = {
       },
     ]
   },
-  // Ensure proper PWA behavior
-  experimental: {
-    appDir: true,
-  },
 }
 
 export default nextConfig
