@@ -235,6 +235,106 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
     }
   }, [recommendations, clusterRecommendations])
 
+  // Function to add recommendation markers to the map
+  const addRecommendationMarkers = (map: any) => {
+    try {
+      console.log("🗺️ Adding markers to map, clustered pins:", clusteredPins)
+      
+      // Clear existing markers
+      markersRef.current.forEach(marker => marker.setMap(null))
+      markersRef.current = []
+
+      // Use clustered pins instead of individual recommendations
+      clusteredPins.forEach((cluster) => {
+        console.log("🗺️ Processing cluster:", cluster)
+        
+        if (cluster.count === 1) {
+          // Single pin - show individual marker
+          const rec = cluster.recommendations[0]
+          console.log("🗺️ Creating single pin marker for:", rec.name, "at", cluster.location)
+          
+          const marker = new window.google.maps.Marker({
+            position: { lat: cluster.location.lat, lng: cluster.location.lng },
+            map: map,
+            title: rec.name,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 2
+            }
+          })
+
+          // Add click listener
+          marker.addListener("click", () => {
+            console.log("🎯 Pin clicked:", rec)
+            handlePinClick(rec)
+          })
+
+          markersRef.current.push(marker)
+          console.log("🗺️ Single pin marker added successfully")
+        } else {
+          // Multiple pins - show cluster marker with count
+          console.log("🗺️ Creating cluster marker for", cluster.count, "pins at", cluster.location)
+          
+          const marker = new window.google.maps.Marker({
+            position: { lat: cluster.location.lat, lng: cluster.location.lng },
+            map: map,
+            title: `${cluster.count} recommendations`,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 12, // Slightly larger for clusters
+              fillColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 3
+            }
+          })
+
+          // Add click listener for cluster
+          marker.addListener("click", () => {
+            console.log("🎯 Cluster clicked:", cluster)
+            handleClusterClick(cluster.id)
+          })
+
+          markersRef.current.push(marker)
+
+          // Add count label on top of cluster marker
+          const countLabel = new window.google.maps.Marker({
+            position: { lat: cluster.location.lat, lng: cluster.location.lng },
+            map: map,
+            title: `${cluster.count} recommendations`,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "#FFFFFF",
+              fillOpacity: 1,
+              strokeColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
+              strokeWeight: 2
+            },
+            label: {
+              text: cluster.count.toString(),
+              color: "#1F2937",
+              fontSize: "12px",
+              fontWeight: "bold"
+            }
+          })
+
+          markersRef.current.push(countLabel)
+          console.log("🗺️ Cluster marker added successfully")
+        }
+      })
+      
+      console.log("🗺️ Total markers added:", markersRef.current.length)
+    } catch (error) {
+      console.error("🗺️ Error adding markers:", error)
+      // Log error but don't call fallback function from this scope
+      setMapError("Failed to add map markers")
+    }
+  }
+
   // Update map markers when clustered pins change
   useEffect(() => {
     if (mapInstanceRef.current && clusteredPins.length > 0) {
@@ -490,98 +590,13 @@ export function RecommendationsHub({ onBack, pins = [] }: { onBack: () => void; 
       }
     }
 
-    // Function to add recommendation markers to the map
-    const addRecommendationMarkers = (map: any) => {
-      try {
-        // Clear existing markers
-        markersRef.current.forEach(marker => marker.setMap(null))
-        markersRef.current = []
-
-        // Use clustered pins instead of individual recommendations
-        clusteredPins.forEach((cluster) => {
-          if (cluster.count === 1) {
-            // Single pin - show individual marker
-            const rec = cluster.recommendations[0]
-            const marker = new window.google.maps.Marker({
-              position: { lat: cluster.location.lat, lng: cluster.location.lng },
-              map: map,
-              title: rec.name,
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
-                fillOpacity: 1,
-                strokeColor: "#FFFFFF",
-                strokeWeight: 2
-              }
-            })
-
-            // Add click listener
-            marker.addListener("click", () => {
-              handlePinClick(rec)
-            })
-
-            markersRef.current.push(marker)
-          } else {
-            // Multiple pins - show cluster marker with count
-            const marker = new window.google.maps.Marker({
-              position: { lat: cluster.location.lat, lng: cluster.location.lng },
-              map: map,
-              title: `${cluster.count} recommendations`,
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 12, // Slightly larger for clusters
-                fillColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
-                fillOpacity: 1,
-                strokeColor: "#FFFFFF",
-                strokeWeight: 3
-              }
-            })
-
-            // Add click listener for cluster
-            marker.addListener("click", () => {
-              handleClusterClick(cluster.id)
-            })
-
-            markersRef.current.push(marker)
-
-            // Add count label on top of cluster marker
-            const countLabel = new window.google.maps.Marker({
-              position: { lat: cluster.location.lat, lng: cluster.location.lng },
-              map: map,
-              title: `${cluster.count} recommendations`,
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: "#FFFFFF",
-                fillOpacity: 1,
-                strokeColor: cluster.type === "ai" ? "#EF4444" : cluster.type === "community" ? "#3B82F6" : "#8B5CF6",
-                strokeWeight: 2
-              },
-              label: {
-                text: cluster.count.toString(),
-                color: "#1F2937",
-                fontSize: "12px",
-                fontWeight: "bold"
-              }
-            })
-
-            markersRef.current.push(countLabel)
-          }
-        })
-      } catch (error) {
-        console.error("🗺️ Error adding markers:", error)
-        // If markers fail, show fallback
-        showBeautifulFallback()
-      }
-    }
-
     // Try Google Maps first, fallback to beautiful gradient if it fails
     console.log("🗺️ Loading Google Maps with real pins...")
     loadGoogleMaps()
   }, [userLocation, recommendations, mapZoom, clusteredPins])
 
   const handlePinClick = (recommendation: Recommendation) => {
+    console.log("🎯 handlePinClick called with:", recommendation)
     setSelectedPin(recommendation)
   }
 
