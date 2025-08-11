@@ -1060,6 +1060,7 @@ export default function PINITApp() {
       <RecommendationsHub
         onBack={() => setCurrentScreen("map")}
         pins={pins}
+        aiRecommendations={recommendations}
       />
     )
   }
