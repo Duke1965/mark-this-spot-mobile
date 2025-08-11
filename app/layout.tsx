@@ -26,7 +26,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Prevent pull-to-refresh behavior
+              // Prevent pull-to-refresh behavior - LESS AGGRESSIVE VERSION
               let startY = 0;
               let currentY = 0;
               let isScrolling = false;
@@ -34,22 +34,22 @@ export default function RootLayout({
               document.addEventListener('touchstart', function(e) {
                 startY = e.touches[0].clientY;
                 isScrolling = false;
-              }, { passive: false });
+              }, { passive: true });
               
               document.addEventListener('touchmove', function(e) {
                 currentY = e.touches[0].clientY;
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                 
-                // Prevent pull-to-refresh when at top of page
-                if (scrollTop <= 0 && currentY > startY) {
+                // Only prevent pull-to-refresh when at very top of page AND pulling down hard
+                if (scrollTop <= 0 && currentY > startY + 50) {
                   e.preventDefault();
                   isScrolling = true;
                 }
                 
-                // Prevent pull-to-refresh when at bottom of page
+                // Only prevent pull-to-refresh when at very bottom of page AND pulling up hard
                 const scrollHeight = document.documentElement.scrollHeight;
                 const clientHeight = document.documentElement.clientHeight;
-                if (scrollTop + clientHeight >= scrollHeight && currentY < startY) {
+                if (scrollTop + clientHeight >= scrollHeight && currentY < startY - 50) {
                   e.preventDefault();
                   isScrolling = true;
                 }
@@ -61,16 +61,8 @@ export default function RootLayout({
                 }
               }, { passive: false });
               
-              // Prevent page refresh on mobile
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                    console.log('ServiceWorker registration failed: ', err);
-                  });
-                });
-              }
-              
-              console.log('🔄 PINIT PWA: Pull-to-refresh prevention enabled');
+              // Allow normal page refresh behavior
+              console.log('🔄 PINIT PWA: Pull-to-refresh prevention enabled (less aggressive)');
             `,
           }}
         />
