@@ -86,8 +86,9 @@ export function RecommendationsHub({
   const [showClusterDetails, setShowClusterDetails] = useState(false)
   
   // Map persistence state
-  const [mapInitialized, setMapInitialized] = useState(false)
-  
+  const [mapPersisted, setMapPersisted] = useState(false)
+  const [mapContainerKey, setMapContainerKey] = useState(0)
+
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
@@ -335,7 +336,7 @@ export function RecommendationsHub({
 
   // Preserve map when switching views
   useEffect(() => {
-    if (viewMode === "map" && mapInitialized && mapInstanceRef.current) {
+    if (viewMode === "map" && mapInstanceRef.current) {
       console.log("🗺️ Map view selected, ensuring map is visible")
       // Small delay to ensure DOM is ready
       setTimeout(() => {
@@ -344,11 +345,11 @@ export function RecommendationsHub({
         }
       }, 100)
     }
-  }, [viewMode, mapInitialized])
+  }, [viewMode, mapInstanceRef.current])
 
   // Stronger map preservation - prevent map destruction
   useEffect(() => {
-    if (viewMode === "map" && mapInitialized && mapInstanceRef.current) {
+    if (viewMode === "map" && mapInstanceRef.current) {
       console.log("🗺️ Ensuring map container is preserved")
       // Force map to stay attached to container
       if (mapRef.current && mapInstanceRef.current) {
@@ -365,7 +366,7 @@ export function RecommendationsHub({
         }
       }
     }
-  }, [viewMode, mapInitialized])
+  }, [viewMode, mapInstanceRef.current])
 
   // Function to add recommendation markers to the map
   const addRecommendationMarkers = (map: any) => {
@@ -480,19 +481,26 @@ export function RecommendationsHub({
     if (viewMode === "map" && mapInstanceRef.current && mapRef.current) {
       console.log("🗺️ View changed to map, preserving existing markers")
       
+      // If map is already loaded and working, don't reinitialize
+      if (mapPersisted && mapInstanceRef.current) {
+        console.log("🗺️ Map already persisted, skipping reinitialization")
+        return
+      }
+      
       // Don't reinitialize the map, just ensure it's visible
       if (mapInstanceRef.current && typeof mapInstanceRef.current.setMap === 'function') {
         try {
           // Trigger a resize event to ensure map is properly displayed
           if (window.google && window.google.maps) {
             window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+            setMapPersisted(true)
           }
         } catch (error) {
           console.log("🗺️ Map resize trigger failed:", error)
         }
       }
     }
-  }, [viewMode])
+  }, [viewMode, mapPersisted])
 
   // Ensure markers remain visible
   useEffect(() => {
@@ -502,6 +510,12 @@ export function RecommendationsHub({
   }, [viewMode, clusteredPins.length])
 
   const loadGoogleMaps = () => {
+    // Prevent multiple API loading
+    if ((window as any).googleMapsLoading) {
+      console.log("🗺️ Google Maps API already loading, skipping...")
+      return
+    }
+    
     if (window.google && window.google.maps) {
       console.log("🗺️ Google Maps already loaded, initializing...")
       initializeMap()
@@ -509,16 +523,20 @@ export function RecommendationsHub({
     }
 
     console.log("🗺️ Loading Google Maps API...")
+    ;(window as any).googleMapsLoading = true
+    
     const script = document.createElement("script")
     script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
     script.async = true
     script.defer = true
     script.onload = () => {
       console.log("🗺️ Google Maps API loaded successfully!")
+      ;(window as any).googleMapsLoading = false
       initializeMap()
     }
     script.onerror = () => {
       console.error("🗺️ Failed to load Google Maps API")
+      ;(window as any).googleMapsLoading = false
       setMapError("Failed to load Google Maps")
       showBeautifulFallback()
     }
@@ -747,9 +765,16 @@ export function RecommendationsHub({
   // Load Google Maps API
   useEffect(() => {
     if (userLocation && recommendations.length > 0) {
-      loadGoogleMaps()
+      // Debounce map loading to prevent excessive reinitializations
+      const timeoutId = setTimeout(() => {
+        if (!mapPersisted) {
+          loadGoogleMaps()
+        }
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
-  }, [userLocation, recommendations, mapZoom, clusteredPins])
+  }, [userLocation, recommendations, mapZoom, clusteredPins, mapPersisted])
 
   const handlePinClick = (recommendation: Recommendation) => {
     console.log("🎯 handlePinClick called with:", recommendation)
