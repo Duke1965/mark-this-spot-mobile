@@ -462,10 +462,13 @@ export function RecommendationsHub({
     if (viewMode === "map" && mapInstanceRef.current && mapRef.current && mapPersisted) {
       console.log("🗺️ Ensuring map container is preserved")
       
-      // Force map to stay attached to container
+      // Google Maps automatically handles container attachment, just ensure resize
       try {
-        if (mapInstanceRef.current && typeof mapInstanceRef.current.setMap === 'function') {
-          mapInstanceRef.current.setMap(mapRef.current)
+        if (window.google && window.google.maps && mapInstanceRef.current) {
+          // Trigger a resize event to ensure map renders properly
+          setTimeout(() => {
+            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          }, 100)
         }
       } catch (error) {
         console.log("🗺️ Map container preservation failed:", error)
@@ -534,10 +537,8 @@ export function RecommendationsHub({
       setMapLoaded(true)
       setMapPersisted(true) // Mark map as persisted to prevent reinitialization
 
-      // Ensure map is properly attached to container
-      if (mapRef.current) {
-        map.setMap(mapRef.current)
-      }
+      // Google Maps automatically attaches to the container, no need for setMap
+      console.log("🗺️ Google Maps instance created successfully")
 
       // Add user location marker
       new window.google.maps.Marker({
@@ -765,33 +766,17 @@ export function RecommendationsHub({
     if (newMode === "map" && mapInstanceRef.current && mapPersisted) {
       console.log("🗺️ Switching to map view - restoring map visibility")
       
-      // Ensure the map container is properly set
-      if (mapRef.current && mapInstanceRef.current) {
-        try {
-          // Reattach the map to the container
-          mapInstanceRef.current.setMap(mapRef.current)
-          
-          // Small delay to ensure DOM is ready, then trigger resize
-          setTimeout(() => {
-            if (window.google && window.google.maps && mapInstanceRef.current) {
-              try {
-                window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-                console.log("🗺️ Map restored successfully")
-              } catch (error) {
-                console.log("🗺️ Map resize trigger failed:", error)
-              }
-            }
-          }, 200)
-        } catch (error) {
-          console.log("🗺️ Map restoration failed:", error)
-          // If restoration fails, reload the map
-          console.log("🗺️ Attempting to reload map...")
-          setMapPersisted(false)
-          if (userLocation && recommendations.length > 0) {
-            loadGoogleMaps()
+      // Small delay to ensure DOM is ready, then trigger resize
+      setTimeout(() => {
+        if (window.google && window.google.maps && mapInstanceRef.current) {
+          try {
+            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+            console.log("🗺️ Map restored successfully")
+          } catch (error) {
+            console.log("🗺️ Map resize trigger failed:", error)
           }
         }
-      }
+      }, 200)
     }
   }
 
