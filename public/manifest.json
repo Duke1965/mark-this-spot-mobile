@@ -18,5 +18,10 @@
   "lang": "en",
   "orientation": "portrait",
   "scope": "/",
-  "permissions": ["notifications", "geolocation"]
+  "permissions": ["notifications", "geolocation"],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 } 
