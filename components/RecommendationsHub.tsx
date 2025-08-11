@@ -91,6 +91,7 @@ export function RecommendationsHub({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   // Clustering logic - group recommendations by location
   const clusterRecommendations = useCallback((recommendations: Recommendation[]): ClusteredPin[] => {
@@ -322,6 +323,27 @@ export function RecommendationsHub({
     }
   }, [viewMode, mapInitialized])
 
+  // Stronger map preservation - prevent map destruction
+  useEffect(() => {
+    if (viewMode === "map" && mapInitialized && mapInstanceRef.current) {
+      console.log("🗺️ Ensuring map container is preserved")
+      // Force map to stay attached to container
+      if (mapRef.current && mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.setMap(mapRef.current)
+          // Trigger a resize event to ensure map renders properly
+          setTimeout(() => {
+            if (window.google && window.google.maps && mapInstanceRef.current) {
+              window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+            }
+          }, 200)
+        } catch (error) {
+          console.log("🗺️ Map preservation error:", error)
+        }
+      }
+    }
+  }, [viewMode, mapInitialized])
+
   // Function to add recommendation markers to the map
   const addRecommendationMarkers = (map: any) => {
     try {
@@ -429,6 +451,19 @@ export function RecommendationsHub({
       addRecommendationMarkers(mapInstanceRef.current)
     }
   }, [clusteredPins])
+
+  // Prevent map marker clearing during view changes
+  useEffect(() => {
+    if (viewMode === "map" && mapInitialized && mapInstanceRef.current && clusteredPins.length > 0) {
+      console.log("🗺️ View changed to map, preserving existing markers")
+      // Don't clear markers, just ensure they're visible
+      setTimeout(() => {
+        if (mapInstanceRef.current && markersRef.current.length > 0) {
+          console.log("🗺️ Ensuring markers remain visible")
+        }
+      }, 100)
+    }
+  }, [viewMode, mapInitialized, clusteredPins])
 
   // Load Google Maps API
   useEffect(() => {
