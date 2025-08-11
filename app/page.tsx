@@ -773,6 +773,8 @@ export default function PINITApp() {
   // Recommendation form handlers
   const handleRecommendationSubmit = (rating: number, review: string) => {
     console.log("⭐ Recommendation submitted:", { rating, review })
+    console.log("📍 Current recommendationData:", recommendationData)
+    console.log("📍 Current userLocation:", userLocation)
     
     // Create a new recommendation pin
     const newRecommendation: PinData = {
@@ -791,6 +793,8 @@ export default function PINITApp() {
       rating: rating,
       types: ["recommendation"],
     }
+
+    console.log("📌 Created new recommendation pin:", newRecommendation)
 
     // Add the recommendation to pins
     addPin(newRecommendation)
