@@ -727,6 +727,14 @@ export default function PINITApp() {
     setLastActivity("discovery")
   }, [location, fetchNearbyPlaces])
 
+  // Auto-fetch nearby places when recommendations screen is opened
+  useEffect(() => {
+    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
+      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
+      findNearbyPins()
+    }
+  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
+
   // NEW: Fetch location photo for pins
   const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
     try {
@@ -993,7 +1001,7 @@ export default function PINITApp() {
       <RecommendationsHub
         onBack={() => setCurrentScreen("map")}
         pins={pins}
-        aiRecommendations={recommendations}
+        aiRecommendations={nearbyPins} // Changed from recommendations to nearbyPins - these have real coordinates!
       />
     )
   }
