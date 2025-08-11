@@ -135,6 +135,64 @@ export default function PINITApp() {
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
+  // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
+  useEffect(() => {
+    // Load saved app state on mount
+    try {
+      const savedState = localStorage.getItem("pinit-app-state")
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+        console.log("🔄 Restoring app state from localStorage:", parsedState)
+        
+        // Restore current screen
+        if (parsedState.currentScreen) {
+          setCurrentScreen(parsedState.currentScreen)
+        }
+        
+        // Restore recommendations
+        if (parsedState.recommendations) {
+          setRecommendations(parsedState.recommendations)
+        }
+        
+        // Restore other important state
+        if (parsedState.discoveryMode !== undefined) {
+          setDiscoveryMode(parsedState.discoveryMode)
+        }
+        
+        if (parsedState.showRecommendToggle !== undefined) {
+          setShowRecommendToggle(parsedState.showRecommendToggle)
+        }
+        
+        if (parsedState.lastActivity) {
+          setLastActivity(parsedState.lastActivity)
+        }
+        
+        console.log("✅ App state restored successfully")
+      }
+    } catch (error) {
+      console.error("❌ Failed to restore app state:", error)
+    }
+  }, [])
+
+  // Save app state whenever important state changes
+  useEffect(() => {
+    const appState = {
+      currentScreen,
+      recommendations,
+      discoveryMode,
+      showRecommendToggle,
+      lastActivity,
+      timestamp: Date.now()
+    }
+    
+    try {
+      localStorage.setItem("pinit-app-state", JSON.stringify(appState))
+      console.log("💾 App state saved to localStorage:", appState)
+    } catch (error) {
+      console.error("❌ Failed to save app state:", error)
+    }
+  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
+
   // Initialize pins from storage
   useEffect(() => {
     if (storedPins.length > 0) {
