@@ -201,23 +201,32 @@ export function RecommendationsHub({
               // Convert AI recommendations to the same format
               const aiRecommendationsFormatted = aiRecommendations
                 .filter(rec => rec.isAISuggestion)
-                .map(rec => ({
-                  id: rec.id,
-                  name: rec.title,
-                  description: rec.description,
-                  location: {
-                    lat: rec.latitude, // Use actual coordinates from nearbyPins instead of user location
-                    lng: rec.longitude  // Use actual coordinates from nearbyPins instead of user location
-                  },
-                  rating: rec.rating || 4.5, // Use actual rating if available
-                  type: "ai" as "ai",
-                  distance: Math.sqrt(
-                    Math.pow(latitude - rec.latitude, 2) +
-                    Math.pow(longitude - rec.longitude, 2)
-                  ), // Calculate actual distance
-                  photo: rec.mediaUrl || undefined,
-                  pinnedBy: "AI Assistant"
-                }))
+                .map(rec => {
+                  // Safety check: ensure we have valid coordinates
+                  if (!rec.latitude || !rec.longitude) {
+                    console.warn("⚠️ AI recommendation missing coordinates:", rec)
+                    return null // Skip invalid recommendations
+                  }
+                  
+                  return {
+                    id: rec.id,
+                    name: rec.title,
+                    description: rec.description,
+                    location: {
+                      lat: rec.latitude, // Use actual coordinates from nearbyPins instead of user location
+                      lng: rec.longitude  // Use actual coordinates from nearbyPins instead of user location
+                    },
+                    rating: rec.rating || 4.5, // Use actual rating if available
+                    type: "ai" as "ai",
+                    distance: Math.sqrt(
+                      Math.pow(latitude - rec.latitude, 2) +
+                      Math.pow(longitude - rec.longitude, 2)
+                    ), // Calculate actual distance
+                    photo: rec.mediaUrl || undefined,
+                    pinnedBy: "AI Assistant"
+                  }
+                })
+                .filter((rec): rec is Recommendation => rec !== null) // Type-safe filter to remove null entries
               
               // Combine both types of recommendations
               const allRecommendations = [...pinRecommendations, ...aiRecommendationsFormatted]
