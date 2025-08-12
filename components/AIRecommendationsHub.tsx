@@ -1,6 +1,9 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
+import { useLocationServices } from '../hooks/useLocationServices'
+import { usePinStorage } from '../hooks/usePinStorage'
 
 // Google Maps global declaration
 declare global {
@@ -8,9 +11,6 @@ declare global {
     google: any
   }
 }
-import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
-import { useLocationServices } from '../hooks/useLocationServices'
-import { usePinStorage } from '../hooks/usePinStorage'
 
 interface Recommendation {
   id: string
@@ -152,20 +152,7 @@ export default function AIRecommendationsHub() {
   useEffect(() => {
     console.log('🧠 AIRecommendationsHub: Map init effect triggered', { mapRef: !!mapRef, mapInstance: !!mapInstance, location })
     
-    // If we have a map ref but no map instance, try to initialize
     if (mapRef && !mapInstance) {
-      if (location) {
-        console.log('🧠 AIRecommendationsHub: Location available, initializing map...')
-        initializeMap()
-      } else {
-        console.log('🧠 AIRecommendationsHub: No location yet, using fallback...')
-        // Set a fallback location (you can change this to a default city)
-        const fallbackLocation = { latitude: -33.9249, longitude: 18.4241 } // Cape Town
-        console.log('🧠 AIRecommendationsHub: Using fallback location:', fallbackLocation)
-        initializeMap()
-      }
-    }
-  }, [mapRef, mapInstance, location, initializeMap])
       const initMap = async () => {
         try {
           console.log('🗺️ Starting map initialization...')
@@ -209,19 +196,21 @@ export default function AIRecommendationsHub() {
       
       initMap()
     }
-  }, [mapRef, mapInstance, location])
+  }, [mapRef, mapInstance, location, initializeMap])
 
   const initializeMap = useCallback(() => {
     try {
-      if (!mapRef || !location) {
-        console.log('🗺️ Map initialization skipped: missing mapRef or location')
+      if (!mapRef) {
+        console.log('🗺️ Map initialization skipped: missing mapRef')
         return
       }
 
-      console.log('🗺️ Creating Google Maps instance...')
+      // Use location or fallback
+      const mapLocation = location || { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
+      console.log('🗺️ Creating Google Maps instance at:', mapLocation)
       
       const map = new window.google.maps.Map(mapRef, {
-        center: { lat: location.latitude, lng: location.longitude },
+        center: { lat: mapLocation.latitude, lng: mapLocation.longitude },
         zoom: 13,
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
@@ -517,7 +506,7 @@ export default function AIRecommendationsHub() {
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                          ⭐ {rec.rating}/5
+                          ⭐ {rec.rating.toFixed(1)}/5
                         </span>
                         {rec.isAISuggestion && (
                           <span style={{ fontSize: '12px', opacity: 0.8 }}>
