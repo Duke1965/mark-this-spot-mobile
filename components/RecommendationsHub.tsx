@@ -85,22 +85,14 @@ export function RecommendationsHub({
   const [selectedCluster, setSelectedCluster] = useState<ClusteredPin | null>(null)
   const [showClusterDetails, setShowClusterDetails] = useState(false)
   
-  // Map persistence state
-  const [mapPersisted, setMapPersisted] = useState(false)
-  const [mapContainerKey, setMapContainerKey] = useState(0)
-
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
-  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   // Clustering logic - group recommendations by location
   const clusterRecommendations = useCallback((recommendations: Recommendation[]): ClusteredPin[] => {
     const clusters: ClusteredPin[] = []
-    const CLUSTER_RADIUS = 0.01 // Increased from 0.001 to 0.01 (about 1km instead of 100m)
-    
-    console.log("🗺️ Clustering recommendations with radius:", CLUSTER_RADIUS, "degrees (about 1km)")
-    console.log("🗺️ Total recommendations to cluster:", recommendations.length)
+    const CLUSTER_RADIUS = 0.001 // Very small radius for clustering (about 100m)
     
     recommendations.forEach((rec) => {
       let addedToCluster = false
@@ -121,42 +113,151 @@ export function RecommendationsHub({
           const totalRating = cluster.recommendations.reduce((sum, r) => sum + (r.rating || 0), 0)
           cluster.averageRating = totalRating / cluster.recommendations.length
           
-          // Update type if mixed
+          // Update type (mixed if different types)
           if (cluster.type !== rec.type) {
             cluster.type = "mixed"
           }
           
-          console.log("🗺️ Added to existing cluster:", rec.name, "distance:", distance.toFixed(4), "cluster count:", cluster.count)
           addedToCluster = true
           break
         }
       }
       
+      // Create new cluster if not added to existing one
       if (!addedToCluster) {
-        // Create new cluster
-        const newCluster = {
-          id: `cluster-${clusters.length}`,
-          location: { lat: rec.location.lat, lng: rec.location.lng },
+        const newCluster: ClusteredPin = {
+          id: `cluster-${Date.now()}-${Math.random()}`,
+          location: rec.location,
           recommendations: [rec],
           count: 1,
           averageRating: rec.rating || 0,
           type: rec.type
         }
         clusters.push(newCluster)
-        console.log("🗺️ Created new cluster:", rec.name, "at", rec.location.lat.toFixed(4), rec.location.lng.toFixed(4))
       }
-    })
-    
-    console.log("🗺️ Final clustering result:", clusters.length, "clusters created")
-    clusters.forEach((cluster, index) => {
-      console.log(`🗺️ Cluster ${index + 1}:`, cluster.count, "pins, type:", cluster.type, "at", cluster.location.lat.toFixed(4), cluster.location.lng.toFixed(4))
     })
     
     return clusters
   }, [])
 
-  // REMOVED: generateAIRecommendations and generateCommunityRecommendations functions
-  // Now only real user pins are used
+  // Generate AI recommendations based on user's pin history
+  const generateAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
+    const aiRecommendations: Recommendation[] = [
+      {
+        id: "ai-1",
+        name: "Hidden Gem Café",
+        description: "Cozy spot perfect for your coffee-loving style",
+        location: { lat: lat + 0.002, lng: lng + 0.001 },
+        rating: 4.7,
+        type: "ai",
+        distance: 0.3,
+        photo: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop"
+      },
+      {
+        id: "ai-2", 
+        name: "Scenic Overlook",
+        description: "Perfect sunset spot based on your nature pins",
+        location: { lat: lat - 0.003, lng: lng + 0.002 },
+        rating: 4.9,
+        type: "ai",
+        distance: 0.5,
+        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
+      },
+      {
+        id: "ai-3",
+        name: "Artisan Market",
+        description: "Local crafts and food - matches your cultural interests",
+        location: { lat: lat + 0.001, lng: lng - 0.002 },
+        rating: 4.5,
+        type: "ai",
+        distance: 0.2,
+        photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop"
+      },
+      {
+        id: "ai-4",
+        name: "Historic Walking Trail",
+        description: "Perfect for your adventure-seeking style",
+        location: { lat: lat - 0.001, lng: lng - 0.003 },
+        rating: 4.6,
+        type: "ai",
+        distance: 0.4,
+        photo: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop"
+      },
+      {
+        id: "ai-5",
+        name: "Local Brewery",
+        description: "Craft beers and atmosphere you'll love",
+        location: { lat: lat + 0.003, lng: lng + 0.003 },
+        rating: 4.4,
+        type: "ai",
+        distance: 0.6,
+        photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop"
+      }
+    ]
+    return aiRecommendations
+  }, [])
+
+  // Generate community recommendations (simulated from other PINIT users)
+  const generateCommunityRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
+    const communityRecommendations: Recommendation[] = [
+      {
+        id: "community-1",
+        name: "Local Favorites Spot",
+        description: "Recommended by Sarah M. - amazing atmosphere!",
+        location: { lat: lat + 0.004, lng: lng - 0.001 },
+        rating: 4.8,
+        type: "community",
+        distance: 0.7,
+        photo: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop",
+        pinnedBy: "Sarah M."
+      },
+      {
+        id: "community-2",
+        name: "Hidden Garden",
+        description: "Mike says: Perfect for quiet moments",
+        location: { lat: lat - 0.002, lng: lng + 0.004 },
+        rating: 4.6,
+        type: "community",
+        distance: 0.8,
+        photo: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
+        pinnedBy: "Mike"
+      },
+      {
+        id: "community-3",
+        name: "Street Art Corner",
+        description: "Emma's pick: Instagram-worthy murals everywhere",
+        location: { lat: lat + 0.001, lng: lng + 0.005 },
+        rating: 4.3,
+        type: "community",
+        distance: 0.9,
+        photo: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
+        pinnedBy: "Emma"
+      },
+      {
+        id: "community-4",
+        name: "Sunset Beach Walk",
+        description: "David's discovery: Best sunset views in the area",
+        location: { lat: lat - 0.005, lng: lng - 0.002 },
+        rating: 4.9,
+        type: "community",
+        distance: 1.1,
+        photo: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
+        pinnedBy: "David"
+      },
+      {
+        id: "community-5",
+        name: "Local Craft Market",
+        description: "Lisa's find: Unique handmade souvenirs",
+        location: { lat: lat + 0.003, lng: lng - 0.004 },
+        rating: 4.4,
+        type: "community",
+        distance: 1.2,
+        photo: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
+        pinnedBy: "Lisa"
+      }
+    ]
+    return communityRecommendations
+  }, [])
 
   // Initialize recommendations and user location
   useEffect(() => {
@@ -178,7 +279,7 @@ export function RecommendationsHub({
               
               setUserLocation({ lat: latitude, lng: longitude })
               
-              // Convert pins to recommendations - REAL USER PINS
+              // Convert pins to recommendations
               const pinRecommendations = pins
                 .filter(pin => pin.isRecommended)
                 .map(pin => ({
@@ -197,50 +298,13 @@ export function RecommendationsHub({
                   ),
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
-                } as Recommendation))
+                }))
               
-              // Convert AI recommendations to the same format
-              const aiRecommendationsFormatted = aiRecommendations
-                .filter(rec => rec.isAISuggestion)
-                .map(rec => {
-                  // Safety check: ensure we have valid coordinates
-                  if (!rec.latitude || !rec.longitude) {
-                    console.warn("⚠️ AI recommendation missing coordinates:", rec)
-                    return null // Skip invalid recommendations
-                  }
-                  
-                  return {
-                    id: rec.id,
-                    name: rec.title,
-                    description: rec.description,
-                    location: {
-                      lat: rec.latitude, // Use actual coordinates from nearbyPins instead of user location
-                      lng: rec.longitude  // Use actual coordinates from nearbyPins instead of user location
-                    },
-                    rating: rec.rating || 4.5, // Use actual rating if available
-                    type: "ai" as "ai",
-                    distance: Math.sqrt(
-                      Math.pow(latitude - rec.latitude, 2) +
-                      Math.pow(longitude - rec.longitude, 2)
-                    ), // Calculate actual distance
-                    photo: rec.mediaUrl || undefined,
-                    pinnedBy: "AI Assistant"
-                  } as Recommendation
-                })
-                .filter((rec): rec is Recommendation => rec !== null) // Type-safe filter to remove null entries
+              // Generate additional AI recommendations based on location
+              const aiRecs = generateAIRecommendations(latitude, longitude)
+              const communityRecs = generateCommunityRecommendations(latitude, longitude)
               
-              // Combine both types of recommendations
-              const allRecommendations = [...pinRecommendations, ...aiRecommendationsFormatted]
-              
-              // DEBUG: Log the conversion process
-              console.log("🗺️ Pin recommendations created:", pinRecommendations)
-              console.log("🗺️ AI recommendations formatted:", aiRecommendationsFormatted)
-              console.log("🗺️ All recommendations combined:", allRecommendations)
-              console.log("🗺️ AI recommendations count:", allRecommendations.filter(r => r.type === "ai").length)
-              console.log("🗺️ Community recommendations count:", allRecommendations.filter(r => r.type === "community").length)
-              
-              console.log(`🗺️ Loaded ${allRecommendations.length} total recommendations`)
-              setRecommendations(allRecommendations)
+              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
               setIsLoading(false)
             },
             (error) => {
@@ -251,7 +315,7 @@ export function RecommendationsHub({
               
               setUserLocation({ lat: fallbackLat, lng: fallbackLng })
               
-              // Convert pins to recommendations - REAL USER PINS
+              // Convert pins to recommendations
               const pinRecommendations = pins
                 .filter(pin => pin.isRecommended)
                 .map(pin => ({
@@ -270,38 +334,12 @@ export function RecommendationsHub({
                   ),
                   photo: pin.mediaUrl || undefined,
                   pinnedBy: "user"
-                } as Recommendation))
+                }))
               
-              // Convert AI recommendations to the same format
-              const aiRecommendationsFormatted = aiRecommendations
-                .filter(rec => rec.isAISuggestion)
-                .map(rec => ({
-                  id: rec.id,
-                  name: rec.title,
-                  description: rec.description,
-                  location: {
-                    lat: userLocation?.lat || fallbackLat,
-                    lng: userLocation?.lng || fallbackLng
-                  },
-                  rating: 4.5, // Default rating for AI recommendations
-                  type: "ai" as "ai",
-                  distance: 0.1, // Close to user
-                  photo: undefined,
-                  pinnedBy: "AI Assistant"
-                } as Recommendation))
+              const aiRecs = generateAIRecommendations(fallbackLat, fallbackLng)
+              const communityRecs = generateCommunityRecommendations(fallbackLat, fallbackLng)
               
-              // Combine both types of recommendations
-              const allRecommendations = [...pinRecommendations, ...aiRecommendationsFormatted]
-              
-              // DEBUG: Log the conversion process
-              console.log("🗺️ Pin recommendations created (fallback):", pinRecommendations)
-              console.log("🗺️ AI recommendations formatted (fallback):", aiRecommendationsFormatted)
-              console.log("🗺️ All recommendations combined (fallback):", allRecommendations)
-              console.log("🗺️ AI recommendations count (fallback):", allRecommendations.filter(r => r.type === "ai").length)
-              console.log("🗺️ Community recommendations count (fallback):", allRecommendations.filter(r => r.type === "community").length)
-              
-              console.log(`🗺️ Loaded ${allRecommendations.length} total recommendations (fallback location)`)
-              setRecommendations(allRecommendations)
+              setRecommendations([...pinRecommendations, ...aiRecs, ...communityRecs])
               setIsLoading(false)
             },
             {
@@ -442,130 +480,290 @@ export function RecommendationsHub({
     }
   }, [clusteredPins])
 
-  // SINGLE map loading useEffect - no more cycling!
+  // Load Google Maps API
   useEffect(() => {
-    if (userLocation && recommendations.length > 0 && !mapPersisted) {
-      console.log("🗺️ Initial map load triggered")
-      loadGoogleMaps()
-    }
-  }, [userLocation, recommendations.length, mapPersisted])
+    if (!userLocation || !mapRef.current) return
 
-  // Ensure markers remain visible
-  useEffect(() => {
-    if (viewMode === "map" && clusteredPins.length > 0) {
-      console.log("🗺️ Ensuring markers remain visible")
-    }
-  }, [viewMode, clusteredPins.length])
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        initializeMap()
+        return
+      }
 
-  // Ensure map container is preserved during view changes
-  useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current && mapRef.current && mapPersisted) {
-      console.log("🗺️ Ensuring map container is preserved")
-      
-      // Google Maps automatically handles container attachment, just ensure resize
+      const script = document.createElement("script")
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        console.log("🗺️ Google Maps API loaded successfully!")
+        initializeMap()
+      }
+      script.onerror = () => {
+        console.error("🗺️ Failed to load Google Maps API")
+        showBeautifulFallback()
+      }
+      document.head.appendChild(script)
+    }
+
+    const initializeMap = () => {
+      if (!mapRef.current || !userLocation) return
+
       try {
-        if (window.google && window.google.maps && mapInstanceRef.current) {
-          // Trigger a resize event to ensure map renders properly
-          setTimeout(() => {
-            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-          }, 100)
+        const mapOptions = {
+          center: { lat: userLocation.lat, lng: userLocation.lng },
+          zoom: mapZoom,
+          mapTypeId: "roadmap",
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          styles: [
+            {
+              featureType: "poi",
+              elementType: "labels",
+              stylers: [{ visibility: "on" }]
+            }
+          ] as google.maps.MapTypeStyle[]
         }
-      } catch (error) {
-        console.log("🗺️ Map container preservation failed:", error)
-      }
-    }
-  }, [viewMode, mapPersisted])
 
-  const loadGoogleMaps = () => {
-    // Prevent multiple API loading
-    if ((window as any).googleMapsLoading) {
-      console.log("🗺️ Google Maps API already loading, skipping...")
-      return
-    }
-    
-    if (window.google && window.google.maps) {
-      console.log("🗺️ Google Maps already loaded, initializing...")
-      initializeMap()
-      return
-    }
+        const map = new window.google.maps.Map(mapRef.current, mapOptions)
+        mapInstanceRef.current = map
+        setMapLoaded(true)
 
-    console.log("🗺️ Loading Google Maps API...")
-    ;(window as any).googleMapsLoading = true
-    
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      console.log("🗺️ Google Maps API loaded successfully!")
-      ;(window as any).googleMapsLoading = false
-      initializeMap()
-    }
-    script.onerror = () => {
-      console.error("🗺️ Failed to load Google Maps API")
-      ;(window as any).googleMapsLoading = false
-      setMapError("Failed to load Google Maps")
-      showBeautifulFallback()
-    }
-    document.head.appendChild(script)
-  }
-
-  const initializeMap = () => {
-    if (!mapRef.current || !userLocation) return
-
-    try {
-      const mapOptions = {
-        center: { lat: userLocation.lat, lng: userLocation.lng },
-        zoom: mapZoom,
-        mapTypeId: "roadmap",
-        disableDefaultUI: false,
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "on" }]
+        // Add user location marker
+        new window.google.maps.Marker({
+          position: { lat: userLocation.lat, lng: userLocation.lng },
+          map: map,
+          title: "Your Location",
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#3B82F6",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 2
           }
-        ] as google.maps.MapTypeStyle[]
+        })
+
+        // Add recommendation markers
+        addRecommendationMarkers(map)
+
+      } catch (error) {
+        console.error("🗺️ Error initializing map:", error)
+        // If Google Maps fails, show beautiful fallback
+        showBeautifulFallback()
       }
-
-      const map = new window.google.maps.Map(mapRef.current, mapOptions)
-      mapInstanceRef.current = map
-      setMapLoaded(true)
-      setMapPersisted(true) // Mark map as persisted to prevent reinitialization
-
-      // Google Maps automatically attaches to the container, no need for setMap
-      console.log("🗺️ Google Maps instance created successfully")
-
-      // Add user location marker
-      new window.google.maps.Marker({
-        position: { lat: userLocation.lat, lng: userLocation.lng },
-        map: map,
-        title: "Your Location",
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: "#3B82F6",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 2
-        }
-      })
-
-      // Add recommendation markers
-      addRecommendationMarkers(map)
-
-      console.log("🗺️ Map initialized and persisted successfully")
-
-    } catch (error) {
-      console.error("🗺️ Error initializing map:", error)
-      // If Google Maps fails, show beautiful fallback
-      showBeautifulFallback()
     }
-  }
+
+    const addRecommendationMarkers = (map: any) => {
+      try {
+        // Clear existing markers
+        markersRef.current.forEach(marker => marker.setMap(null))
+        markersRef.current = []
+
+        recommendations.forEach((rec: Recommendation) => {
+          const marker = new window.google.maps.Marker({
+            position: { lat: rec.location.lat, lng: rec.location.lng },
+            map: map,
+            title: rec.name,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: rec.type === "ai" ? "#EF4444" : "#3B82F6",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 2
+            }
+          })
+
+          // Add click listener
+          marker.addListener("click", () => {
+            handlePinClick(rec)
+          })
+
+          markersRef.current.push(marker)
+        })
+      } catch (error) {
+        console.error("🗺️ Error adding markers:", error)
+        // If markers fail, show fallback
+        showBeautifulFallback()
+      }
+    }
+
+    const showBeautifulFallback = () => {
+      console.log("🗺️ Creating beautiful interactive fallback map")
+      console.log("🗺️ Recommendations count:", recommendations.length)
+      
+      // Create a beautiful interactive fallback map
+      if (mapRef.current) {
+        mapRef.current.innerHTML = `
+          <div style="
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+          ">
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center;
+              color: white;
+              z-index: 10;
+            ">
+              <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+              <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Interactive Recommendations</div>
+              <div style="font-size: 0.875rem; opacity: 0.8;">Tap pins below to explore</div>
+              <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.5rem;">Found ${recommendations.length} places near you</div>
+            </div>
+            
+            <!-- Interactive Pins Overlay -->
+            <div style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              pointer-events: none;
+            ">
+              ${clusteredPins.length > 0 ? clusteredPins.map((cluster: ClusteredPin, index: number) => {
+                const angle = (index / clusteredPins.length) * 2 * Math.PI
+                const radius = 30 // Reduced from 120 to 30 for visible area
+                const centerX = 50
+                const centerY = 50
+                const x = centerX + radius * Math.cos(angle)
+                const y = centerY + radius * Math.sin(angle)
+                
+                // Determine color based on average rating
+                const getClusterColor = (rating: number) => {
+                  if (rating >= 4.5) return "#10B981" // Green for high rating
+                  if (rating >= 4.0) return "#F59E0B" // Yellow for good rating
+                  if (rating >= 3.5) return "#EF4444" // Red for average rating
+                  return "#6B7280" // Gray for low rating
+                }
+                
+                const clusterColor = getClusterColor(cluster.averageRating)
+                const clusterIcon = cluster.type === "ai" ? "🤖" : cluster.type === "community" ? "👥" : "🌟"
+                
+                console.log(`🗺️ Creating clustered pin ${index + 1}: ${cluster.count} recommendations at position (${x.toFixed(1)}%, ${y.toFixed(1)}%)`)
+                
+                return `
+                  <button
+                    onclick="window.handleClusterClick('${cluster.id}')"
+                    style="
+                      position: absolute;
+                      left: ${x}%;
+                      top: ${y}%;
+                      transform: translate(-50%, -50%);
+                      width: 60px;
+                      height: 60px;
+                      border-radius: 50%;
+                      border: 4px solid white;
+                      background: ${clusterColor};
+                      cursor: pointer;
+                      pointer-events: auto;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 16px;
+                      color: white;
+                      font-weight: bold;
+                      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+                      transition: all 0.2s ease;
+                      z-index: 1000;
+                      position: relative;
+                    "
+                    onmouseover="this.style.transform='translate(-50%, -50%) scale(1.3)'"
+                    onmouseout="this.style.transform='translate(-50%, -50%) scale(1)'"
+                    title="${cluster.count} recommendations (${cluster.averageRating.toFixed(1)}★ avg)"
+                  >
+                    ${clusterIcon}
+                    <div style="
+                      position: absolute;
+                      top: -8px;
+                      right: -8px;
+                      background: white;
+                      color: #1F2937;
+                      border-radius: 50%;
+                      width: 24px;
+                      height: 24px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 12px;
+                      font-weight: bold;
+                      border: 2px solid ${clusterColor};
+                  ">
+                    ${cluster.count}
+                  </div>
+                </button>
+              `
+            }).join('') : `
+              <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                color: white;
+                font-size: 0.875rem;
+                opacity: 0.7;
+              ">
+                Loading recommendations...
+              </div>
+            `}
+          </div>
+          
+          <!-- Animated Background -->
+          <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 70%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 30%, rgba(239, 68, 68, 0.3) 0%, transparent 50%);
+            animation: pulse 4s ease-in-out infinite;
+          "></div>
+        </div>
+      `
+      
+      // Add global click handler
+      ;(window as any).handlePinClick = (recId: string) => {
+        const rec = recommendations.find(r => r.id === recId)
+        if (rec) {
+          handlePinClick(rec)
+        }
+      }
+      
+      ;(window as any).handleClusterClick = (clusterId: string) => {
+        handleClusterClick(clusterId)
+      }
+      
+      // Add CSS animation
+      const style = document.createElement('style')
+      style.textContent = `
+        @keyframes pulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+      `
+      document.head.appendChild(style)
+      
+      setMapLoaded(true)
+      setMapError(null) // Clear any previous errors
+    }
+
+    // Try Google Maps first, fallback to beautiful gradient if it fails
+    console.log("🗺️ Loading Google Maps with real pins...")
+    loadGoogleMaps()
+  }, [userLocation, recommendations, mapZoom, clusteredPins])
+
+
 
   const showBeautifulFallback = () => {
     console.log("🗺️ Creating beautiful interactive fallback map")
@@ -761,26 +959,6 @@ export function RecommendationsHub({
   // Simple view mode change handler - no map reinitialization
   const handleViewModeChange = (newMode: "map" | "list") => {
     setViewMode(newMode)
-    
-    // If switching to map and map is already loaded, restore it properly
-    if (newMode === "map" && mapInstanceRef.current && mapPersisted) {
-      console.log("🗺️ Switching to map view - restoring map visibility")
-      
-      // Small delay to ensure DOM is ready, then properly restore map
-      setTimeout(() => {
-        if (window.google && window.google.maps && mapInstanceRef.current && mapRef.current) {
-          try {
-            // Reattach the map to the container and trigger resize
-            mapInstanceRef.current.setMap(null) // Detach first
-            mapInstanceRef.current.setMap(mapRef.current) // Reattach
-            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-            console.log("🗺️ Map restored successfully")
-          } catch (error) {
-            console.log("🗺️ Map restore failed:", error)
-          }
-        }
-      }, 200)
-    }
   }
 
   if (isLoading) {
