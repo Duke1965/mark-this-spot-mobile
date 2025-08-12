@@ -142,6 +142,49 @@ export default function AIRecommendationsHub() {
     }
   }, [location, insights])
 
+  // Refresh map when returning to map view
+  useEffect(() => {
+    if (viewMode === "map" && mapInstanceRef.current && mapRef.current) {
+      console.log('🗺️ Map view active, ensuring map is properly displayed...')
+      
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (mapInstanceRef.current && mapRef.current) {
+          console.log('🗺️ Refreshing map display...')
+          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          
+          // Re-center on user location if available
+          if (location) {
+            mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+          }
+        }
+      }, 200)
+    }
+  }, [viewMode, location])
+
+  // Handle view mode changes and preserve map
+  const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
+    console.log('🗺️ Switching to view mode:', newViewMode)
+    
+    if (newViewMode === "map" && mapInstanceRef.current) {
+      // Returning to map view - ensure map is visible and properly sized
+      console.log('🗺️ Returning to map view, refreshing map...')
+      setTimeout(() => {
+        if (mapInstanceRef.current && mapRef.current) {
+          console.log('🗺️ Refreshing map after tab switch...')
+          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          
+          // Re-center on user location if available
+          if (location) {
+            mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+          }
+        }
+      }, 100)
+    }
+    
+    setViewMode(newViewMode)
+  }
+
   // Center map on user location when it becomes available
   useEffect(() => {
     if (location && mapInstanceRef.current) {
@@ -421,7 +464,7 @@ export default function AIRecommendationsHub() {
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setViewMode(tab.key as any)}
+            onClick={() => handleViewModeChange(tab.key as any)}
             style={{
               flex: 1,
               padding: '12px',
@@ -461,7 +504,7 @@ export default function AIRecommendationsHub() {
                 minHeight: '400px',
                 position: 'relative',
                 zIndex: 1,
-                background: '#f0f0f0' // Light background to show map is loading
+                background: mapInstanceRef.current ? 'transparent' : '#f0f0f0' // Transparent when map is loaded, light gray when loading
               }}
             />
             
