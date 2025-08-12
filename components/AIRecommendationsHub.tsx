@@ -59,9 +59,23 @@ export default function AIRecommendationsHub() {
   // Initialize location watching
   useEffect(() => {
     console.log('🧠 AIRecommendationsHub: Location effect triggered', { location })
+    
     if (location) {
-      console.log('🧠 AIRecommendationsHub: Starting location watch')
+      console.log('🧠 AIRecommendationsHub: Location detected, starting watch')
       watchLocation()
+    } else {
+      console.log('🧠 AIRecommendationsHub: No location yet, requesting current location...')
+      // Try to get current location if none exists
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('🧠 AIRecommendationsHub: Got current position:', position.coords)
+          },
+          (error) => {
+            console.error('🧠 AIRecommendationsHub: Location error:', error)
+          }
+        )
+      }
     }
   }, [location, watchLocation])
 
@@ -137,7 +151,21 @@ export default function AIRecommendationsHub() {
   // Initialize Google Maps when map ref is ready
   useEffect(() => {
     console.log('🧠 AIRecommendationsHub: Map init effect triggered', { mapRef: !!mapRef, mapInstance: !!mapInstance, location })
-    if (mapRef && !mapInstance && location) {
+    
+    // If we have a map ref but no map instance, try to initialize
+    if (mapRef && !mapInstance) {
+      if (location) {
+        console.log('🧠 AIRecommendationsHub: Location available, initializing map...')
+        initializeMap()
+      } else {
+        console.log('🧠 AIRecommendationsHub: No location yet, using fallback...')
+        // Set a fallback location (you can change this to a default city)
+        const fallbackLocation = { latitude: -33.9249, longitude: 18.4241 } // Cape Town
+        console.log('🧠 AIRecommendationsHub: Using fallback location:', fallbackLocation)
+        initializeMap()
+      }
+    }
+  }, [mapRef, mapInstance, location, initializeMap])
       const initMap = async () => {
         try {
           console.log('🗺️ Starting map initialization...')
