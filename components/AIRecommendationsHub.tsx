@@ -41,9 +41,9 @@ export default function AIRecommendationsHub() {
   const { location, watchLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
   
-  // Map states
-  const [mapInstance, setMapInstance] = useState<any>(null)
-  const [mapRef, setMapRef] = useState<HTMLDivElement | null>(null)
+  // Map states - use useRef for stable references
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
   const [isMapLoading, setIsMapLoading] = useState(true)
   const [mapError, setMapError] = useState<string | null>(null)
   
@@ -142,9 +142,9 @@ export default function AIRecommendationsHub() {
     }
   }, [location, insights])
 
-  // Initialize Google Maps when map ref is ready
+  // Initialize Google Maps when map ref is ready - only once
   useEffect(() => {
-    if (mapRef && !mapInstance && !mapError) {
+    if (mapRef.current && !mapInstanceRef.current && !mapError) {
       console.log('🗺️ Map ref ready, starting initialization...')
       initializeMap()
       
@@ -159,7 +159,7 @@ export default function AIRecommendationsHub() {
       
       return () => clearTimeout(timeoutId)
     }
-  }, [mapRef, mapInstance, mapError])
+  }, [mapError]) // Only depend on mapError, not refs
 
   const initializeMap = useCallback(async () => {
     try {
@@ -221,7 +221,7 @@ export default function AIRecommendationsHub() {
   const createMapInstance = () => {
     try {
       console.log('🗺️ Creating map instance...')
-      if (!mapRef) {
+      if (!mapRef.current) {
         console.log('🗺️ Map ref not ready, skipping...')
         return
       }
@@ -238,7 +238,7 @@ export default function AIRecommendationsHub() {
       }
 
       console.log('🗺️ Creating Google Maps instance...')
-      const map = new window.google.maps.Map(mapRef, {
+      const map = new window.google.maps.Map(mapRef.current, {
         center: { lat: mapLocation.latitude, lng: mapLocation.longitude },
         zoom: 13,
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
@@ -293,18 +293,18 @@ export default function AIRecommendationsHub() {
       })
 
       console.log('🗺️ Google Maps instance created successfully')
-      setMapInstance(map)
+      mapInstanceRef.current = map
       
       // Wait a bit longer for the map to actually render
       setTimeout(() => {
-        if (mapRef && map) {
+        if (mapRef.current && map) {
           console.log('🗺️ Triggering map resize...')
           try {
             window.google.maps.event.trigger(map, 'resize')
             console.log('🗺️ Map resize completed')
             
             // Check if map actually rendered
-            const mapDiv = mapRef.querySelector('.gm-style')
+            const mapDiv = mapRef.current.querySelector('.gm-style')
             if (mapDiv) {
               console.log('🗺️ Map rendered successfully, removing loading state')
               setIsMapLoading(false)
@@ -334,14 +334,14 @@ export default function AIRecommendationsHub() {
 
   // Add markers when map and recommendations are ready
   useEffect(() => {
-    if (mapInstance && recommendations.length > 0) {
+    if (mapInstanceRef.current && recommendations.length > 0) {
       addMarkersToMap()
     }
-  }, [mapInstance, recommendations])
+  }, [recommendations]) // Only depend on recommendations
 
   const addMarkersToMap = () => {
     try {
-      if (!mapInstance || !recommendations.length) return
+      if (!mapInstanceRef.current || !recommendations.length) return
 
       // Clear existing markers
       if (window.google && window.google.maps) {
@@ -349,7 +349,7 @@ export default function AIRecommendationsHub() {
         recommendations.forEach((rec) => {
           const marker = new window.google.maps.Marker({
             position: { lat: rec.location.lat, lng: rec.location.lng },
-            map: mapInstance,
+            map: mapInstanceRef.current,
             title: rec.title,
             icon: {
               url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
@@ -379,7 +379,7 @@ export default function AIRecommendationsHub() {
           })
 
           marker.addListener('click', () => {
-            infoWindow.open(mapInstance, marker)
+            infoWindow.open(mapInstanceRef.current, marker)
           })
         })
       }
@@ -484,10 +484,7 @@ export default function AIRecommendationsHub() {
             overflow: 'hidden'
           }}>
             <div
-              ref={(el) => {
-                console.log('🗺️ Map ref callback triggered:', !!el)
-                setMapRef(el)
-              }}
+                              ref={mapRef}
               style={{
                 width: '100%',
                 height: '100%',
@@ -549,10 +546,10 @@ export default function AIRecommendationsHub() {
                 <button
                   onClick={() => {
                     setMapError(null)
-                    setMapInstance(null)
+                    mapInstanceRef.current = null
                     setIsMapLoading(true)
                     setTimeout(() => {
-                      if (mapRef) {
+                      if (mapRef.current) {
                         initializeMap()
                       }
                     }, 1000)
