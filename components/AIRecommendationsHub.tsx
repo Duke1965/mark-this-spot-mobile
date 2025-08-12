@@ -58,7 +58,9 @@ export default function AIRecommendationsHub() {
 
   // Initialize location watching
   useEffect(() => {
+    console.log('🧠 AIRecommendationsHub: Location effect triggered', { location })
     if (location) {
+      console.log('🧠 AIRecommendationsHub: Starting location watch')
       watchLocation()
     }
   }, [location, watchLocation])
@@ -134,21 +136,46 @@ export default function AIRecommendationsHub() {
 
   // Initialize Google Maps when map ref is ready
   useEffect(() => {
+    console.log('🧠 AIRecommendationsHub: Map init effect triggered', { mapRef: !!mapRef, mapInstance: !!mapInstance, location })
     if (mapRef && !mapInstance && location) {
       const initMap = async () => {
         try {
-          // Load Google Maps script if not already loaded
-          if (!window.google || !window.google.maps) {
-            const script = document.createElement('script')
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
-            script.async = true
-            script.onload = () => initializeMap()
-            document.head.appendChild(script)
-          } else {
+          console.log('🗺️ Starting map initialization...')
+          
+          // Check if Google Maps is already loaded
+          if (window.google && window.google.maps) {
+            console.log('🗺️ Google Maps already loaded, initializing...')
             initializeMap()
+          } else {
+            console.log('🗺️ Loading Google Maps script...')
+            
+            // Check if script is already being loaded
+            const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+            if (existingScript) {
+              console.log('🗺️ Google Maps script already loading, waiting...')
+              existingScript.addEventListener('load', () => {
+                console.log('🗺️ Google Maps script loaded, initializing...')
+                initializeMap()
+              })
+            } else {
+              // Create and load new script
+              const script = document.createElement('script')
+              script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'DEMO_KEY'}&libraries=places`
+              script.async = true
+              script.onload = () => {
+                console.log('🗺️ Google Maps script loaded successfully, initializing...')
+                initializeMap()
+              }
+              script.onerror = (error) => {
+                console.error('🗺️ Failed to load Google Maps script:', error)
+                setIsLoading(false)
+              }
+              document.head.appendChild(script)
+            }
           }
         } catch (error) {
-          console.error('Failed to initialize map:', error)
+          console.error('🗺️ Failed to initialize map:', error)
+          setIsLoading(false)
         }
       }
       
@@ -157,57 +184,83 @@ export default function AIRecommendationsHub() {
   }, [mapRef, mapInstance, location])
 
   const initializeMap = useCallback(() => {
-    if (!mapRef || !location) return
+    try {
+      if (!mapRef || !location) {
+        console.log('🗺️ Map initialization skipped: missing mapRef or location')
+        return
+      }
 
-    const map = new window.google.maps.Map(mapRef, {
-      center: { lat: location.latitude, lng: location.longitude },
-      zoom: 13,
-      styles: [
-        {
-          featureType: 'all',
-          elementType: 'labels.text.fill',
-          stylers: [{ color: '#ffffff' }]
-        },
-        {
-          featureType: 'all',
-          elementType: 'labels.text.stroke',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'administrative',
-          elementType: 'geometry.fill',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'landscape',
-          elementType: 'geometry',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'poi',
-          elementType: 'geometry',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'road',
-          elementType: 'geometry',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'transit',
-          elementType: 'geometry',
-          stylers: [{ color: '#000000' }]
-        },
-        {
-          featureType: 'water',
-          elementType: 'geometry',
-          stylers: [{ color: '#000000' }]
+      console.log('🗺️ Creating Google Maps instance...')
+      
+      const map = new window.google.maps.Map(mapRef, {
+        center: { lat: location.latitude, lng: location.longitude },
+        zoom: 13,
+        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false,
+        styles: [
+          {
+            featureType: 'all',
+            elementType: 'labels.text.fill',
+            stylers: [{ color: '#ffffff' }]
+          },
+          {
+            featureType: 'all',
+            elementType: 'labels.text.stroke',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'administrative',
+            elementType: 'geometry.fill',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'landscape',
+            elementType: 'geometry',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'poi',
+            elementType: 'geometry',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'road',
+            elementType: 'geometry',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'transit',
+            elementType: 'geometry',
+            stylers: [{ color: '#000000' }]
+          },
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#000000' }]
+          }
+        ]
+      })
+
+      console.log('🗺️ Google Maps instance created successfully')
+      setMapInstance(map)
+      setIsLoading(false)
+      
+      // Add a small delay to ensure the map renders
+      setTimeout(() => {
+        if (mapRef && map) {
+          window.google.maps.event.trigger(map, 'resize')
+          console.log('🗺️ Map resize triggered')
         }
-      ]
-    })
-
-    setMapInstance(map)
-    setIsLoading(false)
+      }, 100)
+      
+    } catch (error) {
+      console.error('🗺️ Failed to create map instance:', error)
+      setIsLoading(false)
+    }
   }, [mapRef, location])
 
   return (
@@ -325,6 +378,56 @@ export default function AIRecommendationsHub() {
               }}>
                 <div style={{ marginBottom: '10px' }}>🗺️</div>
                 <div>Loading AI-powered map...</div>
+                <div style={{ 
+                  marginTop: '10px', 
+                  fontSize: '14px', 
+                  opacity: 0.7,
+                  maxWidth: '200px'
+                }}>
+                  {location ? 'Location detected, initializing map...' : 'Waiting for location...'}
+                </div>
+              </div>
+            )}
+            
+            {/* Fallback if map fails to load */}
+            {!isLoading && !mapInstance && (
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                color: 'white',
+                fontSize: '16px',
+                textAlign: 'center',
+                background: 'rgba(0,0,0,0.8)',
+                padding: '20px',
+                borderRadius: '12px'
+              }}>
+                <div style={{ marginBottom: '15px' }}>⚠️</div>
+                <div>Map failed to load</div>
+                <button
+                  onClick={() => {
+                    setMapInstance(null)
+                    setIsLoading(true)
+                    // Retry initialization
+                    setTimeout(() => {
+                      if (mapRef && location) {
+                        initializeMap()
+                      }
+                    }, 1000)
+                  }}
+                  style={{
+                    marginTop: '15px',
+                    padding: '8px 16px',
+                    background: 'rgba(59, 130, 246, 0.8)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔄 Retry
+                </button>
               </div>
             )}
           </div>
