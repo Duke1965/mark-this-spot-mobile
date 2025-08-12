@@ -144,23 +144,70 @@ export default function AIRecommendationsHub() {
 
   // Refresh map when returning to map view
   useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current && mapRef.current) {
+    if (viewMode === "map" && mapRef.current) {
       console.log('🗺️ Map view active, ensuring map is properly displayed...')
       
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        if (mapInstanceRef.current && mapRef.current) {
-          console.log('🗺️ Refreshing map display...')
-          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-          
-          // Re-center on user location if available
-          if (location) {
-            mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+      if (mapInstanceRef.current) {
+        // Map instance exists, try to refresh it
+        console.log('🗺️ Refreshing existing map instance...')
+        setTimeout(() => {
+          if (mapInstanceRef.current && mapRef.current) {
+            try {
+              // Force a complete map refresh
+              window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+              console.log('🗺️ Map resize completed')
+              
+              // Check if tiles are actually visible
+              const mapDiv = mapRef.current.querySelector('.gm-style')
+              if (!mapDiv || mapDiv.children.length === 0) {
+                console.log('🗺️ Map tiles not visible, recreating map...')
+                recreateMap()
+              } else {
+                console.log('🗺️ Map tiles visible, centering on location...')
+                if (location) {
+                  mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+                }
+              }
+            } catch (error) {
+              console.error('🗺️ Error refreshing map:', error)
+              recreateMap()
+            }
           }
-        }
-      }, 200)
+        }, 200)
+      } else {
+        // No map instance, create new one
+        console.log('🗺️ No map instance, creating new map...')
+        initializeMap()
+      }
     }
   }, [viewMode, location])
+
+  // Function to recreate the map instance
+  const recreateMap = () => {
+    try {
+      console.log('🗺️ Recreating map instance...')
+      
+      // Clear existing map instance
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current = null
+      }
+      
+      // Reset loading state
+      setIsMapLoading(true)
+      setMapError(null)
+      
+      // Create new map instance
+      setTimeout(() => {
+        if (mapRef.current) {
+          createMapInstance()
+        }
+      }, 100)
+    } catch (error) {
+      console.error('🗺️ Error recreating map:', error)
+      setMapError('Failed to recreate map')
+      setIsMapLoading(false)
+    }
+  }
 
   // Handle view mode changes and preserve map
   const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
@@ -172,11 +219,25 @@ export default function AIRecommendationsHub() {
       setTimeout(() => {
         if (mapInstanceRef.current && mapRef.current) {
           console.log('🗺️ Refreshing map after tab switch...')
-          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-          
-          // Re-center on user location if available
-          if (location) {
-            mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+          try {
+            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+            
+            // Check if tiles are visible after resize
+            setTimeout(() => {
+              const mapDiv = mapRef.current?.querySelector('.gm-style')
+              if (!mapDiv || mapDiv.children.length === 0) {
+                console.log('🗺️ Map tiles still not visible, recreating...')
+                recreateMap()
+              } else {
+                console.log('🗺️ Map tiles visible after resize')
+                if (location) {
+                  mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+                }
+              }
+            }, 300)
+          } catch (error) {
+            console.error('🗺️ Error during map refresh:', error)
+            recreateMap()
           }
         }
       }, 100)
@@ -270,6 +331,11 @@ export default function AIRecommendationsHub() {
       const mapLocation = location || { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
       console.log('🗺️ Using map location:', mapLocation)
       
+      // If we have user location, use it; otherwise use fallback
+      const centerLocation = location ? 
+        { lat: location.latitude, lng: location.longitude } : 
+        { lat: mapLocation.latitude, lng: mapLocation.longitude }
+      
       if (!window.google || !window.google.maps) {
         console.error('🗺️ Google Maps not available after script load')
         setMapError('Google Maps not available')
@@ -279,7 +345,7 @@ export default function AIRecommendationsHub() {
 
       console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: mapLocation.latitude, lng: mapLocation.longitude },
+        center: centerLocation,
         zoom: 13,
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
