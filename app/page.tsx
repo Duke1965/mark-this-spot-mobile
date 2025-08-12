@@ -262,11 +262,11 @@ export default function PINITApp() {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       console.log("📍 Setting up location watching...")
       
-      // Start watching location continuously
+      // Start watching location continuously with better accuracy
       watchId = watchLocation({
-        enableHighAccuracy: false, // Try low accuracy first
+        enableHighAccuracy: true, // Use high accuracy for real-time updates
         timeout: 15000, // Increase timeout
-        maximumAge: 60000, // 1 minute - less frequent updates for smoother experience
+        maximumAge: 10000, // Reduced to 10 seconds for real-time updates
       })
 
       // Cleanup function
