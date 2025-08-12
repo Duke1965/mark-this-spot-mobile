@@ -14,7 +14,7 @@ import { PinStoryMode } from "@/components/PinStoryMode"
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
-import { RecommendationsHub } from "@/components/RecommendationsHub"
+import AIRecommendationsHub from "@/components/AIRecommendationsHub"
 import { RecommendationForm } from "@/components/RecommendationForm"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
@@ -831,17 +831,12 @@ export default function PINITApp() {
 
   // NEW RECOMMENDATIONS HUB SCREEN
   if (currentScreen === "recommendations") {
-    console.log("🗺️ Opening RecommendationsHub with:")
-    console.log("🗺️ - recommendations count:", recommendations.length)
-    console.log("🗺️ - nearbyPins count:", nearbyPins.length)
-    console.log("🗺️ - combined aiRecommendations count:", [...recommendations, ...nearbyPins].length)
+    console.log("🧠 Opening AI-Powered Recommendations Hub")
+    console.log("🧠 - AI brain is learning from user behavior")
+    console.log("🧠 - Generating personalized recommendations")
     
     return (
-      <RecommendationsHub
-        onBack={() => setCurrentScreen("map")}
-        pins={pins}
-        aiRecommendations={[...recommendations, ...nearbyPins]} // Combine both existing AI recommendations AND new nearby places
-      />
+      <AIRecommendationsHub />
     )
   }
 
@@ -1040,57 +1035,7 @@ export default function PINITApp() {
           ��
         </button>
 
-        {/* TEMPORARY TEST: Add AI Recommendations */}
-        <button
-          onClick={() => {
-            console.log("🧪 Test button clicked - adding sample AI recommendations")
-            const testRecommendations = [
-              {
-                id: `test-${Date.now()}-1`,
-                type: "ai-suggestion",
-                title: "🧪 Test Coffee Shop",
-                description: "This is a test AI recommendation",
-                action: "test",
-                priority: 5,
-                color: "#EF4444",
-                isAISuggestion: true,
-                timestamp: Date.now(),
-                category: "Test",
-                latitude: userLocation?.latitude ? userLocation.latitude + 0.01 : -33.8197, // 1km north of user
-                longitude: userLocation?.longitude ? userLocation.longitude + 0.01 : 18.6386, // 1km east of user
-                rating: 4.5
-              },
-              {
-                id: `test-${Date.now()}-2`,
-                type: "ai-suggestion", 
-                title: "🧪 Test Park",
-                description: "Another test AI recommendation",
-                action: "test",
-                priority: 6,
-                color: "#EF4444",
-                isAISuggestion: true,
-                timestamp: Date.now(),
-                category: "Test",
-                latitude: userLocation?.latitude ? userLocation.latitude - 0.015 : -33.8447, // 1.5km south of user
-                longitude: userLocation?.longitude ? userLocation.longitude - 0.01 : 18.6186, // 1km west of user
-                rating: 4.8
-              }
-            ]
-            handleAIRecommendations(testRecommendations)
-          }}
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            background: "rgba(239, 68, 68, 0.8)",
-            color: "white",
-            cursor: "pointer",
-            borderRadius: "0.5rem",
-            fontSize: "0.75rem",
-            fontWeight: "bold"
-          }}
-        >
-          🧪 Test AI
-        </button>
+
       </div>
 
 
@@ -1507,7 +1452,7 @@ export default function PINITApp() {
         </div>
       )}
 
-      {/* Bottom Navigation - Photo/Video/Library/Recommendations */}
+              {/* Bottom Navigation - Photo/Video/Library/AI-Powered Recommendations */}
       <div
         style={{
           position: "absolute",
@@ -1606,6 +1551,7 @@ export default function PINITApp() {
             justifyContent: "center",
             position: "relative",
           }}
+          title="🧠 AI-Powered Recommendations"
         >
           <Star size={28} style={{ color: "white" }} />
           {/* Notification Badge */}
