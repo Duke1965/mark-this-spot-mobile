@@ -332,15 +332,36 @@ export default function AIRecommendationsHub() {
         return
       }
 
-      // Use actual location or fallback
-      const mapLocation = location || { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
-      console.log('🗺️ Using map location:', mapLocation)
+      // Debug location object structure
+      console.log('🗺️ Raw location object:', location)
+      console.log('🗺️ Location type:', typeof location)
+      if (location) {
+        console.log('🗺️ Location properties:', Object.keys(location))
+        console.log('🗺️ Location.latitude:', location.latitude)
+        console.log('🗺️ Location.longitude:', location.longitude)
+      }
+
+      // Use actual location or fallback with proper validation
+      let mapLocation = { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
+      
+      if (location && typeof location === 'object') {
+        // Check if location has the expected structure
+        if (location.latitude && location.longitude && 
+            typeof location.latitude === 'number' && 
+            typeof location.longitude === 'number') {
+          mapLocation = { latitude: location.latitude, longitude: location.longitude }
+          console.log('🗺️ Using GPS location:', mapLocation)
+        } else {
+          console.log('🗺️ Invalid location object, using fallback')
+        }
+      } else {
+        console.log('🗺️ No location available, using fallback')
+      }
+      
+      console.log('🗺️ Final map location:', mapLocation)
       
       // If we have user location, use it; otherwise use fallback
-      const centerLocation = location ? 
-        { lat: location.latitude, lng: location.longitude } : 
-        { lat: mapLocation.latitude, lng: mapLocation.longitude }
-      
+      const centerLocation = { lat: mapLocation.latitude, lng: mapLocation.longitude }
       console.log('🗺️ Center location for map:', centerLocation)
       
       if (!window.google || !window.google.maps) {
@@ -383,13 +404,13 @@ export default function AIRecommendationsHub() {
               setIsMapLoading(false)
               
               // Center map on user's actual location if available
-              if (location) {
-                console.log('🗺️ Centering map on user location:', location)
-                map.setCenter({ lat: location.latitude, lng: location.longitude })
+              if (mapLocation.latitude !== -33.9249 || mapLocation.longitude !== 18.4241) {
+                console.log('🗺️ Centering map on user location:', mapLocation)
+                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
                 
                 // Add a user location marker
                 new window.google.maps.Marker({
-                  position: { lat: location.latitude, lng: location.longitude },
+                  position: { lat: mapLocation.latitude, lng: mapLocation.longitude },
                   map: map,
                   title: 'Your Location',
                   icon: {
@@ -410,9 +431,9 @@ export default function AIRecommendationsHub() {
                 setIsMapLoading(false)
                 
                 // Center map on user's actual location if available
-                if (location) {
-                  console.log('🗺️ Centering map on user location after resize:', location)
-                  map.setCenter({ lat: location.latitude, lng: location.longitude })
+                if (mapLocation.latitude !== -33.9249 || mapLocation.longitude !== 18.4241) {
+                  console.log('🗺️ Centering map on user location after resize:', mapLocation)
+                  map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
                 }
               }, 500)
             }
