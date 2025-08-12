@@ -92,10 +92,9 @@ export function useLocationServices() {
     }
 
     const defaultOptions: PositionOptions = {
-      enableHighAccuracy: true,
+      enableHighAccuracy: true, // Changed to true for better accuracy
       timeout: 10000,
-      maximumAge: 60000, // 1 minute for watch
-      ...options,
+      maximumAge: 10000, // Reduced from 60000 to 10000 (10 seconds) for real-time updates
     }
 
     return navigator.geolocation.watchPosition(
