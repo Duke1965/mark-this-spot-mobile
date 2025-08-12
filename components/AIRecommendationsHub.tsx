@@ -145,22 +145,36 @@ export default function AIRecommendationsHub() {
   // Initialize Google Maps when map ref is ready
   useEffect(() => {
     if (mapRef && !mapInstance && !mapError) {
+      console.log('🗺️ Map ref ready, starting initialization...')
       initializeMap()
+      
+      // Add timeout fallback to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        if (isMapLoading) {
+          console.log('🗺️ Map initialization timeout, showing error...')
+          setMapError('Map initialization timed out')
+          setIsMapLoading(false)
+        }
+      }, 15000) // 15 second timeout
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [mapRef, mapInstance, mapError])
 
   const initializeMap = useCallback(async () => {
     try {
+      console.log('🗺️ Starting map initialization...')
       setIsMapLoading(true)
       setMapError(null)
       
       // Check if Google Maps is already loaded
       if (window.google && window.google.maps) {
-        console.log('🗺️ Google Maps already loaded, initializing...')
+        console.log('🗺️ Google Maps already loaded, creating map instance...')
         createMapInstance()
       } else {
         console.log('🗺️ Loading Google Maps script...')
         await loadGoogleMapsScript()
+        console.log('🗺️ Google Maps script loaded, creating map instance...')
         createMapInstance()
       }
     } catch (error) {
@@ -172,31 +186,57 @@ export default function AIRecommendationsHub() {
 
   const loadGoogleMapsScript = (): Promise<void> => {
     return new Promise((resolve, reject) => {
+      console.log('🗺️ Setting up Google Maps script loading...')
+      
       // Check if script is already being loaded
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
       if (existingScript) {
-        existingScript.addEventListener('load', () => resolve())
+        console.log('🗺️ Google Maps script already loading, waiting...')
+        existingScript.addEventListener('load', () => {
+          console.log('🗺️ Existing script loaded, resolving...')
+          resolve()
+        })
         existingScript.addEventListener('error', reject)
         return
       }
 
       // Create and load new script
+      console.log('🗺️ Creating new Google Maps script...')
       const script = document.createElement('script')
       script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'DEMO_KEY'}&libraries=places`
       script.async = true
-      script.onload = () => resolve()
-      script.onerror = reject
+      script.onload = () => {
+        console.log('🗺️ New Google Maps script loaded successfully')
+        resolve()
+      }
+      script.onerror = (error) => {
+        console.error('🗺️ Google Maps script failed to load:', error)
+        reject(error)
+      }
       document.head.appendChild(script)
+      console.log('🗺️ Google Maps script added to document head')
     })
   }
 
   const createMapInstance = () => {
     try {
-      if (!mapRef) return
+      console.log('🗺️ Creating map instance...')
+      if (!mapRef) {
+        console.log('🗺️ Map ref not ready, skipping...')
+        return
+      }
 
-      // Use location or fallback
+      // Use location or fallback - don't wait for location
       const mapLocation = location || { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
+      console.log('🗺️ Using map location:', mapLocation)
       
+      if (!window.google || !window.google.maps) {
+        console.error('🗺️ Google Maps not available after script load')
+        setMapError('Google Maps not available')
+        setIsMapLoading(false)
+        return
+      }
+
       const map = new window.google.maps.Map(mapRef, {
         center: { lat: mapLocation.latitude, lng: mapLocation.longitude },
         zoom: 13,
@@ -250,13 +290,16 @@ export default function AIRecommendationsHub() {
         ]
       })
 
+      console.log('🗺️ Google Maps instance created successfully')
       setMapInstance(map)
       setIsMapLoading(false)
       
       // Add a small delay to ensure the map renders
       setTimeout(() => {
         if (mapRef && map) {
+          console.log('🗺️ Triggering map resize...')
           window.google.maps.event.trigger(map, 'resize')
+          console.log('🗺️ Map resize completed')
         }
       }, 100)
       
