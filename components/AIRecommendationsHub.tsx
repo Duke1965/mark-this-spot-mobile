@@ -142,22 +142,19 @@ export default function AIRecommendationsHub() {
     }
   }, [location, insights])
 
+  // Center map on user location when it becomes available
+  useEffect(() => {
+    if (location && mapInstanceRef.current) {
+      console.log('🗺️ Location updated, centering map:', location)
+      mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+    }
+  }, [location])
+
   // Initialize Google Maps when map ref is ready - only once
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current && !mapError) {
       console.log('🗺️ Map ref ready, starting initialization...')
       initializeMap()
-      
-      // Add timeout fallback to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        if (isMapLoading) {
-          console.log('🗺️ Map initialization timeout, showing error...')
-          setMapError('Map initialization timed out')
-          setIsMapLoading(false)
-        }
-      }, 15000) // 15 second timeout
-      
-      return () => clearTimeout(timeoutId)
     }
   }, [mapError]) // Only depend on mapError, not refs
 
@@ -226,7 +223,7 @@ export default function AIRecommendationsHub() {
         return
       }
 
-      // Use location or fallback - don't wait for location
+      // Use actual location or fallback
       const mapLocation = location || { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
       console.log('🗺️ Using map location:', mapLocation)
       
@@ -248,54 +245,14 @@ export default function AIRecommendationsHub() {
         mapTypeControl: false,
         fullscreenControl: false,
         backgroundColor: '#000000',
-        styles: [
-          {
-            featureType: 'all',
-            elementType: 'labels.text.fill',
-            stylers: [{ color: '#ffffff' }]
-          },
-          {
-            featureType: 'all',
-            elementType: 'labels.text.stroke',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'administrative',
-            elementType: 'geometry.fill',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'landscape',
-            elementType: 'geometry',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'poi',
-            elementType: 'geometry',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'road',
-            elementType: 'geometry',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'transit',
-            elementType: 'geometry',
-            stylers: [{ color: '#000000' }]
-          },
-          {
-            featureType: 'water',
-            elementType: 'geometry',
-            stylers: [{ color: '#000000' }]
-          }
-        ]
+        // Remove custom styles that might interfere with tiles
+        styles: []
       })
 
       console.log('🗺️ Google Maps instance created successfully')
       mapInstanceRef.current = map
       
-      // Wait a bit longer for the map to actually render
+      // Wait for map to render and then remove loading
       setTimeout(() => {
         if (mapRef.current && map) {
           console.log('🗺️ Triggering map resize...')
@@ -303,16 +260,28 @@ export default function AIRecommendationsHub() {
             window.google.maps.event.trigger(map, 'resize')
             console.log('🗺️ Map resize completed')
             
-            // Check if map actually rendered
+            // Check if map actually rendered with tiles
             const mapDiv = mapRef.current.querySelector('.gm-style')
             if (mapDiv) {
               console.log('🗺️ Map rendered successfully, removing loading state')
               setIsMapLoading(false)
+              
+              // Center map on user's actual location if available
+              if (location) {
+                console.log('🗺️ Centering map on user location:', location)
+                map.setCenter({ lat: location.latitude, lng: location.longitude })
+              }
             } else {
               console.log('🗺️ Map not rendered, triggering another resize')
               setTimeout(() => {
                 window.google.maps.event.trigger(map, 'resize')
                 setIsMapLoading(false)
+                
+                // Center map on user's actual location if available
+                if (location) {
+                  console.log('🗺️ Centering map on user location after resize:', location)
+                  map.setCenter({ lat: location.latitude, lng: location.longitude })
+                }
               }, 500)
             }
           } catch (error) {
@@ -484,14 +453,15 @@ export default function AIRecommendationsHub() {
             overflow: 'hidden'
           }}>
             <div
-                              ref={mapRef}
+              ref={mapRef}
               style={{
                 width: '100%',
                 height: '100%',
                 borderRadius: '16px',
                 minHeight: '400px',
                 position: 'relative',
-                zIndex: 1
+                zIndex: 1,
+                background: '#f0f0f0' // Light background to show map is loading
               }}
             />
             
