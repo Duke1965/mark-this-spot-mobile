@@ -96,10 +96,24 @@ export default function AIRecommendationsHub() {
     }
   }, [getCurrentLocation, watchLocation, location])
 
-  // Generate AI recommendations when location changes
+  // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
-    if (location && insights) {
+    if (location && insights && recommendations.length < 5) { // Limit total recommendations
       try {
+        // Only generate new recommendations if we don't have many already
+        // and if enough time has passed since last generation
+        const now = Date.now()
+        const lastGeneration = localStorage.getItem('last-ai-recommendation-time')
+        const timeSinceLastGeneration = lastGeneration ? now - parseInt(lastGeneration) : 60000
+        
+        // Only generate new recommendations every 30 seconds minimum
+        if (timeSinceLastGeneration < 30000) {
+          console.log('🧠 Skipping recommendation generation - too soon since last batch')
+          return
+        }
+        
+        console.log('🧠 Generating new AI recommendations...')
+        
         const generateRecommendations = () => {
           const aiRecs: Recommendation[] = []
           
@@ -109,9 +123,13 @@ export default function AIRecommendationsHub() {
               .filter(([key, value]) => key !== 'confidence' && value === true)
               .map(([key]) => key.replace('is', '').toLowerCase())
             
-            categories.forEach((category, index) => {
+            // Only generate 2-3 recommendations at a time, not continuously
+            const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
+            const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
+            
+            shuffledCategories.forEach((category, index) => {
               aiRecs.push({
-                id: `ai-${category}-${index}`,
+                id: `ai-${category}-${Date.now()}-${index}`,
                 title: `${category.charAt(0).toUpperCase() + category.slice(1)} Discovery`,
                 description: `Based on your ${category} preferences, we think you'd love this spot!`,
                 category: category,
@@ -128,11 +146,11 @@ export default function AIRecommendationsHub() {
             })
           }
           
-          // Add some discovery recommendations (40% as specified)
-          const discoveryCount = Math.max(1, Math.floor(aiRecs.length * 0.4))
+          // Add only 1-2 discovery recommendations (40% as specified, but limited)
+          const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
           for (let i = 0; i < discoveryCount; i++) {
             aiRecs.push({
-              id: `discovery-${i}`,
+              id: `discovery-${Date.now()}-${i}`,
               title: `New Adventure #${i + 1}`,
               description: "Something completely new to expand your horizons!",
               category: 'adventure',
@@ -148,16 +166,25 @@ export default function AIRecommendationsHub() {
             })
           }
           
-          setRecommendations(aiRecs)
+          // Store the timestamp of this generation
+          localStorage.setItem('last-ai-recommendation-time', now.toString())
+          
+          // Add new recommendations to existing ones (don't replace)
+          setRecommendations(prev => {
+            const combined = [...prev, ...aiRecs]
+            // Keep only the most recent 8 recommendations to prevent spam
+            return combined.slice(-8)
+          })
+          
+          console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
         }
         
         generateRecommendations()
       } catch (error) {
         console.log('🧠 Error generating recommendations:', error)
-        setRecommendations([])
       }
     }
-  }, [location, insights])
+  }, [location, insights, recommendations.length]) // Added recommendations.length to dependency
 
   // Refresh map when returning to map view
   useEffect(() => {
