@@ -766,14 +766,17 @@ export function RecommendationsHub({
     if (newMode === "map" && mapInstanceRef.current && mapPersisted) {
       console.log("🗺️ Switching to map view - restoring map visibility")
       
-      // Small delay to ensure DOM is ready, then trigger resize
+      // Small delay to ensure DOM is ready, then properly restore map
       setTimeout(() => {
-        if (window.google && window.google.maps && mapInstanceRef.current) {
+        if (window.google && window.google.maps && mapInstanceRef.current && mapRef.current) {
           try {
+            // Reattach the map to the container and trigger resize
+            mapInstanceRef.current.setMap(null) // Detach first
+            mapInstanceRef.current.setMap(mapRef.current) // Reattach
             window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
             console.log("🗺️ Map restored successfully")
           } catch (error) {
-            console.log("🗺️ Map resize trigger failed:", error)
+            console.log("🗺️ Map restore failed:", error)
           }
         }
       }, 200)
