@@ -237,6 +237,7 @@ export default function AIRecommendationsHub() {
         return
       }
 
+      console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef, {
         center: { lat: mapLocation.latitude, lng: mapLocation.longitude },
         zoom: 13,
@@ -246,6 +247,7 @@ export default function AIRecommendationsHub() {
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
+        backgroundColor: '#000000',
         styles: [
           {
             featureType: 'all',
@@ -292,16 +294,36 @@ export default function AIRecommendationsHub() {
 
       console.log('🗺️ Google Maps instance created successfully')
       setMapInstance(map)
-      setIsMapLoading(false)
       
-      // Add a small delay to ensure the map renders
+      // Wait a bit longer for the map to actually render
       setTimeout(() => {
         if (mapRef && map) {
           console.log('🗺️ Triggering map resize...')
-          window.google.maps.event.trigger(map, 'resize')
-          console.log('🗺️ Map resize completed')
+          try {
+            window.google.maps.event.trigger(map, 'resize')
+            console.log('🗺️ Map resize completed')
+            
+            // Check if map actually rendered
+            const mapDiv = mapRef.querySelector('.gm-style')
+            if (mapDiv) {
+              console.log('🗺️ Map rendered successfully, removing loading state')
+              setIsMapLoading(false)
+            } else {
+              console.log('🗺️ Map not rendered, triggering another resize')
+              setTimeout(() => {
+                window.google.maps.event.trigger(map, 'resize')
+                setIsMapLoading(false)
+              }, 500)
+            }
+          } catch (error) {
+            console.error('🗺️ Error during map resize:', error)
+            setIsMapLoading(false)
+          }
+        } else {
+          console.log('🗺️ Map ref or instance not available during resize')
+          setIsMapLoading(false)
         }
-      }, 100)
+      }, 200)
       
     } catch (error) {
       console.error('🗺️ Failed to create map instance:', error)
@@ -462,11 +484,17 @@ export default function AIRecommendationsHub() {
             overflow: 'hidden'
           }}>
             <div
-              ref={(el) => setMapRef(el)}
+              ref={(el) => {
+                console.log('🗺️ Map ref callback triggered:', !!el)
+                setMapRef(el)
+              }}
               style={{
                 width: '100%',
                 height: '100%',
-                borderRadius: '16px'
+                borderRadius: '16px',
+                minHeight: '400px',
+                position: 'relative',
+                zIndex: 1
               }}
             />
             
@@ -484,7 +512,8 @@ export default function AIRecommendationsHub() {
                 justifyContent: 'center',
                 color: 'white',
                 fontSize: '18px',
-                textAlign: 'center'
+                textAlign: 'center',
+                zIndex: 2
               }}>
                 <div>
                   <div style={{ fontSize: '48px', marginBottom: '20px' }}>🗺️</div>
@@ -512,7 +541,8 @@ export default function AIRecommendationsHub() {
                 textAlign: 'center',
                 background: 'rgba(0,0,0,0.8)',
                 padding: '20px',
-                borderRadius: '12px'
+                borderRadius: '12px',
+                zIndex: 3
               }}>
                 <div style={{ marginBottom: '15px' }}>⚠️</div>
                 <div>{mapError}</div>
@@ -552,7 +582,8 @@ export default function AIRecommendationsHub() {
               padding: '8px 12px',
               borderRadius: '20px',
               fontSize: '12px',
-              fontWeight: '500'
+              fontWeight: '500',
+              zIndex: 4
             }}>
               🧠 AI: {insights ? '✅ Ready' : '⏳ Learning...'}
             </div>
