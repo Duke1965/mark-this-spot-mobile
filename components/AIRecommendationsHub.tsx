@@ -38,7 +38,7 @@ interface ClusteredPin {
 export default function AIRecommendationsHub() {
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
-  const { location, watchLocation } = useLocationServices()
+  const { location, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
   
   // Map states - use useRef for stable references
@@ -72,12 +72,29 @@ export default function AIRecommendationsHub() {
     }
   }, [getLearningStatus])
 
-  // Initialize location watching
+  // Initialize location watching and get current location
   useEffect(() => {
-    if (location) {
-      watchLocation()
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      console.log('🧠 AIRecommendationsHub: Setting up location services...')
+      
+      // Get current location immediately
+      getCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0 // Always get fresh location
+      }).then((locationData) => {
+        console.log('🧠 AIRecommendationsHub: Got current location:', locationData)
+      }).catch((error) => {
+        console.log('🧠 AIRecommendationsHub: Location error:', error)
+      })
+      
+      // Start watching for location changes
+      if (location) {
+        console.log('🧠 AIRecommendationsHub: Starting location watch...')
+        watchLocation()
+      }
     }
-  }, [location, watchLocation])
+  }, [getCurrentLocation, watchLocation, location])
 
   // Generate AI recommendations when location changes
   useEffect(() => {
@@ -250,12 +267,42 @@ export default function AIRecommendationsHub() {
   useEffect(() => {
     if (location && mapInstanceRef.current) {
       console.log('🗺️ Location updated, centering map:', location)
+      console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
+      
+      // Center the map
       mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
       
       // Update zoom to street level for precise location
       mapInstanceRef.current.setZoom(16)
       
       console.log('🗺️ Map centered and zoomed to user location')
+      
+      // Add a user location marker if it doesn't exist
+      if (mapRef.current) {
+        // Remove existing user location markers
+        const existingMarkers = mapRef.current.querySelectorAll('.user-location-marker')
+        existingMarkers.forEach(marker => marker.remove())
+        
+        // Add new user location marker
+        const marker = new window.google.maps.Marker({
+          position: { lat: location.latitude, lng: location.longitude },
+          map: mapInstanceRef.current,
+          title: 'Your Location',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(24, 24)
+          }
+        })
+        
+        // Add class for easy removal
+        marker.setMap(mapInstanceRef.current)
+        console.log('🗺️ User location marker added')
+      }
     }
   }, [location])
 
