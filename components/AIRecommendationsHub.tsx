@@ -251,6 +251,11 @@ export default function AIRecommendationsHub() {
     if (location && mapInstanceRef.current) {
       console.log('🗺️ Location updated, centering map:', location)
       mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+      
+      // Update zoom to street level for precise location
+      mapInstanceRef.current.setZoom(16)
+      
+      console.log('🗺️ Map centered and zoomed to user location')
     }
   }, [location])
 
@@ -336,6 +341,8 @@ export default function AIRecommendationsHub() {
         { lat: location.latitude, lng: location.longitude } : 
         { lat: mapLocation.latitude, lng: mapLocation.longitude }
       
+      console.log('🗺️ Center location for map:', centerLocation)
+      
       if (!window.google || !window.google.maps) {
         console.error('🗺️ Google Maps not available after script load')
         setMapError('Google Maps not available')
@@ -346,7 +353,7 @@ export default function AIRecommendationsHub() {
       console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef.current, {
         center: centerLocation,
-        zoom: 13,
+        zoom: 15, // Closer zoom for better location precision
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
         zoomControl: true,
@@ -379,6 +386,22 @@ export default function AIRecommendationsHub() {
               if (location) {
                 console.log('🗺️ Centering map on user location:', location)
                 map.setCenter({ lat: location.latitude, lng: location.longitude })
+                
+                // Add a user location marker
+                new window.google.maps.Marker({
+                  position: { lat: location.latitude, lng: location.longitude },
+                  map: map,
+                  title: 'Your Location',
+                  icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                        <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                      </svg>
+                    `),
+                    scaledSize: new window.google.maps.Size(24, 24)
+                  }
+                })
               }
             } else {
               console.log('🗺️ Map not rendered, triggering another resize')
