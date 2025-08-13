@@ -844,7 +844,10 @@ export default function PINITApp() {
     console.log("🧠 - Generating personalized recommendations")
     
     return (
-      <AIRecommendationsHub onBack={() => setCurrentScreen("map")} />
+      <AIRecommendationsHub 
+        onBack={() => setCurrentScreen("map")} 
+        userLocation={location}
+      />
     )
   }
 
