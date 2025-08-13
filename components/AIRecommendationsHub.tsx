@@ -476,13 +476,57 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         backgroundColor: '#000000',
         // Remove custom styles that might interfere with tiles
         styles: [],
-        gestureHandling: 'greedy', // Allows all touch gestures including pinch-to-zoom
+        gestureHandling: 'cooperative', // Better for mobile - allows touch gestures but prevents accidental zoom
         scrollwheel: true, // Enable mouse wheel zoom
-        draggable: true // Ensure map can be dragged
+        draggable: true, // Ensure map can be dragged
+        // Mobile-specific optimizations
+        clickableIcons: true,
+        keyboardShortcuts: false, // Disable keyboard shortcuts on mobile
+        // Ensure touch events work properly
+        tilt: 0 // Disable 3D tilt on mobile for better performance
       })
 
       console.log('🗺️ Google Maps instance created successfully')
       mapInstanceRef.current = map
+      
+      // Add mobile-specific touch event handling
+      if (mapRef.current) {
+        // Ensure touch events work properly on mobile
+        mapRef.current.addEventListener('touchstart', (e) => {
+          console.log('🗺️ Touch event detected on map')
+        }, { passive: true })
+        
+        // Add pinch-to-zoom support
+        let initialDistance = 0
+        let initialZoom = 16
+        
+        mapRef.current.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 2) {
+            initialDistance = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            )
+            initialZoom = map.getZoom()
+            console.log('🗺️ Pinch gesture started, initial zoom:', initialZoom)
+          }
+        }, { passive: true })
+        
+        mapRef.current.addEventListener('touchmove', (e) => {
+          if (e.touches.length === 2) {
+            const currentDistance = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            )
+            
+            if (initialDistance > 0) {
+              const scale = currentDistance / initialDistance
+              const newZoom = initialZoom + Math.log2(scale)
+              map.setZoom(Math.max(10, Math.min(20, newZoom)))
+              console.log('🗺️ Pinch zoom applied, new zoom:', newZoom)
+            }
+          }
+        }, { passive: true })
+      }
       
       // Wait for map to render and then remove loading
       setTimeout(() => {
