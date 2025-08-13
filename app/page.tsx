@@ -1021,28 +1021,8 @@ export default function PINITApp() {
           ⚙️
         </button>
 
-        {/* Discovery Mode Toggle */}
-        <button
-          onClick={() => {
-            setDiscoveryMode(!discoveryMode)
-            if (!discoveryMode) {
-              findNearbyPins()
-            } else {
-              setShowNearbyPins(false)
-            }
-          }}
-          style={{
-            padding: "0.5rem",
-            border: "none",
-            background: "transparent",
-            color: discoveryMode ? "#6B7280" : "white",
-            cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-            transition: "color 0.2s ease",
-              }}
-            >
+
+
           ��
         </button>
 
