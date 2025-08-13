@@ -37,13 +37,17 @@ interface ClusteredPin {
 
 interface AIRecommendationsHubProps {
   onBack: () => void
+  userLocation?: any
 }
 
-export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubProps) {
+export default function AIRecommendationsHub({ onBack, userLocation }: AIRecommendationsHubProps) {
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
-  const { location, watchLocation, getCurrentLocation } = useLocationServices()
+  const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
+  
+  // Use passed userLocation if available, otherwise fall back to hook location
+  const location = userLocation || hookLocation
   
   // Map states - use useRef for stable references
   const mapRef = useRef<HTMLDivElement>(null)
@@ -76,6 +80,16 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
     }
   }, [getLearningStatus])
 
+  // Debug location data
+  useEffect(() => {
+    console.log('🧠 AIRecommendationsHub: Location data received:', {
+      userLocation,
+      hookLocation,
+      finalLocation: location,
+      hasLatLng: location && location.latitude && location.longitude
+    })
+  }, [userLocation, hookLocation, location])
+  
   // Initialize location watching and get current location
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -350,28 +364,14 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
     if (mapRef.current && !mapInstanceRef.current && !mapError) {
       if (location && location.latitude && location.longitude) {
         console.log('🗺️ Map ref ready and location available, starting initialization...')
+        console.log('🗺️ Location data:', { lat: location.latitude, lng: location.longitude })
         initializeMap()
       } else {
-        console.log('🗺️ Map ref ready but location not ready yet, getting location...')
-        // Try to get current location immediately with shorter timeout
-        getCurrentLocation({
-          enableHighAccuracy: true,
-          timeout: 5000, // Reduced timeout for faster response
-          maximumAge: 0
-        }).then((locationData) => {
-          console.log('🧠 Got location data:', locationData)
-          if (locationData && locationData.latitude && locationData.longitude) {
-            console.log('🗺️ Location now available, initializing map...')
-            initializeMap()
-          }
-        }).catch((error) => {
-          console.log('🧠 Location error, using fallback:', error)
-          // Use a reasonable fallback location (this will be updated when real location arrives)
-          initializeMap()
-        })
+        console.log('🗺️ Map ref ready but location not ready yet, waiting for location...')
+        // Don't create map without location - wait for it to be passed
       }
     }
-  }, [mapError, location, getCurrentLocation]) // Include getCurrentLocation in dependencies
+  }, [mapError, location]) // Only depend on mapError and location
 
   const initializeMap = useCallback(async () => {
     try {
@@ -447,16 +447,14 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         console.log('🗺️ Location.longitude:', location.longitude)
       }
 
-      // Use actual location if available, otherwise use a reasonable fallback
-      let mapLocation
-      if (location && location.latitude && location.longitude) {
-        mapLocation = { latitude: location.latitude, longitude: location.longitude }
-        console.log('🗺️ Using real GPS location:', mapLocation)
-      } else {
-        // Use a reasonable fallback that will be updated when real location arrives
-        mapLocation = { latitude: 51.5074, longitude: -0.1278 } // London fallback
-        console.log('🗺️ Using fallback location, will update when GPS available:', mapLocation)
+      // Use the actual location that was passed to the component
+      if (!location || !location.latitude || !location.longitude) {
+        console.log('🗺️ No valid location available, cannot create map')
+        return
       }
+      
+      const mapLocation = { latitude: location.latitude, longitude: location.longitude }
+      console.log('🗺️ Using real GPS location:', mapLocation)
       
       const centerLocation = { lat: mapLocation.latitude, lng: mapLocation.longitude }
       console.log('🗺️ Center location for map:', centerLocation)
