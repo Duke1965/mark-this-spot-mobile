@@ -337,13 +337,13 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
     }
   }, [location])
 
-  // Initialize Google Maps when map ref is ready - only once
+  // Initialize Google Maps when map ref is ready AND location is available
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current && !mapError) {
-      console.log('🗺️ Map ref ready, starting initialization...')
+    if (mapRef.current && !mapInstanceRef.current && !mapError && location) {
+      console.log('🗺️ Map ref ready and location available, starting initialization...')
       initializeMap()
     }
-  }, [mapError]) // Only depend on mapError, not refs
+  }, [mapError, location]) // Wait for both map ref and location
 
   const initializeMap = useCallback(async () => {
     try {
@@ -419,26 +419,15 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         console.log('🗺️ Location.longitude:', location.longitude)
       }
 
-      // Use actual location or fallback with proper validation
-      let mapLocation = { latitude: -33.9249, longitude: 18.4241 } // Cape Town fallback
-      
-      if (location && typeof location === 'object') {
-        // Check if location has the expected structure
-        if (location.latitude && location.longitude && 
-            typeof location.latitude === 'number' && 
-            typeof location.longitude === 'number') {
-          mapLocation = { latitude: location.latitude, longitude: location.longitude }
-          console.log('🗺️ Using GPS location:', mapLocation)
-        } else {
-          console.log('🗺️ Invalid location object, using fallback')
-        }
-      } else {
-        console.log('🗺️ No location available, using fallback')
+      // Use actual location - we know it's available because we wait for it
+      if (!location || !location.latitude || !location.longitude) {
+        console.log('🗺️ Location not ready yet, skipping map creation')
+        return
       }
       
-      console.log('🗺️ Final map location:', mapLocation)
+      const mapLocation = { latitude: location.latitude, longitude: location.longitude }
+      console.log('🗺️ Using real GPS location:', mapLocation)
       
-      // If we have user location, use it; otherwise use fallback
       const centerLocation = { lat: mapLocation.latitude, lng: mapLocation.longitude }
       console.log('🗺️ Center location for map:', centerLocation)
       
@@ -452,7 +441,7 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
       console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef.current, {
         center: centerLocation,
-        zoom: 15, // Closer zoom for better location precision
+        zoom: 16, // Street level zoom for precise location
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
         zoomControl: true,
@@ -465,7 +454,9 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         backgroundColor: '#000000',
         // Remove custom styles that might interfere with tiles
         styles: [],
-        gestureHandling: 'cooperative' // Ensures zoom gestures work properly
+        gestureHandling: 'greedy', // Allows all touch gestures including pinch-to-zoom
+        scrollwheel: true, // Enable mouse wheel zoom
+        draggable: true // Ensure map can be dragged
       })
 
       console.log('🗺️ Google Maps instance created successfully')
@@ -485,38 +476,34 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
               console.log('🗺️ Map rendered successfully, removing loading state')
               setIsMapLoading(false)
               
-              // Center map on user's actual location if available
-              if (mapLocation.latitude !== -33.9249 || mapLocation.longitude !== 18.4241) {
-                console.log('🗺️ Centering map on user location:', mapLocation)
-                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-                
-                // Add a user location marker
-                new window.google.maps.Marker({
-                  position: { lat: mapLocation.latitude, lng: mapLocation.longitude },
-                  map: map,
-                  title: 'Your Location',
-                  icon: {
-                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
-                        <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-                      </svg>
-                    `),
-                    scaledSize: new window.google.maps.Size(24, 24)
-                  }
-                })
-              }
+              // Center map on user location and add marker
+              console.log('🗺️ Centering map on user location:', mapLocation)
+              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+              
+              // Add a user location marker
+              new window.google.maps.Marker({
+                position: { lat: mapLocation.latitude, lng: mapLocation.longitude },
+                map: map,
+                title: 'Your Location',
+                icon: {
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                      <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                    </svg>
+                  `),
+                  scaledSize: new window.google.maps.Size(24, 24)
+                }
+              })
             } else {
               console.log('🗺️ Map not rendered, triggering another resize')
               setTimeout(() => {
                 window.google.maps.event.trigger(map, 'resize')
                 setIsMapLoading(false)
                 
-                // Center map on user's actual location if available
-                if (mapLocation.latitude !== -33.9249 || mapLocation.longitude !== 18.4241) {
-                  console.log('🗺️ Centering map on user location after resize:', mapLocation)
-                  map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-                }
+                // Center map on user location
+                console.log('🗺️ Centering map on user location after resize:', mapLocation)
+                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
               }, 500)
             }
           } catch (error) {
