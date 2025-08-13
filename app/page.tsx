@@ -441,6 +441,11 @@ export default function PINITApp() {
       console.log("🗺️ Recommendations screen opened, fetching nearby places...")
       findNearbyPins()
     }
+    
+    // Hide nearby places popup when leaving recommendations screen
+    if (currentScreen !== "recommendations") {
+      setShowNearbyPins(false)
+    }
   }, [currentScreen, location, nearbyPins.length, findNearbyPins])
 
   // Debug: Monitor recommendations state changes
@@ -470,14 +475,17 @@ export default function PINITApp() {
   const handleNotificationTap = useCallback(() => {
     console.log("🤖 Opening recommendations hub")
     setCurrentScreen("recommendations")
+    // Ensure nearby places popup is hidden when opening recommendations
+    setShowNearbyPins(false)
   }, [])
 
   // Handle recommendation actions
   const handleRecommendationAction = useCallback(
     (action: string, data?: any) => {
       console.log("🎯 Taking recommendation action:", action, data)
-      // Go back to map after action
+      // Go back to map after action and hide nearby places popup
       setCurrentScreen("map")
+      setShowNearbyPins(false)
     },
     [],
   )
