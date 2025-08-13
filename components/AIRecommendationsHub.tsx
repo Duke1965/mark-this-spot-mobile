@@ -35,7 +35,11 @@ interface ClusteredPin {
   category: string
 }
 
-export default function AIRecommendationsHub() {
+interface AIRecommendationsHubProps {
+  onBack: () => void
+}
+
+export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubProps) {
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location, watchLocation, getCurrentLocation } = useLocationServices()
@@ -452,12 +456,16 @@ export default function AIRecommendationsHub() {
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
         zoomControl: true,
+        zoomControlOptions: {
+          position: window.google.maps.ControlPosition.RIGHT_TOP
+        },
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
         backgroundColor: '#000000',
         // Remove custom styles that might interfere with tiles
-        styles: []
+        styles: [],
+        gestureHandling: 'cooperative' // Ensures zoom gestures work properly
       })
 
       console.log('🗺️ Google Maps instance created successfully')
@@ -606,14 +614,14 @@ export default function AIRecommendationsHub() {
         position: 'relative'
       }}>
         <button
-          onClick={() => window.history.back()}
+          onClick={onBack}
           style={{
             position: 'absolute',
             left: '20px',
             top: '60px',
             background: 'rgba(255,255,255,0.1)',
             border: 'none',
-            borderRadius: '50%',
+            borderRadius: '8px',
             width: '40px',
             height: '40px',
             color: 'white',
@@ -621,7 +629,16 @@ export default function AIRecommendationsHub() {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+            e.currentTarget.style.transform = 'scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+            e.currentTarget.style.transform = 'scale(1)'
           }}
         >
           ←
