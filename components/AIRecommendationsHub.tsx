@@ -300,7 +300,7 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
       console.log('🗺️ Location updated, centering map:', location)
       console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
       
-      // Center the map
+      // Center the map immediately
       mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
       
       // Update zoom to street level for precise location
@@ -334,6 +334,14 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         marker.setMap(mapInstanceRef.current)
         console.log('🗺️ User location marker added')
       }
+      
+      // Force a map refresh to ensure smooth rendering
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          console.log('🗺️ Map refreshed after location update')
+        }
+      }, 100)
     }
   }, [location])
 
@@ -344,11 +352,11 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         console.log('🗺️ Map ref ready and location available, starting initialization...')
         initializeMap()
       } else {
-        console.log('🗺️ Map ref ready but location not ready yet, waiting...')
-        // Try to get current location if not available
+        console.log('🗺️ Map ref ready but location not ready yet, getting location...')
+        // Try to get current location immediately with shorter timeout
         getCurrentLocation({
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 5000, // Reduced timeout for faster response
           maximumAge: 0
         }).then((locationData) => {
           console.log('🧠 Got location data:', locationData)
@@ -476,7 +484,7 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         backgroundColor: '#000000',
         // Remove custom styles that might interfere with tiles
         styles: [],
-        gestureHandling: 'cooperative', // Better for mobile - allows touch gestures but prevents accidental zoom
+        gestureHandling: 'auto', // Let Google Maps automatically choose the best gesture handling
         scrollwheel: true, // Enable mouse wheel zoom
         draggable: true, // Ensure map can be dragged
         // Mobile-specific optimizations
@@ -489,44 +497,8 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
       console.log('🗺️ Google Maps instance created successfully')
       mapInstanceRef.current = map
       
-      // Add mobile-specific touch event handling
-      if (mapRef.current) {
-        // Ensure touch events work properly on mobile
-        mapRef.current.addEventListener('touchstart', (e) => {
-          console.log('🗺️ Touch event detected on map')
-        }, { passive: true })
-        
-        // Add pinch-to-zoom support
-        let initialDistance = 0
-        let initialZoom = 16
-        
-        mapRef.current.addEventListener('touchstart', (e) => {
-          if (e.touches.length === 2) {
-            initialDistance = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-            )
-            initialZoom = map.getZoom()
-            console.log('🗺️ Pinch gesture started, initial zoom:', initialZoom)
-          }
-        }, { passive: true })
-        
-        mapRef.current.addEventListener('touchmove', (e) => {
-          if (e.touches.length === 2) {
-            const currentDistance = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-            )
-            
-            if (initialDistance > 0) {
-              const scale = currentDistance / initialDistance
-              const newZoom = initialZoom + Math.log2(scale)
-              map.setZoom(Math.max(10, Math.min(20, newZoom)))
-              console.log('🗺️ Pinch zoom applied, new zoom:', newZoom)
-            }
-          }
-        }, { passive: true })
-      }
+      // Let Google Maps handle all touch events natively
+      console.log('🗺️ Map created, letting Google Maps handle touch events natively')
       
       // Wait for map to render and then remove loading
       setTimeout(() => {
