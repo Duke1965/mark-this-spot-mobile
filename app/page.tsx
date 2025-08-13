@@ -1020,13 +1020,6 @@ export default function PINITApp() {
         >
           ⚙️
         </button>
-
-
-
-          ��
-        </button>
-
-
       </div>
 
 
