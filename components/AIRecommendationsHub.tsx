@@ -296,7 +296,7 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
 
   // Center map on user location when it becomes available
   useEffect(() => {
-    if (location && mapInstanceRef.current) {
+    if (location && location.latitude && location.longitude && mapInstanceRef.current) {
       console.log('🗺️ Location updated, centering map:', location)
       console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
       
@@ -339,11 +339,31 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
 
   // Initialize Google Maps when map ref is ready AND location is available
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current && !mapError && location) {
-      console.log('🗺️ Map ref ready and location available, starting initialization...')
-      initializeMap()
+    if (mapRef.current && !mapInstanceRef.current && !mapError) {
+      if (location && location.latitude && location.longitude) {
+        console.log('🗺️ Map ref ready and location available, starting initialization...')
+        initializeMap()
+      } else {
+        console.log('🗺️ Map ref ready but location not ready yet, waiting...')
+        // Try to get current location if not available
+        getCurrentLocation({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }).then((locationData) => {
+          console.log('🧠 Got location data:', locationData)
+          if (locationData && locationData.latitude && locationData.longitude) {
+            console.log('🗺️ Location now available, initializing map...')
+            initializeMap()
+          }
+        }).catch((error) => {
+          console.log('🧠 Location error, using fallback:', error)
+          // Use a reasonable fallback location (this will be updated when real location arrives)
+          initializeMap()
+        })
+      }
     }
-  }, [mapError, location]) // Wait for both map ref and location
+  }, [mapError, location, getCurrentLocation]) // Include getCurrentLocation in dependencies
 
   const initializeMap = useCallback(async () => {
     try {
@@ -419,14 +439,16 @@ export default function AIRecommendationsHub({ onBack }: AIRecommendationsHubPro
         console.log('🗺️ Location.longitude:', location.longitude)
       }
 
-      // Use actual location - we know it's available because we wait for it
-      if (!location || !location.latitude || !location.longitude) {
-        console.log('🗺️ Location not ready yet, skipping map creation')
-        return
+      // Use actual location if available, otherwise use a reasonable fallback
+      let mapLocation
+      if (location && location.latitude && location.longitude) {
+        mapLocation = { latitude: location.latitude, longitude: location.longitude }
+        console.log('🗺️ Using real GPS location:', mapLocation)
+      } else {
+        // Use a reasonable fallback that will be updated when real location arrives
+        mapLocation = { latitude: 51.5074, longitude: -0.1278 } // London fallback
+        console.log('🗺️ Using fallback location, will update when GPS available:', mapLocation)
       }
-      
-      const mapLocation = { latitude: location.latitude, longitude: location.longitude }
-      console.log('🗺️ Using real GPS location:', mapLocation)
       
       const centerLocation = { lat: mapLocation.latitude, lng: mapLocation.longitude }
       console.log('🗺️ Center location for map:', centerLocation)
