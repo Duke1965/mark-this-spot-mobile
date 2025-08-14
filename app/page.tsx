@@ -357,9 +357,21 @@ export default function PINITApp() {
         
         console.log("📍 Found place:", { placeName, vicinity })
         
-        // Combine place name with vicinity for better context
-        if (vicinity && !placeName.includes(vicinity)) {
-          return `${placeName}, ${vicinity}`
+        // NEW: Better location formatting
+        if (vicinity) {
+          // Check if this is a city with suburbs
+          if (vicinity.includes("Cape Town")) {
+            // Extract suburb name from vicinity (e.g., "Bellville, Cape Town" -> "Cape Town - Bellville")
+            const suburb = vicinity.split(",")[0].trim()
+            if (suburb && suburb !== "Cape Town") {
+              return `Cape Town - ${suburb}`
+            }
+          }
+          
+          // For other places, combine name and vicinity
+          if (!placeName.includes(vicinity)) {
+            return `${placeName}, ${vicinity}`
+          }
         }
         
         return placeName
@@ -371,15 +383,17 @@ export default function PINITApp() {
       // Return a descriptive location name based on coordinates
       // Much more precise coordinates for better accuracy
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West Area"
+        return "Riebeek West" // Small town - just the name
       } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town CBD"
+        return "Cape Town - CBD"
       } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town Southern Suburbs"
+        return "Cape Town - Southern Suburbs"
       } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town Northern Suburbs"
+        return "Cape Town - Northern Suburbs"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        return "Cape Town" // Your current location
       } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        return "Western Cape Region"
+        return "Western Cape"
       } else {
         // If we can't determine a specific area, return coordinates as fallback
         return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
@@ -390,15 +404,17 @@ export default function PINITApp() {
       // Return a descriptive location name instead of coordinates
       // Much more precise coordinates for better accuracy
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West Area"
+        return "Riebeek West" // Small town - just the name
       } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town CBD"
+        return "Cape Town - CBD"
       } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town Southern Suburbs"
+        return "Cape Town - Southern Suburbs"
       } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town Northern Suburbs"
+        return "Cape Town - Northern Suburbs"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        return "Cape Town" // Your current location
       } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        return "Western Cape Region"
+        return "Western Cape"
       } else {
         // If we can't determine a specific area, return coordinates as fallback
         return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
