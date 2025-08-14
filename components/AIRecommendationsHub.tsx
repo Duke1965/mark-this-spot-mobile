@@ -65,6 +65,52 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
 
+  // NEW: Pin clustering function
+  const clusterPins = useCallback((pins: Recommendation[]) => {
+    const clusters: ClusteredPin[] = []
+    const clusterRadius = 0.001 // About 100 meters - adjust as needed
+    
+    pins.forEach((pin) => {
+      let addedToCluster = false
+      
+      // Try to add to existing cluster
+      for (const cluster of clusters) {
+        const distance = Math.sqrt(
+          Math.pow(pin.location.lat - cluster.location.lat, 2) +
+          Math.pow(pin.location.lng - cluster.location.lng, 2)
+        )
+        
+        if (distance < clusterRadius) {
+          // Add to existing cluster
+          cluster.recommendations.push(pin)
+          cluster.count = cluster.recommendations.length
+          
+          // Update category if this pin has a different one
+          if (pin.category && !cluster.category.includes(pin.category)) {
+            cluster.category = cluster.category ? `${cluster.category}, ${pin.category}` : pin.category
+          }
+          
+          addedToCluster = true
+          break
+        }
+      }
+      
+      // Create new cluster if not added to existing one
+      if (!addedToCluster) {
+        clusters.push({
+          id: `cluster-${pin.id}`,
+          location: pin.location,
+          count: 1,
+          recommendations: [pin],
+          category: pin.category || 'general'
+        })
+      }
+    })
+    
+    console.log(`🧠 Clustered ${pins.length} pins into ${clusters.length} clusters`)
+    return clusters
+  }, [])
+
   // Get learning status when component mounts
   useEffect(() => {
     try {
@@ -119,6 +165,14 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
       }
     }
   }, [getCurrentLocation, watchLocation, location])
+
+  // NEW: Update clusters whenever recommendations change
+  useEffect(() => {
+    if (recommendations.length > 0) {
+      const clusters = clusterPins(recommendations)
+      setClusteredPins(clusters)
+    }
+  }, [recommendations, clusterPins])
 
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
@@ -199,6 +253,10 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
             // Keep only the most recent 8 recommendations to prevent spam
             return combined.slice(-8)
           })
+          
+          // NEW: Update clustered pins whenever recommendations change
+          const updatedClusters = clusterPins([...recommendations, ...aiRecs])
+          setClusteredPins(updatedClusters)
           
           console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
         }
@@ -627,48 +685,59 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
     }
   }
 
-  // Add markers when map and recommendations are ready
+  // Add markers when map and clustered pins are ready
   useEffect(() => {
-    if (mapInstanceRef.current && recommendations.length > 0) {
+    if (mapInstanceRef.current && clusteredPins.length > 0) {
       addMarkersToMap()
     }
-  }, [recommendations]) // Only depend on recommendations
+  }, [clusteredPins]) // Depend on clustered pins instead of recommendations
 
   const addMarkersToMap = () => {
     try {
-      if (!mapInstanceRef.current || !recommendations.length) return
+      if (!mapInstanceRef.current || !clusteredPins.length) return
 
       // Clear existing markers
       if (window.google && window.google.maps) {
-        // Add markers for each recommendation
-        recommendations.forEach((rec) => {
+        // Add markers for each cluster
+        clusteredPins.forEach((cluster) => {
           const marker = new window.google.maps.Marker({
-            position: { lat: rec.location.lat, lng: rec.location.lng },
+            position: { lat: cluster.location.lat, lng: cluster.location.lng },
             map: mapInstanceRef.current,
-            title: rec.title,
+            title: cluster.count > 1 ? `${cluster.count} recommendations` : cluster.recommendations[0].title,
             icon: {
               url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="10" fill="${rec.isAISuggestion ? '#3b82f6' : '#10b981'}" stroke="white" stroke-width="2"/>
-                  <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${rec.isAISuggestion ? '🤖' : '📍'}</text>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="16" r="15" fill="${cluster.count > 1 ? '#f59e0b' : (cluster.recommendations[0].isAISuggestion ? '#3b82f6' : '#10b981')}" stroke="white" stroke-width="2"/>
+                  ${cluster.count > 1 ? 
+                    `<text x="16" y="22" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${cluster.count}</text>` :
+                    `<text x="16" y="22" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${cluster.recommendations[0].isAISuggestion ? '🤖' : '📍'}</text>`
+                  }
                 </svg>
               `),
-              scaledSize: new window.google.maps.Size(24, 24)
+              scaledSize: new window.google.maps.Size(32, 32)
             }
           })
 
-          // Add info window
+          // Add info window with cluster details
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 10px; max-width: 200px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #1f2937;">${rec.title}</h3>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">${rec.description}</p>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="background: ${rec.isAISuggestion ? '#3b82f6' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
-                    ${rec.isAISuggestion ? '🤖 AI' : '👥 Community'}
-                  </span>
-                  <span style="font-size: 12px; color: #6b7280;">⭐ ${rec.rating.toFixed(1)}/5</span>
-                </div>
+              <div style="padding: 15px; max-width: 300px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #1f2937;">
+                  ${cluster.count > 1 ? `${cluster.count} Recommendations` : cluster.recommendations[0].title}
+                </h3>
+                ${cluster.count > 1 ? 
+                  `<p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">${cluster.category}</p>
+                   <div style="margin: 10px 0; padding: 10px; background: #f3f4f6; border-radius: 8px;">
+                     <p style="margin: 0; font-size: 12px; color: #6b7280;">Click to see all ${cluster.count} recommendations</p>
+                   </div>` :
+                  `<p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">${cluster.recommendations[0].description}</p>
+                   <div style="display: flex; justify-content: space-between; align-items: center;">
+                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? '#3b82f6' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                       ${cluster.recommendations[0].isAISuggestion ? '🤖 AI' : '👥 Community'}
+                     </span>
+                     <span style="font-size: 12px; color: #6b7280;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
+                   </div>`
+                }
               </div>
             `
           })
@@ -679,7 +748,7 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
         })
       }
     } catch (error) {
-      console.error('🗺️ Failed to add markers:', error)
+      console.error('🗺️ Failed to add clustered markers:', error)
     }
   }
 
