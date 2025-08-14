@@ -40,6 +40,7 @@ export interface PinData {
   priceLevel?: number
   types?: string[]
   isAISuggestion?: boolean
+  additionalPhotos?: Array<{url: string, placeName: string}> // NEW: Store multiple photos for carousel
 }
 
 interface GooglePlace {
@@ -752,24 +753,30 @@ export default function PINITApp() {
         console.log("📍 Stationary pinning - using current location")
       }
       
+      // NEW: Fetch location photos before creating the pin
+      console.log("📸 Fetching location photos for speed-based pin...")
+      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+      
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
         locationName: locationDescription,
-        mediaUrl: null,
-        mediaType: null,
+        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
+        mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: "📍 Quick Pin",
         description: `Quick pin created for this location${motionData.isMoving ? ` (traveling ${motionData.speed.toFixed(1)} km/h)` : ""}`,
         tags: ["quick-pin"],
+        // NEW: Store all photos for the carousel
+        additionalPhotos: locationPhotos
       }
 
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("📍 Quick pin created:", newPin)
+      console.log("📍 Quick pin created with photo:", newPin)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
     } finally {
@@ -777,10 +784,10 @@ export default function PINITApp() {
     }
   }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
-  // NEW: Fetch location photo for pins
-  const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
+  // NEW: Fetch location photos for pins (returns array of photos for carousel)
+  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("📸 Fetching location photo...")
+      console.log("📸 Fetching location photos for carousel...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
@@ -790,25 +797,32 @@ export default function PINITApp() {
       }
 
       const data = await photoResponse.json()
+      const photos: {url: string, placeName: string}[] = []
 
       if (data.results && data.results.length > 0) {
-        // Find the first place with photos
-        const placeWithPhoto = data.results.find((place: any) => place.photos && place.photos.length > 0)
+        // Collect photos from multiple places
+        data.results.forEach((place: any) => {
+          if (place.photos && place.photos.length > 0) {
+            // Get up to 3 photos per place to avoid overwhelming the carousel
+            const placePhotos = place.photos.slice(0, 3).map((photo: any) => ({
+              url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+              placeName: place.name || "Unknown Place"
+            }))
+            photos.push(...placePhotos)
+          }
+        })
         
-        if (placeWithPhoto && placeWithPhoto.photos && placeWithPhoto.photos.length > 0) {
-          const photoRef = placeWithPhoto.photos[0].photo_reference
-          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          
-          console.log("✅ Location photo found:", photoUrl)
-          return photoUrl
-        }
+        // Limit total photos to 6 for carousel performance
+        const limitedPhotos = photos.slice(0, 6)
+        console.log(`✅ Found ${limitedPhotos.length} location photos for carousel`)
+        return limitedPhotos
       }
       
-      console.log("📸 No location photo found, will use PINIT placeholder")
-      return "/placeholder.jpg"
+      console.log("📸 No location photos found, will use PINIT placeholder")
+      return [{url: "/placeholder.jpg", placeName: "PINIT Placeholder"}]
     } catch (error) {
-      console.error("❌ Error fetching location photo:", error)
-      return "/placeholder.jpg"
+      console.error("❌ Error fetching location photos:", error)
+      return [{url: "/placeholder.jpg", placeName: "PINIT Placeholder"}]
     }
   }
 
