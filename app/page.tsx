@@ -1165,10 +1165,26 @@ export default function PINITApp() {
     console.log("🧠 - AI brain is learning from user behavior")
     console.log("🧠 - Generating personalized recommendations")
     
-    return (
-      <AIRecommendationsHub 
+        return (
+      <AIRecommendationsHub
         onBack={() => setCurrentScreen("map")} 
         userLocation={location}
+          // NEW: Pass recommendations to the component (convert to expected format)
+  initialRecommendations={recommendations.map(rec => ({
+    id: rec.id,
+    title: rec.title,
+    description: rec.description,
+    category: rec.category,
+    location: {
+      lat: location?.latitude || -33.9,
+      lng: location?.longitude || 18.4
+    },
+    rating: 4.0 + Math.random() * 1.0, // Generate random rating
+    isAISuggestion: rec.isAISuggestion || false,
+    confidence: 0.7 + Math.random() * 0.3, // Generate confidence
+    reason: rec.description,
+    timestamp: new Date(rec.timestamp)
+  }))}
       />
     )
   }
