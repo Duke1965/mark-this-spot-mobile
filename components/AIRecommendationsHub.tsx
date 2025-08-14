@@ -932,10 +932,10 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
                 }}
                 title="My location"
               >
-                {/* PINIT Style Location Icon - Based on the provided design */}
+                {/* Simple Location Icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4 4h16v4h-4v4h-4v4h-4v4H4V4z"/>
-                  <path d="M8 8h8v2H8V8zm0 4h6v2H8v-2zm0 4h4v2H8v-2z"/>
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <circle cx="12" cy="12" r="3" fill="currentColor"/>
                 </svg>
               </button>
             )}
