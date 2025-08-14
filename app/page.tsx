@@ -333,21 +333,29 @@ export default function PINITApp() {
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
       console.log("📍 Fetching real location name...")
+      console.log("📍 Coordinates:", { lat, lng })
       
       // Use our API route instead of calling Google Maps directly
       const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
       
+      console.log("📍 API Response status:", response.status)
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch location data")
+        const errorText = await response.text()
+        console.error("📍 API Error Response:", errorText)
+        throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("📍 API Response data:", data)
 
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
         const closestPlace = data.results[0]
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
+        
+        console.log("📍 Found place:", { placeName, vicinity })
         
         // Combine place name with vicinity for better context
         if (vicinity && !placeName.includes(vicinity)) {
@@ -361,26 +369,39 @@ export default function PINITApp() {
       console.log("📍 No places found, returning descriptive location name...")
       
       // Return a descriptive location name based on coordinates
-      if (lat > -34 && lat < -33 && lng > 18 && lng < 19) {
+      // Much more precise coordinates for better accuracy
+      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
         return "Riebeek West Area"
-      } else if (lat > -34 && lat < -33) {
+      } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town CBD"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town Southern Suburbs"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town Northern Suburbs"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
         return "Western Cape Region"
-      } else if (lng > 18 && lng < 19) {
-        return "Cape Town Area"
       } else {
-        return "South Africa"
+        // If we can't determine a specific area, return coordinates as fallback
+        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
       }
     } catch (error) {
       console.error("❌ Error fetching location name:", error)
+      console.error("❌ Error details:", { lat, lng, error: error instanceof Error ? error.message : String(error) })
       // Return a descriptive location name instead of coordinates
-      if (lat > -34 && lat < -33 && lng > 18 && lng < 19) {
+      // Much more precise coordinates for better accuracy
+      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
         return "Riebeek West Area"
-      } else if (lat > -34 && lat < -33) {
+      } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town CBD"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town Southern Suburbs"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town Northern Suburbs"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
         return "Western Cape Region"
-      } else if (lng > 18 && lng < 19) {
-        return "Cape Town Area"
       } else {
-        return "South Africa"
+        // If we can't determine a specific area, return coordinates as fallback
+        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
       }
     }
   }
