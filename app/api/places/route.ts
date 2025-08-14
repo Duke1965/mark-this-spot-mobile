@@ -128,13 +128,20 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const radius = searchParams.get("radius") || "5000" // Increased from 1000 to 5000 (5km)
+  
+  // Detect mobile vs desktop from headers
+  const userAgent = request.headers.get("user-agent") || ""
+  const deviceType = request.headers.get("x-device-type") || "unknown"
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || deviceType === "mobile"
+  
+  console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Places API request:`, { lat, lng, radius, deviceType })
 
   if (!lat || !lng) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
   if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    console.warn("Google Maps API key not found, returning mock data")
+    console.warn(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Maps API key not found, returning mock data`)
     // Return varied mock data when API key is not available
     const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
     
@@ -162,18 +169,53 @@ export async function GET(request: NextRequest) {
       "|",
     )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
     
-    const response = await fetch(placesUrl)
+    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Calling Google Places API...`)
+    
+    const response = await fetch(placesUrl, {
+      headers: {
+        'User-Agent': isMobile ? 'PINIT-Mobile-App/1.0' : 'PINIT-Web-App/1.0'
+      }
+    })
     const data = await response.json()
 
     if (!response.ok) {
       throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
     }
 
-    console.log(`✅ Google Places API: Found ${data.results?.length || 0} places`)
+    console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API: Found ${data.results?.length || 0} places`)
+    
+    // Handle ZERO_RESULTS specifically for mobile
+    if (data.status === 'ZERO_RESULTS') {
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found in radius ${radius}m`)
+      
+      // For mobile, try with a larger radius if no results
+      if (isMobile && Number.parseInt(radius) < 10000) {
+        console.log(`🔄 [MOBILE] Trying with larger radius (10km)...`)
+        const largerRadiusUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=${types.join(
+          "|",
+        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        
+        try {
+          const largerResponse = await fetch(largerRadiusUrl, {
+            headers: {
+              'User-Agent': 'PINIT-Mobile-App/1.0'
+            }
+          })
+          const largerData = await largerResponse.json()
+          
+          if (largerResponse.ok && largerData.results && largerData.results.length > 0) {
+            console.log(`✅ [MOBILE] Found ${largerData.results.length} places with larger radius`)
+            return NextResponse.json(largerData)
+          }
+        } catch (largerError) {
+          console.log(`⚠️ [MOBILE] Larger radius search failed:`, largerError)
+        }
+      }
+    }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error("❌ Google Places API error:", error)
+    console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API error:`, error)
 
     // Return varied fallback mock data on error
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
