@@ -890,7 +890,7 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
               🧠 AI: {insights ? '✅ Ready' : '⏳ Learning...'}
             </div>
             
-            {/* NEW: My Location Button */}
+            {/* NEW: Google Maps Style Location Button */}
             {mapInstanceRef.current && location && (
               <button
                 onClick={() => {
@@ -908,22 +908,35 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
                   position: 'absolute',
                   top: '20px',
                   left: '20px',
-                  background: 'rgba(16, 185, 129, 0.9)',
-                  color: 'white',
+                  background: 'white',
+                  color: '#5f6368',
                   border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: '500',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
                   cursor: 'pointer',
                   zIndex: 4,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  transition: 'all 0.2s ease'
                 }}
-                title="Return to my location"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)'
+                  e.currentTarget.style.transform = 'scale(1)'
+                }}
+                title="My location"
               >
-                📍 My Location
+                {/* Google Maps Style Location Arrow Icon */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <path d="M12 6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
               </button>
             )}
           </div>
