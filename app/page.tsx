@@ -329,25 +329,71 @@ export default function PINITApp() {
     }
   }
 
-  // Get real location name from Google Places API
-  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
-    try {
-      console.log("📍 Fetching real location name...")
-      console.log("📍 Coordinates:", { lat, lng })
-      
-      // Use our API route instead of calling Google Maps directly
-      const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
-      
-      console.log("📍 API Response status:", response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("📍 API Error Response:", errorText)
-        throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
-      }
+  // Mobile detection utility
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
 
+  // Retry logic with exponential backoff
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> => {
+    let lastError: Error
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error) {
+        lastError = error as Error
+        
+        if (attempt === maxRetries) {
+          throw lastError
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = baseDelay * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    
+    throw lastError!
+  }
+
+  // Get real location name from Google Places API with mobile-robust error handling
+  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
+    const isMobile = isMobileDevice()
+    
+    try {
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Fetching real location name...`)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
+      
+      // Enhanced fetch with mobile-specific headers and retry logic
+      const fetchWithRetry = async () => {
+        const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, {
+          headers: {
+            'User-Agent': isMobile ? 'PINIT-Mobile-App' : 'PINIT-Web-App',
+            'X-Device-Type': isMobile ? 'mobile' : 'desktop'
+          }
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Error Response:`, errorText)
+          throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
+        }
+        
+        return response
+      }
+      
+      // Use retry logic for mobile (3 attempts) vs desktop (1 attempt)
+      const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
       const data = await response.json()
-      console.log("📍 API Response data:", data)
+      
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response status:`, response.status)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response data:`, data)
 
       if (data.results && data.results.length > 0) {
         // Get the closest place (first result)
@@ -355,20 +401,17 @@ export default function PINITApp() {
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
         
-        console.log("📍 Found place:", { placeName, vicinity })
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Found place:`, { placeName, vicinity })
         
-        // NEW: Better location formatting
+        // Enhanced location formatting
         if (vicinity) {
-          // Check if this is a city with suburbs
           if (vicinity.includes("Cape Town")) {
-            // Extract suburb name from vicinity (e.g., "Bellville, Cape Town" -> "Cape Town - Bellville")
             const suburb = vicinity.split(",")[0].trim()
             if (suburb && suburb !== "Cape Town") {
               return `Cape Town - ${suburb}`
             }
           }
           
-          // For other places, combine name and vicinity
           if (!placeName.includes(vicinity)) {
             return `${placeName}, ${vicinity}`
           }
@@ -377,48 +420,131 @@ export default function PINITApp() {
         return placeName
       }
 
+      // If no places found, try alternative geocoding for mobile
+      if (isMobile && data.status === 'ZERO_RESULTS') {
+        console.log(`📍 [MOBILE] Places API returned no results, trying alternative geocoding...`)
+        
+        // Try reverse geocoding as fallback
+        try {
+          const geocodeResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          )
+          
+          if (geocodeResponse.ok) {
+            const geocodeData = await geocodeResponse.json()
+            if (geocodeData.results && geocodeData.results.length > 0) {
+              const addressComponents = geocodeData.results[0].address_components
+              
+              // Extract meaningful location name from address components
+              const locality = addressComponents.find((comp: any) => 
+                comp.types.includes('locality') || comp.types.includes('sublocality')
+              )
+              
+              if (locality) {
+                console.log(`📍 [MOBILE] Alternative geocoding successful:`, locality.long_name)
+                return locality.long_name
+              }
+            }
+          }
+        } catch (geocodeError) {
+          console.log(`📍 [MOBILE] Alternative geocoding failed:`, geocodeError)
+        }
+      }
+
       // If no places found, return a descriptive location name instead of coordinates
-      console.log("📍 No places found, returning descriptive location name...")
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found, returning descriptive location name...`)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Processing coordinates: lat=${lat}, lng=${lng}`)
       
-      // Return a descriptive location name based on coordinates
-      // Much more precise coordinates for better accuracy
-      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West" // Small town - just the name
-      } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
-      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Southern Suburbs"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Northern Suburbs"
-      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        return "Cape Town" // Your current location
-      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        return "Western Cape"
+      // Enhanced fallback logic with mobile-specific ranges
+      if (isMobile) {
+        console.log(`📍 [MOBILE] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
+        // Mobile-specific coordinate ranges (more precise)
+        if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+          console.log(`📍 [MOBILE] Hit Riebeek West range`)
+          return "Riebeek West"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [MOBILE] Hit Cape Town - CBD range`)
+          return "Cape Town - CBD"
+        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [MOBILE] Hit Cape Town - Southern Suburbs range`)
+          return "Cape Town - Southern Suburbs"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [MOBILE] Hit Cape Town - Northern Suburbs range`)
+          return "Cape Town - Northern Suburbs"
+        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+          console.log(`📍 [MOBILE] Hit Cape Town range`)
+          return "Cape Town"
+        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+          console.log(`📍 [MOBILE] Hit Western Cape range`)
+          return "Western Cape"
+        }
       } else {
-        // If we can't determine a specific area, return coordinates as fallback
-        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        console.log(`📍 [DESKTOP] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
+        // Desktop fallback logic (existing)
+        if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+          console.log(`📍 [DESKTOP] Hit Riebeek West range`)
+          return "Riebeek West"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [DESKTOP] Hit Cape Town - CBD range`)
+          return "Cape Town - CBD"
+        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [DESKTOP] Hit Cape Town - Southern Suburbs range`)
+          return "Cape Town - Southern Suburbs"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          console.log(`📍 [DESKTOP] Hit Cape Town - Northern Suburbs range`)
+          return "Cape Town - Northern Suburbs"
+        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+          console.log(`📍 [DESKTOP] Hit Cape Town range`)
+          return "Cape Town"
+        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+          console.log(`📍 [DESKTOP] Hit Western Cape range`)
+          return "Western Cape"
+        }
       }
+      
+      // Ultimate fallback: precise coordinates
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      
     } catch (error) {
-      console.error("❌ Error fetching location name:", error)
-      console.error("❌ Error details:", { lat, lng, error: error instanceof Error ? error.message : String(error) })
-      // Return a descriptive location name instead of coordinates
-      // Much more precise coordinates for better accuracy
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error fetching location name:`, error)
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error details:`, { lat, lng, error: error instanceof Error ? error.message : String(error) })
+      
+      // Mobile-specific error handling
+      if (isMobile) {
+        console.log(`📍 [MOBILE] Attempting mobile-specific fallback...`)
+        
+        // Try to extract location from coordinates using basic logic
+        if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+          return "Riebeek West"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - CBD"
+        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - Southern Suburbs"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - Northern Suburbs"
+        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+          return "Cape Town"
+        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+          return "Western Cape"
+        }
+      }
+      
+      // Desktop fallback logic (existing)
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West" // Small town - just the name
-      } else if (lat > -33.9 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Riebeek West"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
         return "Cape Town - CBD"
       } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
         return "Cape Town - Southern Suburbs"
       } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
         return "Cape Town - Northern Suburbs"
       } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        return "Cape Town" // Your current location
+        return "Cape Town"
       } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
         return "Western Cape"
-      } else {
-        // If we can't determine a specific area, return coordinates as fallback
-        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
       }
+      
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }
 
