@@ -705,7 +705,7 @@ export default function PINITApp() {
     setCurrentScreen("content-editor")
   }, [])
 
-  // Handle quick pin
+  // Handle quick pin with speed-based location calculation
   const handleQuickPin = useCallback(async () => {
     if (isQuickPinning) return
 
@@ -715,17 +715,54 @@ export default function PINITApp() {
     try {
       const currentLocation = await getCurrentLocation()
       
+      // NEW: Calculate precise location based on speed and movement
+      let pinLatitude = currentLocation.latitude
+      let pinLongitude = currentLocation.longitude
+      let locationDescription = "Quick Pin Location"
+      
+      if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
+        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+        
+        // Calculate where the user likely saw the place (accounting for reaction time)
+        const reactionTime = 2 // 2 seconds reaction time
+        const speedInMPS = motionData.speed / 3.6 // Convert km/h to m/s
+        
+        // Calculate distance traveled during reaction time
+        const distanceTraveled = speedInMPS * reactionTime
+        
+        // Calculate bearing (direction of travel)
+        if (motionData.lastPosition) {
+          const bearing = Math.atan2(
+            currentLocation.longitude - motionData.lastPosition.longitude,
+            currentLocation.latitude - motionData.lastPosition.latitude
+          )
+          
+          // Calculate the location where the user likely saw the place
+          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing) // 111km per degree latitude
+          const lngOffset = (distanceTraveled / (111000 * Math.cos(currentLocation.latitude * Math.PI / 180))) * Math.sin(bearing)
+          
+          pinLatitude = currentLocation.latitude - latOffset
+          pinLongitude = currentLocation.longitude - lngOffset
+          
+          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
+          
+          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+        }
+      } else {
+        console.log("📍 Stationary pinning - using current location")
+      }
+      
       const newPin: PinData = {
         id: Date.now().toString(),
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        locationName: "Quick Pin Location",
+        latitude: pinLatitude,
+        longitude: pinLongitude,
+        locationName: locationDescription,
         mediaUrl: null,
         mediaType: null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: "📍 Quick Pin",
-        description: "Quick pin created for this location",
+        description: `Quick pin created for this location${motionData.isMoving ? ` (traveling ${motionData.speed.toFixed(1)} km/h)` : ""}`,
         tags: ["quick-pin"],
       }
 
@@ -738,7 +775,7 @@ export default function PINITApp() {
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
   // NEW: Fetch location photo for pins
   const fetchLocationPhoto = async (lat: number, lng: number): Promise<string | null> => {
@@ -1270,11 +1307,11 @@ export default function PINITApp() {
             width: "280px",
             height: "280px",
             borderRadius: "50%",
-            border: "4px solid rgba(255,255,255,0.9)",
+            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(255,255,255,0.9)",
             background: "transparent",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.3)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1296,7 +1333,7 @@ export default function PINITApp() {
           onMouseLeave={(e) => {
             if (!isQuickPinning) {
               e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"
+              e.currentTarget.style.boxShadow = motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.3)"
             }
           }}
         >
@@ -1353,10 +1390,32 @@ export default function PINITApp() {
                 }}
               />
 
-              {/* Minimal location overlay - positioned at top */}
+                          {/* Speed-based pinning indicator */}
+            {motionData.isMoving && motionData.speed > 5 && (
               <div
                 style={{
                   position: "absolute",
+                  top: "10px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(34, 197, 94, 0.9)",
+                  color: "white",
+                  padding: "4px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  zIndex: 3,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                🚗 Speed Pinning Active
+              </div>
+            )}
+
+            {/* Minimal location overlay - positioned at top */}
+            <div
+              style={{
+                position: "absolute",
                   top: "10%",
                   left: "50%",
                   transform: "translateX(-50%)",
