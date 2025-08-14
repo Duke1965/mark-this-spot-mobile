@@ -757,18 +757,21 @@ export default function PINITApp() {
       console.log("📸 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
+      // NEW: Generate intelligent AI content based on location and context
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
-        locationName: locationDescription,
+        locationName: aiGeneratedContent.locationName || locationDescription,
         mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: "📍 Quick Pin",
-        description: `Quick pin created for this location${motionData.isMoving ? ` (traveling ${motionData.speed.toFixed(1)} km/h)` : ""}`,
-        tags: ["quick-pin"],
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description,
+        tags: aiGeneratedContent.tags,
         // NEW: Store all photos for the carousel
         additionalPhotos: locationPhotos
       }
@@ -783,6 +786,111 @@ export default function PINITApp() {
       setIsQuickPinning(false)
     }
   }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+
+  // NEW: Generate intelligent AI content based on location and context
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+    
+    // Determine location type and context
+    let locationType = "general"
+    let context = ""
+    
+    // Analyze location based on coordinates
+    if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+      locationType = "small-town"
+      context = "Riebeek West - charming rural community"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "urban-cbd"
+      context = "Cape Town CBD - vibrant city center"
+    } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Southern Suburbs - residential area"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Northern Suburbs - growing community"
+    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+      locationType = "coastal"
+      context = "Cape Town - beautiful coastal city"
+    } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+      locationType = "provincial"
+      context = "Western Cape - diverse landscapes"
+    }
+    
+    // Generate title based on location type and context
+    let title = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      // Speed-based pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Charming Rural Discovery"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ Urban Gem Spotted"
+      } else if (locationType === "suburban") {
+        title = "🏡 Suburban Treasure"
+      } else if (locationType === "coastal") {
+        title = "🌊 Coastal Beauty"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Provincial Wonder"
+      } else {
+        title = "📍 Travel Discovery"
+      }
+    } else {
+      // Stationary pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Local Community Spot"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ City Center Location"
+      } else if (locationType === "suburban") {
+        title = "🏡 Neighborhood Place"
+      } else if (locationType === "coastal") {
+        title = "🌊 Seaside Location"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Regional Spot"
+      } else {
+        title = "📍 Local Discovery"
+      }
+    }
+    
+    // Generate intelligent description
+    let description = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+    } else {
+      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+    }
+    
+    // Generate smart tags based on context
+    const tags = []
+    if (motionData.isMoving && motionData.speed > 5) {
+      tags.push("travel-discovery", "speed-pinning")
+    }
+    if (locationType === "small-town") {
+      tags.push("rural", "community", "local")
+    } else if (locationType === "urban-cbd") {
+      tags.push("urban", "city", "vibrant")
+    } else if (locationType === "suburban") {
+      tags.push("suburban", "residential", "family")
+    } else if (locationType === "coastal") {
+      tags.push("coastal", "ocean", "scenic")
+    } else if (locationType === "provincial") {
+      tags.push("provincial", "landscape", "diverse")
+    }
+    tags.push("ai-generated", "pinit")
+    
+    // Use real location name if available from photos
+    let locationName = context
+    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
+      locationName = locationPhotos[0].placeName
+    }
+    
+    console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
+    
+    return {
+      title,
+      description,
+      locationName,
+      tags
+    }
+  }
 
   // NEW: Fetch location photos for pins (returns array of photos for carousel)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
