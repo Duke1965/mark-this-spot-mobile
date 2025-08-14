@@ -38,9 +38,11 @@ interface ClusteredPin {
 interface AIRecommendationsHubProps {
   onBack: () => void
   userLocation?: any
+  // NEW: Receive recommendations from parent component
+  initialRecommendations?: Recommendation[]
 }
 
-export default function AIRecommendationsHub({ onBack, userLocation }: AIRecommendationsHubProps) {
+export default function AIRecommendationsHub({ onBack, userLocation, initialRecommendations }: AIRecommendationsHubProps) {
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
@@ -62,7 +64,7 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
   const [mapZoom, setMapZoom] = useState(16)
   
   // AI Recommendations
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
 
   // NEW: Pin clustering function
@@ -171,6 +173,10 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
     if (recommendations.length > 0) {
       const clusters = clusterPins(recommendations)
       setClusteredPins(clusters)
+      console.log('🧠 Updated clusters:', clusters.length, 'clusters from', recommendations.length, 'recommendations')
+    } else {
+      console.log('🧠 No recommendations to cluster')
+      setClusteredPins([])
     }
   }, [recommendations, clusterPins])
 
