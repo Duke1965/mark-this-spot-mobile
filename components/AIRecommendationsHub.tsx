@@ -932,10 +932,10 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
                 }}
                 title="My location"
               >
-                {/* Google Maps Style Location Arrow Icon */}
+                {/* PINIT Style Location Icon - Based on the provided design */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  <path d="M12 6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  <path d="M4 4h16v4h-4v4h-4v4h-4v4H4V4z"/>
+                  <path d="M8 8h8v2H8V8zm0 4h6v2H8v-2zm0 4h4v2H8v-2z"/>
                 </svg>
               </button>
             )}
