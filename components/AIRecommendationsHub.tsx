@@ -55,6 +55,12 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
   const [isMapLoading, setIsMapLoading] = useState(true)
   const [mapError, setMapError] = useState<string | null>(null)
   
+  // NEW: Track map state to prevent unwanted centering
+  const [mapInitialized, setMapInitialized] = useState(false)
+  const [userHasInteracted, setUserHasInteracted] = useState(false)
+  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | null>(null)
+  const [mapZoom, setMapZoom] = useState(16)
+  
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
@@ -224,12 +230,16 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
               if (!mapDiv || mapDiv.children.length === 0) {
                 console.log('🗺️ Map tiles not visible, recreating map...')
                 recreateMap()
+                          } else {
+              console.log('🗺️ Map tiles visible, preserving user position...')
+              // NEW: Don't force center if user has interacted with the map
+              if (!userHasInteracted && location) {
+                console.log('🗺️ User hasn\'t interacted, centering on location...')
+                mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
               } else {
-                console.log('🗺️ Map tiles visible, centering on location...')
-                if (location) {
-                  mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-                }
+                console.log('🗺️ User has interacted, preserving current position')
               }
+            }
             } catch (error) {
               console.error('🗺️ Error refreshing map:', error)
               recreateMap()
@@ -290,12 +300,16 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
               if (!mapDiv || mapDiv.children.length === 0) {
                 console.log('🗺️ Map tiles still not visible, recreating...')
                 recreateMap()
+                          } else {
+              console.log('🗺️ Map tiles visible after resize')
+              // NEW: Don't force center if user has interacted with the map
+              if (!userHasInteracted && location) {
+                console.log('🗺️ User hasn\'t interacted, centering on location after resize...')
+                mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
               } else {
-                console.log('🗺️ Map tiles visible after resize')
-                if (location) {
-                  mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-                }
+                console.log('🗺️ User has interacted, preserving current position after resize')
               }
+            }
             }, 300)
           } catch (error) {
             console.error('🗺️ Error during map refresh:', error)
@@ -308,19 +322,30 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
     setViewMode(newViewMode)
   }
 
-  // Center map on user location when it becomes available
+  // Center map on user location when it becomes available (only if user hasn't interacted)
   useEffect(() => {
     if (location && location.latitude && location.longitude && mapInstanceRef.current) {
-      console.log('🗺️ Location updated, centering map:', location)
-      console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
+      console.log('🗺️ Location updated, current user interaction state:', userHasInteracted)
       
-      // Center the map immediately
-      mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-      
-      // Update zoom to street level for precise location
-      mapInstanceRef.current.setZoom(16)
-      
-      console.log('🗺️ Map centered and zoomed to user location')
+      // NEW: Only center map if user hasn't interacted with it yet
+      if (!userHasInteracted) {
+        console.log('🗺️ User hasn\'t interacted, centering map on new location:', location)
+        console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
+        
+        // Center the map immediately
+        mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+        
+        // Update zoom to street level for precise location
+        mapInstanceRef.current.setZoom(16)
+        
+        // Update our state
+        setMapCenter({ lat: location.latitude, lng: location.longitude })
+        setMapZoom(16)
+        
+        console.log('🗺️ Map centered and zoomed to user location')
+      } else {
+        console.log('🗺️ User has interacted with map, preserving current position')
+      }
       
       // Add a user location marker if it doesn't exist
       if (mapRef.current) {
@@ -495,8 +520,39 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
       console.log('🗺️ Google Maps instance created successfully')
       mapInstanceRef.current = map
       
+      // NEW: Add event listeners to track user interactions
+      map.addListener('center_changed', () => {
+        if (mapInitialized && userHasInteracted) {
+          const center = map.getCenter()
+          if (center) {
+            setMapCenter({ lat: center.lat(), lng: center.lng() })
+            console.log('🗺️ Map center changed by user to:', { lat: center.lat(), lng: center.lng() })
+          }
+        }
+      })
+      
+      map.addListener('zoom_changed', () => {
+        if (mapInitialized && userHasInteracted) {
+          const zoom = map.getZoom()
+          if (zoom !== undefined) {
+            setMapZoom(zoom)
+            console.log('🗺️ Map zoom changed by user to:', zoom)
+          }
+        }
+      })
+      
+      map.addListener('dragstart', () => {
+        setUserHasInteracted(true)
+        console.log('🗺️ User started dragging map')
+      })
+      
+      map.addListener('zoom_changed', () => {
+        setUserHasInteracted(true)
+        console.log('🗺️ User changed zoom level')
+      })
+      
       // Let Google Maps handle all touch events natively
-      console.log('🗺️ Map created, letting Google Maps handle touch events natively')
+      console.log('🗺️ Map created with interaction tracking, letting Google Maps handle touch events natively')
       
       // Wait for map to render and then remove loading
       setTimeout(() => {
@@ -512,9 +568,21 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
               console.log('🗺️ Map rendered successfully, removing loading state')
               setIsMapLoading(false)
               
-              // Center map on user location and add marker
-              console.log('🗺️ Centering map on user location:', mapLocation)
-              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+              // NEW: Only center map if it's the first time or user hasn't interacted
+              if (!mapInitialized || !userHasInteracted) {
+                console.log('🗺️ First time map render, centering on user location:', mapLocation)
+                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+                map.setZoom(16)
+                setMapCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+                setMapInitialized(true)
+              } else {
+                console.log('🗺️ Map already initialized, preserving user position')
+                // Restore user's last position if available
+                if (mapCenter) {
+                  map.setCenter(mapCenter)
+                  map.setZoom(mapZoom)
+                }
+              }
               
               // Add a user location marker
               new window.google.maps.Marker({
@@ -821,6 +889,43 @@ export default function AIRecommendationsHub({ onBack, userLocation }: AIRecomme
             }}>
               🧠 AI: {insights ? '✅ Ready' : '⏳ Learning...'}
             </div>
+            
+            {/* NEW: My Location Button */}
+            {mapInstanceRef.current && location && (
+              <button
+                onClick={() => {
+                  if (mapInstanceRef.current && location) {
+                    console.log('🗺️ User clicked My Location button')
+                    mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
+                    mapInstanceRef.current.setZoom(16)
+                    setMapCenter({ lat: location.latitude, lng: location.longitude })
+                    setMapZoom(16)
+                    setUserHasInteracted(false) // Reset interaction state to allow future auto-centering
+                    console.log('🗺️ Map returned to user location')
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '20px',
+                  background: 'rgba(16, 185, 129, 0.9)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  zIndex: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Return to my location"
+              >
+                📍 My Location
+              </button>
+            )}
           </div>
         )}
 
