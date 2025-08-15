@@ -891,7 +891,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     }
   }, [clusteredPins]) // Depend on clustered pins instead of recommendations
 
-  const addMarkersToMap = () => {
+    const addMarkersToMap = () => {
     try {
       if (!mapInstanceRef.current || !clusteredPins.length) return
 
@@ -917,70 +917,100 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             }
           })
 
-          // Add info window with cluster details
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
+          // Create custom overlay for PINIT blue theme instead of InfoWindow
+          let customOverlay: any = null
+          let isOverlayVisible = false
+
+          marker.addListener('click', () => {
+            // Remove existing overlay if any
+            if (customOverlay) {
+              customOverlay.setMap(null)
+              customOverlay = null
+              isOverlayVisible = false
+              return
+            }
+
+            // Create custom overlay with PINIT blue theme
+            const overlayContent = document.createElement('div')
+            overlayContent.innerHTML = `
               <div style="
-                padding: 20px; 
-                max-width: 320px; 
-                background: rgba(0,0,0,0.85) !important; 
-                background-color: rgba(0,0,0,0.85) !important;
-                border-radius: 16px; 
-                color: white; 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                border: 1px solid rgba(255,255,255,0.2) !important; 
-                box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important;
+                position: absolute;
+                top: -10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
+                border-radius: 16px;
+                padding: 20px;
+                max-width: 320px;
+                color: white;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                border: 2px solid rgba(59, 130, 246, 0.6);
+                box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
                 backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-                position: relative;
                 z-index: 1000;
+                margin: 0;
+                line-height: 1.4;
               ">
                 <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: white;">
                   ${cluster.count > 1 ? `${cluster.count} Recommendations` : cluster.recommendations[0].title}
                 </h3>
                 ${cluster.count > 1 ? 
-                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${cluster.category}</p>
+                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.9);">${cluster.category}</p>
                    <button id="view-recommendations-${cluster.id}" style="
                      width: 100%; 
                      padding: 12px 16px; 
-                     background: rgba(255,255,255,0.1) !important; 
-                     background-color: rgba(255,255,255,0.1) !important;
-                     border: 1px solid rgba(255,255,255,0.2) !important; 
+                     background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                     border: 2px solid rgba(16, 185, 129, 0.8); 
                      border-radius: 12px; 
                      color: white; 
                      font-size: 14px; 
-                     font-weight: 500; 
+                     font-weight: 600; 
                      cursor: pointer; 
                      transition: all 0.2s ease; 
                      margin-top: 8px; 
                      backdrop-filter: blur(10px);
-                     -webkit-backdrop-filter: blur(10px);
+                     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                     font-family: inherit; 
+                     outline: none; 
+                     display: block;
                    ">
                      👁️ View All ${cluster.count} Recommendations
                    </button>
-                   <p style="margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.7); text-align: center;">
+                   <p style="margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.8); text-align: center;">
                      Tap to explore these amazing spots!
                    </p>` :
-                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${cluster.recommendations[0].description}</p>
+                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.9);">${cluster.recommendations[0].description}</p>
                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246, 0.8)' : 'rgba(16, 185, 129, 0.8)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246, 0.9)' : 'rgba(16, 185, 129, 0.9)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
                        ${cluster.recommendations[0].isAISuggestion ? '🤖 AI' : '👥 Community'}
                      </span>
-                     <span style="font-size: 12px; color: rgba(255,255,255,0.8); font-weight: 500;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
+                     <span style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 500;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
                    </div>`
                 }
               </div>
-            `,
-            // NEW: Force custom styling on the InfoWindow
-            pixelOffset: new window.google.maps.Size(0, -10),
-            backgroundColor: 'transparent',
-            border: 'none',
-            disableAutoPan: false
-          })
+            `
 
-          marker.addListener('click', () => {
-            infoWindow.open(mapInstanceRef.current, marker)
+            // Create custom overlay
+            customOverlay = new window.google.maps.OverlayView()
+            customOverlay.onAdd = function() {
+              const panes = this.getPanes()
+              panes.overlayImage.appendChild(overlayContent)
+            }
             
+            customOverlay.draw = function() {
+              const projection = this.getProjection()
+              const position = projection.fromLatLngToDivPixel(marker.getPosition())
+              
+              if (position) {
+                overlayContent.style.left = position.x + 'px'
+                overlayContent.style.top = position.y + 'px'
+              }
+            }
+
+            // Set the overlay on the map
+            customOverlay.setMap(mapInstanceRef.current)
+            isOverlayVisible = true
+
             // Add click handler for the view recommendations button
             setTimeout(() => {
               const button = document.getElementById(`view-recommendations-${cluster.id}`)
@@ -988,7 +1018,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 button.addEventListener('click', () => {
                   console.log('🧠 User clicked to view cluster recommendations:', cluster)
                   
-                  // NEW: Filter recommendations to show only this cluster's recommendations
+                  // Filter recommendations to show only this cluster's recommendations
                   const clusterRecommendations = cluster.recommendations
                   setFilteredRecommendations(clusterRecommendations)
                   setCurrentCluster(cluster)
@@ -997,13 +1027,27 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   // Switch to list view to show the filtered recommendations
                   setViewMode('list')
                   
-                  // Close the popup
-                  infoWindow.close()
+                  // Close the overlay
+                  if (customOverlay) {
+                    customOverlay.setMap(null)
+                    customOverlay = null
+                    isOverlayVisible = false
+                  }
                   
                   console.log(`🧠 Showing ${clusterRecommendations.length} recommendations from cluster:`, cluster.id)
                 })
               }
             }, 100)
+
+            // Close overlay when clicking elsewhere on the map
+            const mapClickListener = mapInstanceRef.current.addListener('click', () => {
+              if (customOverlay && isOverlayVisible) {
+                customOverlay.setMap(null)
+                customOverlay = null
+                isOverlayVisible = false
+                mapInstanceRef.current.removeListener(mapClickListener)
+              }
+            })
           })
         })
       }
