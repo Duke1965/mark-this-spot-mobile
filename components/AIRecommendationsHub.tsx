@@ -891,7 +891,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     }
   }, [clusteredPins]) // Depend on clustered pins instead of recommendations
 
-    const addMarkersToMap = () => {
+  const addMarkersToMap = () => {
     try {
       if (!mapInstanceRef.current || !clusteredPins.length) return
 
@@ -1002,8 +1002,46 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               const position = projection.fromLatLngToDivPixel(marker.getPosition())
               
               if (position) {
-                overlayContent.style.left = position.x + 'px'
-                overlayContent.style.top = position.y + 'px'
+                // Get popup dimensions
+                const popupWidth = 320 // max-width from CSS
+                const popupHeight = 200 // approximate height
+                
+                // Calculate screen boundaries
+                const mapDiv = mapInstanceRef.current.getDiv()
+                const mapRect = mapDiv.getBoundingClientRect()
+                const mapWidth = mapRect.width
+                const mapHeight = mapRect.height
+                
+                // Calculate popup position with boundary checking
+                let left = position.x - (popupWidth / 2) // Center horizontally on marker
+                let top = position.y - popupHeight - 10 // Position above marker with 10px gap
+                
+                // Ensure popup doesn't go off the left edge
+                if (left < 0) {
+                  left = 10
+                }
+                
+                // Ensure popup doesn't go off the right edge
+                if (left + popupWidth > mapWidth) {
+                  left = mapWidth - popupWidth - 10
+                }
+                
+                // Ensure popup doesn't go off the top edge
+                if (top < 0) {
+                  top = position.y + 40 // Position below marker instead
+                }
+                
+                // Ensure popup doesn't go off the bottom edge
+                if (top + popupHeight > mapHeight) {
+                  top = mapHeight - popupHeight - 10
+                }
+                
+                // Apply the calculated position
+                overlayContent.style.left = left + 'px'
+                overlayContent.style.top = top + 'px'
+                
+                // Add smooth positioning
+                overlayContent.style.transition = 'all 0.3s ease'
               }
             }
 
