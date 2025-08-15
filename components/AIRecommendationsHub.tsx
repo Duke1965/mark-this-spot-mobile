@@ -67,6 +67,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
+  
+  // NEW: State for filtered recommendations when viewing a specific cluster
+  const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
+  const [isShowingCluster, setIsShowingCluster] = useState(false)
+  const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
 
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
@@ -905,10 +910,20 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               if (button) {
                 button.addEventListener('click', () => {
                   console.log('🧠 User clicked to view cluster recommendations:', cluster)
-                  // Switch to list view and show this cluster's recommendations
+                  
+                  // NEW: Filter recommendations to show only this cluster's recommendations
+                  const clusterRecommendations = cluster.recommendations
+                  setFilteredRecommendations(clusterRecommendations)
+                  setCurrentCluster(cluster)
+                  setIsShowingCluster(true)
+                  
+                  // Switch to list view to show the filtered recommendations
                   setViewMode('list')
-                  // You could also filter the list to show only this cluster's recommendations
+                  
+                  // Close the popup
                   infoWindow.close()
+                  
+                  console.log(`🧠 Showing ${clusterRecommendations.length} recommendations from cluster:`, cluster.id)
                 })
               }
             }, 100)
@@ -1327,13 +1342,64 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             color: 'white',
             overflow: 'auto'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold' }}>
-              🧠 AI-Powered Recommendations
-            </h3>
+            {/* NEW: Dynamic header based on whether showing cluster or all recommendations */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              marginBottom: '20px',
+              gap: '15px'
+            }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                  {isShowingCluster ? 
+                    `📍 ${currentCluster?.count || 0} Recommendations` : 
+                    '🧠 AI-Powered Recommendations'
+                  }
+                </h3>
+                {isShowingCluster && currentCluster && (
+                  <p style={{ margin: 0, fontSize: '14px', opacity: 0.8, color: 'rgba(255,255,255,0.8)' }}>
+                    {currentCluster.category} • {currentCluster.location.lat.toFixed(4)}, {currentCluster.location.lng.toFixed(4)}
+                  </p>
+                )}
+              </div>
+              
+              {/* NEW: Back button when showing cluster recommendations */}
+              {isShowingCluster && (
+                <button
+                  onClick={() => {
+                    setIsShowingCluster(false)
+                    setFilteredRecommendations([])
+                    setCurrentCluster(null)
+                    console.log('🧠 Returning to all recommendations')
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    color: 'white',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                  }}
+                >
+                  ← Back to All
+                </button>
+              )}
+            </div>
             
-            {recommendations.length > 0 ? (
+            {/* NEW: Show filtered recommendations or all recommendations */}
+            {(isShowingCluster ? filteredRecommendations : recommendations).length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {recommendations.map((rec) => (
+                {(isShowingCluster ? filteredRecommendations : recommendations).map((rec) => (
                   <div
                     key={rec.id}
                     style={{
@@ -1444,12 +1510,20 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 textAlign: 'center',
                 border: '1px solid rgba(255,255,255,0.2)'
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '20px' }}>🧠</div>
+                <div style={{ fontSize: '48px', marginBottom: '20px' }}>
+                  {isShowingCluster ? '📍' : '🧠'}
+                </div>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
-                  No AI Recommendations Yet
+                  {isShowingCluster ? 
+                    'No Recommendations in This Cluster' : 
+                    'No AI Recommendations Yet'
+                  }
                 </h4>
                 <p style={{ margin: 0, opacity: 0.8, fontSize: '14px' }}>
-                  Start pinning places and the AI will learn your preferences!
+                  {isShowingCluster ? 
+                    'This cluster appears to be empty. Try another location!' :
+                    'Start pinning places and the AI will learn your preferences!'
+                  }
                 </p>
               </div>
             )}
