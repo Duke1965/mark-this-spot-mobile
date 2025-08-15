@@ -25,6 +25,7 @@ interface Recommendation {
   confidence: number
   reason: string
   timestamp: Date
+  fallbackImage?: string // NEW: Fallback emoji when no Google photo available
 }
 
 interface ClusteredPin {
@@ -111,6 +112,115 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     
     console.log(`🧠 Clustered ${pins.length} pins into ${clusters.length} clusters`)
     return clusters
+  }, [])
+
+  // NEW: Function to fetch real place names from Google Places API
+  const fetchPlaceName = useCallback(async (lat: number, lng: number): Promise<{name: string, category: string, photoUrl?: string} | null> => {
+    try {
+      console.log('🧠 Fetching place name for coordinates:', lat, lng)
+      
+      // Call our Places API route
+      const response = await fetch('/api/places', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          radius: 100 // 100m radius to find nearby places
+        })
+      })
+      
+      if (!response.ok) {
+        console.log('🧠 Places API error:', response.status)
+        return null
+      }
+      
+      const data = await response.json()
+      console.log('🧠 Places API response:', data)
+      
+      if (data.places && data.places.length > 0) {
+        const place = data.places[0] // Get the closest place
+        return {
+          name: place.name,
+          category: place.types?.[0] || 'general',
+          photoUrl: place.photos?.[0] ? 
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}` : 
+            undefined
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.log('🧠 Error fetching place name:', error)
+      return null
+    }
+  }, [])
+
+  // NEW: Fallback clipart system for when Google photos aren't available
+  const getFallbackImage = useCallback((category: string): string => {
+    const categoryMap: { [key: string]: string } = {
+      // Food & Drink
+      'restaurant': '🍽️',
+      'cafe': '☕',
+      'bar': '🍺',
+      'bakery': '🥐',
+      'food': '🍕',
+      
+      // Shopping
+      'store': '🛍️',
+      'shopping_mall': '🏬',
+      'clothing_store': '👕',
+      'jewelry_store': '💍',
+      'book_store': '📚',
+      
+      // Entertainment
+      'movie_theater': '🎬',
+      'museum': '🏛️',
+      'art_gallery': '🎨',
+      'theater': '🎭',
+      'amusement_park': '🎢',
+      
+      // Outdoor & Nature
+      'park': '🌳',
+      'natural_feature': '🏔️',
+      'beach': '🏖️',
+      'hiking_trail': '🥾',
+      'garden': '🌺',
+      
+      // Health & Fitness
+      'gym': '💪',
+      'spa': '🧖‍♀️',
+      'hospital': '🏥',
+      'pharmacy': '💊',
+      
+      // Transportation
+      'airport': '✈️',
+      'train_station': '🚂',
+      'bus_station': '🚌',
+      'subway_station': '🚇',
+      
+      // Business & Services
+      'bank': '🏦',
+      'post_office': '📮',
+      'library': '📖',
+      'school': '🎓',
+      'university': '🎓',
+      
+      // Accommodation
+      'hotel': '🏨',
+      'lodging': '🛏️',
+      'campground': '⛺',
+      
+      // Default fallbacks
+      'general': '📍',
+      'adventure': '🗺️',
+      'discovery': '🔍'
+    }
+    
+    // Try to match the category, fall back to general if no match
+    return categoryMap[category] || categoryMap['general']
   }, [])
 
   // Get learning status when component mounts
@@ -207,7 +317,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         
         console.log('🧠 Generating new AI recommendations...')
         
-        const generateRecommendations = () => {
+        const generateRecommendations = async () => {
           const aiRecs: Recommendation[] = []
           
           // Generate AI recommendations based on user preferences
@@ -220,42 +330,68 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
             const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
             
-            shuffledCategories.forEach((category, index) => {
+            for (const category of shuffledCategories) {
+              // Generate random offset for location
+              const offsetLat = (Math.random() - 0.5) * 0.01
+              const offsetLng = (Math.random() - 0.5) * 0.01
+              const recLat = location.latitude + offsetLat
+              const recLng = location.longitude + offsetLng
+              
+              // Try to get real place name
+              const placeInfo = await fetchPlaceName(recLat, recLng)
+              
               aiRecs.push({
-                id: `ai-${category}-${Date.now()}-${index}`,
-                title: `${category.charAt(0).toUpperCase() + category.slice(1)} Discovery`,
-                description: `Based on your ${category} preferences, we think you'd love this spot!`,
+                id: `ai-${category}-${Date.now()}-${category}`,
+                title: placeInfo?.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Spot`,
+                description: placeInfo?.name ? 
+                  `Found this ${category} place that looks perfect for you!` :
+                  `Found this ${category} place that looks perfect for you!`,
                 category: category,
                 location: {
-                  lat: location.latitude + (Math.random() - 0.5) * 0.01,
-                  lng: location.longitude + (Math.random() - 0.5) * 0.01
+                  lat: recLat,
+                  lng: recLng
                 },
                 rating: 4 + Math.random(),
                 isAISuggestion: true,
                 confidence: Math.round(insights.userPersonality.confidence * 100),
                 reason: `Learned from your ${category} preferences`,
-                timestamp: new Date()
+                timestamp: new Date(),
+                // NEW: Add fallback image if no Google photo
+                fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage(category)
               })
-            })
+            }
           }
           
           // Add only 1-2 discovery recommendations (40% as specified, but limited)
           const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
           for (let i = 0; i < discoveryCount; i++) {
+            // Generate random offset for location
+            const offsetLat = (Math.random() - 0.5) * 0.02
+            const offsetLng = (Math.random() - 0.5) * 0.02
+            const recLat = location.latitude + offsetLat
+            const recLng = location.longitude + offsetLng
+            
+            // Try to get real place name
+            const placeInfo = await fetchPlaceName(recLat, recLng)
+            
             aiRecs.push({
               id: `discovery-${Date.now()}-${i}`,
-              title: `New Adventure #${i + 1}`,
-              description: "Something completely new to expand your horizons!",
+              title: placeInfo?.name || `Hidden Gem #${i + 1}`,
+              description: placeInfo?.name ? 
+                "A cool spot I think you'll love!" :
+                "A cool spot I think you'll love!",
               category: 'adventure',
               location: {
-                lat: location.latitude + (Math.random() - 0.5) * 0.02,
-                lng: location.longitude + (Math.random() - 0.5) * 0.02
+                lat: recLat,
+                lng: recLng
               },
               rating: 3.5 + Math.random() * 1.5,
               isAISuggestion: true,
               confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
               reason: "Discovery mode - expanding your horizons",
-              timestamp: new Date()
+              timestamp: new Date(),
+              // NEW: Add fallback image if no Google photo
+              fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
             })
           }
           
@@ -974,35 +1110,28 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               🧠 AI: {insights ? '✅ Ready' : '⏳ Learning...'}
             </div>
 
-            {/* NEW: Motion Status Indicator */}
-            {mapInstanceRef.current && location && (
+            {/* NEW: Simple Motion Indicator - Only shows when moving */}
+            {mapInstanceRef.current && location && location.speed && location.speed > 2 && (
               <div style={{
                 position: 'absolute',
                 top: '60px',
                 right: '20px',
-                background: location.speed && location.speed > 2 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(0,0,0,0.8)',
+                background: 'rgba(255, 165, 0, 0.9)',
                 color: 'white',
                 padding: '8px 12px',
                 borderRadius: '20px',
                 fontSize: '12px',
                 fontWeight: '500',
                 zIndex: '4',
-                maxWidth: '200px',
                 textAlign: 'center'
               }}>
-                {location.speed && location.speed > 2 ? (
-                  <>
-                    🚗 Moving: {Math.round(location.speed * 3.6)} km/h
-                    <div style={{ fontSize: '10px', marginTop: '2px', opacity: 0.8 }}>
-                      Use 🔄 button for new recommendations
-                    </div>
-                  </>
-                ) : (
-                  '🛑 Stationary - AI generating recommendations'
-                )}
+                🚗 {Math.round(location.speed * 3.6)} km/h
+                <div style={{ fontSize: '10px', marginTop: '2px', opacity: 0.8 }}>
+                  Use 🔄 for recommendations
+                </div>
               </div>
             )}
-            
+
             {/* NEW: Google Maps Style Location Button */}
             {mapInstanceRef.current && location && (
               <button
@@ -1048,7 +1177,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             {/* NEW: Manual Refresh Recommendations Button */}
             {mapInstanceRef.current && location && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   console.log('🧠 User manually requested new recommendations')
                   // Force generate new recommendations regardless of motion state
                   const now = Date.now()
@@ -1068,42 +1197,68 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
                       const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
                       
-                      shuffledCategories.forEach((category, index) => {
+                      for (const category of shuffledCategories) {
+                        // Generate random offset for location
+                        const offsetLat = (Math.random() - 0.5) * 0.01
+                        const offsetLng = (Math.random() - 0.5) * 0.01
+                        const recLat = location.latitude + offsetLat
+                        const recLng = location.longitude + offsetLng
+                        
+                        // Try to get real place name
+                        const placeInfo = await fetchPlaceName(recLat, recLng)
+                        
                         aiRecs.push({
-                          id: `ai-${category}-${Date.now()}-${index}`,
-                          title: `${category.charAt(0).toUpperCase() + category.slice(1)} Discovery`,
-                          description: `Based on your ${category} preferences, we think you'd love this spot!`,
+                          id: `ai-${category}-${Date.now()}-${category}`,
+                          title: placeInfo?.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Spot`,
+                          description: placeInfo?.name ? 
+                            `Found this ${category} place that looks perfect for you!` :
+                            `Found this ${category} place that looks perfect for you!`,
                           category: category,
                           location: {
-                            lat: location.latitude + (Math.random() - 0.5) * 0.01,
-                            lng: location.longitude + (Math.random() - 0.5) * 0.01
+                            lat: recLat,
+                            lng: recLng
                           },
                           rating: 4 + Math.random(),
                           isAISuggestion: true,
                           confidence: Math.round(insights.userPersonality.confidence * 100),
                           reason: `Learned from your ${category} preferences`,
-                          timestamp: new Date()
+                          timestamp: new Date(),
+                          // NEW: Add fallback image if no Google photo
+                          fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage(category)
                         })
-                      })
+                      }
                     }
                     
                     // Add discovery recommendations
                     const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
                     for (let i = 0; i < discoveryCount; i++) {
+                      // Generate random offset for location
+                      const offsetLat = (Math.random() - 0.5) * 0.02
+                      const offsetLng = (Math.random() - 0.5) * 0.02
+                      const recLat = location.latitude + offsetLat
+                      const recLng = location.longitude + offsetLng
+                      
+                      // Try to get real place name
+                      const placeInfo = await fetchPlaceName(recLat, recLng)
+                      
                       aiRecs.push({
                         id: `discovery-${Date.now()}-${i}`,
-                        title: `New Adventure #${i + 1}`,
-                        description: "Something completely new to expand your horizons!",
+                        title: placeInfo?.name || `Hidden Gem #${i + 1}`,
+                        description: placeInfo?.name ? 
+                          "A cool spot I think you'll love!" :
+                          "A cool spot I think you'll love!",
                         category: 'adventure',
                         location: {
-                          lat: location.latitude + (Math.random() - 0.5) * 0.02,
-                          lng: location.longitude + (Math.random() - 0.5) * 0.02
+                          lat: recLat,
+                          lng: recLng
                         },
                         rating: 3.5 + Math.random() * 1.5,
                         isAISuggestion: true,
                         confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
                         reason: "Discovery mode - expanding your horizons",
-                        timestamp: new Date()
+                        timestamp: new Date(),
+                        // NEW: Add fallback image if no Google photo
+                        fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
                       })
                     }
                     
