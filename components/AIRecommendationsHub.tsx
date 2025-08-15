@@ -872,21 +872,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           // Add info window with cluster details
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 15px; max-width: 300px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #1f2937;">
+              <div style="padding: 20px; max-width: 320px; background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%); border-radius: 16px; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: white;">
                   ${cluster.count > 1 ? `${cluster.count} Recommendations` : cluster.recommendations[0].title}
                 </h3>
                 ${cluster.count > 1 ? 
-                  `<p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">${cluster.category}</p>
-                   <div style="margin: 10px 0; padding: 10px; background: #f3f4f6; border-radius: 8px;">
-                     <p style="margin: 0; font-size: 12px; color: #6b7280;">Click to see all ${cluster.count} recommendations</p>
+                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${cluster.category}</p>
+                   <button id="view-recommendations-${cluster.id}" style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; color: white; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; margin-top: 8px;">
+                     👁️ View All ${cluster.count} Recommendations
+                   </button>
+                   <div style="margin-top: 12px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                     <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.7); text-align: center;">Tap to explore these amazing spots!</p>
                    </div>` :
-                  `<p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">${cluster.recommendations[0].description}</p>
-                   <div style="display: flex; justify-content: space-between; align-items: center;">
-                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? '#3b82f6' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${cluster.recommendations[0].description}</p>
+                   <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246, 0.8)' : 'rgba(16, 185, 129, 0.8)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
                        ${cluster.recommendations[0].isAISuggestion ? '🤖 AI' : '👥 Community'}
                      </span>
-                     <span style="font-size: 12px; color: #6b7280;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
+                     <span style="font-size: 12px; color: rgba(255,255,255,0.8); font-weight: 500;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
                    </div>`
                 }
               </div>
@@ -895,6 +898,20 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
           marker.addListener('click', () => {
             infoWindow.open(mapInstanceRef.current, marker)
+            
+            // Add click handler for the view recommendations button
+            setTimeout(() => {
+              const button = document.getElementById(`view-recommendations-${cluster.id}`)
+              if (button) {
+                button.addEventListener('click', () => {
+                  console.log('🧠 User clicked to view cluster recommendations:', cluster)
+                  // Switch to list view and show this cluster's recommendations
+                  setViewMode('list')
+                  // You could also filter the list to show only this cluster's recommendations
+                  infoWindow.close()
+                })
+              }
+            }, 100)
           })
         })
       }
@@ -1321,40 +1338,71 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     key={rec.id}
                     style={{
                       background: 'rgba(255,255,255,0.1)',
-                      padding: '15px',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(255,255,255,0.1)'
+                      padding: '18px',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = 'none'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-                        {rec.title}
-                      </h4>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                        {/* NEW: Show fallback image or placeholder */}
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
+                          background: 'rgba(255,255,255,0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '24px',
+                          border: '1px solid rgba(255,255,255,0.2)'
+                        }}>
+                          {rec.fallbackImage || '📍'}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: '600' }}>
+                            {rec.title}
+                          </h4>
+                          <span style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            color: 'rgba(255,255,255,0.8)'
+                          }}>
+                            {rec.category}
+                          </span>
+                        </div>
+                      </div>
                       <span style={{
                         background: rec.isAISuggestion ? 'rgba(59, 130, 246, 0.8)' : 'rgba(16, 185, 129, 0.8)',
-                        padding: '4px 8px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: '500'
+                        padding: '6px 10px',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        whiteSpace: 'nowrap'
                       }}>
                         {rec.isAISuggestion ? '🤖 AI' : '👥 Community'}
                       </span>
                     </div>
                     
-                    <p style={{ margin: '0 0 10px 0', fontSize: '14px', opacity: 0.9, lineHeight: '1.4' }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
                       {rec.description}
                     </p>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{
-                        background: 'rgba(255,255,255,0.1)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '12px'
-                      }}>
-                        {rec.category}
-                      </span>
-                      
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', opacity: 0.8 }}>
                           ⭐ {rec.rating.toFixed(1)}/5
@@ -1365,6 +1413,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                           </span>
                         )}
                       </div>
+                      
+                      <button style={{
+                        background: 'rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        color: 'white',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                      }}>
+                        🗺️ View on Map
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1373,8 +1440,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               <div style={{
                 background: 'rgba(255,255,255,0.1)',
                 padding: '40px 20px',
-                borderRadius: '12px',
-                textAlign: 'center'
+                borderRadius: '16px',
+                textAlign: 'center',
+                border: '1px solid rgba(255,255,255,0.2)'
               }}>
                 <div style={{ fontSize: '48px', marginBottom: '20px' }}>🧠</div>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
