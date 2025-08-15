@@ -72,6 +72,38 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
+  
+  // NEW: Enhanced motion detection state
+  const [isUserMoving, setIsUserMoving] = useState(false)
+  const [lastMotionCheck, setLastMotionCheck] = useState(Date.now())
+  
+  // NEW: Dedicated motion detection effect - runs every second
+  useEffect(() => {
+    if (!location) return
+    
+    const checkMotion = () => {
+      const now = Date.now()
+      const timeSinceLastCheck = now - lastMotionCheck
+      
+      // Check motion every second
+      if (timeSinceLastCheck >= 1000) {
+        const speed = location.speed || 0
+        const isMoving = speed > 1.5 // More aggressive: consider moving if speed > 1.5 m/s (~5.4 km/h)
+        
+        setIsUserMoving(isMoving)
+        setLastMotionCheck(now)
+        
+        if (isMoving) {
+          console.log('🚗 Motion detected - speed:', speed.toFixed(2), 'm/s, blocking recommendations')
+        } else {
+          console.log('🛑 User stationary - speed:', speed.toFixed(2), 'm/s, allowing recommendations')
+        }
+      }
+    }
+    
+    const motionInterval = setInterval(checkMotion, 1000)
+    return () => clearInterval(motionInterval)
+  }, [location, lastMotionCheck])
 
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
@@ -286,6 +318,12 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   // NEW: Update clusters whenever recommendations change
   useEffect(() => {
     if (recommendations.length > 0) {
+      // ENHANCED: Don't process recommendations if user is moving
+      if (isUserMoving) {
+        console.log('🧠 Skipping cluster update - user is moving, recommendations will be processed when stationary')
+        return
+      }
+      
       const clusters = clusterPins(recommendations)
       setClusteredPins(clusters)
       console.log('🧠 Updated clusters:', clusters.length, 'clusters from', recommendations.length, 'recommendations')
@@ -293,18 +331,23 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       console.log('🧠 No recommendations to cluster')
       setClusteredPins([])
     }
-  }, [recommendations, clusterPins])
+  }, [recommendations, clusterPins, isUserMoving])
 
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
     if (location && insights && recommendations.length < 5) { // Limit total recommendations
       try {
-        // NEW: Check if user is moving before generating recommendations
-        const isMoving = location.speed && location.speed > 2 // Consider moving if speed > 2 m/s (~7 km/h)
-        
-        if (isMoving) {
-          console.log('🧠 Skipping recommendation generation - user is moving (speed:', location.speed, 'm/s)')
+        // ENHANCED: Use the dedicated motion detection state
+        if (isUserMoving) {
+          console.log('🧠 Skipping recommendation generation - user is moving (motion state: true)')
           console.log('🧠 Use the 🔄 button to manually generate recommendations while moving')
+          return
+        }
+        
+        // ADDITIONAL SAFEGUARD: Double-check speed directly
+        const currentSpeed = location.speed || 0
+        if (currentSpeed > 1.5) {
+          console.log('🧠 Additional safeguard: Speed check failed - user moving at', currentSpeed.toFixed(2), 'm/s')
           return
         }
         
@@ -1210,6 +1253,12 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             {mapInstanceRef.current && location && (
               <button
                 onClick={async () => {
+                  // ENHANCED: Prevent manual refresh while moving
+                  if (isUserMoving) {
+                    console.log('🧠 Manual refresh blocked - user is moving')
+                    return
+                  }
+                  
                   console.log('🧠 User manually requested new recommendations')
                   // Force generate new recommendations regardless of motion state
                   const now = Date.now()
@@ -1311,23 +1360,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   position: 'absolute',
                   top: '70px', // Below the My Location button
                   left: '20px',
-                  background: 'rgba(59, 130, 246, 0.9)',
+                  background: isUserMoving ? 'rgba(255, 165, 0, 0.6)' : 'rgba(59, 130, 246, 0.9)',
                   color: 'white',
                   border: 'none',
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  cursor: 'pointer',
+                  cursor: isUserMoving ? 'not-allowed' : 'pointer',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '16px',
-                  zIndex: 4
+                  zIndex: 4,
+                  opacity: isUserMoving ? 0.6 : 1
                 }}
-                title="Refresh Recommendations"
+                title={isUserMoving ? "Refresh blocked while moving" : "Refresh Recommendations"}
               >
-                🔄
+                {isUserMoving ? '⏸️' : '🔄'}
               </button>
             )}
           </div>
