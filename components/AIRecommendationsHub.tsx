@@ -70,7 +70,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
     const clusters: ClusteredPin[] = []
-    const clusterRadius = 0.001 // About 100 meters - adjust as needed
+    const clusterRadius = 0.0005 // About 50 meters - smaller radius for tighter clustering
     
     pins.forEach((pin) => {
       let addedToCluster = false
@@ -184,6 +184,15 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   useEffect(() => {
     if (location && insights && recommendations.length < 5) { // Limit total recommendations
       try {
+        // NEW: Check if user is moving before generating recommendations
+        const isMoving = location.speed && location.speed > 2 // Consider moving if speed > 2 m/s (~7 km/h)
+        
+        if (isMoving) {
+          console.log('🧠 Skipping recommendation generation - user is moving (speed:', location.speed, 'm/s)')
+          console.log('🧠 Use the 🔄 button to manually generate recommendations while moving')
+          return
+        }
+        
         // Only generate new recommendations if we don't have many already
         // and if enough time has passed since last generation
         const now = Date.now()
@@ -960,10 +969,39 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               borderRadius: '20px',
               fontSize: '12px',
               fontWeight: '500',
-              zIndex: 4
+              zIndex: '4'
             }}>
               🧠 AI: {insights ? '✅ Ready' : '⏳ Learning...'}
             </div>
+
+            {/* NEW: Motion Status Indicator */}
+            {mapInstanceRef.current && location && (
+              <div style={{
+                position: 'absolute',
+                top: '60px',
+                right: '20px',
+                background: location.speed && location.speed > 2 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(0,0,0,0.8)',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '500',
+                zIndex: '4',
+                maxWidth: '200px',
+                textAlign: 'center'
+              }}>
+                {location.speed && location.speed > 2 ? (
+                  <>
+                    🚗 Moving: {Math.round(location.speed * 3.6)} km/h
+                    <div style={{ fontSize: '10px', marginTop: '2px', opacity: 0.8 }}>
+                      Use 🔄 button for new recommendations
+                    </div>
+                  </>
+                ) : (
+                  '🛑 Stationary - AI generating recommendations'
+                )}
+              </div>
+            )}
             
             {/* NEW: Google Maps Style Location Button */}
             {mapInstanceRef.current && location && (
@@ -990,33 +1028,119 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   height: '40px',
                   borderRadius: '50%',
                   cursor: 'pointer',
-                  zIndex: 4,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                  transition: 'all 0.2s ease'
+                  fontSize: '20px',
+                  zIndex: 4
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)'
-                  e.currentTarget.style.transform = 'scale(1)'
-                }}
-                title="My location"
+                title="My Location"
               >
-                {/* Location Icon with Crosshairs */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
-                  <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                  {/* Crosshairs */}
-                  <line x1="12" y1="2" x2="12" y2="6" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="2" y1="12" x2="6" y2="12" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="18" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="2"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" fill="white" stroke="#5f6368" strokeWidth="2"/>
+                  <circle cx="12" cy="12" r="3" fill="#5f6368"/>
+                  <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="#5f6368" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
+              </button>
+            )}
+
+            {/* NEW: Manual Refresh Recommendations Button */}
+            {mapInstanceRef.current && location && (
+              <button
+                onClick={() => {
+                  console.log('🧠 User manually requested new recommendations')
+                  // Force generate new recommendations regardless of motion state
+                  const now = Date.now()
+                  localStorage.setItem('last-ai-recommendation-time', '0') // Reset timer
+                  
+                  // Trigger recommendation generation
+                  if (insights) {
+                    const aiRecs: Recommendation[] = []
+                    
+                    // Generate AI recommendations based on user preferences
+                    if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
+                      const categories = Object.entries(insights.userPersonality)
+                        .filter(([key, value]) => key !== 'confidence' && value === true)
+                        .map(([key]) => key.replace('is', '').toLowerCase())
+                      
+                      // Generate 2-3 recommendations
+                      const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
+                      const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
+                      
+                      shuffledCategories.forEach((category, index) => {
+                        aiRecs.push({
+                          id: `ai-${category}-${Date.now()}-${index}`,
+                          title: `${category.charAt(0).toUpperCase() + category.slice(1)} Discovery`,
+                          description: `Based on your ${category} preferences, we think you'd love this spot!`,
+                          category: category,
+                          location: {
+                            lat: location.latitude + (Math.random() - 0.5) * 0.01,
+                            lng: location.longitude + (Math.random() - 0.5) * 0.01
+                          },
+                          rating: 4 + Math.random(),
+                          isAISuggestion: true,
+                          confidence: Math.round(insights.userPersonality.confidence * 100),
+                          reason: `Learned from your ${category} preferences`,
+                          timestamp: new Date()
+                        })
+                      })
+                    }
+                    
+                    // Add discovery recommendations
+                    const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
+                    for (let i = 0; i < discoveryCount; i++) {
+                      aiRecs.push({
+                        id: `discovery-${Date.now()}-${i}`,
+                        title: `New Adventure #${i + 1}`,
+                        description: "Something completely new to expand your horizons!",
+                        category: 'adventure',
+                        location: {
+                          lat: location.latitude + (Math.random() - 0.5) * 0.02,
+                          lng: location.longitude + (Math.random() - 0.5) * 0.02
+                        },
+                        rating: 3.5 + Math.random() * 1.5,
+                        isAISuggestion: true,
+                        confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                        reason: "Discovery mode - expanding your horizons",
+                        timestamp: new Date()
+                      })
+                    }
+                    
+                    // Add new recommendations
+                    setRecommendations(prev => {
+                      const combined = [...prev, ...aiRecs]
+                      return combined.slice(-8) // Keep only most recent 8
+                    })
+                    
+                    // Update clusters
+                    const updatedClusters = clusterPins([...recommendations, ...aiRecs])
+                    setClusteredPins(updatedClusters)
+                    
+                    console.log(`🧠 Manually generated ${aiRecs.length} new AI recommendations`)
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '70px', // Below the My Location button
+                  left: '20px',
+                  background: 'rgba(59, 130, 246, 0.9)',
+                  color: 'white',
+                  border: 'none',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '16px',
+                  zIndex: 4
+                }}
+                title="Refresh Recommendations"
+              >
+                🔄
               </button>
             )}
           </div>
