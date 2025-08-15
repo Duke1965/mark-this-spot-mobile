@@ -920,13 +920,42 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           // Add info window with cluster details
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 20px; max-width: 320px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); border-radius: 16px; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 25px rgba(0,0,0,0.3);">
+              <div style="
+                padding: 20px; 
+                max-width: 320px; 
+                background: rgba(0,0,0,0.85) !important; 
+                background-color: rgba(0,0,0,0.85) !important;
+                border-radius: 16px; 
+                color: white; 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                border: 1px solid rgba(255,255,255,0.2) !important; 
+                box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important;
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                position: relative;
+                z-index: 1000;
+              ">
                 <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: white;">
                   ${cluster.count > 1 ? `${cluster.count} Recommendations` : cluster.recommendations[0].title}
                 </h3>
                 ${cluster.count > 1 ? 
                   `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.8);">${cluster.category}</p>
-                   <button id="view-recommendations-${cluster.id}" style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; margin-top: 8px; backdrop-filter: blur(10px);">
+                   <button id="view-recommendations-${cluster.id}" style="
+                     width: 100%; 
+                     padding: 12px 16px; 
+                     background: rgba(255,255,255,0.1) !important; 
+                     background-color: rgba(255,255,255,0.1) !important;
+                     border: 1px solid rgba(255,255,255,0.2) !important; 
+                     border-radius: 12px; 
+                     color: white; 
+                     font-size: 14px; 
+                     font-weight: 500; 
+                     cursor: pointer; 
+                     transition: all 0.2s ease; 
+                     margin-top: 8px; 
+                     backdrop-filter: blur(10px);
+                     -webkit-backdrop-filter: blur(10px);
+                   ">
                      👁️ View All ${cluster.count} Recommendations
                    </button>
                    <p style="margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.7); text-align: center;">
@@ -941,7 +970,12 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                    </div>`
                 }
               </div>
-            `
+            `,
+            // NEW: Force custom styling on the InfoWindow
+            pixelOffset: new window.google.maps.Size(0, -10),
+            backgroundColor: 'transparent',
+            border: 'none',
+            disableAutoPan: false
           })
 
           marker.addListener('click', () => {
