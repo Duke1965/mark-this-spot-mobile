@@ -917,36 +917,20 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             }
           })
 
-          // Create custom overlay for PINIT blue theme instead of InfoWindow
-          let customOverlay: any = null
-          let isOverlayVisible = false
-
-          marker.addListener('click', () => {
-            // Remove existing overlay if any
-            if (customOverlay) {
-              customOverlay.setMap(null)
-              customOverlay = null
-              isOverlayVisible = false
-              return
-            }
-
-            // Create custom overlay with PINIT blue theme
-            const overlayContent = document.createElement('div')
-            overlayContent.innerHTML = `
+          // Create InfoWindow with PINIT blue theme
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
               <div style="
-                position: absolute;
-                top: -10px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
-                border-radius: 16px;
                 padding: 20px;
                 max-width: 320px;
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
+                border-radius: 16px;
                 color: white;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 border: 2px solid rgba(59, 130, 246, 0.6);
                 box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
                 backdrop-filter: blur(10px);
+                position: relative;
                 z-index: 1000;
                 margin: 0;
                 line-height: 1.4;
@@ -981,74 +965,23 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                    </p>` :
                   `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.9);">${cluster.recommendations[0].description}</p>
                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246, 0.9)' : 'rgba(16, 185, 129, 0.9)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246,0.9)' : 'rgba(16, 185, 129, 0.9)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
                        ${cluster.recommendations[0].isAISuggestion ? '🤖 AI' : '👥 Community'}
                      </span>
                      <span style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 500;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
                    </div>`
                 }
               </div>
-            `
+            `,
+            pixelOffset: new window.google.maps.Size(0, -10),
+            backgroundColor: 'transparent',
+            border: 'none',
+            disableAutoPan: false
+          })
 
-            // Create custom overlay
-            customOverlay = new window.google.maps.OverlayView()
-            customOverlay.onAdd = function() {
-              const panes = this.getPanes()
-              panes.overlayImage.appendChild(overlayContent)
-            }
+          marker.addListener('click', () => {
+            infoWindow.open(mapInstanceRef.current, marker)
             
-            customOverlay.draw = function() {
-              const projection = this.getProjection()
-              const position = projection.fromLatLngToDivPixel(marker.getPosition())
-              
-              if (position) {
-                // Get popup dimensions
-                const popupWidth = 320 // max-width from CSS
-                const popupHeight = 200 // approximate height
-                
-                // Calculate screen boundaries
-                const mapDiv = mapInstanceRef.current.getDiv()
-                const mapRect = mapDiv.getBoundingClientRect()
-                const mapWidth = mapRect.width
-                const mapHeight = mapRect.height
-                
-                // Calculate popup position with boundary checking
-                let left = position.x - (popupWidth / 2) // Center horizontally on marker
-                let top = position.y - popupHeight - 10 // Position above marker with 10px gap
-                
-                // Ensure popup doesn't go off the left edge
-                if (left < 0) {
-                  left = 10
-                }
-                
-                // Ensure popup doesn't go off the right edge
-                if (left + popupWidth > mapWidth) {
-                  left = mapWidth - popupWidth - 10
-                }
-                
-                // Ensure popup doesn't go off the top edge
-                if (top < 0) {
-                  top = position.y + 40 // Position below marker instead
-                }
-                
-                // Ensure popup doesn't go off the bottom edge
-                if (top + popupHeight > mapHeight) {
-                  top = mapHeight - popupHeight - 10
-                }
-                
-                // Apply the calculated position
-                overlayContent.style.left = left + 'px'
-                overlayContent.style.top = top + 'px'
-                
-                // Add smooth positioning
-                overlayContent.style.transition = 'all 0.3s ease'
-              }
-            }
-
-            // Set the overlay on the map
-            customOverlay.setMap(mapInstanceRef.current)
-            isOverlayVisible = true
-
             // Add click handler for the view recommendations button
             setTimeout(() => {
               const button = document.getElementById(`view-recommendations-${cluster.id}`)
@@ -1065,27 +998,13 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   // Switch to list view to show the filtered recommendations
                   setViewMode('list')
                   
-                  // Close the overlay
-                  if (customOverlay) {
-                    customOverlay.setMap(null)
-                    customOverlay = null
-                    isOverlayVisible = false
-                  }
+                  // Close the info window
+                  infoWindow.close()
                   
                   console.log(`🧠 Showing ${clusterRecommendations.length} recommendations from cluster:`, cluster.id)
                 })
               }
             }, 100)
-
-            // Close overlay when clicking elsewhere on the map
-            const mapClickListener = mapInstanceRef.current.addListener('click', () => {
-              if (customOverlay && isOverlayVisible) {
-                customOverlay.setMap(null)
-                customOverlay = null
-                isOverlayVisible = false
-                mapInstanceRef.current.removeListener(mapClickListener)
-              }
-            })
           })
         })
       }
