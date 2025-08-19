@@ -11,6 +11,35 @@ declare global {
   }
 }
 
+// CSS to override Google Maps InfoWindow default styling
+const infoWindowStyles = `
+  .gm-style .gm-style-iw-c {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  
+  .gm-style .gm-style-iw-d {
+    background: transparent !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+  
+  .gm-style .gm-style-iw-t::after {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .gm-style .gm-style-iw-t::before {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+`
+
 interface Recommendation {
   id: string
   title: string
@@ -48,6 +77,17 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
+  
+  // Inject CSS to override Google Maps InfoWindow styling
+  useEffect(() => {
+    const styleElement = document.createElement('style')
+    styleElement.textContent = infoWindowStyles
+    document.head.appendChild(styleElement)
+    
+    return () => {
+      document.head.removeChild(styleElement)
+    }
+  }, [])
   
   // Use passed userLocation if available, otherwise fall back to hook location
   const location = userLocation || hookLocation
