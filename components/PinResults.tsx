@@ -26,65 +26,53 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null)
   const [showEditor, setShowEditor] = useState(false)
 
-  // Fetch Google Places photos for the area
+  // Use already fetched photos from pin.additionalPhotos instead of re-fetching
   useEffect(() => {
-    const fetchAreaPhotos = async () => {
-      try {
-        setIsLoading(true)
-        console.log("📸 Fetching area photos for results page...")
-
-        // Use our API route instead of calling Google Maps directly
-        const response = await fetch(`/api/places?lat=${pin.latitude}&lng=${pin.longitude}&radius=5000`)
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch location data")
-        }
-
-        const data = await response.json()
-
-        if (data.results && data.results.length > 0) {
-          const allPhotos: GooglePhoto[] = []
-          
-          // Collect photos from multiple nearby places
-          data.results.slice(0, 5).forEach((place: any) => {
-            if (place.photos && place.photos.length > 0) {
-              place.photos.slice(0, 2).forEach((photo: any) => {
-                const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-                allPhotos.push({
-                  photo_reference: photo.photo_reference,
-                  url: photoUrl,
-                  width: photo.width || 400,
-                  height: photo.height || 300
-                })
-              })
-            }
-          })
-
-          // Add the pin's own photo if it exists
-          if (pin.mediaUrl) {
-            allPhotos.unshift({
-              photo_reference: 'pin-photo',
-              url: pin.mediaUrl,
-              width: 400,
-              height: 300
-            })
-          }
-
-          setPhotos(allPhotos)
-          if (allPhotos.length > 0) {
-            setSelectedPhotoUrl(allPhotos[0].url)
-          }
-        }
-
-        setIsLoading(false)
-      } catch (error) {
-        console.error("❌ Error fetching area photos:", error)
-        setIsLoading(false)
+    try {
+      console.log("📸 Setting up photo carousel from pin data...")
+      
+      const allPhotos: GooglePhoto[] = []
+      
+      // Add the pin's own photo if it exists
+      if (pin.mediaUrl) {
+        allPhotos.push({
+          photo_reference: 'pin-photo',
+          url: pin.mediaUrl,
+          width: 400,
+          height: 300
+        })
       }
+      
+      // Add the already fetched location photos from pin.additionalPhotos
+      if (pin.additionalPhotos && pin.additionalPhotos.length > 0) {
+        console.log("📸 Found", pin.additionalPhotos.length, "location photos in pin data")
+        
+        pin.additionalPhotos.forEach((photoData, index) => {
+          allPhotos.push({
+            photo_reference: `location-${index}`,
+            url: photoData.url,
+            width: 400,
+            height: 300
+          })
+        })
+      } else {
+        console.log("📸 No additional photos found in pin data")
+      }
+      
+      setPhotos(allPhotos)
+      if (allPhotos.length > 0) {
+        setSelectedPhotoUrl(allPhotos[0].url)
+        console.log("📸 Photo carousel set up with", allPhotos.length, "photos")
+      } else {
+        console.log("📸 No photos available for carousel")
+      }
+      
+      setIsLoading(false)
+    } catch (error) {
+      console.error("❌ Error setting up photo carousel:", error)
+      setIsLoading(false)
     }
-
-    fetchAreaPhotos()
-  }, [pin.latitude, pin.longitude, pin.mediaUrl])
+  }, [pin.mediaUrl, pin.additionalPhotos])
 
   const nextPhoto = () => {
     if (photos.length > 0) {
