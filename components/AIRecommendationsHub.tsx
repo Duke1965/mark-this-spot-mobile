@@ -145,6 +145,22 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     return () => clearInterval(motionInterval)
   }, [location, lastMotionCheck])
 
+  // NEW: Real-time map centering during movement
+  useEffect(() => {
+    if (!mapInstanceRef.current || !location || !location.latitude || !location.longitude) return
+    
+    // Only auto-center if user is moving and hasn't manually interacted with map
+    if (isUserMoving && !userHasInteracted) {
+      const newCenter = { lat: location.latitude, lng: location.longitude }
+      
+      // Smoothly pan to new location
+      mapInstanceRef.current.panTo(newCenter)
+      setMapCenter(newCenter)
+      
+      console.log('🗺️ Auto-centering map during movement to:', newCenter)
+    }
+  }, [location.latitude, location.longitude, isUserMoving, userHasInteracted])
+
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
     const clusters: ClusteredPin[] = []
@@ -361,6 +377,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       // ENHANCED: Don't process recommendations if user is moving
       if (isUserMoving) {
         console.log('🧠 Skipping cluster update - user is moving, recommendations will be processed when stationary')
+        // Clear existing clusters when moving to prevent driving artifacts
+        setClusteredPins([])
         return
       }
       
