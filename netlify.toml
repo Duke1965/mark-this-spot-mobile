@@ -24,18 +24,10 @@
   pretty_urls = true
 
 [build.processing.images]
-  compress = true 
-# CORS headers for Google APIs
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
+  compress = true
 
+# Content Security Policy headers for Google Maps
 [[headers]]
   for = "/*"
   [headers.values]
-    Access-Control-Allow-Origin = "https://maps.googleapis.com"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, X-Requested-With"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleapis.com https://*.gstatic.com https://mt*.google.com https://lh3.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com https://maps.gstatic.com;" 
