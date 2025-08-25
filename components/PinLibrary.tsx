@@ -139,6 +139,11 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
               📍 {item.locationName}
             </p>
+            {item.personalThoughts && (
+              <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", opacity: 0.7, fontStyle: "italic" }}>
+                💭 "{item.personalThoughts}"
+              </p>
+            )}
             <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
               <Calendar size={12} style={{ display: "inline", marginRight: "4px" }} />
               {new Date(item.timestamp).toLocaleDateString()}
