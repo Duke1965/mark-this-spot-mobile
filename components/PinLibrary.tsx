@@ -211,7 +211,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
       display: "flex",
       flexDirection: "column",
       color: "white",
@@ -220,23 +220,27 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
       {/* Header */}
       <div style={{
         padding: "1rem",
-        background: "rgba(0,0,0,0.2)",
+        background: "rgba(30, 58, 138, 0.95)",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between"
+        justifyContent: "space-between",
+        backdropFilter: "blur(15px)",
+        borderBottom: "1px solid rgba(255,255,255,0.2)",
       }}>
         <button
           onClick={onBack}
           style={{
-            background: "rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
-            padding: "0.5rem",
-            borderRadius: "0.5rem",
-            border: "none",
+            padding: "0.75rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem"
+            gap: "0.5rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={20} />
@@ -251,7 +255,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ padding: "1rem", background: "rgba(0,0,0,0.1)" }}>
+      <div style={{ padding: "1rem", background: "rgba(30, 58, 138, 0.95)", backdropFilter: "blur(15px)", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
         <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem" }}>
           {[
             { id: "pins", label: "Pins", icon: "📍" },
@@ -265,16 +269,18 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
               style={{
                 flex: 1,
                 padding: "0.75rem 0.5rem",
-                borderRadius: "0.5rem",
-                border: "none",
-                background: currentTab === tab.id ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: currentTab === tab.id ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
                 color: "white",
                 cursor: "pointer",
                 fontSize: "0.875rem",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.25rem"
+                gap: "0.25rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
               }}
             >
               <span style={{ fontSize: "1.25rem" }}>{tab.icon}</span>
@@ -286,21 +292,22 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         {/* Search */}
         <div style={{ position: "relative" }}>
           <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "0.75rem 0.75rem 0.75rem 2.5rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              fontSize: "0.875rem"
-            }}
-          />
+                      <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.15)",
+                color: "white",
+                fontSize: "0.875rem",
+                backdropFilter: "blur(10px)",
+              }}
+            />
         </div>
       </div>
 
