@@ -564,34 +564,38 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          padding: "1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "rgba(0,0,0,0.2)",
-        }}
-      >
+              <div
+          style={{
+            padding: "1rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "rgba(30, 58, 138, 0.95)",
+            backdropFilter: "blur(15px)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
         <button 
           onClick={onBack}
           style={{
             padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={24} />
@@ -608,8 +612,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           padding: "1rem",
           display: "flex",
           justifyContent: "center",
-          background: "rgba(0,0,0,0.1)",
+          background: "rgba(30, 58, 138, 0.95)",
           position: "relative", // For positioning the Done button
+          backdropFilter: "blur(15px)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         {/* Done Button - Only show when stickers are placed */}
@@ -841,7 +847,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       </div>
 
       {/* Action Buttons */}
-      <div style={{padding: '16px', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+      <div style={{padding: '16px', background: 'rgba(30, 58, 138, 0.95)', borderTop: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(15px)'}}>
         <div style={{display: 'flex', gap: '8px'}}>
           <button
             onClick={handleSave}
@@ -849,9 +855,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             style={{
               flex: 1,
               padding: '12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.3)',
-              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+              borderRadius: '0.75rem',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
               color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
               fontSize: '14px',
               fontWeight: '600',
@@ -859,7 +865,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              backdropFilter: 'blur(10px)',
             }}
           >
             <Save size={16} />
@@ -871,9 +879,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             style={{
               flex: 1,
               padding: '12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.3)',
-              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+              borderRadius: '0.75rem',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
               color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
               fontSize: '14px',
               fontWeight: '600',
@@ -881,7 +889,9 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              backdropFilter: 'blur(10px)',
             }}
           >
             <Share2 size={16} />
