@@ -1255,7 +1255,7 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #87CEEB 0%, #4169E1 50%, #191970 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
@@ -1270,13 +1270,15 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "rgba(0,0,0,0.9)",
+            background: "rgba(30, 58, 138, 0.95)",
             padding: "1.5rem",
             borderRadius: "1rem",
             border: "1px solid rgba(255,255,255,0.2)",
             zIndex: 1000,
             textAlign: "center",
             minWidth: "250px",
+            backdropFilter: "blur(15px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
           }}
         >
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
@@ -1346,14 +1348,16 @@ export default function PINITApp() {
           style={{
             padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
-            borderRadius: "0.5rem",
+            borderRadius: "0.75rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transition: "background 0.2s ease",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
           }}
         >
           ⚙️
@@ -1445,11 +1449,11 @@ export default function PINITApp() {
             width: "280px",
             height: "280px",
             borderRadius: "50%",
-            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(255,255,255,0.9)",
-            background: "transparent",
+            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(255,255,255,0.95)",
+            background: "rgba(255,255,255,0.05)",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
-            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.3)",
+            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1461,6 +1465,7 @@ export default function PINITApp() {
             position: "relative",
             zIndex: 2,
             overflow: "hidden",
+            backdropFilter: "blur(10px)",
           }}
           onMouseEnter={(e) => {
             if (!isQuickPinning) {
@@ -1484,7 +1489,7 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                background: "linear-gradient(135deg, #22C55E 0%, #3B82F6 50%, #10B981 100%)",
+                background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
               }}
             >
               <img
@@ -1659,7 +1664,7 @@ export default function PINITApp() {
             fontSize: "3rem",
             fontWeight: "bold",
             color: "white",
-            textShadow: "0 4px 8px rgba(0,0,0,0.3)",
+            textShadow: "0 4px 12px rgba(0,0,0,0.5)",
           }}
         >
           PINIT
@@ -1668,9 +1673,9 @@ export default function PINITApp() {
           style={{
             margin: "0.25rem 0 0 0",
             fontSize: "1.1rem",
-            opacity: 0.9,
+            opacity: 0.95,
             color: "white",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
             fontWeight: "500",
           }}
         >
@@ -1679,10 +1684,10 @@ export default function PINITApp() {
         <p
           style={{
             margin: "0.5rem 0 0 0",
-            opacity: 0.9,
+            opacity: 0.95,
             fontSize: "1rem",
             color: "white",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
           }}
         >
           📍 {locationName}
@@ -1697,13 +1702,14 @@ export default function PINITApp() {
             bottom: "8rem",
             left: "1rem",
             right: "1rem",
-            background: "rgba(0,0,0,0.9)",
+            background: "rgba(30, 58, 138, 0.95)",
             borderRadius: "1rem",
             padding: "1rem",
-            backdropFilter: "blur(10px)",
+            backdropFilter: "blur(15px)",
             maxHeight: "200px",
             overflowY: "auto",
-            border: "2px solid #10B981",
+            border: "2px solid rgba(255,255,255,0.2)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
@@ -1713,12 +1719,15 @@ export default function PINITApp() {
             <button
               onClick={() => setShowNearbyPins(false)}
               style={{
-                padding: "0.25rem",
+                padding: "0.5rem",
                 border: "none",
-                background: "rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.15)",
                 color: "white",
                 cursor: "pointer",
-                borderRadius: "4px",
+                borderRadius: "0.5rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.1)",
               }}
             >
               ✕
@@ -1732,11 +1741,13 @@ export default function PINITApp() {
                 style={{
                   minWidth: "160px",
                   background: "rgba(255,255,255,0.1)",
-                  borderRadius: "0.5rem",
+                  borderRadius: "0.75rem",
                   padding: "0.75rem",
                   color: "white",
                   cursor: "pointer",
-                  border: pin.googlePlaceId ? "1px solid #10B981" : "1px solid rgba(255,255,255,0.2)",
+                  border: pin.googlePlaceId ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.15)",
+                  transition: "all 0.2s ease",
+                  backdropFilter: "blur(10px)",
                 }}
                 onClick={() => {
                   // Add to user's pins
@@ -1769,9 +1780,10 @@ export default function PINITApp() {
                     <span
                       style={{
                         fontSize: "0.5rem",
-                        background: "#10B981",
+                        background: "rgba(255,255,255,0.2)",
                         padding: "0.125rem 0.25rem",
                         borderRadius: "0.25rem",
+                        border: "1px solid rgba(255,255,255,0.3)",
                       }}
                     >
                       🌐 Google
@@ -1781,9 +1793,10 @@ export default function PINITApp() {
                     <span
                       style={{
                         fontSize: "0.5rem",
-                        background: "#F59E0B",
+                        background: "rgba(255,255,255,0.2)",
                         padding: "0.125rem 0.25rem",
                         borderRadius: "0.25rem",
+                        border: "1px solid rgba(255,255,255,0.3)",
                       }}
                     >
                       ⭐ Top
@@ -1805,26 +1818,31 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
-          background: "transparent",
+          background: "rgba(255,255,255,0.1)",
           borderRadius: "2rem",
           padding: "1.5rem",
-          backdropFilter: "none",
+          backdropFilter: "blur(15px)",
+          border: "1px solid rgba(255,255,255,0.15)",
         }}
       >
-        <button
+                <button
           onClick={() => {
             setCameraMode("photo")
             setCurrentScreen("camera")
           }}
           style={{
-            padding: "0.5rem",
+            padding: "0.75rem",
             border: "none",
-            background: "transparent",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            borderRadius: "1rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
           }}
         >
           <Camera size={28} />
@@ -1836,14 +1854,18 @@ export default function PINITApp() {
             setCurrentScreen("camera")
           }}
           style={{
-            padding: "0.5rem",
+            padding: "0.75rem",
             border: "none",
-            background: "transparent",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            borderRadius: "1rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
           }}
         >
           <Video size={28} />
@@ -1852,15 +1874,19 @@ export default function PINITApp() {
         <button
           onClick={openLibrary}
           style={{
-            padding: "0.5rem",
+            padding: "0.75rem",
             border: "none",
-            background: "transparent",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             position: "relative",
+            borderRadius: "1rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
           }}
         >
           <Library size={28} style={{ color: "white" }} />
@@ -1871,10 +1897,17 @@ export default function PINITApp() {
                 position: "absolute",
                 top: "-4px",
                 right: "-4px",
+                background: "#EF4444",
                 color: "white",
+                borderRadius: "50%",
+                width: "20px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 fontSize: "0.75rem",
                 fontWeight: "bold",
-                textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                border: "2px solid white",
               }}
             >
               {newPins}
@@ -1885,15 +1918,19 @@ export default function PINITApp() {
         <button
           onClick={() => setCurrentScreen("recommendations")}
           style={{
-            padding: "0.5rem",
+            padding: "0.75rem",
             border: "none",
-            background: "transparent",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             position: "relative",
+            borderRadius: "1rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
           }}
           title="🧠 AI-Powered Recommendations"
         >
@@ -1915,6 +1952,7 @@ export default function PINITApp() {
                 justifyContent: "center",
                 fontSize: "0.75rem",
                 fontWeight: "bold",
+                border: "2px solid white",
               }}
             >
               {recommendations.filter((r) => !r.isCompleted).length}
