@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MapPin, Calendar, Edit3, Share2, Navigation, ArrowLeft, ChevronLeft, ChevronRight, Save, X } from "lucide-react"
+import { MapPin, Calendar, Share2, Save, ArrowLeft, MessageCircle } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinResultsProps {
@@ -9,7 +9,6 @@ interface PinResultsProps {
   onBack: () => void
   onSave: (pin: PinData) => void
   onShare: (pin: PinData) => void
-  onEdit: (pin: PinData) => void
 }
 
 interface GooglePhoto {
@@ -19,17 +18,31 @@ interface GooglePhoto {
   height: number
 }
 
-export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsProps) {
+export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
   const [photos, setPhotos] = useState<GooglePhoto[]>([])
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null)
-  const [showEditor, setShowEditor] = useState(false)
+  const [personalThoughts, setPersonalThoughts] = useState("")
+  const [autoReturnTimer, setAutoReturnTimer] = useState(5) // 5 second countdown
+
+  // Auto-return timer effect
+  useEffect(() => {
+    if (autoReturnTimer > 0) {
+      const timer = setTimeout(() => {
+        setAutoReturnTimer(autoReturnTimer - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else {
+      // Auto-return to main page
+      onBack()
+    }
+  }, [autoReturnTimer, onBack])
 
   // Use already fetched photos from pin.additionalPhotos instead of re-fetching
   useEffect(() => {
     try {
-      console.log("📸 Setting up photo carousel from pin data...")
+      console.log("📸 Setting up photo display from pin data...")
       
       const allPhotos: GooglePhoto[] = []
       
@@ -62,38 +75,23 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
       setPhotos(allPhotos)
       if (allPhotos.length > 0) {
         setSelectedPhotoUrl(allPhotos[0].url)
-        console.log("📸 Photo carousel set up with", allPhotos.length, "photos")
+        console.log("📸 Photo display set up with", allPhotos.length, "photos")
       } else {
-        console.log("📸 No photos available for carousel")
+        console.log("📸 No photos available")
       }
       
       setIsLoading(false)
     } catch (error) {
-      console.error("❌ Error setting up photo carousel:", error)
+      console.error("❌ Error setting up photo display:", error)
       setIsLoading(false)
     }
   }, [pin.mediaUrl, pin.additionalPhotos])
 
-  const nextPhoto = () => {
-    if (photos.length > 0) {
-      const nextIndex = (currentPhotoIndex + 1) % photos.length
-      setCurrentPhotoIndex(nextIndex)
-      setSelectedPhotoUrl(photos[nextIndex].url)
-    }
-  }
-
-  const prevPhoto = () => {
-    if (photos.length > 0) {
-      const prevIndex = currentPhotoIndex === 0 ? photos.length - 1 : currentPhotoIndex - 1
-      setCurrentPhotoIndex(prevIndex)
-      setSelectedPhotoUrl(photos[prevIndex].url)
-    }
-  }
-
   const handleSave = () => {
     const updatedPin = {
       ...pin,
-      mediaUrl: selectedPhotoUrl || pin.mediaUrl
+      mediaUrl: selectedPhotoUrl || pin.mediaUrl,
+      personalThoughts: personalThoughts.trim() || undefined
     }
     onSave(updatedPin)
   }
@@ -101,57 +99,10 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
   const handleShare = () => {
     const updatedPin = {
       ...pin,
-      mediaUrl: selectedPhotoUrl || pin.mediaUrl
+      mediaUrl: selectedPhotoUrl || pin.mediaUrl,
+      personalThoughts: personalThoughts.trim() || undefined
     }
     onShare(updatedPin)
-  }
-
-  const handleEditFromResults = (pin: PinData) => {
-    // Show the advanced editor
-    setShowEditor(true)
-  }
-
-  const handleBackFromResults = () => {
-    onBack()
-  }
-
-  // Show editor if active - REMOVED: AdvancedPhotoEditor functionality
-  if (showEditor && selectedPhotoUrl) {
-    return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "linear-gradient(135deg, #002c7c 0%, #9ddbeb 100%)",
-        display: "flex",
-        flexDirection: "column",
-        color: "white",
-        zIndex: 1000,
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <div style={{ textAlign: "center", padding: "2rem" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎨</div>
-          <div style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Photo Editor</div>
-          <div style={{ marginBottom: "2rem", opacity: 0.8 }}>Coming soon with new features!</div>
-          <button
-            onClick={() => setShowEditor(false)}
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              cursor: "pointer"
-            }}
-          >
-            Back to Results
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -161,7 +112,7 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #002c7c 0%, #9ddbeb 100%)",
+      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
       display: "flex",
       flexDirection: "column",
       color: "white",
@@ -170,23 +121,27 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
       {/* Header */}
       <div style={{
         padding: "1rem",
-        background: "rgba(0,0,0,0.2)",
+        background: "rgba(30, 58, 138, 0.95)",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between"
+        justifyContent: "space-between",
+        backdropFilter: "blur(15px)",
+        borderBottom: "1px solid rgba(255,255,255,0.2)",
       }}>
         <button
           onClick={onBack}
           style={{
-            background: "rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
-            padding: "0.5rem",
-            borderRadius: "0.5rem",
-            border: "none",
+            padding: "0.75rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem"
+            gap: "0.5rem",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={20} />
@@ -195,6 +150,15 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
         
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Pin Results</span>
+          <span style={{ 
+            fontSize: "0.875rem", 
+            background: "rgba(255,255,255,0.2)", 
+            padding: "0.25rem 0.5rem", 
+            borderRadius: "0.5rem",
+            border: "1px solid rgba(255,255,255,0.3)"
+          }}>
+            Auto-return in {autoReturnTimer}s
+          </span>
         </div>
 
         <div style={{ width: "40px" }}></div> {/* Spacer for centering */}
@@ -202,14 +166,16 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {/* Photo Gallery Carousel */}
+        {/* Single Photo Display */}
         <div style={{
           marginBottom: "1.5rem",
           position: "relative",
           borderRadius: "1rem",
           overflow: "hidden",
-          background: "rgba(0,0,0,0.3)",
-          minHeight: "200px"
+          background: "rgba(255,255,255,0.1)",
+          minHeight: "200px",
+          border: "1px solid rgba(255,255,255,0.2)",
+          backdropFilter: "blur(15px)",
         }}>
           {isLoading ? (
             <div style={{
@@ -221,99 +187,25 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
             }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📸</div>
-                <div>Loading area photos...</div>
+                <div>Loading area photo...</div>
               </div>
             </div>
           ) : photos.length > 0 ? (
-            <>
-              {/* Main Photo */}
-              <div style={{ position: "relative" }}>
-                <img
-                  src={selectedPhotoUrl || photos[0]?.url}
-                  alt="Location photo"
-                  style={{
-                    width: "100%",
-                    height: "200px",
-                    objectFit: "cover"
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src = "/pinit-placeholder.jpg"
-                  }}
-                />
-                
-                {/* Navigation Arrows */}
-                {photos.length > 1 && (
-                  <>
-                    <button
-                      onClick={prevPhoto}
-                      style={{
-                        position: "absolute",
-                        left: "0.5rem",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "rgba(0,0,0,0.6)",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "50%",
-                        width: "40px",
-                        height: "40px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <ChevronLeft size={20} />
-                    </button>
-                    <button
-                      onClick={nextPhoto}
-                      style={{
-                        position: "absolute",
-                        right: "0.5rem",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "rgba(0,0,0,0.6)",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "50%",
-                        width: "40px",
-                        height: "40px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <ChevronRight size={20} />
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Photo Indicators */}
-              {photos.length > 1 && (
-                <div style={{
-                  position: "absolute",
-                  bottom: "0.5rem",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  display: "flex",
-                  gap: "0.25rem"
-                }}>
-                  {photos.map((_, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        background: index === currentPhotoIndex ? "white" : "rgba(255,255,255,0.4)"
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            <div style={{ position: "relative" }}>
+              <img
+                src={selectedPhotoUrl || photos[0]?.url}
+                alt="Location photo"
+                style={{
+                  width: "100%",
+                  height: "200px",
+                  objectFit: "cover"
+                }}
+                onError={(e) => {
+                  console.log("❌ Image failed to load, using placeholder")
+                  e.currentTarget.src = "/pinit-placeholder.jpg"
+                }}
+              />
+            </div>
           ) : (
             <div style={{
               display: "flex",
@@ -336,8 +228,9 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
           borderRadius: "1rem",
           padding: "1.5rem",
           marginBottom: "1rem",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+          border: "1px solid rgba(255,255,255,0.2)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          backdropFilter: "blur(15px)",
         }}>
           {/* Title */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
@@ -368,10 +261,11 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
           {/* AI Generated Description */}
           <div style={{
             background: "rgba(255,255,255,0.1)",
-            borderRadius: "0.5rem",
+            borderRadius: "0.75rem",
             padding: "1rem",
             marginBottom: "1rem",
-            borderLeft: "3px solid #10B981"
+            borderLeft: "3px solid #10B981",
+            backdropFilter: "blur(10px)",
           }}>
             <div style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
               🤖 AI Generated Description
@@ -379,6 +273,39 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
             <div style={{ fontSize: "1rem", lineHeight: "1.5" }}>
               {pin.description || "This location looks amazing! Perfect for capturing memories and sharing with friends."}
             </div>
+          </div>
+
+          {/* Personal Thoughts Input */}
+          <div style={{
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: "0.75rem",
+            padding: "1rem",
+            marginBottom: "1rem",
+            borderLeft: "3px solid #3B82F6",
+            backdropFilter: "blur(10px)",
+          }}>
+            <div style={{ fontSize: "0.875rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+              💭 Your Personal Thoughts
+            </div>
+            <textarea
+              value={personalThoughts}
+              onChange={(e) => setPersonalThoughts(e.target.value)}
+              placeholder="Add your own thoughts about this place..."
+              style={{
+                width: "100%",
+                minHeight: "80px",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                fontSize: "0.875rem",
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "inherit",
+                backdropFilter: "blur(10px)",
+              }}
+            />
           </div>
 
           {/* Tags */}
@@ -392,7 +319,8 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
                     background: "rgba(255,255,255,0.2)",
                     color: "rgba(255,255,255,0.9)",
                     padding: "0.25rem 0.75rem",
-                    borderRadius: "9999px"
+                    borderRadius: "9999px",
+                    border: "1px solid rgba(255,255,255,0.3)",
                   }}
                 >
                   #{tag}
@@ -405,39 +333,21 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <button
-            onClick={() => handleEditFromResults(pin)}
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              padding: "0.75rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem"
-            }}
-          >
-            <Edit3 size={16} />
-            Edit
-          </button>
-          
-          <button
             onClick={handleShare}
             style={{
               flex: 1,
-              background: "rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.15)",
               color: "white",
               padding: "0.75rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "0.5rem"
+              gap: "0.5rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
             }}
           >
             <Share2 size={16} />
@@ -448,16 +358,18 @@ export function PinResults({ pin, onBack, onSave, onShare, onEdit }: PinResultsP
             onClick={handleSave}
             style={{
               flex: 1,
-              background: "rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.15)",
               color: "white",
               padding: "0.75rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "0.5rem"
+              gap: "0.5rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
             }}
           >
             <Save size={16} />
