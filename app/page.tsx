@@ -42,6 +42,7 @@ export interface PinData {
   isAISuggestion?: boolean
   additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
   personalThoughts?: string // NEW: User's personal thoughts about the place
+  originalPinId?: string // NEW: Reference to original PINIT pin
 }
 
 interface GooglePlace {
@@ -1023,14 +1024,25 @@ export default function PINITApp() {
   }
 
   const handleShareFromResults = (pin: PinData) => {
-    // Create a media object that matches the expected format for the photo sharing system
+    // Create a comprehensive media object that captures ALL PINIT data
     const mediaData = {
       url: pin.mediaUrl || "/pinit-placeholder.jpg",
       type: "photo" as const,
       location: pin.locationName,
       title: pin.title,
       description: pin.description,
-      personalThoughts: pin.personalThoughts || undefined
+      personalThoughts: pin.personalThoughts || undefined,
+      // Enhanced PINIT data
+      pinId: pin.id,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      timestamp: pin.timestamp,
+      tags: pin.tags || [],
+      additionalPhotos: pin.additionalPhotos || [],
+      // AI-generated content
+      aiTitle: pin.title,
+      aiDescription: pin.description,
+      aiTags: pin.tags || []
     }
     
     // Set the captured media and go to platform selection (same flow as camera photos)
@@ -1059,23 +1071,35 @@ export default function PINITApp() {
     if (recommendationData?.personalThoughts) {
       console.log("📌 This is a PINIT pin recommendation")
       
-      // Create a new recommendation pin with enhanced data
+      // Create a new recommendation pin with ALL enhanced PINIT data
       const newRecommendation: PinData = {
         id: Date.now().toString(),
-        latitude: userLocation?.latitude || 0,
-        longitude: userLocation?.longitude || 0,
+        // Use original pin coordinates if available, otherwise current location
+        latitude: recommendationData?.latitude || userLocation?.latitude || 0,
+        longitude: recommendationData?.longitude || userLocation?.longitude || 0,
         locationName: recommendationData?.locationName || "Unknown Location",
         mediaUrl: recommendationData?.mediaUrl || null,
         mediaType: recommendationData?.mediaUrl ? "photo" : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: `PINIT Recommendation - ${recommendationData?.locationName || "Location"}`,
-        description: review,
+        title: `PINIT Recommendation - ${recommendationData?.aiTitle || recommendationData?.locationName || "Location"}`,
+        description: `${review}\n\nOriginal AI Description: ${recommendationData?.aiDescription || "No AI description available"}`,
         personalThoughts: recommendationData.personalThoughts, // Include original user thoughts
-        tags: ["recommendation", "user-submitted", "pinit-pin", recommendationData?.platform || "social"],
+        // Combine AI tags with recommendation tags
+        tags: [
+          "recommendation", 
+          "user-submitted", 
+          "pinit-pin", 
+          recommendationData?.platform || "social",
+          ...(recommendationData?.aiTags || [])
+        ],
         isRecommended: true,
         rating: rating,
         types: ["recommendation", "pinit"],
+        // Store reference to original pin
+        originalPinId: recommendationData?.pinId,
+        // Include additional photos if available
+        additionalPhotos: recommendationData?.additionalPhotos || []
       }
 
       console.log("📌 Created enhanced PINIT recommendation pin:", newRecommendation)
