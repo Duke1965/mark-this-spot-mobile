@@ -893,10 +893,10 @@ export default function PINITApp() {
     }
   }
 
-  // NEW: Fetch location photos for pins (returns single best photo with filtering)
+  // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("📸 Fetching location photo with filtering...")
+      console.log("📸 Fetching location photo with aggressive filtering...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
@@ -912,18 +912,28 @@ export default function PINITApp() {
         // Get the closest place
         const closestPlace = data.results[0]
         if (closestPlace.photos && closestPlace.photos.length > 0) {
-          // Filter photos to prioritize real photos over logos/clipart
+          // More aggressive filtering to exclude logos, clipart, and non-location photos
           const filteredPhotos = closestPlace.photos.filter((photo: any) => {
-            // Skip photos that are likely logos or clipart
-            // These usually have specific dimensions or are too small
+            // Skip photos that are likely logos, clipart, or non-location photos
             if (photo.width && photo.height) {
               const aspectRatio = photo.width / photo.height
               const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
-              const isTooSmall = photo.width < 200 || photo.height < 200
+              const isTooSmall = photo.width < 300 || photo.height < 300
+              const isTooLarge = photo.width > 2000 || photo.height > 2000
+              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
+              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
               
-              // Prefer photos that are not squareish and are reasonably sized
-              if (isSquareish || isTooSmall) {
-                console.log("📸 Skipping likely logo/clipart photo:", photo.width, "x", photo.height)
+              // Log what we're filtering out
+              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
+                console.log("📸 Filtering out photo:", {
+                  dimensions: `${photo.width}x${photo.height}`,
+                  aspectRatio: aspectRatio.toFixed(2),
+                  reason: isSquareish ? "squareish (likely logo)" : 
+                          isTooSmall ? "too small" :
+                          isTooLarge ? "too large" :
+                          isPortrait ? "too tall (likely sign)" :
+                          isLandscape ? "too wide (likely banner)" : "unknown"
+                })
                 return false
               }
             }
@@ -931,8 +941,21 @@ export default function PINITApp() {
           })
           
           if (filteredPhotos.length > 0) {
-            // Get the best filtered photo
-            const bestPhoto = filteredPhotos[0]
+            // Get the best filtered photo (prefer landscape photos for location views)
+            const bestPhoto = filteredPhotos.reduce((best, current) => {
+              if (current.width && current.height && best.width && best.height) {
+                const currentRatio = current.width / current.height
+                const bestRatio = best.width / best.height
+                
+                // Prefer photos closer to 16:9 ratio (typical landscape)
+                const currentScore = Math.abs(currentRatio - 1.78)
+                const bestScore = Math.abs(bestRatio - 1.78)
+                
+                return currentScore < bestScore ? current : best
+              }
+              return best
+            })
+            
             const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
             
             photos.push({
@@ -940,7 +963,7 @@ export default function PINITApp() {
               placeName: closestPlace.name || "Unknown Place"
             })
             
-            console.log(`✅ Found filtered location photo: ${closestPlace.name}`)
+            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
             return photos
           } else {
             // If all photos were filtered out, try to get any photo but log it
