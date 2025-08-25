@@ -40,7 +40,8 @@ export interface PinData {
   priceLevel?: number
   types?: string[]
   isAISuggestion?: boolean
-  additionalPhotos?: Array<{url: string, placeName: string}> // NEW: Store multiple photos for carousel
+  additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
+  personalThoughts?: string // NEW: User's personal thoughts about the place
 }
 
 interface GooglePlace {
@@ -892,10 +893,10 @@ export default function PINITApp() {
     }
   }
 
-  // NEW: Fetch location photos for pins (returns array of photos for carousel)
+  // NEW: Fetch location photos for pins (returns single best photo)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("📸 Fetching location photos for carousel...")
+      console.log("📸 Fetching location photo...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
@@ -908,29 +909,28 @@ export default function PINITApp() {
       const photos: {url: string, placeName: string}[] = []
 
       if (data.results && data.results.length > 0) {
-        // Collect photos from multiple places
-        data.results.forEach((place: any) => {
-          if (place.photos && place.photos.length > 0) {
-            // Get up to 3 photos per place to avoid overwhelming the carousel
-            const placePhotos = place.photos.slice(0, 3).map((photo: any) => ({
-              url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
-              placeName: place.name || "Unknown Place"
-            }))
-            photos.push(...placePhotos)
-          }
-        })
-        
-        // Limit total photos to 6 for carousel performance
-        const limitedPhotos = photos.slice(0, 6)
-        console.log(`✅ Found ${limitedPhotos.length} location photos for carousel`)
-        return limitedPhotos
+        // Get the best photo from the closest place
+        const closestPlace = data.results[0]
+        if (closestPlace.photos && closestPlace.photos.length > 0) {
+          // Get the first (usually best) photo
+          const bestPhoto = closestPlace.photos[0]
+          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          
+          photos.push({
+            url: photoUrl,
+            placeName: closestPlace.name || "Unknown Place"
+          })
+          
+          console.log(`✅ Found location photo: ${closestPlace.name}`)
+          return photos
+        }
       }
       
       console.log("📸 No location photos found, will use PINIT placeholder")
-      return [{url: "/placeholder.jpg", placeName: "PINIT Placeholder"}]
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     } catch (error) {
       console.error("❌ Error fetching location photos:", error)
-      return [{url: "/placeholder.jpg", placeName: "PINIT Placeholder"}]
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     }
   }
 
@@ -956,7 +956,12 @@ export default function PINITApp() {
 
   // Results page handlers
   const handleSaveFromResults = (pin: PinData) => {
-    addPin(pin)
+    // Include personal thoughts in the saved pin
+    const pinToSave = {
+      ...pin,
+      personalThoughts: pin.personalThoughts || undefined
+    }
+    addPin(pinToSave)
     setCurrentResultPin(null)
     setCurrentScreen("map")
     setQuickPinSuccess(true)
@@ -964,7 +969,10 @@ export default function PINITApp() {
   }
 
   const handleShareFromResults = (pin: PinData) => {
-    const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍`
+    // Include personal thoughts in share text if available
+    const personalThoughtsText = pin.personalThoughts ? `\n\nMy thoughts: "${pin.personalThoughts}"` : ""
+    const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍${personalThoughtsText}`
+    
     if (typeof window !== 'undefined' && navigator.share) {
       navigator.share({
         title: pin.title,
@@ -1209,7 +1217,6 @@ export default function PINITApp() {
         pin={currentResultPin}
         onSave={handleSaveFromResults}
         onShare={handleShareFromResults}
-        onEdit={handleEditFromResults}
         onBack={handleBackFromResults}
       />
     )
