@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MapPin, Calendar, Share2, Save, ArrowLeft, MessageCircle } from "lucide-react"
+import { MapPin, Calendar, Share2, Save, ArrowLeft, MessageCircle, Instagram, Facebook, Twitter, Star } from "lucide-react"
 import type { PinData } from "@/app/page"
 
 interface PinResultsProps {
@@ -18,6 +18,12 @@ interface GooglePhoto {
   height: number
 }
 
+interface SocialAccount {
+  instagram: string
+  twitter: string
+  facebook: string
+}
+
 export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
   const [photos, setPhotos] = useState<GooglePhoto[]>([])
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
@@ -26,6 +32,29 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
   const [personalThoughts, setPersonalThoughts] = useState("")
   const [autoReturnTimer, setAutoReturnTimer] = useState(5) // 5 second countdown
   const [isUserMoving, setIsUserMoving] = useState(false) // Track if user is driving
+  const [showSocialShare, setShowSocialShare] = useState(false) // Show social sharing interface
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("")
+  const [showRecommendationPrompt, setShowRecommendationPrompt] = useState(false)
+  const [userSocialAccounts, setUserSocialAccounts] = useState<SocialAccount>({
+    instagram: "",
+    twitter: "",
+    facebook: ""
+  })
+
+  // Load user's social media accounts from localStorage
+  useEffect(() => {
+    try {
+      const savedProfile = localStorage.getItem('userProfile')
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile)
+        if (profile.socialAccounts) {
+          setUserSocialAccounts(profile.socialAccounts)
+        }
+      }
+    } catch (error) {
+      console.log("Could not load social accounts from settings")
+    }
+  }, [])
 
   // Check if user is moving (driving) based on location changes
   useEffect(() => {
@@ -146,12 +175,243 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
   }
 
   const handleShare = () => {
+    setShowSocialShare(true)
+  }
+
+  const handlePlatformSelect = (platform: string) => {
+    setSelectedPlatform(platform)
+    setShowRecommendationPrompt(true)
+  }
+
+  const handleRecommendationChoice = (alsoRecommend: boolean) => {
     const updatedPin = {
       ...pin,
       mediaUrl: selectedPhotoUrl || pin.mediaUrl,
       personalThoughts: personalThoughts.trim() || undefined
     }
+    
+    if (alsoRecommend) {
+      // Add to recommendations map
+      console.log("⭐ Adding pin to recommendations map:", updatedPin.title)
+      // This would integrate with your existing recommendation system
+    }
+    
+    // Share to selected platform
+    console.log(`📱 Sharing to ${selectedPlatform}:`, updatedPin.title)
+    
+    // Reset states and go back to results
+    setShowRecommendationPrompt(false)
+    setShowSocialShare(false)
+    setSelectedPlatform("")
+    
+    // Call the original onShare function
     onShare(updatedPin)
+  }
+
+  // Show social sharing interface if active
+  if (showSocialShare) {
+    return (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        zIndex: 1000
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "1rem",
+          background: "rgba(30, 58, 138, 0.95)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backdropFilter: "blur(15px)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
+        }}>
+          <button
+            onClick={() => setShowSocialShare(false)}
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              color: "white",
+              padding: "0.75rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <ArrowLeft size={20} />
+            Back to Results
+          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Share Your Discovery</span>
+          </div>
+
+          <div style={{ width: "40px" }}></div>
+        </div>
+
+        {/* Social Platform Selection */}
+        <div style={{ flex: 1, padding: "1rem", overflowY: "auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Choose Platform</h2>
+            <p style={{ opacity: 0.8 }}>Share your PINIT discovery with friends!</p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem", maxWidth: "600px", margin: "0 auto" }}>
+            {/* Instagram */}
+            <button
+              onClick={() => handlePlatformSelect("instagram")}
+              style={{
+                padding: "1.5rem 1rem",
+                borderRadius: "1rem",
+                border: "2px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <Instagram size={32} />
+              <span style={{ fontWeight: "600" }}>Instagram</span>
+              {userSocialAccounts.instagram && (
+                <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>@{userSocialAccounts.instagram}</span>
+              )}
+            </button>
+
+            {/* Facebook */}
+            <button
+              onClick={() => handlePlatformSelect("facebook")}
+              style={{
+                padding: "1.5rem 1rem",
+                borderRadius: "1rem",
+                border: "2px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <Facebook size={32} />
+              <span style={{ fontWeight: "600" }}>Facebook</span>
+              {userSocialAccounts.facebook && (
+                <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>@{userSocialAccounts.facebook}</span>
+              )}
+            </button>
+
+            {/* Twitter/X */}
+            <button
+              onClick={() => handlePlatformSelect("twitter")}
+              style={{
+                padding: "1.5rem 1rem",
+                borderRadius: "1rem",
+                border: "2px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <Twitter size={32} />
+              <span style={{ fontWeight: "600" }}>Twitter/X</span>
+              {userSocialAccounts.twitter && (
+                <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>@{userSocialAccounts.twitter}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show recommendation prompt if platform selected
+  if (showRecommendationPrompt) {
+    return (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        zIndex: 1000,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem"
+      }}>
+        <div style={{ textAlign: "center", maxWidth: "400px" }}>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>⭐</div>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Great Discovery!</h2>
+          <p style={{ fontSize: "1.1rem", marginBottom: "2rem", opacity: 0.9 }}>
+            Would you also like to recommend this place to other PINIT users? 
+            It will appear on the recommendations map for everyone to discover!
+          </p>
+          
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+            <button
+              onClick={() => handleRecommendationChoice(false)}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "1rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              Just Share
+            </button>
+            <button
+              onClick={() => handleRecommendationChoice(true)}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(16,185,129,0.8)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "1rem",
+                fontWeight: "600",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              Share + Recommend ⭐
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
