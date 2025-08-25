@@ -262,7 +262,7 @@ export function PlaceNavigation({
       <div
         style={{
           padding: "1rem",
-          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%)",
+          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
           color: "white",
           display: "flex",
           alignItems: "center",
@@ -272,15 +272,17 @@ export function PlaceNavigation({
         <button
           onClick={onBack}
           style={{
-            background: "rgba(255,255,255,0.2)",
-            border: "none",
-            borderRadius: "8px",
-            padding: "0.5rem",
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: "0.75rem",
+            padding: "0.75rem",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={20} />
@@ -379,17 +381,19 @@ export function PlaceNavigation({
             onClick={() => onSaveForLater(place)}
             style={{
               flex: 1,
-              background: "#F3F4F6",
-              border: "1px solid #D1D5DB",
-              borderRadius: "0.5rem",
+              background: "rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "0.75rem",
               padding: "0.75rem 1rem",
-              color: "#374151",
+              color: "white",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "0.5rem",
               fontWeight: "500",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
             }}
           >
             <Bookmark size={18} />
@@ -401,9 +405,9 @@ export function PlaceNavigation({
             disabled={isNavigating}
             style={{
               flex: 1,
-              background: isNavigating ? "#9CA3AF" : "#3B82F6",
-              border: "none",
-              borderRadius: "0.5rem",
+              background: isNavigating ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.2)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "0.75rem",
               padding: "0.75rem 1rem",
               color: "white",
               cursor: isNavigating ? "not-allowed" : "pointer",
@@ -412,6 +416,8 @@ export function PlaceNavigation({
               justifyContent: "center",
               gap: "0.5rem",
               fontWeight: "bold",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
             }}
           >
             <Navigation size={18} />
