@@ -293,7 +293,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         left: 0,
         right: 0,
         bottom: 0,
-        background: "#000000",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
@@ -569,11 +569,13 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       <div
         style={{
           padding: "2rem",
-          background: "rgba(0,0,0,0.8)",
+          background: "rgba(30, 58, 138, 0.95)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
+          backdropFilter: "blur(15px)",
+          borderTop: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         {/* Capture Button */}
