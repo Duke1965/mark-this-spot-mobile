@@ -1023,20 +1023,19 @@ export default function PINITApp() {
   }
 
   const handleShareFromResults = (pin: PinData) => {
-    // Include personal thoughts in share text if available
-    const personalThoughtsText = pin.personalThoughts ? `\n\nMy thoughts: "${pin.personalThoughts}"` : ""
-    const shareText = `Check out this amazing place I discovered: ${pin.title} at ${pin.locationName}! 📍${personalThoughtsText}`
-    
-    if (typeof window !== 'undefined' && navigator.share) {
-      navigator.share({
-        title: pin.title,
-        text: shareText,
-        url: `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`,
-      })
-    } else if (typeof window !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(shareText)
-      alert("Pin details copied to clipboard!")
+    // Create a media object that matches the expected format for the photo sharing system
+    const mediaData = {
+      url: pin.mediaUrl || "/pinit-placeholder.jpg",
+      type: "photo" as const,
+      location: pin.locationName,
+      title: pin.title,
+      description: pin.description,
+      personalThoughts: pin.personalThoughts || undefined
     }
+    
+    // Set the captured media and go to platform selection (same flow as camera photos)
+    setCapturedMedia(mediaData)
+    setCurrentScreen("platform-select")
   }
 
   const handleEditFromResults = (pin: PinData) => {
@@ -1056,35 +1055,71 @@ export default function PINITApp() {
     console.log("📍 Current recommendationData:", recommendationData)
     console.log("📍 Current userLocation:", userLocation)
     
-    // Create a new recommendation pin
-    const newRecommendation: PinData = {
-      id: Date.now().toString(),
-      latitude: userLocation?.latitude || 0,
-      longitude: userLocation?.longitude || 0,
-      locationName: recommendationData?.locationName || "Unknown Location",
-      mediaUrl: recommendationData?.mediaUrl || null,
-      mediaType: recommendationData?.mediaUrl ? "photo" : null,
-      audioUrl: null,
-      timestamp: new Date().toISOString(),
-      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
-      description: review,
-      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
-      isRecommended: true,
-      rating: rating,
-      types: ["recommendation"],
+    // Check if this is a PINIT pin recommendation (has personalThoughts)
+    if (recommendationData?.personalThoughts) {
+      console.log("📌 This is a PINIT pin recommendation")
+      
+      // Create a new recommendation pin with enhanced data
+      const newRecommendation: PinData = {
+        id: Date.now().toString(),
+        latitude: userLocation?.latitude || 0,
+        longitude: userLocation?.longitude || 0,
+        locationName: recommendationData?.locationName || "Unknown Location",
+        mediaUrl: recommendationData?.mediaUrl || null,
+        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `PINIT Recommendation - ${recommendationData?.locationName || "Location"}`,
+        description: review,
+        personalThoughts: recommendationData.personalThoughts, // Include original user thoughts
+        tags: ["recommendation", "user-submitted", "pinit-pin", recommendationData?.platform || "social"],
+        isRecommended: true,
+        rating: rating,
+        types: ["recommendation", "pinit"],
+      }
+
+      console.log("📌 Created enhanced PINIT recommendation pin:", newRecommendation)
+      
+      // Add the recommendation to pins
+      addPin(newRecommendation)
+      
+      setShowRecommendationForm(false)
+      setRecommendationData(null)
+      setSuccessMessage("PINIT Recommendation sent!")
+      setShowSuccessPopup(true)
+      setTimeout(() => setShowSuccessPopup(false), 3000)
+      setCurrentScreen("map")
+    } else {
+      // Regular photo recommendation
+      const newRecommendation: PinData = {
+        id: Date.now().toString(),
+        latitude: userLocation?.latitude || 0,
+        longitude: userLocation?.longitude || 0,
+        locationName: recommendationData?.locationName || "Unknown Location",
+        mediaUrl: recommendationData?.mediaUrl || null,
+        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
+        description: review,
+        tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+        isRecommended: true,
+        rating: rating,
+        types: ["recommendation"],
+      }
+
+      console.log("📌 Created regular recommendation pin:", newRecommendation)
+
+      // Add the recommendation to pins
+      addPin(newRecommendation)
+      
+      setShowRecommendationForm(false)
+      setRecommendationData(null)
+      setSuccessMessage("Recommendation sent!")
+      setShowSuccessPopup(true)
+      setTimeout(() => setShowSuccessPopup(false), 3000)
+      setCurrentScreen("map")
     }
-
-    console.log("📌 Created new recommendation pin:", newRecommendation)
-
-    // Add the recommendation to pins
-    addPin(newRecommendation)
-    
-    setShowRecommendationForm(false)
-    setRecommendationData(null)
-    setSuccessMessage("Recommendation sent!")
-    setShowSuccessPopup(true)
-    setTimeout(() => setShowSuccessPopup(false), 3000)
-    setCurrentScreen("map")
   }
 
   const handleRecommendationSkip = () => {
@@ -1167,22 +1202,25 @@ export default function PINITApp() {
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowSuccessPopup(true)
           
-          // Show recommendation form after success message
-          setTimeout(() => {
-            setShowSuccessPopup(false)
-            setRecommendationData({
-              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
-              locationName: capturedMedia.location,
-              platform: selectedPlatform
-            })
-            setShowRecommendationForm(true)
-          }, 2000)
-          
-          // Return to map after showing success message
-          setTimeout(() => {
-            setCurrentScreen("map")
-            setIsPosting(false)
-          }, 2000)
+          // Check if this is a PINIT pin (has personalThoughts) and show recommendation form
+          if (capturedMedia.personalThoughts) {
+            // Show recommendation form after success message for PINIT pins
+            setTimeout(() => {
+              setShowSuccessPopup(false)
+              setRecommendationData({
+                mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+                locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
+                platform: selectedPlatform
+              })
+              setShowRecommendationForm(true)
+            }, 2000)
+          } else {
+            // Regular photo - just return to map
+            setTimeout(() => {
+              setCurrentScreen("map")
+              setIsPosting(false)
+            }, 2000)
+          }
         }}
         onSave={(contentData) => {
           // Handle saving with content data
