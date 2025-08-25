@@ -48,22 +48,22 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
 
   if (mediaPins.length === 0) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "#000000",
-          color: "white",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "2rem",
-        }}
-      >
+              <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+            color: "white",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📖</div>
           <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.5rem" }}>No Stories Yet</h2>
@@ -74,13 +74,15 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             onClick={onBack}
             style={{
               padding: "0.75rem 1.5rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "#3B82F6",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.15)",
               color: "white",
               cursor: "pointer",
               fontSize: "1rem",
               fontWeight: "bold",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
             }}
           >
             Back to Map
@@ -98,37 +100,41 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "#000000",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         color: "white",
         display: "flex",
         flexDirection: "column",
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          left: "1rem",
-          right: "1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          zIndex: 10,
-          background: "rgba(0,0,0,0.5)",
-          borderRadius: "0.5rem",
-          padding: "0.75rem",
-        }}
-      >
+              <div
+          style={{
+            position: "absolute",
+            top: "1rem",
+            left: "1rem",
+            right: "1rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            zIndex: 10,
+            background: "rgba(30, 58, 138, 0.95)",
+            borderRadius: "0.75rem",
+            padding: "0.75rem",
+            backdropFilter: "blur(15px)",
+            border: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
         <button
           onClick={onBack}
           style={{
-            padding: "0.5rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
+            padding: "0.75rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={20} />
@@ -144,12 +150,14 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
         <button
           onClick={() => setShowSettings(!showSettings)}
           style={{
-            padding: "0.5rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
+            padding: "0.75rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <Settings size={20} />
@@ -163,11 +171,13 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             position: "absolute",
             top: "5rem",
             right: "1rem",
-            background: "rgba(0,0,0,0.9)",
-            borderRadius: "0.5rem",
+            background: "rgba(30, 58, 138, 0.95)",
+            borderRadius: "0.75rem",
             padding: "1rem",
             zIndex: 20,
             minWidth: "200px",
+            backdropFilter: "blur(15px)",
+            border: "1px solid rgba(255,255,255,0.2)",
           }}
         >
           <h3 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>Playback Settings</h3>
