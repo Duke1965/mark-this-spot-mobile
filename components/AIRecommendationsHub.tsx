@@ -1148,8 +1148,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             style={{
               flex: 1,
               padding: '12px',
-              borderRadius: '12px',
-              border: 'none',
+              borderRadius: '0.75rem',
+              border: '1px solid rgba(255,255,255,0.2)',
               background: viewMode === tab.key 
                 ? 'rgba(255,255,255,0.2)' 
                 : 'rgba(255,255,255,0.1)',
@@ -1157,7 +1157,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               fontSize: '14px',
               fontWeight: '500',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              backdropFilter: 'blur(10px)',
             }}
           >
             {tab.icon} {tab.label}
@@ -1169,11 +1170,13 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       <div style={{ flex: 1, padding: '20px', overflow: 'hidden' }}>
         {viewMode === "map" && (
           <div style={{
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(30, 58, 138, 0.95)',
             borderRadius: '16px',
             height: '100%',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            backdropFilter: 'blur(15px)',
+            border: '1px solid rgba(255,255,255,0.2)',
           }}>
             <div
               ref={mapRef}
@@ -1478,12 +1481,14 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
         {viewMode === "list" && (
           <div style={{
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(30, 58, 138, 0.95)',
             borderRadius: '16px',
             height: '100%',
             padding: '20px',
             color: 'white',
-            overflow: 'auto'
+            overflow: 'auto',
+            backdropFilter: 'blur(15px)',
+            border: '1px solid rgba(255,255,255,0.2)',
           }}>
             {/* NEW: Dynamic header based on whether showing cluster or all recommendations */}
             <div style={{ 
@@ -1509,24 +1514,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               
               {/* NEW: Back button when showing cluster recommendations */}
               {isShowingCluster && (
-                <button
-                  onClick={() => {
-                    setIsShowingCluster(false)
-                    setFilteredRecommendations([])
-                    setCurrentCluster(null)
-                    console.log('🧠 Returning to all recommendations')
-                  }}
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '10px',
-                    padding: '8px 12px',
-                    color: 'white',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap'
-                  }}
+                                  <button
+                    onClick={() => {
+                      setIsShowingCluster(false)
+                      setFilteredRecommendations([])
+                      setCurrentCluster(null)
+                      console.log('🧠 Returning to all recommendations')
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.15)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      color: 'white',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap',
+                      backdropFilter: 'blur(10px)',
+                    }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
                   }}
@@ -1550,8 +1556,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       padding: '18px',
                       borderRadius: '16px',
                       border: '1px solid rgba(255,255,255,0.2)',
-                      backdropFilter: 'blur(10px)',
-                      transition: 'all 0.2s ease'
+                      backdropFilter: 'blur(15px)',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
@@ -1675,12 +1682,14 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
         {viewMode === "insights" && (
           <div style={{
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(30, 58, 138, 0.95)',
             borderRadius: '16px',
             height: '100%',
             padding: '20px',
             color: 'white',
-            overflow: 'auto'
+            overflow: 'auto',
+            backdropFilter: 'blur(15px)',
+            border: '1px solid rgba(255,255,255,0.2)',
           }}>
             <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold' }}>
               🧠 Your AI Learning Progress
