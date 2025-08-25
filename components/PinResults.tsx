@@ -25,19 +25,68 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null)
   const [personalThoughts, setPersonalThoughts] = useState("")
   const [autoReturnTimer, setAutoReturnTimer] = useState(5) // 5 second countdown
+  const [isUserMoving, setIsUserMoving] = useState(false) // Track if user is driving
 
-  // Auto-return timer effect
+  // Check if user is moving (driving) based on location changes
   useEffect(() => {
-    if (autoReturnTimer > 0) {
+    let locationCheckInterval: ReturnType<typeof setInterval>
+    
+    const checkUserMovement = () => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            // Simple movement detection - if we have a previous position, check distance
+            if (pin.latitude && pin.longitude) {
+              const distance = Math.sqrt(
+                Math.pow(position.coords.latitude - pin.latitude, 2) + 
+                Math.pow(position.coords.longitude - pin.longitude, 2)
+              )
+              
+              // If user has moved more than ~50 meters from pin location, they're likely driving
+              const isMoving = distance > 0.0005 // Roughly 50 meters
+              setIsUserMoving(isMoving)
+              
+              if (isMoving) {
+                console.log("🚗 User is driving - auto-return timer active")
+              } else {
+                console.log("🛑 User is stationary - auto-return timer paused")
+              }
+            }
+          },
+          (error) => {
+            console.log("📍 Location check failed, assuming user is driving:", error)
+            setIsUserMoving(true) // Default to driving if we can't determine
+          }
+        )
+      }
+    }
+    
+    // Check movement every 2 seconds
+    locationCheckInterval = setInterval(checkUserMovement, 2000)
+    
+    // Initial check
+    checkUserMovement()
+    
+    return () => {
+      if (locationCheckInterval) {
+        clearInterval(locationCheckInterval)
+      }
+    }
+  }, [pin.latitude, pin.longitude])
+
+  // Auto-return timer effect - only active when user is driving
+  useEffect(() => {
+    if (autoReturnTimer > 0 && isUserMoving) {
       const timer = setTimeout(() => {
         setAutoReturnTimer(autoReturnTimer - 1)
       }, 1000)
       return () => clearTimeout(timer)
-    } else {
-      // Auto-return to main page
+    } else if (autoReturnTimer === 0 && isUserMoving) {
+      // Auto-return to main page only when driving
+      console.log("⏰ Auto-returning to main page (user is driving)")
       onBack()
     }
-  }, [autoReturnTimer, onBack])
+  }, [autoReturnTimer, isUserMoving, onBack])
 
   // Use already fetched photos from pin.additionalPhotos instead of re-fetching
   useEffect(() => {
@@ -145,19 +194,20 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
           }}
         >
           <ArrowLeft size={20} />
-          Back
+          Return Now
         </button>
         
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Pin Results</span>
           <span style={{ 
             fontSize: "0.875rem", 
-            background: "rgba(255,255,255,0.2)", 
+            background: isUserMoving ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", 
             padding: "0.25rem 0.5rem", 
             borderRadius: "0.5rem",
-            border: "1px solid rgba(255,255,255,0.3)"
+            border: "1px solid rgba(255,255,255,0.3)",
+            opacity: isUserMoving ? 1 : 0.6
           }}>
-            Auto-return in {autoReturnTimer}s
+            {isUserMoving ? `Auto-return in ${autoReturnTimer}s` : "Timer paused (stationary)"}
           </span>
         </div>
 
