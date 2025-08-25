@@ -893,10 +893,10 @@ export default function PINITApp() {
     }
   }
 
-  // NEW: Fetch location photos for pins (returns single best photo)
+  // NEW: Fetch location photos for pins (returns single best photo with filtering)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("📸 Fetching location photo...")
+      console.log("📸 Fetching location photo with filtering...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
@@ -909,20 +909,51 @@ export default function PINITApp() {
       const photos: {url: string, placeName: string}[] = []
 
       if (data.results && data.results.length > 0) {
-        // Get the best photo from the closest place
+        // Get the closest place
         const closestPlace = data.results[0]
         if (closestPlace.photos && closestPlace.photos.length > 0) {
-          // Get the first (usually best) photo
-          const bestPhoto = closestPlace.photos[0]
-          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          
-          photos.push({
-            url: photoUrl,
-            placeName: closestPlace.name || "Unknown Place"
+          // Filter photos to prioritize real photos over logos/clipart
+          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
+            // Skip photos that are likely logos or clipart
+            // These usually have specific dimensions or are too small
+            if (photo.width && photo.height) {
+              const aspectRatio = photo.width / photo.height
+              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
+              const isTooSmall = photo.width < 200 || photo.height < 200
+              
+              // Prefer photos that are not squareish and are reasonably sized
+              if (isSquareish || isTooSmall) {
+                console.log("📸 Skipping likely logo/clipart photo:", photo.width, "x", photo.height)
+                return false
+              }
+            }
+            return true
           })
           
-          console.log(`✅ Found location photo: ${closestPlace.name}`)
-          return photos
+          if (filteredPhotos.length > 0) {
+            // Get the best filtered photo
+            const bestPhoto = filteredPhotos[0]
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            
+            console.log(`✅ Found filtered location photo: ${closestPlace.name}`)
+            return photos
+          } else {
+            // If all photos were filtered out, try to get any photo but log it
+            console.log("⚠️ All photos filtered out, using fallback photo")
+            const fallbackPhoto = closestPlace.photos[0]
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            return photos
+          }
         }
       }
       
