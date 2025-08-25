@@ -36,42 +36,46 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
 
   if (showPreview) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Header */}
+              <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+                {/* Header */}
         <div
           style={{
             padding: "1rem",
-            background: "rgba(0,0,0,0.3)",
+            background: "rgba(30, 58, 138, 0.95)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             color: "white",
+            backdropFilter: "blur(15px)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
           }}
         >
-          <button
-            onClick={() => setShowPreview(false)}
-            style={{
-              padding: "0.5rem",
-              border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
-              cursor: "pointer",
-              borderRadius: "0.5rem",
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
+        <button
+          onClick={() => setShowPreview(false)}
+          style={{
+            padding: "0.75rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
+            color: "white",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <ArrowLeft size={20} />
+        </button>
 
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>Story Preview</h1>
 
@@ -201,7 +205,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         display: "flex",
         flexDirection: "column",
       }}
