@@ -128,7 +128,7 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
       display: "flex",
       flexDirection: "column",
       color: "white",
