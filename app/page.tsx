@@ -1620,16 +1620,22 @@ export default function PINITApp() {
           style={{
             padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.15)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
-            borderRadius: "0.75rem",
+            borderRadius: "0.5rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           ⚙️
@@ -2090,11 +2096,7 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "2rem",
           padding: "1.5rem",
-          backdropFilter: "blur(15px)",
-          border: "1px solid rgba(255,255,255,0.15)",
         }}
       >
                 <button
@@ -2105,16 +2107,22 @@ export default function PINITApp() {
           style={{
             padding: "0.75rem",
             border: "none",
-            background: "rgba(255,255,255,0.15)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: "1rem",
+            borderRadius: "0.5rem",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           <Camera size={28} />
@@ -2128,16 +2136,22 @@ export default function PINITApp() {
           style={{
             padding: "0.75rem",
             border: "none",
-            background: "rgba(255,255,255,0.15)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: "1rem",
+            borderRadius: "0.5rem",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           <Video size={28} />
@@ -2148,17 +2162,23 @@ export default function PINITApp() {
           style={{
             padding: "0.75rem",
             border: "none",
-            background: "rgba(255,255,255,0.15)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             position: "relative",
-            borderRadius: "1rem",
+            borderRadius: "0.5rem",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           <Library size={28} style={{ color: "white" }} />
@@ -2192,19 +2212,25 @@ export default function PINITApp() {
           style={{
             padding: "0.75rem",
             border: "none",
-            background: "rgba(255,255,255,0.15)",
+            background: "transparent",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             position: "relative",
-            borderRadius: "1rem",
+            borderRadius: "0.5rem",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.1)",
           }}
           title="🧠 AI-Powered Recommendations"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
+          }}
         >
           <Star size={28} style={{ color: "white" }} />
           {/* Notification Badge */}
