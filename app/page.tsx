@@ -1178,7 +1178,7 @@ export default function PINITApp() {
       url: pin.mediaUrl || "/pinit-placeholder.jpg",
       type: "photo" as const,
       location: pin.locationName,
-      title: pin.title,
+        title: pin.title,
       description: pin.description,
       personalThoughts: pin.personalThoughts || undefined,
       // Enhanced PINIT data
@@ -1264,34 +1264,34 @@ export default function PINITApp() {
       setCurrentScreen("map")
     } else {
       // Regular photo recommendation
-      const newRecommendation: PinData = {
-        id: Date.now().toString(),
-        latitude: userLocation?.latitude || 0,
-        longitude: userLocation?.longitude || 0,
-        locationName: recommendationData?.locationName || "Unknown Location",
-        mediaUrl: recommendationData?.mediaUrl || null,
-        mediaType: recommendationData?.mediaUrl ? "photo" : null,
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
-        description: review,
-        tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
-        isRecommended: true,
-        rating: rating,
-        types: ["recommendation"],
-      }
+    const newRecommendation: PinData = {
+      id: Date.now().toString(),
+      latitude: userLocation?.latitude || 0,
+      longitude: userLocation?.longitude || 0,
+      locationName: recommendationData?.locationName || "Unknown Location",
+      mediaUrl: recommendationData?.mediaUrl || null,
+      mediaType: recommendationData?.mediaUrl ? "photo" : null,
+      audioUrl: null,
+      timestamp: new Date().toISOString(),
+      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
+      description: review,
+      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+      isRecommended: true,
+      rating: rating,
+      types: ["recommendation"],
+    }
 
       console.log("📌 Created regular recommendation pin:", newRecommendation)
 
-      // Add the recommendation to pins
-      addPin(newRecommendation)
-      
-      setShowRecommendationForm(false)
-      setRecommendationData(null)
-      setSuccessMessage("Recommendation sent!")
-      setShowSuccessPopup(true)
-      setTimeout(() => setShowSuccessPopup(false), 3000)
-      setCurrentScreen("map")
+    // Add the recommendation to pins
+    addPin(newRecommendation)
+    
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setSuccessMessage("Recommendation sent!")
+    setShowSuccessPopup(true)
+    setTimeout(() => setShowSuccessPopup(false), 3000)
+    setCurrentScreen("map")
     }
   }
 
@@ -1378,21 +1378,21 @@ export default function PINITApp() {
           // Check if this is a PINIT pin (has personalThoughts) and show recommendation form
           if (capturedMedia.personalThoughts) {
             // Show recommendation form after success message for PINIT pins
-            setTimeout(() => {
-              setShowSuccessPopup(false)
-              setRecommendationData({
-                mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+          setTimeout(() => {
+            setShowSuccessPopup(false)
+            setRecommendationData({
+              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
                 locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
-                platform: selectedPlatform
-              })
-              setShowRecommendationForm(true)
-            }, 2000)
+              platform: selectedPlatform
+            })
+            setShowRecommendationForm(true)
+          }, 2000)
           } else {
             // Regular photo - just return to map
-            setTimeout(() => {
-              setCurrentScreen("map")
-              setIsPosting(false)
-            }, 2000)
+          setTimeout(() => {
+            setCurrentScreen("map")
+            setIsPosting(false)
+          }, 2000)
           }
         }}
         onSave={(contentData) => {
@@ -1683,8 +1683,8 @@ export default function PINITApp() {
             width: "320px",
             height: "320px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite",
+            background: "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 30%, rgba(255,255,255,0.1) 60%, transparent 80%)",
+            animation: "shazamPulse 1.5s ease-in-out infinite",
             zIndex: 1,
           }}
         />
@@ -1698,8 +1698,8 @@ export default function PINITApp() {
             height: "360px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.08) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite 0.7s",
+              "radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 30%, rgba(255,255,255,0.1) 60%, transparent 80%)",
+            animation: "shazamPulse 1.5s ease-in-out infinite 0.5s",
             zIndex: 1,
           }}
         />
@@ -1713,8 +1713,8 @@ export default function PINITApp() {
             height: "400px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 70%)",
-            animation: "shazamPulse 2s ease-in-out infinite 1.4s",
+              "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.05) 60%, transparent 80%)",
+            animation: "shazamPulse 1.5s ease-in-out infinite 1s",
             zIndex: 1,
           }}
         />
@@ -2099,7 +2099,7 @@ export default function PINITApp() {
           padding: "1.5rem",
         }}
       >
-                <button
+        <button
           onClick={() => {
             setCameraMode("photo")
             setCurrentScreen("camera")
@@ -2269,15 +2269,23 @@ export default function PINITApp() {
         
         @keyframes shazamPulse {
           0% { 
-            transform: translate(-50%, -50%) scale(0.9);
-            opacity: 0.6;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0.9;
+          }
+          25% { 
+            transform: translate(-50%, -50%) scale(1.1);
+            opacity: 0.7;
           }
           50% { 
-            transform: translate(-50%, -50%) scale(1.2);
+            transform: translate(-50%, -50%) scale(1.4);
+            opacity: 0.5;
+          }
+          75% { 
+            transform: translate(-50%, -50%) scale(1.7);
             opacity: 0.3;
           }
           100% { 
-            transform: translate(-50%, -50%) scale(1.5);
+            transform: translate(-50%, -50%) scale(2.0);
             opacity: 0;
           }
         }
