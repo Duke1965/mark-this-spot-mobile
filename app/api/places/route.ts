@@ -1,4 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { isMapLifecycleEnabled } from "@/lib/mapLifecycle"
+import { MAP_LIFECYCLE } from "@/lib/mapLifecycle"
+import { daysAgo } from "@/lib/trending"
 
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
@@ -123,12 +126,13 @@ const generateMockPlaces = (lat: number, lng: number) => {
   return places.sort(() => Math.random() - 0.5).slice(0, 5) // Increased from 3 to 5 places
 }
 
+// Original GET endpoint for Google Places API
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const radius = searchParams.get("radius") || "5000" // Increased from 1000 to 5000 (5km)
-  
+
   // Detect mobile vs desktop from headers
   const userAgent = request.headers.get("user-agent") || ""
   const deviceType = request.headers.get("x-device-type") || "unknown"
@@ -208,10 +212,83 @@ export async function GET(request: NextRequest) {
       
       // Only fall back to mock data if we really can't find anything
       console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
+      
+      // Try reverse geocoding first before falling back to mock data
+      try {
+        const geocodeResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        )
+        
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json()
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const addressComponents = geocodeData.results[0].address_components
+            const formattedAddress = geocodeData.results[0].formatted_address
+            
+            // Create a meaningful place from geocoding data
+            const locality = addressComponents.find((comp: any) => 
+              comp.types.includes('locality') || comp.types.includes('sublocality')
+            )
+            
+            const route = addressComponents.find((comp: any) => 
+              comp.types.includes('route')
+            )
+            
+            const neighborhood = addressComponents.find((comp: any) => 
+              comp.types.includes('neighborhood')
+            )
+            
+            let placeName = "Unknown Location"
+            let vicinity = ""
+            
+            if (locality && route) {
+              placeName = `${locality.long_name} - ${route.long_name}`
+              vicinity = locality.long_name
+            } else if (locality && neighborhood) {
+              placeName = `${locality.long_name} - ${neighborhood.long_name}`
+              vicinity = locality.long_name
+            } else if (locality) {
+              placeName = locality.long_name
+              vicinity = locality.long_name
+            } else if (formattedAddress) {
+              const parts = formattedAddress.split(',')
+              placeName = parts[0]?.trim() || "Unknown Location"
+              vicinity = parts[parts.length - 2]?.trim() || ""
+            }
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding:`, { placeName, vicinity })
+            
+            return NextResponse.json({
+              results: [{
+                place_id: `geocode-${Date.now()}`,
+                name: placeName,
+                geometry: {
+                  location: {
+                    lat: Number.parseFloat(lat),
+                    lng: Number.parseFloat(lng)
+                  }
+                },
+                rating: undefined,
+                price_level: undefined,
+                types: ["point_of_interest"],
+                vicinity: vicinity,
+                photos: []
+              }],
+              status: "OK",
+              source: "geocoding"
+            })
+          }
+        }
+      } catch (geocodeError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback failed:`, geocodeError)
+      }
+      
+      // Final fallback to mock data
       const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
       return NextResponse.json({
         results: mockPlaces,
         status: "OK",
+        source: "mock"
       })
     }
 
@@ -219,6 +296,77 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API error:`, error)
 
+    // Try reverse geocoding before falling back to mock data
+    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying reverse geocoding after API error...`)
+    try {
+      const geocodeResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      )
+      
+      if (geocodeResponse.ok) {
+        const geocodeData = await geocodeResponse.json()
+        if (geocodeData.results && geocodeData.results.length > 0) {
+          const addressComponents = geocodeData.results[0].address_components
+          const formattedAddress = geocodeData.results[0].formatted_address
+          
+          // Create a meaningful place from geocoding data
+          const locality = addressComponents.find((comp: any) => 
+            comp.types.includes('locality') || comp.types.includes('sublocality')
+          )
+          
+          const route = addressComponents.find((comp: any) => 
+            comp.types.includes('route')
+          )
+          
+          const neighborhood = addressComponents.find((comp: any) => 
+            comp.types.includes('neighborhood')
+          )
+          
+          let placeName = "Unknown Location"
+          let vicinity = ""
+          
+          if (locality && route) {
+            placeName = `${locality.long_name} - ${route.long_name}`
+            vicinity = locality.long_name
+          } else if (locality && neighborhood) {
+            placeName = `${locality.long_name} - ${neighborhood.long_name}`
+            vicinity = locality.long_name
+          } else if (locality) {
+            placeName = locality.long_name
+            vicinity = locality.long_name
+          } else if (formattedAddress) {
+            const parts = formattedAddress.split(',')
+            placeName = parts[0]?.trim() || "Unknown Location"
+            vicinity = parts[parts.length - 2]?.trim() || ""
+          }
+          
+          console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding after API error:`, { placeName, vicinity })
+          
+          return NextResponse.json({
+            results: [{
+              place_id: `geocode-error-${Date.now()}`,
+              name: placeName,
+              geometry: {
+                location: {
+                  lat: Number.parseFloat(lat),
+                  lng: Number.parseFloat(lng)
+                }
+              },
+              rating: undefined,
+              price_level: undefined,
+              types: ["point_of_interest"],
+              vicinity: vicinity,
+              photos: []
+            }],
+            status: "OK",
+            source: "geocoding-error"
+          })
+        }
+      }
+    } catch (geocodeError) {
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback after API error failed:`, geocodeError)
+    }
+    
     // Only fall back to mock data on actual API errors
     console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after API error`)
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
@@ -226,9 +374,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       results: fallbackPlaces,
       status: "OK",
+      source: "mock-error"
     })
   }
 }
+
+
 
 // Add POST method support to handle frontend requests
 export async function POST(request: NextRequest) {
@@ -312,12 +463,84 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // Try reverse geocoding before falling back to mock data
+      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying reverse geocoding...`)
+      try {
+        const geocodeResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        )
+        
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json()
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const addressComponents = geocodeData.results[0].address_components
+            const formattedAddress = geocodeData.results[0].formatted_address
+            
+            // Create a meaningful place from geocoding data
+            const locality = addressComponents.find((comp: any) => 
+              comp.types.includes('locality') || comp.types.includes('sublocality')
+            )
+            
+            const route = addressComponents.find((comp: any) => 
+              comp.types.includes('route')
+            )
+            
+            const neighborhood = addressComponents.find((comp: any) => 
+              comp.types.includes('neighborhood')
+            )
+            
+            let placeName = "Unknown Location"
+            let vicinity = ""
+            
+            if (locality && route) {
+              placeName = `${locality.long_name} - ${route.long_name}`
+              vicinity = locality.long_name
+            } else if (locality && neighborhood) {
+              placeName = `${locality.long_name} - ${neighborhood.long_name}`
+              vicinity = locality.long_name
+            } else if (locality) {
+              placeName = locality.long_name
+              vicinity = locality.long_name
+            } else if (formattedAddress) {
+              const parts = formattedAddress.split(',')
+              placeName = parts[0]?.trim() || "Unknown Location"
+              vicinity = parts[parts.length - 2]?.trim() || ""
+            }
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding:`, { placeName, vicinity })
+            
+            return NextResponse.json({
+              results: [{
+                place_id: `geocode-${Date.now()}`,
+                name: placeName,
+                geometry: {
+                  location: {
+                    lat: Number.parseFloat(lat),
+                    lng: Number.parseFloat(lng)
+                  }
+                },
+                rating: undefined,
+                price_level: undefined,
+                types: ["point_of_interest"],
+                vicinity: vicinity,
+                photos: []
+              }],
+              status: "OK",
+              source: "geocoding"
+            })
+          }
+        }
+      } catch (geocodeError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback failed:`, geocodeError)
+      }
+      
       // Only fall back to mock data if we really can't find anything
       console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
       const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
       return NextResponse.json({
         results: mockPlaces,
         status: "OK",
+        source: "mock"
       })
     }
 
