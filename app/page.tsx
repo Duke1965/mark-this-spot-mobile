@@ -43,6 +43,16 @@ export interface PinData {
   additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
   personalThoughts?: string // NEW: User's personal thoughts about the place
   originalPinId?: string // NEW: Reference to original PINIT pin
+  
+  // NEW: Pin Management System Fields
+  placeId?: string // Reference to aggregated Place
+  totalEndorsements?: number // All-time unique user recommendations
+  recentEndorsements?: number // Endorsements within RECENT_WINDOW_DAYS
+  lastEndorsedAt?: string // ISO timestamp of last endorsement/renewal
+  score?: number // Trending score for sorting
+  downvotes?: number // Community downvotes
+  isHidden?: boolean // Soft hide if downvotes exceed threshold
+  category?: string // Place category (e.g., 'coffee', 'museum', etc.)
 }
 
 interface GooglePlace {
@@ -78,6 +88,44 @@ interface Recommendation {
   timestamp: number
   category: string
   isCompleted?: boolean
+}
+
+// NEW: Pin Management System Interfaces
+interface Place {
+  id: string
+  googlePlaceId: string
+  name: string
+  lat: number
+  lng: number
+  category: string
+  createdAt: string
+  updatedAt: string
+  
+  // Aggregates
+  totalEndorsements: number
+  recentEndorsements: number
+  lastEndorsedAt: string
+  score: number
+  
+  // Community signals
+  downvotes: number
+  isHidden: boolean
+}
+
+interface Endorsement {
+  id: string
+  placeId: string
+  userId: string
+  createdAt: string
+  // Optional: comment, media, etc.
+}
+
+interface Renewal {
+  id: string
+  placeId: string
+  userId: string
+  type: 'renew' | 'downvote'
+  createdAt: string
 }
 
 export default function PINITApp() {
