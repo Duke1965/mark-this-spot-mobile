@@ -1683,8 +1683,8 @@ export default function PINITApp() {
             width: "320px",
             height: "320px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 30%, rgba(255,255,255,0.1) 60%, transparent 80%)",
-            animation: "shazamPulse 1.5s ease-in-out infinite",
+            background: "radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
+            animation: "shazamPulse 1.2s ease-out infinite",
             zIndex: 1,
           }}
         />
@@ -1698,8 +1698,8 @@ export default function PINITApp() {
             height: "360px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 30%, rgba(255,255,255,0.1) 60%, transparent 80%)",
-            animation: "shazamPulse 1.5s ease-in-out infinite 0.5s",
+              "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.5) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
+            animation: "shazamPulse 1.2s ease-out infinite 0.4s",
             zIndex: 1,
           }}
         />
@@ -1713,8 +1713,8 @@ export default function PINITApp() {
             height: "400px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.05) 60%, transparent 80%)",
-            animation: "shazamPulse 1.5s ease-in-out infinite 1s",
+              "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 15%, rgba(255,255,255,0.1) 35%, transparent 50%)",
+            animation: "shazamPulse 1.2s ease-out infinite 0.8s",
             zIndex: 1,
           }}
         />
@@ -2269,23 +2269,27 @@ export default function PINITApp() {
         
         @keyframes shazamPulse {
           0% { 
-            transform: translate(-50%, -50%) scale(0.8);
+            transform: translate(-50%, -50%) scale(0.7);
+            opacity: 1;
+          }
+          20% { 
+            transform: translate(-50%, -50%) scale(1.0);
             opacity: 0.9;
           }
-          25% { 
-            transform: translate(-50%, -50%) scale(1.1);
+          40% { 
+            transform: translate(-50%, -50%) scale(1.5);
             opacity: 0.7;
           }
-          50% { 
-            transform: translate(-50%, -50%) scale(1.4);
-            opacity: 0.5;
+          60% { 
+            transform: translate(-50%, -50%) scale(2.2);
+            opacity: 0.4;
           }
-          75% { 
-            transform: translate(-50%, -50%) scale(1.7);
-            opacity: 0.3;
+          80% { 
+            transform: translate(-50%, -50%) scale(2.8);
+            opacity: 0.2;
           }
           100% { 
-            transform: translate(-50%, -50%) scale(2.0);
+            transform: translate(-50%, -50%) scale(3.5);
             opacity: 0;
           }
         }
