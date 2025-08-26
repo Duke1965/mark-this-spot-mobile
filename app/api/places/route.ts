@@ -140,16 +140,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
-  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    console.warn(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Maps API key not found, returning mock data`)
-    // Return varied mock data when API key is not available
-    const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
-    
-    return NextResponse.json({
-      results: mockPlaces,
-      status: "OK",
-    })
-  }
+  // REMOVED: Early API key check that was forcing mock data
+  // Now we always try Google API first
 
   try {
     const types = [
@@ -163,6 +155,8 @@ export async function GET(request: NextRequest) {
       "amusement_park",
       "zoo",
       "aquarium",
+      "establishment", // Added to catch more places
+      "point_of_interest" // Added to catch more places
     ]
 
     const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
@@ -211,13 +205,22 @@ export async function GET(request: NextRequest) {
           console.log(`⚠️ [MOBILE] Larger radius search failed:`, largerError)
         }
       }
+      
+      // Only fall back to mock data if we really can't find anything
+      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
+      const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
+      return NextResponse.json({
+        results: mockPlaces,
+        status: "OK",
+      })
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API error:`, error)
 
-    // Return varied fallback mock data on error
+    // Only fall back to mock data on actual API errors
+    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after API error`)
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
     
     return NextResponse.json({
@@ -244,16 +247,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
     }
 
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      console.warn(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Maps API key not found, returning mock data`)
-      // Return varied mock data when API key is not available
-      const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
-      
-      return NextResponse.json({
-        results: mockPlaces,
-        status: "OK",
-      })
-    }
+    // REMOVED: Early API key check that was forcing mock data
+    // Now we always try Google API first
 
     const types = [
       "tourist_attraction",
@@ -266,6 +261,8 @@ export async function POST(request: NextRequest) {
       "amusement_park",
       "zoo",
       "aquarium",
+      "establishment", // Added to catch more places
+      "point_of_interest" // Added to catch more places
     ]
 
     const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
@@ -314,13 +311,22 @@ export async function POST(request: NextRequest) {
           console.log(`⚠️ [MOBILE] Larger radius search failed:`, largerError)
         }
       }
+      
+      // Only fall back to mock data if we really can't find anything
+      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
+      const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
+      return NextResponse.json({
+        results: mockPlaces,
+        status: "OK",
+      })
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API POST error:`, error)
 
-    // Return varied fallback mock data on error
+    // Only fall back to mock data on actual API errors
+    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after API error`)
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
     
     return NextResponse.json({
