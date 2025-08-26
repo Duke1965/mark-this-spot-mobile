@@ -78,6 +78,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
   
+  // NEW: Add ref to track the user location marker
+  const userLocationMarkerRef = useRef<any>(null)
+  
   // Inject CSS to override Google Maps InfoWindow styling
   useEffect(() => {
     const styleElement = document.createElement('style')
@@ -662,31 +665,33 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         console.log('🗺️ User has interacted with map, preserving current position')
       }
       
-      // Add a user location marker if it doesn't exist
+      // FIXED: Update existing user location marker instead of creating new ones
       if (mapRef.current) {
-        // Remove existing user location markers
-        const existingMarkers = mapRef.current.querySelectorAll('.user-location-marker')
-        existingMarkers.forEach(marker => marker.remove())
-        
-        // Add new user location marker
-        const marker = new window.google.maps.Marker({
-          position: { lat: location.latitude, lng: location.longitude },
-          map: mapInstanceRef.current,
-          title: 'Your Location',
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(24, 24)
-          }
-        })
-        
-        // Add class for easy removal
-        marker.setMap(mapInstanceRef.current)
-        console.log('🗺️ User location marker added')
+        if (userLocationMarkerRef.current) {
+          // Update existing marker position
+          userLocationMarkerRef.current.setPosition({ lat: location.latitude, lng: location.longitude })
+          console.log('🗺️ User location marker updated')
+        } else {
+          // Create new marker only if it doesn't exist
+          const marker = new window.google.maps.Marker({
+            position: { lat: location.latitude, lng: location.longitude },
+            map: mapInstanceRef.current,
+            title: 'Your Location',
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                  <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                </svg>
+              `),
+              scaledSize: new window.google.maps.Size(24, 24)
+            }
+          })
+          
+          // Store reference to marker
+          userLocationMarkerRef.current = marker
+          console.log('🗺️ User location marker created')
+        }
       }
       
       // Force a map refresh to ensure smooth rendering
