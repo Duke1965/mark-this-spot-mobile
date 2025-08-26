@@ -376,7 +376,41 @@ export default function PINITApp() {
       return await getRealLocationName(lat, lng)
     } catch (error) {
       console.error("Failed to get location name:", error)
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
     }
   }
 
@@ -553,8 +587,41 @@ export default function PINITApp() {
       }
     }
       
-      // Ultimate fallback: precise coordinates
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
       
     } catch (error) {
       console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error fetching location name:`, error)
@@ -595,7 +662,41 @@ export default function PINITApp() {
         return "Western Cape"
       }
       
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
     }
   }
 
