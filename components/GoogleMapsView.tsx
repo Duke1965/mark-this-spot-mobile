@@ -14,6 +14,7 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
   const mapRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false)
+  const lastPanRef = useRef<number>(0)
 
   // Load Google Maps API
   useEffect(() => {
@@ -46,7 +47,7 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
       zoom: 16,
       mapTypeId: google.maps.MapTypeId.HYBRID,
       disableDefaultUI: true,
-      gestureHandling: "cooperative",
+      gestureHandling: "greedy",
       styles: [
         {
           featureType: "poi",
@@ -62,30 +63,19 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
     }
 
     const newMap = new google.maps.Map(mapRef.current, mapOptions)
-
-    // Add marker for current location
-    new google.maps.Marker({
-      position: { lat: location.latitude, lng: location.longitude },
-      map: newMap,
-      title: location.name,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 8,
-        fillColor: "#EF4444",
-        fillOpacity: 1,
-        strokeColor: "#FFFFFF",
-        strokeWeight: 2,
-      },
-    })
-
     setMap(newMap)
   }, [isGoogleMapsLoaded, location])
 
-  // Update map center when location changes
+  // Update map center when location changes with throttling
   useEffect(() => {
-    if (map && location) {
-      map.setCenter({ lat: location.latitude, lng: location.longitude })
-    }
+    if (!map || !location) return
+
+    const now = Date.now()
+    // throttle to ~300ms
+    if (now - lastPanRef.current < 300) return
+    lastPanRef.current = now
+
+    map.panTo({ lat: location.latitude, lng: location.longitude })
   }, [map, location])
 
   if (error) {
@@ -122,5 +112,13 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
     )
   }
 
-  return <div ref={mapRef} className="w-full h-full" style={{ minHeight: "100%" }} />
+  return (
+    <div className="relative w-full h-full" style={{ minHeight: "100%" }}>
+      <div ref={mapRef} className="w-full h-full" />
+      {/* Centered pin overlay */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div aria-hidden className="text-white text-2xl drop-shadow">📍</div>
+      </div>
+    </div>
+  )
 }
