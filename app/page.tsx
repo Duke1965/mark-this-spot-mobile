@@ -1,11 +1,8 @@
-import dynamic from "next/dynamic"
+// app/page.tsx  (Server Component — note: NO "use client")
+import HomeClient from "@/components/HomeClient";
 
-// Ensure this route never prerenders
-export const dynamic = "force-dynamic"
-
-// No metadata export here. No "use client". No revalidate. Nothing else.
-const HomeClient = dynamic(() => import("@/components/HomeClient"), { ssr: false })
+export const dynamic = "force-dynamic"; // ok here on the server
 
 export default function Page() {
-  return <HomeClient />
+  return <HomeClient />;
 }
