@@ -1,13 +1,9 @@
-// app/page.tsx
 import dynamic from "next/dynamic"
 
-export const metadata = {
-  title: "PINIT",
-  description: "Pin It. Find It. Share It.",
-}
-
+// Ensure this route never prerenders
 export const dynamic = "force-dynamic"
 
+// No metadata export here. No "use client". No revalidate. Nothing else.
 const HomeClient = dynamic(() => import("@/components/HomeClient"), { ssr: false })
 
 export default function Page() {
