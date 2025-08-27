@@ -100,19 +100,18 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
     }
   }, [map, location])
 
-  if (error) {
+  if (error || !location) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white">
-        <div className="text-center">
-          <div className="text-4xl mb-2">📍</div>
-          <div className="text-sm">Location Error</div>
-          <div className="text-xs opacity-60 mt-1">Enable location services</div>
+        <div className="text-center text-sm px-4">
+          <div className="text-2xl mb-2">🧭</div>
+          <div>{error || "We need your location to show live recommendations."}</div>
         </div>
       </div>
     )
   }
 
-  if (isLoading || !location) {
+  if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
         <div className="text-center text-white">
