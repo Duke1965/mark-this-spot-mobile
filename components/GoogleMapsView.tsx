@@ -15,6 +15,7 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false)
   const lastPanRef = useRef<number>(0)
+  const accuracyCircleRef = useRef<google.maps.Circle | null>(null)
 
   // Load Google Maps API
   useEffect(() => {
@@ -76,6 +77,27 @@ export function GoogleMapsView({ location, isLoading, error }: GoogleMapsViewPro
     lastPanRef.current = now
 
     map.panTo({ lat: location.latitude, lng: location.longitude })
+
+    // Add/update accuracy circle
+    if (map && location?.accuracy != null) {
+      const center = { lat: location.latitude, lng: location.longitude }
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = new google.maps.Circle({
+          map,
+          center,
+          radius: Math.max(10, location.accuracy), // meters
+          strokeColor: "#3B82F6",
+          strokeOpacity: 0.6,
+          strokeWeight: 1,
+          fillColor: "#3B82F6",
+          fillOpacity: 0.15,
+          clickable: false,
+        })
+      } else {
+        accuracyCircleRef.current.setCenter(center)
+        accuracyCircleRef.current.setRadius(Math.max(10, location.accuracy))
+      }
+    }
   }, [map, location])
 
   if (error) {
