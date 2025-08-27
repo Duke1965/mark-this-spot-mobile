@@ -182,7 +182,7 @@ export default function PINITApp() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
   // Hooks
-  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
+  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading, placeName, getPlaceName } = useLocationServices()
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
