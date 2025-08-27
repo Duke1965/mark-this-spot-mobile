@@ -131,7 +131,7 @@ interface Renewal {
   createdAt: string
 }
 
-export default function PINITApp() {
+export default function HomeClient() {
 
   // Auth state
   const { user, loading: authLoading } = useAuth()
