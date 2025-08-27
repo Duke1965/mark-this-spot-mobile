@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
+import { reverseGeocode } from "@/lib/reverseGeocode"
 
 interface LocationData {
   latitude: number
@@ -19,6 +20,10 @@ export function useLocationServices() {
   const [error, setError] = useState<LocationError | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null)
+  const [placeName, setPlaceName] = useState<string | null>(null)
+  
+  // Refs for debouncing place name lookups
+  const lastPlaceNameLookup = useRef<{ lat: number; lng: number; timestamp: number } | null>(null)
 
   // Check permission status on mount
   useEffect(() => {
@@ -29,6 +34,17 @@ export function useLocationServices() {
           setPermissionStatus(result.state)
         })
       })
+    }
+  }, [])
+
+  const getPlaceName = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const res = await reverseGeocode(lat, lng)
+      const label = res?.short || null
+      setPlaceName(label)
+      return label
+    } catch {
+      return null
     }
   }, [])
 
@@ -54,8 +70,8 @@ export function useLocationServices() {
         ...options,
       }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
+              navigator.geolocation.getCurrentPosition(
+        async (position) => {
           const locationData: LocationData = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -65,6 +81,27 @@ export function useLocationServices() {
 
           setLocation(locationData)
           setIsLoading(false)
+          
+          // Debounced place name lookup
+          const now = Date.now()
+          const shouldLookup = !lastPlaceNameLookup.current || 
+            calculateDistance(
+              lastPlaceNameLookup.current.lat, 
+              lastPlaceNameLookup.current.lng,
+              locationData.latitude, 
+              locationData.longitude
+            ) > 0.1 || // 100 meters
+            now - lastPlaceNameLookup.current.timestamp > 10000 // 10 seconds
+          
+          if (shouldLookup) {
+            lastPlaceNameLookup.current = {
+              lat: locationData.latitude,
+              lng: locationData.longitude,
+              timestamp: now
+            }
+            await getPlaceName(locationData.latitude, locationData.longitude)
+          }
+          
           resolve(locationData)
         },
         (geoError) => {
@@ -80,7 +117,7 @@ export function useLocationServices() {
         defaultOptions,
       )
     })
-  }, [])
+  }, [calculateDistance, getPlaceName])
 
   const watchLocation = useCallback((options?: PositionOptions): number => {
     if (!navigator.geolocation) {
@@ -98,7 +135,7 @@ export function useLocationServices() {
     }
 
     return navigator.geolocation.watchPosition(
-      (position) => {
+      async (position) => {
         const locationData: LocationData = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -108,6 +145,26 @@ export function useLocationServices() {
 
         setLocation(locationData)
         setError(null)
+        
+        // Debounced place name lookup
+        const now = Date.now()
+        const shouldLookup = !lastPlaceNameLookup.current || 
+          calculateDistance(
+            lastPlaceNameLookup.current.lat, 
+            lastPlaceNameLookup.current.lng,
+            locationData.latitude, 
+            locationData.longitude
+          ) > 0.1 || // 100 meters
+          now - lastPlaceNameLookup.current.timestamp > 10000 // 10 seconds
+        
+        if (shouldLookup) {
+          lastPlaceNameLookup.current = {
+            lat: locationData.latitude,
+            lng: locationData.longitude,
+            timestamp: now
+          }
+          await getPlaceName(locationData.latitude, locationData.longitude)
+        }
       },
       (geoError) => {
         const error: LocationError = {
@@ -118,7 +175,7 @@ export function useLocationServices() {
       },
       defaultOptions,
     )
-  }, [])
+  }, [calculateDistance, getPlaceName])
 
   const clearWatch = useCallback((watchId: number) => {
     if (navigator.geolocation) {
@@ -183,10 +240,12 @@ export function useLocationServices() {
     error,
     isLoading,
     permissionStatus,
+    placeName,
     getCurrentLocation,
     watchLocation,
     clearWatch,
     requestPermission,
+    getPlaceName,
     calculateDistance,
     formatCoordinates,
     isLocationStale,
