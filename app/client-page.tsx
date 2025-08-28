@@ -872,13 +872,21 @@ export default function PINITApp() {
                   userLocation?.latitude || location?.latitude || -25.7479
                 },${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAPtBMskh6ax63qSd4ye2DPaLo7W5bzSqo"}`}
+                }&zoom=16&size=280x280&maptype=satellite&key=AIzaSyAPtBMskh6ax63qSd4ye2DPaLo7W5bzSqo`}
                 alt="Live Map"
                 style={{
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
                   filter: "contrast(1.1) saturate(1.2)",
+                }}
+                onLoad={(e) => {
+                  console.log("✅ Static map loaded successfully")
+                }}
+                onError={(e) => {
+                  console.error("❌ Static map failed to load:", e.currentTarget.src)
+                  // Try OpenStreetMap fallback
+                  e.currentTarget.style.display = "none"
                 }}
               />
             </div>
