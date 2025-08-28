@@ -1,7 +1,11 @@
-// app/page.tsx  (Server Component — note: NO "use client")
-import HomeClient from "@/components/HomeClient";
+// app/page.tsx
+import dynamic from "next/dynamic";
 
-export const dynamic = "force-dynamic"; // ok here on the server
+// Avoid SSR for the heavy browser logic to prevent TDZ/cycle issues
+const HomeClient = dynamic(() => import("@/components/HomeClient"), { ssr: false });
+
+export const dynamic = "force-dynamic"; // ok here
+// DO NOT export `revalidate` here
 
 export default function Page() {
   return <HomeClient />;
