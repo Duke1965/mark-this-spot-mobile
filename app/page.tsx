@@ -713,78 +713,7 @@ export default function PINITApp() {
     setCurrentScreen("content-editor")
   }, [])
 
-  // Handle quick pin with speed-based location calculation
-  const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
-
-    setIsQuickPinning(true)
-    setLastActivity("quick-pin")
-
-    try {
-      const currentLocation = await getCurrentLocation()
-
-      let pinLatitude = currentLocation.latitude
-      let pinLongitude = currentLocation.longitude
-      let locationDescription = "Quick Pin Location"
-
-      if (motionData.isMoving && motionData.speed > 5) {
-        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
-
-        const reactionTime = 2
-        const speedInMPS = motionData.speed / 3.6
-        const distanceTraveled = speedInMPS * reactionTime
-
-        if (motionData.lastPosition) {
-          const bearing = Math.atan2(
-            currentLocation.longitude - motionData.lastPosition.longitude,
-            currentLocation.latitude - motionData.lastPosition.latitude,
-          )
-
-          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing)
-          const lngOffset =
-            (distanceTraveled / (111000 * Math.cos((currentLocation.latitude * Math.PI) / 180))) * Math.sin(bearing)
-
-          pinLatitude = currentLocation.latitude - latOffset
-          pinLongitude = currentLocation.longitude - lngOffset
-
-          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
-          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
-        }
-      } else {
-        console.log("📍 Stationary pinning - using current location")
-      }
-
-      console.log("📸 Fetching location photos for speed-based pin...")
-      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
-
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: pinLatitude,
-        longitude: pinLongitude,
-        locationName: aiGeneratedContent.locationName || locationDescription,
-        mediaUrl: locationPhotos[0]?.url || null,
-        mediaType: "photo",
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: aiGeneratedContent.title,
-        description: aiGeneratedContent.description,
-        tags: aiGeneratedContent.tags,
-        additionalPhotos: locationPhotos,
-      }
-
-      setCurrentResultPin(newPin)
-      setCurrentScreen("results")
-
-      console.log("📍 Quick pin created with photo:", newPin)
-    } catch (error) {
-      console.error("❌ Failed to create quick pin:", error)
-    } finally {
-      setIsQuickPinning(false)
-    }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
-
-  // NEW: Generate intelligent AI content based on location and context
+  // Generate intelligent AI content based on location and context
   const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
     console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
 
@@ -813,37 +742,57 @@ export default function PINITApp() {
 
     let title = ""
     if (motionData.isMoving && motionData.speed > 5) {
-      if (locationType === "small-town") title = "🏘️ Charming Rural Discovery"
-      else if (locationType === "urban-cbd") title = "🏙️ Urban Gem Spotted"
-      else if (locationType === "suburban") title = "🏡 Suburban Treasure"
-      else if (locationType === "coastal") title = "🌊 Coastal Beauty"
-      else if (locationType === "provincial") title = "🏔️ Provincial Wonder"
-      else title = "📍 Travel Discovery"
+      if (locationType === "small-town") {
+        title = "🏘️ Charming Rural Discovery"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ Urban Gem Spotted"
+      } else if (locationType === "suburban") {
+        title = "🏡 Suburban Treasure"
+      } else if (locationType === "coastal") {
+        title = "🌊 Coastal Beauty"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Provincial Wonder"
+      } else {
+        title = "📍 Travel Discovery"
+      }
     } else {
-      if (locationType === "small-town") title = "🏘️ Local Community Spot"
-      else if (locationType === "urban-cbd") title = "🏙️ City Center Location"
-      else if (locationType === "suburban") title = "🏡 Neighborhood Place"
-      else if (locationType === "coastal") title = "🌊 Seaside Location"
-      else if (locationType === "provincial") title = "🏔️ Regional Spot"
-      else title = "📍 Local Discovery"
+      if (locationType === "small-town") {
+        title = "🏘️ Local Community Spot"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ City Center Location"
+      } else if (locationType === "suburban") {
+        title = "🏡 Neighborhood Place"
+      } else if (locationType === "coastal") {
+        title = "🌊 Seaside Location"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Regional Spot"
+      } else {
+        title = "📍 Local Discovery"
+      }
     }
 
     let description = ""
     if (motionData.isMoving && motionData.speed > 5) {
-      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(
-        1,
-      )} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
     } else {
       description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
     }
 
     const tags = []
-    if (motionData.isMoving && motionData.speed > 5) tags.push("travel-discovery", "speed-pinning")
-    if (locationType === "small-town") tags.push("rural", "community", "local")
-    else if (locationType === "urban-cbd") tags.push("urban", "city", "vibrant")
-    else if (locationType === "suburban") tags.push("suburban", "residential", "family")
-    else if (locationType === "coastal") tags.push("coastal", "ocean", "scenic")
-    else if (locationType === "provincial") tags.push("provincial", "landscape", "diverse")
+    if (motionData.isMoving && motionData.speed > 5) {
+      tags.push("travel-discovery", "speed-pinning")
+    }
+    if (locationType === "small-town") {
+      tags.push("rural", "community", "local")
+    } else if (locationType === "urban-cbd") {
+      tags.push("urban", "city", "vibrant")
+    } else if (locationType === "suburban") {
+      tags.push("suburban", "residential", "family")
+    } else if (locationType === "coastal") {
+      tags.push("coastal", "ocean", "scenic")
+    } else if (locationType === "provincial") {
+      tags.push("provincial", "landscape", "diverse")
+    }
     tags.push("ai-generated", "pinit")
 
     let locationName = context
@@ -941,6 +890,77 @@ export default function PINITApp() {
       return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
     }
   }
+
+  // Handle quick pin with speed-based location calculation
+  const handleQuickPin = useCallback(async () => {
+    if (isQuickPinning) return
+
+    setIsQuickPinning(true)
+    setLastActivity("quick-pin")
+
+    try {
+      const currentLocation = await getCurrentLocation()
+
+      let pinLatitude = currentLocation.latitude
+      let pinLongitude = currentLocation.longitude
+      let locationDescription = "Quick Pin Location"
+
+      if (motionData.isMoving && motionData.speed > 5) {
+        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+
+        const reactionTime = 2
+        const speedInMPS = motionData.speed / 3.6
+        const distanceTraveled = speedInMPS * reactionTime
+
+        if (motionData.lastPosition) {
+          const bearing = Math.atan2(
+            currentLocation.longitude - motionData.lastPosition.longitude,
+            currentLocation.latitude - motionData.lastPosition.latitude,
+          )
+
+          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing)
+          const lngOffset =
+            (distanceTraveled / (111000 * Math.cos((currentLocation.latitude * Math.PI) / 180))) * Math.sin(bearing)
+
+          pinLatitude = currentLocation.latitude - latOffset
+          pinLongitude = currentLocation.longitude - lngOffset
+
+          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
+          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+        }
+      } else {
+        console.log("📍 Stationary pinning - using current location")
+      }
+
+      console.log("📸 Fetching location photos for speed-based pin...")
+      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: pinLatitude,
+        longitude: pinLongitude,
+        locationName: aiGeneratedContent.locationName || locationDescription,
+        mediaUrl: locationPhotos[0]?.url || null,
+        mediaType: "photo",
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description,
+        tags: aiGeneratedContent.tags,
+        additionalPhotos: locationPhotos,
+      }
+
+      setCurrentResultPin(newPin)
+      setCurrentScreen("results")
+
+      console.log("📍 Quick pin created with photo:", newPin)
+    } catch (error) {
+      console.error("❌ Failed to create quick pin:", error)
+    } finally {
+      setIsQuickPinning(false)
+    }
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = (place: any) => {
