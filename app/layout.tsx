@@ -5,13 +5,19 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "PINIT - Pin It. Find It. Share It.",
   description: "Location-based discovery and sharing app",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   generator: 'v0.dev',
   manifest: '/manifest.json',
   icons: {
     icon: '/pinit-logo.png',
     apple: '/pinit-logo.png',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({
