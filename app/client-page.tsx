@@ -369,7 +369,7 @@ export default function PINITApp() {
         const closestPlace = data.results[0]
         if (closestPlace.photos && closestPlace.photos.length > 0) {
           const bestPhoto = closestPlace.photos[0]
-          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAPtBMskh6ax63qSd4ye2DPaLo7W5bzSqo"}`
 
           photos.push({
             url: photoUrl,
@@ -872,7 +872,7 @@ export default function PINITApp() {
                   userLocation?.latitude || location?.latitude || -25.7479
                 },${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAPtBMskh6ax63qSd4ye2DPaLo7W5bzSqo"}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
