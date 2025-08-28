@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { PinData } from "@/app/page"
+import type { PinData } from "@/app/client-page"
 
 export function usePinStorage() {
   const [pins, setPins] = useState<PinData[]>([])
