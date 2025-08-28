@@ -582,7 +582,7 @@ export default function PINITApp() {
 
   // ENHANCED: Real Google Places Integration
   const findNearbyPins = useCallback(async () => {
-    if (!location) return
+    if (!location || typeof window === 'undefined') return
 
     console.log("🌐 Discovering real nearby places...")
 
@@ -635,7 +635,7 @@ export default function PINITApp() {
     if (currentScreen !== "recommendations") {
       setShowNearbyPins(false)
     }
-  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
+  }, [currentScreen, location, nearbyPins.length])
 
   useEffect(() => {
     console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
