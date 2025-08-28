@@ -15,6 +15,20 @@ interface LocationError {
   message: string
 }
 
+// Helper functions (defined first to prevent hoisting issues)
+const getErrorMessage = (code: number): string => {
+  switch (code) {
+    case 1:
+      return "Location access denied by user"
+    case 2:
+      return "Location position unavailable"
+    case 3:
+      return "Location request timeout"
+    default:
+      return "An unknown location error occurred"
+  }
+}
+
 export function useLocationServices() {
   const [location, setLocation] = useState<LocationData | null>(null)
   const [error, setError] = useState<LocationError | null>(null)
@@ -24,6 +38,18 @@ export function useLocationServices() {
   
   // Refs for debouncing place name lookups
   const lastPlaceNameLookup = useRef<{ lat: number; lng: number; timestamp: number } | null>(null)
+
+  // Calculate distance between two points in kilometers (defined early)
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371 // Earth's radius in kilometers
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLon = ((lon2 - lon1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }, [])
 
   // Check permission status on mount
   useEffect(() => {
@@ -70,7 +96,7 @@ export function useLocationServices() {
         ...options,
       }
 
-              navigator.geolocation.getCurrentPosition(
+      navigator.geolocation.getCurrentPosition(
         async (position) => {
           const locationData: LocationData = {
             latitude: position.coords.latitude,
@@ -200,30 +226,7 @@ export function useLocationServices() {
     }
   }, [getCurrentLocation])
 
-  const getErrorMessage = (code: number): string => {
-    switch (code) {
-      case 1:
-        return "Location access denied by user"
-      case 2:
-        return "Location information unavailable"
-      case 3:
-        return "Location request timed out"
-      default:
-        return "An unknown location error occurred"
-    }
-  }
-
   // Utility functions
-  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371 // Earth's radius in kilometers
-    const dLat = ((lat2 - lat1) * Math.PI) / 180
-    const dLon = ((lon2 - lon1) * Math.PI) / 180
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }, [])
 
   const formatCoordinates = useCallback((lat: number, lng: number): string => {
     const latDir = lat >= 0 ? "N" : "S"
