@@ -2,37 +2,65 @@
 
 import { useState, useEffect, useCallback } from "react"
 import type { PinData } from "@/app/client-page"
+import { validatePin, validatePinCollection } from "@/lib/validation"
 
 export function usePinStorage() {
   const [pins, setPins] = useState<PinData[]>([])
 
-  // Load pins from localStorage on mount
+  // Enhanced data loading with validation and backup
   useEffect(() => {
     try {
       const saved = localStorage.getItem("pinit-pins")
       if (saved) {
         const parsedPins = JSON.parse(saved)
         
-        // Validate and clean the data
-        const validPins = parsedPins.filter((pin: any) => {
-          return pin && 
-                 typeof pin.id === 'string' && 
-                 typeof pin.latitude === 'number' && 
-                 typeof pin.longitude === 'number' &&
-                 typeof pin.title === 'string'
+        // Enhanced validation using the validation system
+        const validationResult = validatePinCollection(parsedPins, { 
+          requirePlaceId: false, // Allow pins without place IDs
+          requireCategory: false, // Allow pins without categories
+          requireScore: false, // Allow pins without scores
+          requireEndorsements: false // Allow pins without endorsements
         })
         
-        if (validPins.length !== parsedPins.length) {
-          console.warn(`⚠️ Cleaned ${parsedPins.length - validPins.length} invalid pins from storage`)
+        if (validationResult.invalidPins.length > 0) {
+          console.warn(`⚠️ Found ${validationResult.invalidPins.length} invalid pins, cleaning...`)
+          
+          // Create backup of invalid pins for potential recovery
+          const backupKey = `pinit-pins-backup-${Date.now()}`
+          localStorage.setItem(backupKey, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            invalidPins: validationResult.invalidPins,
+            reason: "Data validation cleanup"
+          }))
+          
+          console.log(`📦 Created backup: ${backupKey}`)
         }
         
-        setPins(validPins)
-        console.log(`📌 Loaded ${validPins.length} pins from localStorage`)
+        // Use only valid pins
+        setPins(validationResult.validPins)
+        console.log(`📌 Loaded ${validationResult.validPins.length} valid pins from localStorage`)
+        
+        if (validationResult.summary.totalWarnings > 0) {
+          console.warn(`⚠️ ${validationResult.summary.totalWarnings} validation warnings found`)
+        }
       }
     } catch (error) {
       console.error("❌ Failed to load pins:", error)
-      // Try to recover by clearing corrupted data
+      
+      // Enhanced recovery with backup attempt
       try {
+        // Try to create emergency backup before clearing
+        const corruptedData = localStorage.getItem("pinit-pins")
+        if (corruptedData) {
+          const emergencyBackup = `pinit-pins-emergency-${Date.now()}`
+          localStorage.setItem(emergencyBackup, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            data: corruptedData,
+            reason: "Emergency backup before clearing corrupted data"
+          }))
+          console.log(`🆘 Created emergency backup: ${emergencyBackup}`)
+        }
+        
         localStorage.removeItem("pinit-pins")
         console.log("🧹 Cleared corrupted pin data")
       } catch (clearError) {
@@ -88,7 +116,7 @@ export function usePinStorage() {
   }, [pins])
 
   const addPin = useCallback((pin: PinData) => {
-    // Ensure pin has required fields
+    // Ensure pin has required fields and validate
     const validatedPin: PinData = {
       ...pin,
       id: pin.id || Date.now().toString(),
@@ -97,8 +125,26 @@ export function usePinStorage() {
       isAISuggestion: pin.isAISuggestion || false
     }
     
+    // Validate the pin before adding
+    const validation = validatePin(validatedPin, {
+      requirePlaceId: false,
+      requireCategory: false,
+      requireScore: false,
+      requireEndorsements: false
+    })
+    
+    if (!validation.isValid) {
+      console.error("❌ Cannot add invalid pin:", validation.errors)
+      return false
+    }
+    
+    if (validation.warnings.length > 0) {
+      console.warn("⚠️ Pin validation warnings:", validation.warnings)
+    }
+    
     setPins((prev) => [validatedPin, ...prev])
-    console.log("📌 Pin added:", validatedPin)
+    console.log("📌 Pin added with validation:", validatedPin)
+    return true
   }, [])
 
   const removePin = useCallback((pinId: string) => {
@@ -139,6 +185,112 @@ export function usePinStorage() {
     return pins.filter(pin => !pin.isAISuggestion)
   }, [pins])
 
+  // Data management utilities
+  const exportPins = useCallback(() => {
+    const exportData = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      pins: pins,
+      metadata: {
+        totalPins: pins.length,
+        exportedBy: "PINIT",
+        format: "JSON"
+      }
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pinit-export-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    
+    console.log(`📤 Exported ${pins.length} pins`)
+  }, [pins])
+
+  const importPins = useCallback((jsonData: string, mergeMode: boolean = false) => {
+    try {
+      const importData = JSON.parse(jsonData)
+      const importedPins = importData.pins || importData // Support both formats
+      
+      // Validate imported pins
+      const validationResult = validatePinCollection(importedPins, {
+        requirePlaceId: false,
+        requireCategory: false,
+        requireScore: false,
+        requireEndorsements: false
+      })
+      
+      if (validationResult.invalidPins.length > 0) {
+        console.warn(`⚠️ ${validationResult.invalidPins.length} invalid pins in import, skipping them`)
+      }
+      
+      if (mergeMode) {
+        // Merge with existing pins, avoiding duplicates by ID
+        const existingIds = new Set(pins.map(p => p.id))
+        const newPins = validationResult.validPins.filter(p => !existingIds.has(p.id))
+        setPins(prev => [...newPins, ...prev])
+        console.log(`📥 Imported and merged ${newPins.length} new pins`)
+      } else {
+        // Replace all pins
+        setPins(validationResult.validPins)
+        console.log(`📥 Imported ${validationResult.validPins.length} pins (replaced all)`)
+      }
+      
+      return {
+        success: true,
+        imported: validationResult.validPins.length,
+        skipped: validationResult.invalidPins.length
+      }
+    } catch (error) {
+      console.error("❌ Failed to import pins:", error)
+      return {
+        success: false,
+        imported: 0,
+        skipped: 0,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }
+    }
+  }, [pins])
+
+  const createBackup = useCallback(() => {
+    const backupKey = `pinit-manual-backup-${Date.now()}`
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      pins: pins,
+      reason: "Manual backup",
+      version: "1.0"
+    }
+    
+    try {
+      localStorage.setItem(backupKey, JSON.stringify(backupData))
+      console.log(`📦 Manual backup created: ${backupKey}`)
+      return backupKey
+    } catch (error) {
+      console.error("❌ Failed to create backup:", error)
+      return null
+    }
+  }, [pins])
+
+  const getDataStats = useCallback(() => {
+    const stats = {
+      totalPins: pins.length,
+      aiSuggestions: pins.filter(p => p.isAISuggestion).length,
+      userPins: pins.filter(p => !p.isAISuggestion).length,
+      recommendedPins: pins.filter(p => p.isRecommended).length,
+      pinsWithMedia: pins.filter(p => p.mediaUrl).length,
+      oldestPin: pins.length > 0 ? pins.reduce((oldest, pin) => 
+        new Date(pin.timestamp) < new Date(oldest.timestamp) ? pin : oldest
+      ) : null,
+      newestPin: pins.length > 0 ? pins.reduce((newest, pin) => 
+        new Date(pin.timestamp) > new Date(newest.timestamp) ? pin : newest
+      ) : null
+    }
+    
+    return stats
+  }, [pins])
+
   return {
     pins,
     addPin,
@@ -150,5 +302,10 @@ export function usePinStorage() {
     getRecommendedPins,
     getAISuggestions,
     getCommunityPins,
+    // Data management utilities
+    exportPins,
+    importPins,
+    createBackup,
+    getDataStats,
   }
 }
