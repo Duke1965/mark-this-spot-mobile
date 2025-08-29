@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { ArrowLeft, Play, Share2, Download, Plus } from "lucide-react"
-import type { PinData } from "@/app/page"
+import type { PinData } from "@/app/client-page"
 
 interface PinStoryBuilderProps {
   pins: PinData[]
@@ -36,19 +36,19 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
 
   if (showPreview) {
     return (
-              <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
             background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-                {/* Header */}
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
         <div
           style={{
             padding: "1rem",
@@ -61,21 +61,21 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
             borderBottom: "1px solid rgba(255,255,255,0.2)",
           }}
         >
-        <button
-          onClick={() => setShowPreview(false)}
-          style={{
+          <button
+            onClick={() => setShowPreview(false)}
+            style={{
             padding: "0.75rem",
             borderRadius: "0.75rem",
             border: "1px solid rgba(255,255,255,0.2)",
             background: "rgba(255,255,255,0.15)",
-            color: "white",
-            cursor: "pointer",
+              color: "white",
+              cursor: "pointer",
             transition: "all 0.2s ease",
             backdropFilter: "blur(10px)",
-          }}
-        >
-          <ArrowLeft size={20} />
-        </button>
+            }}
+          >
+            <ArrowLeft size={20} />
+          </button>
 
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>Story Preview</h1>
 
