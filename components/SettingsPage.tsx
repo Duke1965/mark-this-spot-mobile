@@ -22,7 +22,16 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
       instagram: "",
       twitter: "",
       facebook: "",
-      whatsapp: ""
+      whatsapp: "",
+      tiktok: "",
+      linkedin: "",
+      youtube: ""
+    },
+    preferences: {
+      shareByDefault: false,
+      autoTag: true,
+      locationSharing: true,
+      publicProfile: false
     }
   })
 
