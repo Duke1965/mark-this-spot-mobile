@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock } from "lucide-react"
+import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import SystemHealthCheck from "./SystemHealthCheck"
 
 interface SettingsPageProps {
   onBack: () => void
@@ -11,7 +12,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "complete">("welcome")
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete">("welcome")
   const [userProfile, setUserProfile] = useState({
     name: "",
     email: "",
@@ -58,6 +59,9 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("data")
         break
       case "data":
+        setCurrentStep("debug")
+        break
+      case "debug":
         setCurrentStep("complete")
         break
       case "complete":
@@ -733,6 +737,48 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
           </div>
         )}
 
+        {/* Debug Step */}
+        {currentStep === "debug" && (
+          <div style={{ padding: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+              <Bug className="w-8 h-8 text-white" />
+              <div>
+                <h1 style={{ fontSize: "1.5rem", margin: 0 }}>System Health & Debug</h1>
+                <p style={{ fontSize: "0.9rem", opacity: 0.8, margin: 0 }}>
+                  Monitor app performance and debug issues
+                </p>
+              </div>
+            </div>
+
+            <div style={{ 
+              background: "rgba(255,255,255,0.05)", 
+              borderRadius: "1rem", 
+              overflow: "hidden",
+              maxHeight: "60vh"
+            }}>
+              <SystemHealthCheck />
+            </div>
+
+            <button
+              onClick={handleNext}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                padding: "1rem 2rem",
+                borderRadius: "0.5rem",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1.1rem",
+                fontWeight: "bold",
+                marginTop: "1rem",
+                width: "100%"
+              }}
+            >
+              Continue to Complete
+            </button>
+          </div>
+        )}
+
         {/* Complete Step */}
         {currentStep === "complete" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
@@ -832,7 +878,7 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
             marginBottom: "2rem",
             gap: "0.5rem"
           }}>
-            {["login", "profile", "social", "location", "theme", "data", "complete"].map((step, index) => (
+            {["login", "profile", "social", "location", "theme", "data", "debug", "complete"].map((step, index) => (
               <div
                 key={step}
                 style={{
