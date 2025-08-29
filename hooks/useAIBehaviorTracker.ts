@@ -138,17 +138,29 @@ export function useAIBehaviorTracker() {
     isInitialized.current = true
   }, [])
 
-  // Save data to localStorage whenever it changes
+  // Debounced save to localStorage for better performance
   useEffect(() => {
     if (!isInitialized.current) return
 
-    try {
-      localStorage.setItem('pinit_ai_behaviors', JSON.stringify(behaviors))
-      localStorage.setItem('pinit_ai_preferences', JSON.stringify(preferences))
-      localStorage.setItem('pinit_ai_insights', JSON.stringify(insights))
-    } catch (error) {
-      console.error('Failed to save AI behavior data:', error)
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        // Limit behavior history to prevent memory bloat
+        const recentBehaviors = behaviors.slice(-100) // Keep only last 100 behaviors
+        
+        localStorage.setItem('pinit_ai_behaviors', JSON.stringify(recentBehaviors))
+        localStorage.setItem('pinit_ai_preferences', JSON.stringify(preferences))
+        localStorage.setItem('pinit_ai_insights', JSON.stringify(insights))
+        
+        // Update state if we trimmed behaviors
+        if (recentBehaviors.length < behaviors.length) {
+          setBehaviors(recentBehaviors)
+        }
+      } catch (error) {
+        console.error('Failed to save AI behavior data:', error)
+      }
+    }, 2000) // Debounce for 2 seconds
+
+    return () => clearTimeout(timeoutId)
   }, [behaviors, preferences, insights])
 
   // Track user behavior
