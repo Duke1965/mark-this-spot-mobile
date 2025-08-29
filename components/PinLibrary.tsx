@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
-import type { PinData } from "@/app/page"
+import type { PinData } from "@/app/client-page"
 
 interface PinLibraryProps {
   pins: PinData[]
@@ -297,22 +297,22 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
         {/* Search */}
         <div style={{ position: "relative" }}>
           <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
-                      <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.75rem 0.75rem 0.75rem 2.5rem",
                 borderRadius: "0.75rem",
                 border: "1px solid rgba(255,255,255,0.2)",
                 background: "rgba(255,255,255,0.15)",
-                color: "white",
+              color: "white",
                 fontSize: "0.875rem",
                 backdropFilter: "blur(10px)",
-              }}
-            />
+            }}
+          />
         </div>
       </div>
 
