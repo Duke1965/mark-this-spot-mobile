@@ -154,10 +154,14 @@ export function useLocationServices() {
       return -1
     }
 
+    // Optimize for mobile battery life while maintaining accuracy
+    const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
     const defaultOptions: PositionOptions = {
-      enableHighAccuracy: true, // Changed to true for better accuracy
-      timeout: 10000,
-      maximumAge: 10000, // Reduced from 60000 to 10000 (10 seconds) for real-time updates
+      enableHighAccuracy: isMobile ? false : true, // Use lower accuracy on mobile to save battery
+      timeout: isMobile ? 15000 : 10000, // Longer timeout on mobile for better reliability
+      maximumAge: isMobile ? 30000 : 10000, // Cache location longer on mobile to reduce GPS usage
+      ...options,
     }
 
     return navigator.geolocation.watchPosition(
