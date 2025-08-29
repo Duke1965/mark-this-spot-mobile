@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     }))
     
     // Calculate average score
-    const totalScore = pins.reduce((sum, pin) => sum + (pin.score || 0), 0)
+    const totalScore = pins.reduce((sum: number, pin) => sum + (pin.score || 0), 0)
     const averageScore = pins.length > 0 ? totalScore / pins.length : 0
     
     // Get maintenance status
