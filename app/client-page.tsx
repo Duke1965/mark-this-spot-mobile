@@ -18,6 +18,9 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 
+// Logging and debugging
+import { log } from '@/lib/logger'
+
 // Icon imports
 import { Camera, Video, Library, MapPin, Check, Star } from "lucide-react"
 
@@ -465,19 +468,20 @@ export default function PINITApp() {
       setLastActivity("app-start-fresh")
       
       // Auto-heal data on startup
-      autoHealOnStartup()
+      log.async(() => autoHealOnStartup(), "Data healing on startup", "PINITApp")
       
       // Set up network monitoring
       setIsOnline(navigator.onLine)
+      log.info("Network monitoring initialized", { online: navigator.onLine }, "PINITApp")
       
       const handleOnline = () => {
         setIsOnline(true)
-        console.log("🌐 Network connection restored")
+        log.info("Network connection restored", undefined, "PINITApp")
       }
       
       const handleOffline = () => {
         setIsOnline(false)
-        console.log("🌐 Network connection lost - entering offline mode")
+        log.warn("Network connection lost - entering offline mode", undefined, "PINITApp")
       }
       
       window.addEventListener('online', handleOnline)
