@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { X, TrendingUp, Clock, Star, ThumbsUp, ThumbsDown, RefreshCw, Info } from 'lucide-react'
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { getPinLifecycleStatus, getLifecycleRecommendations } from '@/lib/pinLifecycle'
 import { getScoreInsights, getScoreRecommendations } from '@/lib/scoringEngine'
 import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
