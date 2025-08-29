@@ -27,34 +27,43 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Prevent pull-to-refresh behavior - LESS AGGRESSIVE VERSION
+              // Enhanced mobile touch handling - OPTIMIZED VERSION
               let startY = 0;
               let currentY = 0;
               let isScrolling = false;
+              let touchStartTime = 0;
               
-              document.addEventListener('touchstart', function(e) {
-                startY = e.touches[0].clientY;
-                isScrolling = false;
-              }, { passive: true });
+              // Detect mobile device
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
               
-              document.addEventListener('touchmove', function(e) {
-                currentY = e.touches[0].clientY;
-                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+              if (isMobile) {
+                document.addEventListener('touchstart', function(e) {
+                  startY = e.touches[0].clientY;
+                  touchStartTime = Date.now();
+                  isScrolling = false;
+                }, { passive: true });
                 
-                // Only prevent pull-to-refresh when at very top of page AND pulling down hard
-                if (scrollTop <= 0 && currentY > startY + 50) {
-                  e.preventDefault();
-                  isScrolling = true;
-                }
-                
-                // Only prevent pull-to-refresh when at very bottom of page AND pulling up hard
-                const scrollHeight = document.documentElement.scrollHeight;
-                const clientHeight = document.documentElement.clientHeight;
-                if (scrollTop + clientHeight >= scrollHeight && currentY < startY - 50) {
-                  e.preventDefault();
-                  isScrolling = true;
-                }
-              }, { passive: false });
+                document.addEventListener('touchmove', function(e) {
+                  currentY = e.touches[0].clientY;
+                  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                  const touchDuration = Date.now() - touchStartTime;
+                  
+                  // Only prevent pull-to-refresh when at very top of page AND pulling down significantly
+                  // Also check touch duration to avoid interfering with quick swipes
+                  if (scrollTop <= 5 && currentY > startY + 60 && touchDuration > 100) {
+                    e.preventDefault();
+                    isScrolling = true;
+                  }
+                  
+                  // Prevent overscroll at bottom
+                  const scrollHeight = document.documentElement.scrollHeight;
+                  const clientHeight = document.documentElement.clientHeight;
+                  if (scrollTop + clientHeight >= scrollHeight - 5 && currentY < startY - 60 && touchDuration > 100) {
+                    e.preventDefault();
+                    isScrolling = true;
+                  }
+                }, { passive: false });
+              }
               
               document.addEventListener('touchend', function(e) {
                 if (isScrolling) {
