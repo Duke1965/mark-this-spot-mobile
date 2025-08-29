@@ -9,6 +9,15 @@ import {
 } from 'firebase/auth'
 import { auth, googleProvider, facebookProvider } from '@/lib/firebase'
 
+// Check if Firebase is properly configured
+const isFirebaseConfigured = () => {
+  return !!(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  )
+}
+
 interface User {
   uid: string
   email: string | null
@@ -47,6 +56,11 @@ export function useAuth() {
     try {
       setError(null)
       setLoading(true)
+      
+      if (!isFirebaseConfigured()) {
+        throw new Error("Firebase authentication is not configured. Please set up environment variables.")
+      }
+      
       const result = await signInWithPopup(auth, googleProvider)
       console.log("✅ Google sign in successful:", result.user.displayName)
       return result.user
@@ -64,6 +78,11 @@ export function useAuth() {
     try {
       setError(null)
       setLoading(true)
+      
+      if (!isFirebaseConfigured()) {
+        throw new Error("Firebase authentication is not configured. Please set up environment variables.")
+      }
+      
       const result = await signInWithPopup(auth, facebookProvider)
       console.log("✅ Facebook sign in successful:", result.user.displayName)
       return result.user
