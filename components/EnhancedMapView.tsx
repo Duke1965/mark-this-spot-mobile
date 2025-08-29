@@ -3,7 +3,7 @@ import { MapTabs, TabType } from './MapTabs'
 import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { getPinsForTab } from '@/lib/pinLifecycle'
 import { getScoreInsights } from '@/lib/scoringEngine'
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 
 interface EnhancedMapViewProps {
   pins: PinData[]
@@ -64,7 +64,7 @@ export function EnhancedMapView({
       // Transform to MapPin format
       const mapPins: MapPin[] = tabPins.map(pin => {
         const insights = getScoreInsights(pin, pins)
-        const isExpiringSoon = pin.daysUntilExpiry && pin.daysUntilExpiry <= 7
+        const isExpiringSoon = false
         
         return {
           id: pin.placeId || pin.id,
@@ -76,7 +76,7 @@ export function EnhancedMapView({
           totalEndorsements: pin.totalEndorsements || 1,
           recentEndorsements: pin.recentEndorsements || 1,
           isTrending: insights.isTrending,
-          isClassic: pin.lifecycleTab === 'classics',
+          isClassic: false,
           isExpiringSoon,
           originalPin: pin
         }
