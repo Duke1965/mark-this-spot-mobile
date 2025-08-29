@@ -1,6 +1,6 @@
 // Pin Lifecycle Management System
 // Automatically manages pin movement between Recent, Trending, Classics, and All tabs
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { MAP_LIFECYCLE } from './mapLifecycle'
 import { daysAgo, computeTrendingScore } from './trending'
 
@@ -46,11 +46,11 @@ export function getPinLifecycleStatus(pin: PinData): LifecycleStatus {
   const isRecent = daysSinceLastEndorsement <= MAP_LIFECYCLE.RECENT_WINDOW_DAYS
   
   // Check if pin qualifies for Trending tab
-  const isTrending = pin.recentEndorsements >= MAP_LIFECYCLE.TRENDING_MIN_BURST
+  const isTrending = (pin.recentEndorsements || 0) >= MAP_LIFECYCLE.TRENDING_MIN_BURST
   
   // Check if pin qualifies for Classics tab
   const isClassic = daysSinceCreation >= MAP_LIFECYCLE.CLASSICS_MIN_AGE_DAYS &&
-                   pin.totalEndorsements >= MAP_LIFECYCLE.CLASSICS_MIN_TOTAL_ENDORSEMENTS
+                   (pin.totalEndorsements || 0) >= MAP_LIFECYCLE.CLASSICS_MIN_TOTAL_ENDORSEMENTS
 
   // Priority order: Trending > Recent > Classics > All
   if (isTrending) {
@@ -103,13 +103,8 @@ export function updatePinLifecycle(pin: PinData): PinData {
   
   // Update pin with lifecycle information
   return {
-    ...pin,
-    // Add lifecycle metadata
-    lifecycleTab: lifecycleStatus.tab,
-    lifecycleReason: lifecycleStatus.reason,
-    daysUntilExpiry: lifecycleStatus.daysUntilExpiry,
-    daysUntilClassic: lifecycleStatus.daysUntilClassic,
-    endorsementsUntilClassic: lifecycleStatus.endorsementsUntilClassic
+    ...pin
+    // Remove invented properties - keep original pin structure
   }
 }
 
@@ -134,7 +129,9 @@ export function getPinsForTab(pins: PinData[], tab: 'recent' | 'trending' | 'cla
   return updatedPins.filter(pin => {
     if (tab === 'all') return !pin.isHidden
     
-    return pin.lifecycleTab === tab
+    // Use lifecycle status calculation instead of non-existent property
+    const status = getPinLifecycleStatus(pin)
+    return status.tab === tab
   })
 }
 
@@ -167,9 +164,9 @@ export function getLifecycleStatistics(pins: PinData[]): Record<string, number> 
   }
   
   updatedPins.forEach(pin => {
-    if (pin.lifecycleTab) {
-      stats[pin.lifecycleTab]++
-    }
+    // Calculate lifecycle status instead of using non-existent property
+    const status = getPinLifecycleStatus(pin)
+    stats[status.tab]++
     
     if (isPinExpiringSoon(pin)) {
       stats.expiringSoon++
