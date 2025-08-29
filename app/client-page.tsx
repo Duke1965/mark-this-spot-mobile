@@ -1,4 +1,4 @@
-"use client"
+"use client" 
 
 /**
  * PINIT Main Application Component
