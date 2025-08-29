@@ -1,10 +1,44 @@
 "use client"
 
+/**
+ * PINIT Main Application Component
+ * 
+ * This is the core client-side component that handles the main PINIT functionality:
+ * - Location-based pin creation (like Shazam for travel)
+ * - Real-time GPS tracking and speed calculation
+ * - AI-powered recommendations and content generation
+ * - Camera capture and media handling
+ * - Social sharing and community features
+ * 
+ * Architecture: Client-only component (SSR disabled) to handle browser APIs
+ * Performance: Lazy-loaded components, debounced updates, mobile optimizations
+ */
+
+// React core imports
 import { useState, useCallback, useEffect, useMemo } from "react"
+import dynamic from "next/dynamic"
+
+// Icon imports
 import { Camera, Video, Library, MapPin, Check, Star } from "lucide-react"
+
+// Custom hooks
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
+
+// Utility functions
+import { autoHealOnStartup } from "@/lib/dataHealing"
+import { 
+  isMobileDevice, 
+  retryWithBackoff, 
+  generateUniqueId,
+  isValidUrl,
+  debounce,
+  formatTimeAgo
+} from "@/lib/helpers"
+import { APP_CONFIG, UI_CONFIG, API_CONFIG } from "@/lib/constants"
+
+// UI Components (direct imports for critical path)
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { ContentEditor } from "@/components/ContentEditor"
@@ -13,8 +47,6 @@ import { PinStoryMode } from "@/components/PinStoryMode"
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
-import { autoHealOnStartup } from "@/lib/dataHealing"
-import dynamic from "next/dynamic"
 
 // Lazy load large components for better mobile performance
 const AIRecommendationsHub = dynamic(() => import("@/components/AIRecommendationsHub"), {
@@ -200,28 +232,7 @@ export default function PINITApp() {
   } | null>(null)
   const [isPosting, setIsPosting] = useState(false)
 
-  // Utility functions (defined early to prevent hoisting issues)
-  const isMobileDevice = () => {
-    if (typeof window === "undefined") return false
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  }
-
-  const retryWithBackoff = async <T,>(fn: () => Promise<T>, maxRetries: number = 3, baseDelay: number = 1000): Promise<T> => {
-    let lastError: Error
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await fn()
-      } catch (error) {
-        lastError = error as Error
-        if (attempt === maxRetries) {
-          throw lastError
-        }
-        const delay = baseDelay * Math.pow(2, attempt)
-        await new Promise((resolve) => setTimeout(resolve, delay))
-      }
-    }
-    throw lastError!
-  }
+  // Using centralized utility functions from lib/helpers
 
   // Location functions (defined before they are used)
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
@@ -544,7 +555,7 @@ export default function PINITApp() {
 
       // Debounce location name updates on mobile for better performance
       const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const debounceTime = isMobile ? 2000 : 500 // 2 seconds on mobile, 500ms on desktop
+              const debounceTime = isMobile ? UI_CONFIG.LOCATION_NAME_DEBOUNCE_MOBILE : UI_CONFIG.LOCATION_NAME_DEBOUNCE_DESKTOP
       
       const timeoutId = setTimeout(() => {
         getLocationName(location.latitude, location.longitude).then((name) => {
@@ -1233,7 +1244,7 @@ export default function PINITApp() {
             fontWeight: "500",
           }}
         >
-          Find It. Pin It. Share It.
+                          {APP_CONFIG.TAGLINE}
         </p>
         <p
           style={{
