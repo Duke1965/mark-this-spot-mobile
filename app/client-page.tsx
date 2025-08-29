@@ -13,6 +13,7 @@ import { PinStoryMode } from "@/components/PinStoryMode"
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
+import { autoHealOnStartup } from "@/lib/dataHealing"
 import dynamic from "next/dynamic"
 
 // Lazy load large components for better mobile performance
@@ -451,6 +452,9 @@ export default function PINITApp() {
       localStorage.removeItem("pinit-app-state")
       setCurrentScreen("map")
       setLastActivity("app-start-fresh")
+      
+      // Auto-heal data on startup
+      autoHealOnStartup()
       
       // Set up network monitoring
       setIsOnline(navigator.onLine)
