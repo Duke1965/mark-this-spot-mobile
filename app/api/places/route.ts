@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const radius = searchParams.get("radius") || "5000" // Increased from 1000 to 5000 (5km)
-
+  
   // Detect mobile vs desktop from headers
   const userAgent = request.headers.get("user-agent") || ""
   const deviceType = request.headers.get("x-device-type") || "unknown"
@@ -146,6 +146,16 @@ export async function GET(request: NextRequest) {
 
   // REMOVED: Early API key check that was forcing mock data
   // Now we always try Google API first
+
+  // Check if API key is available
+  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Maps API key not configured, using mock data`)
+    return NextResponse.json({
+      results: generateMockPlaces(parseFloat(lat), parseFloat(lng)),
+      status: "OK",
+      source: "mock"
+    })
+  }
 
   try {
     const types = [
