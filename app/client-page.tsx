@@ -31,15 +31,24 @@ import { useMotionDetection } from "@/hooks/useMotionDetection"
 
 // Utility functions
 import { autoHealOnStartup } from "@/lib/dataHealing"
-import { 
-  isMobileDevice, 
-  retryWithBackoff, 
-  generateUniqueId,
-  isValidUrl,
-  debounce,
-  formatTimeAgo
-} from "@/lib/helpers"
-import { APP_CONFIG, UI_CONFIG, API_CONFIG } from "@/lib/constants"
+// Simple utility functions (inlined to avoid external dependencies)
+const isMobileDevice = () => {
+  if (typeof window === "undefined") return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+const generateUniqueId = () => `pin-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+
+const retryWithBackoff = async (fn: () => Promise<any>, maxRetries: number = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (i === maxRetries - 1) throw error
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)))
+    }
+  }
+}
 
 // UI Components (direct imports for critical path)
 import { ReliableCamera } from "@/components/reliable-camera"
@@ -470,7 +479,8 @@ export default function PINITApp() {
       
       
       // Auto-heal data on startup
-      log.async(() => autoHealOnStartup(), "Data healing on startup", "PINITApp")
+      const healingResult = autoHealOnStartup()
+      log.info("Data healing on startup", { success: healingResult }, "PINITApp")
       
       // Set up network monitoring
       setIsOnline(navigator.onLine)
@@ -561,7 +571,7 @@ export default function PINITApp() {
 
       // Debounce location name updates on mobile for better performance
       const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-              const debounceTime = isMobile ? UI_CONFIG.LOCATION_NAME_DEBOUNCE_MOBILE : UI_CONFIG.LOCATION_NAME_DEBOUNCE_DESKTOP
+              const debounceTime = isMobile ? 2000 : 500 // 2 seconds on mobile, 500ms on desktop
       
       const timeoutId = setTimeout(() => {
         getLocationName(location.latitude, location.longitude).then((name) => {
@@ -1250,7 +1260,7 @@ export default function PINITApp() {
             fontWeight: "500",
           }}
         >
-                          {APP_CONFIG.TAGLINE}
+                          Find It. Pin It. Share It.
         </p>
         <p
           style={{
