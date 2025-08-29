@@ -244,11 +244,15 @@ export function ProactiveAI({
     }, 600000)
   }, [userLocation, pins, isMoving, lastActivity, dismissedSuggestions, lastLocationCheck, onRecommendationGenerated])
 
-  // Run suggestion generation periodically
+  // Run suggestion generation periodically with mobile optimization
   useEffect(() => {
     generateSuggestions()
 
-    const interval = setInterval(generateSuggestions, 60000) // Check every minute (less frequent)
+    // Reduce frequency on mobile to save battery and CPU
+    const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const intervalTime = isMobile ? 120000 : 60000 // 2 minutes on mobile, 1 minute on desktop
+
+    const interval = setInterval(generateSuggestions, intervalTime)
     return () => clearInterval(interval)
   }, [generateSuggestions])
 
