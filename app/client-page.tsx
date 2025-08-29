@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Camera, Video, Library, MapPin, Check, Star } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
@@ -477,21 +477,26 @@ export default function PINITApp() {
     }
   }, [])
 
+  // Debounced app state saving for better performance
   useEffect(() => {
-    const appState = {
-      currentScreen,
-      recommendations,
-      discoveryMode,
-      showRecommendToggle,
-      lastActivity,
-      timestamp: Date.now(),
-    }
+    const timeoutId = setTimeout(() => {
+      const appState = {
+        currentScreen,
+        recommendations,
+        discoveryMode,
+        showRecommendToggle,
+        lastActivity,
+        timestamp: Date.now(),
+      }
 
-    try {
-      localStorage.setItem("pinit-app-state", JSON.stringify(appState))
-    } catch (error) {
-      console.error("❌ Failed to save app state:", error)
-    }
+      try {
+        localStorage.setItem("pinit-app-state", JSON.stringify(appState))
+      } catch (error) {
+        console.error("❌ Failed to save app state:", error)
+      }
+    }, 1000) // Debounce for 1 second to reduce localStorage writes
+
+    return () => clearTimeout(timeoutId)
   }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
 
   useEffect(() => {
@@ -502,19 +507,25 @@ export default function PINITApp() {
 
   useEffect(() => {
     let watchId: number | null = null
+    let isActive = true // Prevent memory leaks from async operations
 
     if (typeof window !== "undefined" && navigator.geolocation) {
       console.log("📍 Setting up location watching...")
 
+      // Mobile-optimized location watching
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
       watchId = watchLocation({
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
+        enableHighAccuracy: !isMobile, // Lower accuracy on mobile for battery savings
+        timeout: isMobile ? 20000 : 15000, // More time for mobile GPS
+        maximumAge: isMobile ? 30000 : 10000, // Cache longer on mobile
       })
 
       return () => {
+        isActive = false
         if (watchId !== null) {
           clearWatch(watchId)
+          console.log("📍 Location watching cleaned up")
         }
       }
     }
@@ -625,14 +636,20 @@ export default function PINITApp() {
     }
   }, [location])
 
+  // Memoize location key to prevent unnecessary effect runs
+  const locationKey = useMemo(() => {
+    if (!location) return null
+    return `${location.latitude.toFixed(4)},${location.longitude.toFixed(4)}`
+  }, [location])
+
   useEffect(() => {
-    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
+    if (currentScreen === "recommendations" && locationKey && nearbyPins.length === 0) {
       findNearbyPins()
     }
     if (currentScreen !== "recommendations") {
       setShowNearbyPins(false)
     }
-  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
+  }, [currentScreen, locationKey, nearbyPins.length, findNearbyPins])
 
   const handleQuickPin = useCallback(async () => {
     if (isQuickPinning) return
