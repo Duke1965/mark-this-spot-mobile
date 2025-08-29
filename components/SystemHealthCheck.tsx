@@ -1,402 +1,526 @@
-import React, { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, AlertTriangle, Info, RefreshCw, Play, Stop, Settings } from 'lucide-react'
-import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
-import { getSystemValidationReport } from '@/lib/validation'
-import { analytics } from '@/lib/analytics'
-import { PinData } from '@/app/page'
+"use client"
 
-interface SystemHealthCheckProps {
-  pins: PinData[]
-  onRefresh?: () => void
-  className?: string
-}
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Activity, 
+  Database, 
+  Wifi, 
+  MapPin, 
+  Camera, 
+  Download,
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock
+} from 'lucide-react'
+import { logger, LogLevel } from '@/lib/logger'
+import { APP_CONFIG, STORAGE_CONFIG } from '@/lib/constants'
+import { 
+  isMobileDevice, 
+  isOnline, 
+  getTotalStorageUsage, 
+  formatStorageSize,
+  getPlatformInfo 
+} from '@/lib/helpers'
 
 interface HealthStatus {
-  overall: 'healthy' | 'warning' | 'critical'
+  status: 'healthy' | 'warning' | 'error'
   message: string
-  details: string[]
+  details?: any
 }
 
-export function SystemHealthCheck({ pins, onRefresh, className = '' }: SystemHealthCheckProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [validationReport, setValidationReport] = useState<any>(null)
-  const [analyticsStatus, setAnalyticsStatus] = useState<any>(null)
-  const [systemStatus, setSystemStatus] = useState<HealthStatus | null>(null)
-  const [activeTests, setActiveTests] = useState<string[]>([])
+interface SystemHealth {
+  overall: HealthStatus
+  storage: HealthStatus
+  network: HealthStatus
+  location: HealthStatus
+  camera: HealthStatus
+  apis: HealthStatus
+}
 
-  // Check if pin management system is enabled
-  const isEnabled = isMapLifecycleEnabled()
+export default function SystemHealthCheck() {
+  const [health, setHealth] = useState<SystemHealth | null>(null)
+  const [isChecking, setIsChecking] = useState(false)
+  const [logs, setLogs] = useState<any[]>([])
+  const [logLevel, setLogLevel] = useState<LogLevel>('info')
 
   useEffect(() => {
-    if (isOpen && isEnabled) {
-      runHealthCheck()
-    }
-  }, [isOpen, isEnabled, pins])
+    runHealthCheck()
+    loadLogs()
+  }, [])
 
   const runHealthCheck = async () => {
-    setIsLoading(true)
-    
+    setIsChecking(true)
+    logger.info('Starting system health check', undefined, 'SystemHealthCheck')
+
     try {
-      // Run validation
-      const report = getSystemValidationReport(pins)
-      setValidationReport(report)
+      const [storage, network, location, camera, apis] = await Promise.all([
+        checkStorageHealth(),
+        checkNetworkHealth(),
+        checkLocationHealth(),
+        checkCameraHealth(),
+        checkAPIHealth()
+      ])
+
+      const overall = determineOverallHealth([storage, network, location, camera, apis])
+
+      const healthResult = { overall, storage, network, location, camera, apis }
+      setHealth(healthResult)
       
-      // Get analytics status
-      const analyticsStatus = analytics.getStatus()
-      setAnalyticsStatus(analyticsStatus)
-      
-      // Determine overall health
-      const healthStatus = determineHealthStatus(report, analyticsStatus)
-      setSystemStatus(healthStatus)
-      
-      // Track health check
-      analytics.track('system_health_check', {
-        overall: healthStatus.overall,
-        errors: report.overall.totalErrors,
-        warnings: report.overall.totalWarnings
-      })
-      
+      logger.info('System health check completed', healthResult, 'SystemHealthCheck')
     } catch (error) {
-      console.error('Health check failed:', error)
-      setSystemStatus({
-        overall: 'critical',
-        message: 'Health check failed',
-        details: [error instanceof Error ? error.message : 'Unknown error']
-      })
+      logger.error('Health check failed', error, 'SystemHealthCheck')
     } finally {
-      setIsLoading(false)
+      setIsChecking(false)
     }
   }
 
-  const determineHealthStatus = (report: any, analyticsStatus: any): HealthStatus => {
-    const details: string[] = []
-    
-    if (report.overall.totalErrors > 0) {
-      details.push(`${report.overall.totalErrors} validation errors found`)
-    }
-    
-    if (report.overall.totalWarnings > 0) {
-      details.push(`${report.overall.totalWarnings} warnings found`)
-    }
-    
-    if (!analyticsStatus.enabled) {
-      details.push('Analytics system disabled')
-    }
-    
-    if (report.overall.totalErrors > 0) {
-      return {
-        overall: 'critical',
-        message: 'System has critical issues',
-        details
+  const checkStorageHealth = async (): Promise<HealthStatus> => {
+    try {
+      const usage = await getTotalStorageUsage()
+      const quota = STORAGE_CONFIG.MAX_STORAGE_MB * 1024 * 1024
+      const usagePercent = (usage / quota) * 100
+
+      if (usagePercent > 90) {
+        return {
+          status: 'error',
+          message: 'Storage almost full',
+          details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
+        }
+      } else if (usagePercent > 70) {
+        return {
+          status: 'warning',
+          message: 'Storage usage high',
+          details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
+        }
       }
-    } else if (report.overall.totalWarnings > 0 || !analyticsStatus.enabled) {
+
       return {
-        overall: 'warning',
-        message: 'System has warnings',
-        details
+        status: 'healthy',
+        message: 'Storage healthy',
+        details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
       }
-    } else {
+    } catch (error) {
       return {
-        overall: 'healthy',
-        message: 'All systems operational',
-        details: ['No issues detected']
+        status: 'error',
+        message: 'Storage check failed',
+        details: error
       }
     }
   }
 
-  const runTest = (testName: string) => {
-    setActiveTests(prev => [...prev, testName])
-    
-    // Simulate test execution
-    setTimeout(() => {
-      setActiveTests(prev => prev.filter(t => t !== testName))
+  const checkNetworkHealth = async (): Promise<HealthStatus> => {
+    try {
+      const online = isOnline()
       
-      // Track test completion
-      analytics.track('qa_test_completed', {
-        test: testName,
-        result: 'passed',
-        duration: Math.random() * 2000 + 500
+      if (!online) {
+        return {
+          status: 'error',
+          message: 'No network connection',
+          details: { online: false }
+        }
+      }
+
+      // Test API connectivity
+      const startTime = Date.now()
+      const response = await fetch('/api/places?lat=0&lng=0&test=true')
+      const duration = Date.now() - startTime
+
+      if (response.ok) {
+        return {
+          status: 'healthy',
+          message: `Network healthy (${duration}ms)`,
+          details: { online: true, apiLatency: duration }
+        }
+      } else {
+        return {
+          status: 'warning',
+          message: 'API connectivity issues',
+          details: { online: true, apiStatus: response.status }
+        }
+      }
+    } catch (error) {
+      return {
+        status: 'warning',
+        message: 'Network check failed',
+        details: error
+      }
+    }
+  }
+
+  const checkLocationHealth = async (): Promise<HealthStatus> => {
+    try {
+      if (!navigator.geolocation) {
+        return {
+          status: 'error',
+          message: 'Geolocation not supported',
+          details: { supported: false }
+        }
+      }
+
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({
+            status: 'warning',
+            message: 'Location timeout',
+            details: { timeout: true }
+          })
+        }, 5000)
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            clearTimeout(timeout)
+            resolve({
+              status: 'healthy',
+              message: 'Location services working',
+              details: {
+                accuracy: position.coords.accuracy,
+                timestamp: new Date(position.timestamp).toISOString()
+              }
+            })
+          },
+          (error) => {
+            clearTimeout(timeout)
+            resolve({
+              status: 'error',
+              message: `Location error: ${error.message}`,
+              details: { code: error.code, message: error.message }
+            })
+          },
+          { timeout: 5000 }
+        )
       })
-    }, Math.random() * 2000 + 1000)
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return <CheckCircle className="w-5 h-5 text-green-500" />
-      case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-500" />
-      case 'critical':
-        return <XCircle className="w-5 h-5 text-red-500" />
-      default:
-        return <Info className="w-5 h-5 text-gray-500" />
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Location check failed',
+        details: error
+      }
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return 'text-green-500'
-      case 'warning':
-        return 'text-yellow-500'
-      case 'critical':
-        return 'text-red-500'
-      default:
-        return 'text-gray-500'
+  const checkCameraHealth = async (): Promise<HealthStatus> => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return {
+          status: 'error',
+          message: 'Camera not supported',
+          details: { supported: false }
+        }
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const cameras = devices.filter(device => device.kind === 'videoinput')
+
+      if (cameras.length === 0) {
+        return {
+          status: 'warning',
+          message: 'No cameras found',
+          details: { cameraCount: 0 }
+        }
+      }
+
+      return {
+        status: 'healthy',
+        message: `${cameras.length} camera(s) available`,
+        details: { 
+          cameraCount: cameras.length,
+          cameras: cameras.map(c => ({ id: c.deviceId, label: c.label }))
+        }
+      }
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Camera check failed',
+        details: error
+      }
     }
   }
 
-  if (!isEnabled) {
-    return null
+  const checkAPIHealth = async (): Promise<HealthStatus> => {
+    const issues = []
+    
+    // Check environment variables
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      issues.push('Google Maps API key missing')
+    }
+    
+    if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+      issues.push('Firebase API key missing')
+    }
+
+    if (issues.length > 0) {
+      return {
+        status: 'warning',
+        message: `API configuration issues (${issues.length})`,
+        details: { issues }
+      }
+    }
+
+    return {
+      status: 'healthy',
+      message: 'API configuration healthy',
+      details: { configured: true }
+    }
+  }
+
+  const determineOverallHealth = (checks: HealthStatus[]): HealthStatus => {
+    const errors = checks.filter(c => c.status === 'error').length
+    const warnings = checks.filter(c => c.status === 'warning').length
+
+    if (errors > 0) {
+      return {
+        status: 'error',
+        message: `${errors} critical issue(s) found`,
+        details: { errors, warnings }
+      }
+    } else if (warnings > 0) {
+      return {
+        status: 'warning',
+        message: `${warnings} warning(s) found`,
+        details: { errors, warnings }
+      }
+    }
+
+    return {
+      status: 'healthy',
+      message: 'All systems healthy',
+      details: { errors, warnings }
+    }
+  }
+
+  const loadLogs = () => {
+    const recentLogs = logger.getLogs(logLevel).slice(0, 50)
+    setLogs(recentLogs)
+  }
+
+  const downloadHealthReport = () => {
+    const report = {
+      app: APP_CONFIG.NAME,
+      version: APP_CONFIG.VERSION,
+      timestamp: new Date().toISOString(),
+      platform: getPlatformInfo(),
+      health,
+      logs: logger.getLogs().slice(0, 100),
+      stats: logger.getStats()
+    }
+
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pinit-health-report-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const getStatusIcon = (status: HealthStatus['status']) => {
+    switch (status) {
+      case 'healthy': return <CheckCircle className="h-4 w-4 text-green-600" />
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-600" />
+      case 'error': return <XCircle className="h-4 w-4 text-red-600" />
+    }
+  }
+
+  const getStatusColor = (status: HealthStatus['status']) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-100 text-green-800 border-green-200'
+      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'error': return 'bg-red-100 text-red-800 border-red-200'
+    }
   }
 
   return (
-    <div className={className}>
-      {/* Health Check Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 z-50"
-        title="System Health Check"
-      >
-        {isLoading ? (
-          <RefreshCw className="w-6 h-6 animate-spin" />
-        ) : (
-          <Settings className="w-6 h-6" />
-        )}
-      </button>
-
-      {/* Health Check Panel */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">System Health Check</h2>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-              {systemStatus && (
-                <div className="flex items-center gap-3 mt-2">
-                  {getStatusIcon(systemStatus.overall)}
-                  <span className={`text-white font-medium ${getStatusColor(systemStatus.overall)}`}>
-                    {systemStatus.message}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* System Overview */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">System Overview</h3>
-                  
-                  {/* Feature Flag Status */}
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-white/60">Pin Management System</span>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span className="text-green-500 text-sm font-medium">Enabled</span>
-                      </div>
-                    </div>
-                    <div className="text-white/80 text-sm">
-                      Feature flag is active and system is operational
-                    </div>
-                  </div>
-
-                  {/* Analytics Status */}
-                  {analyticsStatus && (
-                    <div className="bg-white/10 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-white/60">Analytics System</span>
-                        <div className="flex items-center gap-2">
-                          {analyticsStatus.enabled ? (
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-500" />
-                          )}
-                          <span className={`text-sm font-medium ${
-                            analyticsStatus.enabled ? 'text-green-500' : 'text-red-500'
-                          }`}>
-                            {analyticsStatus.enabled ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-white/80 text-sm">
-                        Events in queue: {analyticsStatus.eventsInQueue}
-                        {analyticsStatus.hasEndpoint && ' • Endpoint configured'}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Pin Statistics */}
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-white/60">Pin Collection</span>
-                      <span className="text-white font-medium">{pins.length} pins</span>
-                    </div>
-                    <div className="text-white/80 text-sm">
-                      {validationReport?.pinCollection?.summary && (
-                        <>
-                          Valid: {validationReport.pinCollection.summary.valid} • 
-                          Invalid: {validationReport.pinCollection.summary.invalid} • 
-                          Errors: {validationReport.pinCollection.summary.totalErrors}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Validation Results */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">Validation Results</h3>
-                  
-                  {validationReport && (
-                    <>
-                      {/* System Configuration */}
-                      <div className="bg-white/10 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-white/60">System Configuration</span>
-                          <div className="flex items-center gap-2">
-                            {validationReport.systemConfig.isValid ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <span className={`text-sm font-medium ${
-                              validationReport.systemConfig.isValid ? 'text-green-500' : 'text-red-500'
-                            }`}>
-                              {validationReport.systemConfig.errors.length} errors
-                            </span>
-                          </div>
-                        </div>
-                        {validationReport.systemConfig.warnings.length > 0 && (
-                          <div className="text-yellow-400 text-sm">
-                            {validationReport.systemConfig.warnings.length} warnings
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Data Consistency */}
-                      <div className="bg-white/10 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-white/60">Data Consistency</span>
-                          <div className="flex items-center gap-2">
-                            {validationReport.dataConsistency.isValid ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <span className={`text-sm font-medium ${
-                              validationReport.dataConsistency.isValid ? 'text-green-500' : 'text-red-500'
-                            }`}>
-                              {validationReport.dataConsistency.errors.length} errors
-                            </span>
-                          </div>
-                        </div>
-                        {validationReport.dataConsistency.warnings.length > 0 && (
-                          <div className="text-yellow-400 text-sm">
-                            {validationReport.dataConsistency.warnings.length} warnings
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* QA Testing Section */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-white mb-4">QA Testing</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    'Tab Navigation',
-                    'Pin Filtering',
-                    'Lifecycle Updates',
-                    'Scoring Engine',
-                    'Maintenance',
-                    'Analytics',
-                    'Validation',
-                    'Performance'
-                  ].map((test) => (
-                    <button
-                      key={test}
-                      onClick={() => runTest(test)}
-                      disabled={activeTests.includes(test)}
-                      className={`
-                        flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
-                        ${activeTests.includes(test)
-                          ? 'bg-blue-600 text-white cursor-not-allowed'
-                          : 'bg-white/10 hover:bg-white/20 text-white'
-                        }
-                      `}
-                    >
-                      {activeTests.includes(test) ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Play className="w-4 h-4" />
-                      )}
-                      {test}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recommendations */}
-              {validationReport?.overall?.recommendations?.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-white mb-4">Recommendations</h3>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <div className="space-y-2">
-                      {validationReport.overall.recommendations.map((rec, index) => (
-                        <div key={index} className="flex items-start gap-2 text-sm">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-white/80">{rec}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="bg-gray-800 px-6 py-3">
-              <div className="flex items-center justify-between">
-                <div className="text-white/60 text-sm">
-                  Last updated: {new Date().toLocaleTimeString()}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={runHealthCheck}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-lg text-white text-sm font-medium transition-colors"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
-                  {onRefresh && (
-                    <button
-                      onClick={onRefresh}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-colors"
-                    >
-                      Refresh Pins
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">System Health</h1>
+        <div className="flex gap-2">
+          <Button 
+            onClick={runHealthCheck} 
+            disabled={isChecking}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+            {isChecking ? 'Checking...' : 'Refresh'}
+          </Button>
+          <Button 
+            onClick={downloadHealthReport}
+            variant="outline"
+            size="sm"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export Report
+          </Button>
         </div>
+      </div>
+
+      {health && (
+        <Alert className={getStatusColor(health.overall.status)}>
+          {getStatusIcon(health.overall.status)}
+          <div className="ml-2">
+            <h3 className="font-semibold">{health.overall.message}</h3>
+            <p className="text-sm opacity-90">
+              Last checked: {new Date().toLocaleTimeString()}
+            </p>
+          </div>
+        </Alert>
       )}
+
+      <Tabs defaultValue="health" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="health">Health Status</TabsTrigger>
+          <TabsTrigger value="logs">Recent Logs</TabsTrigger>
+          <TabsTrigger value="system">System Info</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="health" className="space-y-4">
+          {health && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {Object.entries(health).filter(([key]) => key !== 'overall').map(([key, status]) => (
+                <Card key={key}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      {key === 'storage' && <Database className="h-4 w-4" />}
+                      {key === 'network' && <Wifi className="h-4 w-4" />}
+                      {key === 'location' && <MapPin className="h-4 w-4" />}
+                      {key === 'camera' && <Camera className="h-4 w-4" />}
+                      {key === 'apis' && <Activity className="h-4 w-4" />}
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                      <Badge variant={status.status === 'healthy' ? 'default' : status.status === 'warning' ? 'secondary' : 'destructive'}>
+                        {status.status}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-2">{status.message}</p>
+                    {status.details && (
+                      <details className="text-xs text-gray-500">
+                        <summary className="cursor-pointer">Details</summary>
+                        <pre className="mt-2 p-2 bg-gray-50 rounded overflow-auto">
+                          {JSON.stringify(status.details, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4">
+          <div className="flex items-center gap-2">
+            <select 
+              value={logLevel} 
+              onChange={(e) => setLogLevel(e.target.value as LogLevel)}
+              className="px-3 py-1 border rounded text-sm"
+            >
+              <option value="debug">Debug</option>
+              <option value="info">Info</option>
+              <option value="warn">Warning</option>
+              <option value="error">Error</option>
+              <option value="performance">Performance</option>
+            </select>
+            <Button onClick={loadLogs} variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Logs
+            </Button>
+          </div>
+
+          <div className="space-y-2 max-h-96 overflow-auto">
+            {logs.map((log, index) => (
+              <div key={index} className="p-3 bg-gray-50 rounded text-xs font-mono">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant={log.level === 'error' ? 'destructive' : log.level === 'warn' ? 'secondary' : 'outline'}>
+                    {log.level}
+                  </Badge>
+                  <span className="text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  {log.component && (
+                    <span className="text-blue-600">[{log.component}]</span>
+                  )}
+                </div>
+                <div className="text-gray-800">{log.message}</div>
+                {log.data && (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-gray-600">Data</summary>
+                    <pre className="mt-1 p-2 bg-white rounded overflow-auto max-h-20">
+                      {JSON.stringify(log.data, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Application</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-2">
+                <div><strong>Name:</strong> {APP_CONFIG.NAME}</div>
+                <div><strong>Version:</strong> {APP_CONFIG.VERSION}</div>
+                <div><strong>Environment:</strong> {process.env.NODE_ENV || 'production'}</div>
+                <div><strong>Mobile:</strong> {isMobileDevice() ? 'Yes' : 'No'}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Platform</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-2">
+                <div><strong>User Agent:</strong> {navigator.userAgent.slice(0, 50)}...</div>
+                <div><strong>Language:</strong> {navigator.language}</div>
+                <div><strong>Cookies:</strong> {navigator.cookieEnabled ? 'Enabled' : 'Disabled'}</div>
+                <div><strong>Online:</strong> {navigator.onLine ? 'Yes' : 'No'}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Performance</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-2">
+                <div><strong>Memory:</strong> {(performance as any).memory ? `${Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)}MB` : 'Unknown'}</div>
+                <div><strong>Connection:</strong> {(navigator as any).connection?.effectiveType || 'Unknown'}</div>
+                <div><strong>Hardware:</strong> {navigator.hardwareConcurrency || 'Unknown'} cores</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Logs</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-2">
+                {(() => {
+                  const stats = logger.getStats()
+                  return (
+                    <>
+                      <div><strong>Total:</strong> {stats.total}</div>
+                      <div><strong>Errors:</strong> {stats.byLevel.error}</div>
+                      <div><strong>Warnings:</strong> {stats.byLevel.warn}</div>
+                      <div><strong>Session:</strong> {logger.sessionId.slice(0, 8)}...</div>
+                    </>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 } 
