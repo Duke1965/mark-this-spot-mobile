@@ -39,9 +39,13 @@ export function useMotionDetection() {
     const history = positionHistoryRef.current
     if (history.length < 2) return
 
-    // Keep only last 10 positions (about 1-2 minutes of data)
-    if (history.length > 10) {
-      positionHistoryRef.current = history.slice(-10)
+    // Optimize position history for mobile memory usage
+    const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const maxPositions = isMobile ? 8 : 10 // Fewer positions on mobile to save memory
+    
+    // Keep only recent positions to prevent memory buildup
+    if (history.length > maxPositions) {
+      positionHistoryRef.current = history.slice(-maxPositions)
     }
 
     const recent = history.slice(-3) // Last 3 positions for motion detection
