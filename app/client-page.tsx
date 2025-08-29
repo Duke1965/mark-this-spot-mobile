@@ -13,7 +13,39 @@ import { PinStoryMode } from "@/components/PinStoryMode"
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
-import AIRecommendationsHub from "@/components/AIRecommendationsHub"
+import dynamic from "next/dynamic"
+
+// Lazy load large components for better mobile performance
+const AIRecommendationsHub = dynamic(() => import("@/components/AIRecommendationsHub"), {
+  ssr: false,
+  loading: () => (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "white"
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          width: "48px",
+          height: "48px",
+          border: "4px solid rgba(255,255,255,0.3)",
+          borderTop: "4px solid white",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+          margin: "0 auto 1rem"
+        }} />
+        <p>Loading Recommendations...</p>
+      </div>
+    </div>
+  )
+})
 import { RecommendationForm } from "@/components/RecommendationForm"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
@@ -495,9 +527,19 @@ export default function PINITApp() {
         longitude: location.longitude,
       })
 
-      getLocationName(location.latitude, location.longitude).then((name) => {
-        setLocationName(name)
-      })
+      // Debounce location name updates on mobile for better performance
+      const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const debounceTime = isMobile ? 2000 : 500 // 2 seconds on mobile, 500ms on desktop
+      
+      const timeoutId = setTimeout(() => {
+        getLocationName(location.latitude, location.longitude).then((name) => {
+          setLocationName(name)
+        }).catch((error) => {
+          console.log("📍 Location name update failed:", error)
+        })
+      }, debounceTime)
+
+      return () => clearTimeout(timeoutId)
     }
   }, [location])
 
