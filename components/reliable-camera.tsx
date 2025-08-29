@@ -38,11 +38,15 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
 
+      // Optimize camera constraints for mobile performance
+      const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: isMobile ? 1280 : 1920 }, // Lower resolution on mobile
+          height: { ideal: isMobile ? 720 : 1080 }, // Lower resolution on mobile
+          frameRate: { ideal: isMobile ? 24 : 30 }, // Lower frame rate on mobile to save battery
         },
         audio: mode === "video",
       }
