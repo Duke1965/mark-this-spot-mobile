@@ -4,7 +4,7 @@ import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { getPinsForTab, getLifecycleStatistics, updateAllPinsLifecycle } from '@/lib/pinLifecycle'
 import { updateAllPinScores, getScoreInsights } from '@/lib/scoringEngine'
 import { getMaintenanceStatistics, performNightlyMaintenance } from '@/lib/nightlyMaintenance'
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 
 interface PinManagementState {
   isEnabled: boolean
