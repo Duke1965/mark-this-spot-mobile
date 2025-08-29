@@ -841,21 +841,40 @@ export default function PINITApp() {
       <AIRecommendationsHub
         onBack={() => setCurrentScreen("map")}
         userLocation={location}
-        initialRecommendations={recommendations.map((rec) => ({
-          id: rec.id,
-          title: rec.title,
-          description: rec.description,
-          category: rec.category,
-          location: {
-            lat: location?.latitude || -33.9,
-            lng: location?.longitude || 18.4,
-          },
-          rating: 4.0 + Math.random() * 1.0,
-          isAISuggestion: rec.isAISuggestion || false,
-          confidence: 0.7 + Math.random() * 0.3,
-          reason: rec.description,
-          timestamp: new Date(rec.timestamp),
-        }))}
+        initialRecommendations={[
+          // Include nearby pins with exact coordinates from Google Places
+          ...nearbyPins.map((pin) => ({
+            id: pin.id,
+            title: pin.title,
+            description: pin.description || `${pin.locationName} - AI Recommended`,
+            category: pin.types?.[0] || pin.category || "general",
+            location: {
+              lat: pin.latitude, // EXACT coordinates from Google Places
+              lng: pin.longitude, // EXACT coordinates from Google Places
+            },
+            rating: pin.rating || 4.0,
+            isAISuggestion: true,
+            confidence: 0.8 + Math.random() * 0.2,
+            reason: `AI recommends this ${pin.types?.[0] || 'place'} based on your preferences`,
+            timestamp: new Date(pin.timestamp),
+          })),
+          // Include user-generated recommendations
+          ...recommendations.map((rec) => ({
+            id: rec.id,
+            title: rec.title,
+            description: rec.description,
+            category: rec.category,
+            location: {
+              lat: rec.data?.latitude || location?.latitude || -33.9,
+              lng: rec.data?.longitude || location?.longitude || 18.4,
+            },
+            rating: 4.0 + Math.random() * 1.0,
+            isAISuggestion: rec.isAISuggestion || false,
+            confidence: 0.7 + Math.random() * 0.3,
+            reason: rec.description,
+            timestamp: new Date(rec.timestamp),
+          }))
+        ]}
       />
     )
   }
