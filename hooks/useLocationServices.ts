@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { reverseGeocode } from "@/lib/reverseGeocode"
 
-interface LocationData {
+export interface LocationData {
   latitude: number
   longitude: number
   accuracy: number
