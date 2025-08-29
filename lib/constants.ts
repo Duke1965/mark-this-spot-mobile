@@ -189,30 +189,6 @@ export const SUCCESS_MESSAGES = {
 } as const
 
 // Feature Flags
-// Performance configuration
-export const PERFORMANCE_CONFIG = {
-  LAZY_LOAD_THRESHOLD: 0.1,
-  LAZY_LOAD_ROOT_MARGIN: '50px',
-  IMAGE_OPTIMIZATION: {
-    MAX_WIDTH_MOBILE: 1080,
-    MAX_WIDTH_DESKTOP: 1920,
-    MAX_HEIGHT_MOBILE: 1080,
-    MAX_HEIGHT_DESKTOP: 1920,
-    QUALITY: 0.8,
-    THUMBNAIL_SIZE: 150
-  },
-  CACHE: {
-    MEMORY_CACHE_SIZE_MOBILE: 50,
-    MEMORY_CACHE_SIZE_DESKTOP: 100,
-    DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes
-    PERSISTENT_TTL: 24 * 60 * 60 * 1000 // 24 hours
-  },
-  MEMORY: {
-    WARNING_THRESHOLD_MB: 100,
-    CLEANUP_INTERVAL: 30000 // 30 seconds
-  }
-} as const
-
 export const FEATURE_FLAGS = {
   ENABLE_OFFLINE_MODE: true,
   ENABLE_AUTO_HEALING: true,
@@ -222,6 +198,4 @@ export const FEATURE_FLAGS = {
   ENABLE_ADVANCED_CAMERA: true,
   ENABLE_STORY_MODE: true,
   ENABLE_PROACTIVE_AI: true,
-  ENABLE_PERFORMANCE_MONITORING: true,
-  ENABLE_LAZY_LOADING: true,
 } as const 
