@@ -1,8 +1,7 @@
 // Enhanced Logging System for PINIT
 // Provides structured logging with different levels and persistence
 
-import { APP_CONFIG } from './constants'
-import { generateUniqueId, isMobileDevice } from './helpers'
+// Remove imports from deleted files
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'performance'
 
@@ -28,7 +27,7 @@ class Logger {
   private flushInterval: NodeJS.Timeout | null = null
 
   constructor() {
-    this.sessionId = generateUniqueId()
+    this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
     this.initializeLogging()
   }
 
@@ -48,7 +47,7 @@ class Logger {
 
   private createLogEntry(level: LogLevel, message: string, data?: any, component?: string): LogEntry {
     return {
-      id: generateUniqueId(),
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
       level,
       message,
       data,
@@ -57,7 +56,7 @@ class Logger {
       sessionId: this.sessionId,
       url: typeof window !== 'undefined' ? window.location.href : '',
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-      isMobile: isMobileDevice()
+      isMobile: typeof navigator !== 'undefined' ? /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) : false
     }
   }
 
@@ -193,8 +192,8 @@ class Logger {
   public exportLogs(): string {
     const allLogs = this.getLogs()
     return JSON.stringify({
-      app: APP_CONFIG.NAME,
-      version: APP_CONFIG.VERSION,
+      app: 'PINIT',
+      version: '1.0.0',
       sessionId: this.sessionId,
       exportedAt: new Date().toISOString(),
       totalLogs: allLogs.length,
