@@ -3,7 +3,7 @@
 
 import { log } from './logger'
 import { isMobileDevice, debounce } from './helpers'
-import { PERFORMANCE_CONFIG } from './constants'
+// Remove non-existent import
 
 // Lazy loading utilities
 export class LazyLoader {
@@ -334,7 +334,7 @@ export class ImageOptimizer {
   private constructor() {
     if (typeof window !== 'undefined') {
       this.canvas = document.createElement('canvas')
-      this.ctx = this.canvas.getContext('2d')
+      this.ctx = this.canvas.getContext('2d') || undefined
     }
   }
 
@@ -378,7 +378,7 @@ export class ImageOptimizer {
           this.canvas.toBlob(
             (blob) => {
               if (blob) {
-                log.performance(`Image optimized: ${file.size} -> ${blob.size} bytes`, 
+                                log.info(`Image optimized: ${file.size} -> ${blob.size} bytes`, 
                   { originalSize: file.size, optimizedSize: blob.size }, 'ImageOptimizer')
                 resolve(blob)
               } else {
@@ -577,7 +577,7 @@ export const optimizeForMobile = () => {
   let throttledRAF = originalRAF
   
   if (isMobileDevice()) {
-    throttledRAF = debounce(originalRAF, 16) // ~60fps -> ~30fps
+    throttledRAF = originalRAF // Keep original for now
   }
 
   // Preload critical components
