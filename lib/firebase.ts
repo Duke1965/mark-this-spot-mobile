@@ -26,23 +26,54 @@ if (typeof window !== "undefined") {
   }
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase only if properly configured
+let app: any = null
+let auth: any = null
 
-// Initialize Firebase Authentication
-export const auth = getAuth(app)
+try {
+  if (isFirebaseConfigured()) {
+    app = initializeApp(firebaseConfig)
+    auth = getAuth(app)
+  } else {
+    // Create mock auth object for demo mode
+    auth = {
+      currentUser: null,
+      onAuthStateChanged: (callback: (user: any) => void) => {
+        // Call callback with null user immediately for demo mode
+        setTimeout(() => callback(null), 0)
+        return () => {} // Return unsubscribe function
+      },
+    }
+  }
+} catch (error) {
+  console.error("🔥 Firebase initialization failed:", error)
+  // Fallback mock auth
+  auth = {
+    currentUser: null,
+    onAuthStateChanged: (callback: (user: any) => void) => {
+      setTimeout(() => callback(null), 0)
+      return () => {}
+    },
+  }
+}
 
-// Auth providers
-export const googleProvider = new GoogleAuthProvider()
-export const facebookProvider = new FacebookAuthProvider()
+export { auth }
 
-// Configure providers
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-})
+// Auth providers (only initialize if Firebase is configured)
+export const googleProvider = isFirebaseConfigured() ? new GoogleAuthProvider() : null
+export const facebookProvider = isFirebaseConfigured() ? new FacebookAuthProvider() : null
 
-facebookProvider.setCustomParameters({
-  display: 'popup'
-})
+// Configure providers only if they exist
+if (googleProvider) {
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  })
+}
+
+if (facebookProvider) {
+  facebookProvider.setCustomParameters({
+    display: 'popup'
+  })
+}
 
 export default app 
