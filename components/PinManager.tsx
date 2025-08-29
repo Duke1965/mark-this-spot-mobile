@@ -1,7 +1,8 @@
 "use client"
 
 import { Save, X, Play } from "lucide-react"
-import type { MediaType, PinData } from "@/app/client-page"
+import type { PinData } from "@/app/client-page"
+import type { MediaType } from "@/lib/types"
 
 interface PinManagerProps {
   mediaUrl: string | null
