@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { MapPin, Calendar, Share2, Save, ArrowLeft, MessageCircle, Instagram, Facebook, Twitter, Star } from "lucide-react"
-import type { PinData } from "@/app/page"
+import type { PinData } from "@/app/client-page"
 
 interface PinResultsProps {
   pin: PinData
