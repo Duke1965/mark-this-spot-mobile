@@ -393,14 +393,15 @@ export async function GET(request: NextRequest) {
 
 // Add POST method support to handle frontend requests
 export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { lat, lng, radius = "5000" } = body
+  
+  // Detect mobile vs desktop from headers
+  const userAgent = request.headers.get("user-agent") || ""
+  const deviceType = request.headers.get("x-device-type") || "unknown"
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || deviceType === "mobile"
+  
   try {
-    const body = await request.json()
-    const { lat, lng, radius = "5000" } = body
-    
-    // Detect mobile vs desktop from headers
-    const userAgent = request.headers.get("user-agent") || ""
-    const deviceType = request.headers.get("x-device-type") || "unknown"
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || deviceType === "mobile"
     
     console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Places API POST request:`, { lat, lng, radius, deviceType })
 
@@ -517,7 +518,7 @@ export async function POST(request: NextRequest) {
               vicinity = parts[parts.length - 2]?.trim() || ""
             }
             
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding:`, { placeName, vicinity })
+            console.log(`📍 Created place from geocoding:`, { placeName, vicinity })
             
             return NextResponse.json({
               results: [{
@@ -541,11 +542,11 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (geocodeError) {
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback failed:`, geocodeError)
+        console.log(`📍 Geocoding fallback failed:`, geocodeError)
       }
       
       // Only fall back to mock data if we really can't find anything
-      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
+      console.log(`🔄 Falling back to mock data after no Google results`)
       const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
       return NextResponse.json({
         results: mockPlaces,
@@ -556,10 +557,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API POST error:`, error)
+    console.error(`❌ Google Places API POST error:`, error)
 
     // Only fall back to mock data on actual API errors
-    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after API error`)
+    console.log(`🔄 Falling back to mock data after API error`)
     const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
     
     return NextResponse.json({
