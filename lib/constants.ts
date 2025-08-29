@@ -69,6 +69,7 @@ export const STORAGE_CONFIG = {
   MAX_PINS_MOBILE_FALLBACK: 50,
   MAX_AI_BEHAVIORS: 100,
   MAX_BACKUP_RETENTION_DAYS: 30,
+  MAX_STORAGE_MB: 10,
   
   // Export settings
   EXPORT_VERSION: '1.0',
@@ -175,6 +176,7 @@ export const ERROR_MESSAGES = {
   STORAGE_QUOTA_EXCEEDED: 'Storage full. Some old pins may have been removed.',
   FIREBASE_NOT_CONFIGURED: 'Authentication not available. Please contact support.',
   GOOGLE_MAPS_ERROR: 'Map services unavailable. Using fallback map.',
+  GENERIC_ERROR: 'Something went wrong. Please try again.',
 } as const
 
 // Success Messages
@@ -188,6 +190,30 @@ export const SUCCESS_MESSAGES = {
   DATA_EXPORTED: 'Data exported! 📤',
 } as const
 
+// Performance configuration
+export const PERFORMANCE_CONFIG = {
+  LAZY_LOAD_THRESHOLD: 0.1,
+  LAZY_LOAD_ROOT_MARGIN: '50px',
+  IMAGE_OPTIMIZATION: {
+    MAX_WIDTH_MOBILE: 1080,
+    MAX_WIDTH_DESKTOP: 1920,
+    MAX_HEIGHT_MOBILE: 1080,
+    MAX_HEIGHT_DESKTOP: 1920,
+    QUALITY: 0.8,
+    THUMBNAIL_SIZE: 150
+  },
+  CACHE: {
+    MEMORY_CACHE_SIZE_MOBILE: 50,
+    MEMORY_CACHE_SIZE_DESKTOP: 100,
+    DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes
+    PERSISTENT_TTL: 24 * 60 * 60 * 1000 // 24 hours
+  },
+  MEMORY: {
+    WARNING_THRESHOLD_MB: 100,
+    CLEANUP_INTERVAL: 30000 // 30 seconds
+  }
+} as const
+
 // Feature Flags
 export const FEATURE_FLAGS = {
   ENABLE_OFFLINE_MODE: true,
@@ -198,4 +224,6 @@ export const FEATURE_FLAGS = {
   ENABLE_ADVANCED_CAMERA: true,
   ENABLE_STORY_MODE: true,
   ENABLE_PROACTIVE_AI: true,
+  ENABLE_PERFORMANCE_MONITORING: true,
+  ENABLE_LAZY_LOADING: true,
 } as const 
