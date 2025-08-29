@@ -162,10 +162,7 @@ export function validatePin(pin: PinData, rules: Partial<PinValidationRules> = {
     warnings.push('Pin has many tags (>20)')
   }
 
-  // AI content validation
-  if (pin.aiGenerated && !pin.title && !pin.description) {
-    warnings.push('AI-generated pin lacks content')
-  }
+  // Remove reference to non-existent aiGenerated property
 
   // Social validation
   if (pin.totalEndorsements !== undefined && pin.downvotes !== undefined) {
