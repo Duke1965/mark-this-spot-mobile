@@ -91,8 +91,8 @@ export function useLocationServices() {
 
       const defaultOptions: PositionOptions = {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
+        timeout: 15000, // Increased to 15 seconds for better reliability
+        maximumAge: 60000, // Reduced to 1 minute for fresher location data
         ...options,
       }
 
