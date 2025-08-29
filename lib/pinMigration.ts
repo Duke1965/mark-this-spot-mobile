@@ -1,8 +1,9 @@
 // Pin Migration Helper
 // Upgrades existing pins to the new pin management system
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { MAP_LIFECYCLE } from './mapLifecycle'
 import { daysAgo } from './trending'
+import { validatePin } from './validation'
 
 /**
  * Migrate existing pin to new pin management system
@@ -17,6 +18,12 @@ export function migratePinToNewSystem(pin: PinData): PinData {
 
   const now = new Date().toISOString()
   const daysSinceCreation = daysAgo(pin.timestamp)
+  
+  // Validate input pin first
+  const validation = validatePin(pin, { requirePlaceId: false })
+  if (!validation.isValid) {
+    console.warn('⚠️ Migrating invalid pin:', validation.errors)
+  }
   
   // Generate a unique place ID for this pin
   const placeId = `place_${pin.id}`
