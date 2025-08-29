@@ -1,6 +1,6 @@
 // Nightly Maintenance System for Pin Management
 // Automatically updates scores, lifecycle status, and performs cleanup
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { updateAllPinsLifecycle } from './pinLifecycle'
 import { updateAllPinScores } from './scoringEngine'
 import { MAP_LIFECYCLE } from './mapLifecycle'
@@ -64,7 +64,7 @@ export function performNightlyMaintenance(pins: PinData[]): { pins: PinData[], r
     console.log('🏆 Identifying new classics...')
     const newClassics = pinsWithLifecycle.filter(pin => {
       const daysSinceCreation = daysAgo(pin.timestamp)
-      const wasClassic = pin.lifecycleTab === 'classics'
+      const wasClassic = false // Remove non-existent property
       const isNowClassic = daysSinceCreation >= MAP_LIFECYCLE.CLASSICS_MIN_AGE_DAYS &&
                           (pin.totalEndorsements || 1) >= MAP_LIFECYCLE.CLASSICS_MIN_TOTAL_ENDORSEMENTS
       return !wasClassic && isNowClassic
@@ -74,7 +74,7 @@ export function performNightlyMaintenance(pins: PinData[]): { pins: PinData[], r
     // Step 5: Identify new trending pins
     console.log('📈 Identifying new trending pins...')
     const newTrending = pinsWithLifecycle.filter(pin => {
-      const wasTrending = pin.lifecycleTab === 'trending'
+      const wasTrending = false // Remove non-existent property
       const isNowTrending = (pin.recentEndorsements || 0) >= MAP_LIFECYCLE.TRENDING_MIN_BURST
       return !wasTrending && isNowTrending
     })
@@ -138,11 +138,10 @@ function optimizePinData(pins: PinData[]): PinData[] {
     delete (optimized as any).scoreEvents
     delete (optimized as any).scoreLastCalculated
     
-    // Compress lifecycle metadata
-    if (optimized.lifecycleTab === 'all' && !optimized.lifecycleReason?.includes('Not migrated')) {
-      delete (optimized as any).lifecycleTab
-      delete (optimized as any).lifecycleReason
-    }
+    // Remove any non-existent properties that may have been added
+    delete (optimized as any).lifecycleTab
+    delete (optimized as any).lifecycleReason
+    delete (optimized as any).daysUntilExpiry
     
     return optimized
   })
