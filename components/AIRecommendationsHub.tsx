@@ -439,35 +439,51 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
             const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
             
+            // Fetch real places from Google Places API for each category
             for (const category of shuffledCategories) {
-              // Generate random offset for location
-              const offsetLat = (Math.random() - 0.5) * 0.01
-              const offsetLng = (Math.random() - 0.5) * 0.01
-              const recLat = location.latitude + offsetLat
-              const recLng = location.longitude + offsetLng
-              
-              // Try to get real place name
-              const placeInfo = await fetchPlaceName(recLat, recLng)
-              
-              aiRecs.push({
-                id: `ai-${category}-${Date.now()}-${category}`,
-                title: placeInfo?.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Spot`,
-                description: placeInfo?.name ? 
-                  `Found this ${category} place that looks perfect for you!` :
-                  `Found this ${category} place that looks perfect for you!`,
-                category: category,
-                location: {
-                  lat: recLat,
-                  lng: recLng
-                },
-                rating: 4 + Math.random(),
-                isAISuggestion: true,
-                confidence: Math.round(insights.userPersonality.confidence * 100),
-                reason: `Learned from your ${category} preferences`,
-                timestamp: new Date(),
-                // NEW: Add fallback image if no Google photo
-                fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage(category)
-              })
+              try {
+                // Get real places for this category from Google Places API
+                const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
+                
+                if (response.ok) {
+                  const data = await response.json()
+                  const places = data.results || []
+                  
+                  // Filter places by category preference
+                  const categoryPlaces = places.filter((place: any) => 
+                    place.types?.some((type: string) => 
+                      type.includes(category) || 
+                      (category === 'food' && ['restaurant', 'cafe', 'meal_takeaway', 'bakery'].includes(type)) ||
+                      (category === 'adventure' && ['tourist_attraction', 'amusement_park', 'park'].includes(type)) ||
+                      (category === 'culture' && ['museum', 'art_gallery', 'library'].includes(type)) ||
+                      (category === 'nature' && ['park', 'natural_feature'].includes(type))
+                    )
+                  )
+                  
+                  if (categoryPlaces.length > 0) {
+                    const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
+                    
+                    aiRecs.push({
+                      id: `ai-${category}-${selectedPlace.place_id}`,
+                      title: selectedPlace.name,
+                      description: `AI recommends this ${category} spot based on your preferences`,
+                      category: category,
+                      location: {
+                        lat: selectedPlace.geometry.location.lat, // EXACT Google Places coordinates
+                        lng: selectedPlace.geometry.location.lng, // EXACT Google Places coordinates
+                      },
+                      rating: selectedPlace.rating || 4.0,
+                      isAISuggestion: true,
+                      confidence: Math.round(insights.userPersonality.confidence * 100),
+                      reason: `Learned from your ${category} preferences`,
+                      timestamp: new Date(),
+                      fallbackImage: selectedPlace.photos?.[0] ? undefined : getFallbackImage(category)
+                    })
+                  }
+                }
+              } catch (error) {
+                console.log(`🧠 Error fetching ${category} recommendations:`, error)
+              }
             }
           }
           
