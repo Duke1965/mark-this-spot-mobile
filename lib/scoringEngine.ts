@@ -1,6 +1,6 @@
 // Scoring Engine for Pin Management System
 // Calculates trending scores based on user activity with time decay
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { MAP_LIFECYCLE } from './mapLifecycle'
 import { computeTrendingScore, daysAgo, getEventWeight } from './trending'
 
@@ -105,10 +105,8 @@ export function updatePinScore(pin: PinData): PinData {
   
   return {
     ...pin,
-    score: scoreCalculation.currentScore,
-    scoreChange: scoreCalculation.change,
-    scoreEvents: scoreCalculation.events,
-    scoreLastCalculated: scoreCalculation.lastCalculated
+    score: scoreCalculation.currentScore
+    // Remove invented properties - keep original pin structure
   }
 }
 
@@ -165,9 +163,13 @@ export function getScoreInsights(pin: PinData, allPins: PinData[]) {
   const percentile = getScorePercentile(pin, allPins)
   const isTrending = isPinTrending(pin, allPins)
   
+  // Calculate trend based on recent vs total endorsements
   let trend: 'rising' | 'falling' | 'stable' = 'stable'
-  if (pin.scoreChange && Math.abs(pin.scoreChange) > 0.1) {
-    trend = pin.scoreChange > 0 ? 'rising' : 'falling'
+  const recentRatio = (pin.recentEndorsements || 0) / Math.max(pin.totalEndorsements || 1, 1)
+  if (recentRatio > 0.3) {
+    trend = 'rising'
+  } else if (recentRatio < 0.1 && (pin.totalEndorsements || 0) > 5) {
+    trend = 'falling'
   }
   
   return {
