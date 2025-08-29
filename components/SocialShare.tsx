@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { ArrowLeft, Instagram, Facebook, MessageCircle, Share2, Edit3, Download } from "lucide-react"
 import type { LocationData } from "@/hooks/useLocationServices"
-import type { MediaType } from "@/app/client-page"
+import type { MediaType } from "@/lib/types"
 
 interface SocialShareProps {
   mediaUrl: string
@@ -84,7 +84,7 @@ export function SocialShare({ mediaUrl, mediaType, location, onShare, onEdit, on
 
   const handlePlatformSelect = useCallback(
     (platform: (typeof socialPlatforms)[0]) => {
-      const caption = platform.template.replace("{location}", location?.name || "an amazing location")
+      const caption = platform.template.replace("{location}", "an amazing location")
       setCustomCaption(caption)
       setSelectedPlatform(platform.id)
     },
@@ -155,7 +155,7 @@ export function SocialShare({ mediaUrl, mediaType, location, onShare, onEdit, on
           <div className="text-center mt-3 text-white/90">
             <div className="flex items-center justify-center gap-2">
               <span className="text-red-400">📍</span>
-              <span className="font-semibold">{location.name}</span>
+              <span className="font-semibold">Current Location</span>
             </div>
           </div>
         )}
