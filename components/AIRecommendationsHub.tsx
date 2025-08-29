@@ -673,21 +673,21 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           console.log('🗺️ User location marker updated')
         } else {
           // Create new marker only if it doesn't exist
-          const marker = new window.google.maps.Marker({
-            position: { lat: location.latitude, lng: location.longitude },
-            map: mapInstanceRef.current,
-            title: 'Your Location',
-            icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
-                  <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-                </svg>
-              `),
-              scaledSize: new window.google.maps.Size(24, 24)
-            }
-          })
-          
+        const marker = new window.google.maps.Marker({
+          position: { lat: location.latitude, lng: location.longitude },
+          map: mapInstanceRef.current,
+          title: 'Your Location',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(24, 24)
+          }
+        })
+        
           // Store reference to marker
           userLocationMarkerRef.current = marker
           console.log('🗺️ User location marker created')
@@ -760,7 +760,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       // Create and load new script
       console.log('🗺️ Creating new Google Maps script...')
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'DEMO_KEY'}&libraries=places`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&libraries=places`
       script.async = true
       script.onload = () => {
         console.log('🗺️ New Google Maps script loaded successfully')
@@ -1519,25 +1519,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               
               {/* NEW: Back button when showing cluster recommendations */}
               {isShowingCluster && (
-                                  <button
-                    onClick={() => {
-                      setIsShowingCluster(false)
-                      setFilteredRecommendations([])
-                      setCurrentCluster(null)
-                      console.log('🧠 Returning to all recommendations')
-                    }}
-                    style={{
+                <button
+                  onClick={() => {
+                    setIsShowingCluster(false)
+                    setFilteredRecommendations([])
+                    setCurrentCluster(null)
+                    console.log('🧠 Returning to all recommendations')
+                  }}
+                  style={{
                       background: 'rgba(255,255,255,0.15)',
-                      border: '1px solid rgba(255,255,255,0.2)',
+                    border: '1px solid rgba(255,255,255,0.2)',
                       borderRadius: '0.75rem',
                       padding: '0.5rem 0.75rem',
-                      color: 'white',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
+                    color: 'white',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
                       whiteSpace: 'nowrap',
                       backdropFilter: 'blur(10px)',
-                    }}
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
                   }}
