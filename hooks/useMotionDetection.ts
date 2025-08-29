@@ -116,10 +116,13 @@ export function useMotionDetection() {
       return
     }
 
+    // Optimize motion detection for mobile battery life
+    const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
     const options: PositionOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000, // 5 seconds
+      enableHighAccuracy: isMobile ? false : true, // Lower accuracy on mobile saves significant battery
+      timeout: isMobile ? 15000 : 10000, // More time for mobile GPS
+      maximumAge: isMobile ? 15000 : 5000, // Cache longer on mobile to reduce GPS usage
     }
 
     const handlePosition = (position: GeolocationPosition) => {
