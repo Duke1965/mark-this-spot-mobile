@@ -57,15 +57,15 @@ export async function GET(request: NextRequest) {
     }))
     
     // Calculate average score
-    const totalScore = pins.reduce((sum: number, pin) => sum + (pin.score || 0), 0)
+    const totalScore = pins.reduce((sum: number, pin: any) => sum + (pin.score || 0), 0)
     const averageScore = pins.length > 0 ? totalScore / pins.length : 0
     
     // Get maintenance status
     const maintenanceStats = getMaintenanceStatistics(pins)
     
     // Check migration status
-    const needsMigration = pins.some(pin => !pin.placeId)
-    const migratedPins = pins.filter(pin => pin.placeId).length
+    const needsMigration = pins.some((pin: any) => !pin.placeId)
+    const migratedPins = pins.filter((pin: any) => pin.placeId).length
     
     // System health assessment
     let systemHealth: 'healthy' | 'warning' | 'critical' = 'healthy'
@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
     }
     
     // Check for any hidden pins
-    const hiddenPins = pins.filter(pin => pin.isHidden).length
+    const hiddenPins = pins.filter((pin: any) => pin.isHidden).length
     
     // Check for pins with high downvote ratios
-    const problematicPins = pins.filter(pin => {
+    const problematicPins = pins.filter((pin: any) => {
       if (!pin.downvotes || pin.downvotes === 0) return false
       const ratio = pin.downvotes / (pin.totalEndorsements || 1)
       return ratio > 0.5
@@ -101,9 +101,9 @@ export async function GET(request: NextRequest) {
         topPins,
         trendingPins,
         scoreDistribution: {
-          high: pins.filter(p => (p.score || 0) >= 2.0).length,
-          medium: pins.filter(p => (p.score || 0) >= 1.0 && (p.score || 0) < 2.0).length,
-          low: pins.filter(p => (p.score || 0) < 1.0).length
+          high: pins.filter((p: any) => (p.score || 0) >= 2.0).length,
+          medium: pins.filter((p: any) => (p.score || 0) >= 1.0 && (p.score || 0) < 2.0).length,
+          low: pins.filter((p: any) => (p.score || 0) < 1.0).length
         }
       },
       
