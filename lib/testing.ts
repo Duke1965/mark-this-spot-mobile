@@ -1,7 +1,8 @@
 // Testing and Quality Assurance Utilities for PINIT
 // Provides automated testing, validation, and debugging tools
 
-import { PinData, LocationData, UserBehavior } from './types'
+import { PinData } from '@/app/client-page'
+import { LocationData } from '@/hooks/useLocationServices'
 import { logger } from './logger'
 import { validatePin } from './validation'
 import { 
@@ -37,6 +38,9 @@ export const mockData = {
     latitude: 37.7749,
     longitude: -122.4194,
     locationName: "Test Location",
+    mediaUrl: null,
+    mediaType: null,
+    audioUrl: null,
     title: "Test Pin",
     description: "A test pin for quality assurance",
     timestamp: new Date().toISOString(),
@@ -52,13 +56,12 @@ export const mockData = {
   location: (overrides?: Partial<LocationData>): LocationData => ({
     latitude: 37.7749,
     longitude: -122.4194,
-    name: "Test Location",
     accuracy: 10,
-    timestamp: new Date().toISOString(),
+    timestamp: Date.now(),
     ...overrides
   }),
 
-  behavior: (overrides?: Partial<UserBehavior>): UserBehavior => ({
+  behavior: (overrides?: any): any => ({
     id: `test-behavior-${Date.now()}`,
     type: 'pin_created',
     data: { category: 'restaurant' },
