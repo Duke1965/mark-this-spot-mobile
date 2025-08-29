@@ -359,7 +359,8 @@ export default function PINITApp() {
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
 
       if (!photoResponse.ok) {
-        throw new Error("Failed to fetch location data")
+        console.log(`📸 Places API returned ${photoResponse.status}, using placeholder`)
+        return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
       }
 
       const data = await photoResponse.json()
@@ -369,19 +370,25 @@ export default function PINITApp() {
         const closestPlace = data.results[0]
         if (closestPlace.photos && closestPlace.photos.length > 0) {
           const bestPhoto = closestPlace.photos[0]
-          const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAPtBMskh6ax63qSd4ye2DPaLo7W5bzSqo"}`
+          const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+          
+          if (apiKey) {
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${apiKey}`
 
-          photos.push({
-            url: photoUrl,
-            placeName: closestPlace.name || "Unknown Place",
-          })
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place",
+            })
 
-          console.log(`✅ Found location photo: ${closestPlace.name}`)
-          return photos
+            console.log(`✅ Found location photo: ${closestPlace.name}`)
+            return photos
+          } else {
+            console.log("📸 Google Maps API key not configured")
+          }
         }
       }
 
-      console.log("📸 No location photos found, using placeholder")
+      console.log("📸 No location photos found or API key missing, using placeholder")
       return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
     } catch (error) {
       console.error("❌ Error fetching location photos:", error)
