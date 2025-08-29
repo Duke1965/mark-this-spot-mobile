@@ -151,6 +151,7 @@ export default function PINITApp() {
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
   const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
   const [recommendationData, setRecommendationData] = useState<{
     mediaUrl: string
     locationName: string
@@ -418,6 +419,27 @@ export default function PINITApp() {
       localStorage.removeItem("pinit-app-state")
       setCurrentScreen("map")
       setLastActivity("app-start-fresh")
+      
+      // Set up network monitoring
+      setIsOnline(navigator.onLine)
+      
+      const handleOnline = () => {
+        setIsOnline(true)
+        console.log("🌐 Network connection restored")
+      }
+      
+      const handleOffline = () => {
+        setIsOnline(false)
+        console.log("🌐 Network connection lost - entering offline mode")
+      }
+      
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
+      
+      return () => {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
     } catch (error) {
       console.error("❌ Error during app startup reset:", error)
     }
@@ -497,16 +519,34 @@ export default function PINITApp() {
     if (!location || typeof window === 'undefined') return
 
     console.log("🌐 Discovering real nearby places...")
+    setIsLoadingPlaces(true)
 
     try {
-      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
+      // Check network connectivity
+      if (!navigator.onLine) {
+        console.log("🌐 Offline mode: Using cached or mock data")
+        setIsLoadingPlaces(false)
+        return
+      }
+
+      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`, {
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      })
 
       if (!response.ok) {
-        throw new Error("Failed to fetch places from API")
+        console.log(`🌐 Places API returned ${response.status}, continuing with available data`)
+        setIsLoadingPlaces(false)
+        return
       }
 
       const data = await response.json()
       const realPlaces = data.results || []
+
+      if (realPlaces.length === 0) {
+        console.log("🌐 No nearby places found")
+        setIsLoadingPlaces(false)
+        return
+      }
 
       const transformedPlaces = realPlaces.map((place: any) => ({
         id: place.place_id,
@@ -531,8 +571,15 @@ export default function PINITApp() {
       setNearbyPins(transformedPlaces)
       setShowNearbyPins(true)
       setLastActivity("discovery")
+      console.log(`🌐 Successfully loaded ${transformedPlaces.length} nearby places`)
     } catch (error) {
-      console.error("🌐 Error fetching nearby places:", error)
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        console.log("🌐 Request timeout: Network may be slow")
+      } else {
+        console.error("🌐 Error fetching nearby places:", error)
+      }
+    } finally {
+      setIsLoadingPlaces(false)
     }
   }, [location])
 
