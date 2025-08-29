@@ -11,7 +11,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "complete">("welcome")
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "complete">("welcome")
   const [userProfile, setUserProfile] = useState({
     name: "",
     email: "",
@@ -61,7 +61,11 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("theme")
         break
       case "theme":
-        console.log("📝 Moving from theme to complete")
+        console.log("📝 Moving from theme to data")
+        setCurrentStep("data")
+        break
+      case "data":
+        console.log("📝 Moving from data to complete")
         setCurrentStep("complete")
         break
       case "complete":
@@ -590,6 +594,148 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
                   marginTop: "1rem"
                 }}
               >
+                Continue to Data Settings
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Data Management Step */}
+        {currentStep === "data" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>💾</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Data Management</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Manage your PINIT data, backups, and privacy settings.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "350px", margin: "0 auto" }}>
+              {/* Export Data */}
+              <button
+                onClick={() => {
+                  console.log("📤 Exporting user data")
+                  // This would integrate with usePinStorage exportPins function
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>📤</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: "600" }}>Export My Data</div>
+                    <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Download all pins & settings</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Create Backup */}
+              <button
+                onClick={() => {
+                  console.log("📦 Creating data backup")
+                  // This would integrate with usePinStorage createBackup function
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>💾</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: "600" }}>Create Backup</div>
+                    <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Safe copy of your data</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Privacy Settings */}
+              <div style={{
+                background: "rgba(255,255,255,0.15)",
+                padding: "1rem",
+                borderRadius: "0.75rem",
+                border: "1px solid rgba(255,255,255,0.3)"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>🔒</span>
+                  <div style={{ fontWeight: "600", color: "white" }}>Privacy Settings</div>
+                </div>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.875rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "white" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={userProfile.preferences.shareByDefault}
+                      onChange={(e) => setUserProfile(prev => ({
+                        ...prev,
+                        preferences: { ...prev.preferences, shareByDefault: e.target.checked }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Share discoveries by default
+                  </label>
+                  
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "white" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={userProfile.preferences.locationSharing}
+                      onChange={(e) => setUserProfile(prev => ({
+                        ...prev,
+                        preferences: { ...prev.preferences, locationSharing: e.target.checked }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Allow location sharing
+                  </label>
+                  
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "white" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={userProfile.preferences.publicProfile}
+                      onChange={(e) => setUserProfile(prev => ({
+                        ...prev,
+                        preferences: { ...prev.preferences, publicProfile: e.target.checked }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Make profile public
+                  </label>
+                </div>
+              </div>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  marginTop: "1rem"
+                }}
+              >
                 Complete Setup
               </button>
             </div>
@@ -695,7 +841,7 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
             marginBottom: "2rem",
             gap: "0.5rem"
           }}>
-            {["login", "profile", "social", "location", "theme", "complete"].map((step, index) => (
+            {["login", "profile", "social", "location", "theme", "data", "complete"].map((step, index) => (
               <div
                 key={step}
                 style={{
