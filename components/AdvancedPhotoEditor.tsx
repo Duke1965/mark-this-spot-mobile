@@ -149,7 +149,7 @@ export function AdvancedPhotoEditor({ imageUrl, onSave, onShare, onBack }: Advan
 
     // Draw template overlay
     if (selectedTemplate) {
-      const templateImg = new Image()
+      const templateImg = document.createElement('img')
       templateImg.onload = () => {
         ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height)
       }
