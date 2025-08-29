@@ -36,40 +36,31 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
   })
 
   const handleNext = () => {
-    console.log("🔄 handleNext called, current step:", currentStep)
     switch (currentStep) {
       case "welcome":
-        console.log("📝 Moving from welcome to login")
         setCurrentStep("login")
         break
       case "login":
         if (user) {
-          console.log("📝 Moving from login to profile")
           setCurrentStep("profile")
         }
         break
       case "profile":
-        console.log("📝 Moving from profile to social")
         setCurrentStep("social")
         break
       case "social":
-        console.log("📝 Moving from social to location")
         setCurrentStep("location")
         break
       case "location":
-        console.log("📝 Moving from location to theme")
         setCurrentStep("theme")
         break
       case "theme":
-        console.log("📝 Moving from theme to data")
         setCurrentStep("data")
         break
       case "data":
-        console.log("📝 Moving from data to complete")
         setCurrentStep("complete")
         break
       case "complete":
-        console.log("📝 Completing setup")
         onComplete()
         break
     }
