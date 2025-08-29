@@ -80,14 +80,21 @@ const ENV_OVERRIDES: Record<string, Partial<ProductionConfig>> = {
     },
     security: {
       rateLimitEnabled: false,
-      maxRequestsPerMinute: 1000
+      maxRequestsPerMinute: 1000,
+      allowedOrigins: ['*'],
+      requireAuthentication: false
     },
     monitoring: {
       healthCheckInterval: 30000, // 30 seconds
-      logLevel: 'debug'
+      errorReportingEnabled: false,
+      performanceMonitoringEnabled: false,
+      logLevel: 'debug' as const
     },
     features: {
       analyticsEnabled: false,
+      clusteringEnabled: true,
+      lifecycleManagementEnabled: true,
+      maintenanceEnabled: true,
       validationEnabled: true
     }
   },
@@ -101,11 +108,15 @@ const ENV_OVERRIDES: Record<string, Partial<ProductionConfig>> = {
     },
     security: {
       rateLimitEnabled: true,
-      maxRequestsPerMinute: 200
+      maxRequestsPerMinute: 200,
+      allowedOrigins: ['https://pinit.app'],
+      requireAuthentication: true
     },
     monitoring: {
       healthCheckInterval: 120000, // 2 minutes
-      logLevel: 'info'
+      errorReportingEnabled: true,
+      performanceMonitoringEnabled: true,
+      logLevel: 'info' as const
     }
   },
   
@@ -118,11 +129,15 @@ const ENV_OVERRIDES: Record<string, Partial<ProductionConfig>> = {
     },
     security: {
       rateLimitEnabled: true,
-      maxRequestsPerMinute: 50
+      maxRequestsPerMinute: 50,
+      allowedOrigins: ['https://pinit.app'],
+      requireAuthentication: true
     },
     monitoring: {
       healthCheckInterval: 300000, // 5 minutes
-      logLevel: 'error'
+      errorReportingEnabled: true,
+      performanceMonitoringEnabled: true,
+      logLevel: 'error' as const
     }
   }
 }
@@ -213,7 +228,9 @@ export class PerformanceOptimizer {
     // Clean up old cache entries
     if (this.cache.size > 100) {
       const oldestKey = this.cache.keys().next().value
-      this.cache.delete(oldestKey)
+      if (oldestKey) {
+        this.cache.delete(oldestKey)
+      }
     }
   }
 
