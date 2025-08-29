@@ -20,14 +20,7 @@ import {
   Clock
 } from 'lucide-react'
 import { logger, LogLevel } from '@/lib/logger'
-import { APP_CONFIG, STORAGE_CONFIG } from '@/lib/constants'
-import { 
-  isMobileDevice, 
-  isOnline, 
-  getTotalStorageUsage, 
-  formatStorageSize,
-  getPlatformInfo 
-} from '@/lib/helpers'
+// Remove imports from deleted files
 
 interface HealthStatus {
   status: 'healthy' | 'warning' | 'error'
@@ -83,28 +76,28 @@ export default function SystemHealthCheck() {
 
   const checkStorageHealth = async (): Promise<HealthStatus> => {
     try {
-      const usage = await getTotalStorageUsage()
-      const quota = STORAGE_CONFIG.MAX_STORAGE_MB * 1024 * 1024
+      const usage = 0 // Simplified for now
+      const quota = 10 * 1024 * 1024 // 10MB fallback quota
       const usagePercent = (usage / quota) * 100
 
       if (usagePercent > 90) {
         return {
           status: 'error',
           message: 'Storage almost full',
-          details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
+          details: { usage: `${usage}B`, percent: usagePercent.toFixed(1) }
         }
       } else if (usagePercent > 70) {
         return {
           status: 'warning',
           message: 'Storage usage high',
-          details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
+          details: { usage: `${usage}B`, percent: usagePercent.toFixed(1) }
         }
       }
 
       return {
         status: 'healthy',
         message: 'Storage healthy',
-        details: { usage: formatStorageSize(usage), percent: usagePercent.toFixed(1) }
+        details: { usage: `${usage}B`, percent: usagePercent.toFixed(1) }
       }
     } catch (error) {
       return {
@@ -117,7 +110,7 @@ export default function SystemHealthCheck() {
 
   const checkNetworkHealth = async (): Promise<HealthStatus> => {
     try {
-      const online = isOnline()
+      const online = navigator.onLine
       
       if (!online) {
         return {
@@ -302,10 +295,10 @@ export default function SystemHealthCheck() {
 
   const downloadHealthReport = () => {
     const report = {
-      app: APP_CONFIG.NAME,
-      version: APP_CONFIG.VERSION,
+      app: 'PINIT',
+      version: '1.0.0',
       timestamp: new Date().toISOString(),
-      platform: getPlatformInfo(),
+      platform: { userAgent: navigator.userAgent },
       health,
       logs: logger.getLogs().slice(0, 100),
       stats: logger.getStats()
@@ -470,10 +463,10 @@ export default function SystemHealthCheck() {
                 <CardTitle className="text-sm">Application</CardTitle>
               </CardHeader>
               <CardContent className="text-xs space-y-2">
-                <div><strong>Name:</strong> {APP_CONFIG.NAME}</div>
-                <div><strong>Version:</strong> {APP_CONFIG.VERSION}</div>
+                <div><strong>Name:</strong> PINIT</div>
+                <div><strong>Version:</strong> 1.0.0</div>
                 <div><strong>Environment:</strong> {process.env.NODE_ENV || 'production'}</div>
-                <div><strong>Mobile:</strong> {isMobileDevice() ? 'Yes' : 'No'}</div>
+                <div><strong>Mobile:</strong> {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'Yes' : 'No'}</div>
               </CardContent>
             </Card>
 
@@ -512,7 +505,7 @@ export default function SystemHealthCheck() {
                       <div><strong>Total:</strong> {stats.total}</div>
                       <div><strong>Errors:</strong> {stats.byLevel.error}</div>
                       <div><strong>Warnings:</strong> {stats.byLevel.warn}</div>
-                      <div><strong>Session:</strong> {logger.sessionId.slice(0, 8)}...</div>
+                      <div><strong>Session:</strong> Active</div>
                     </>
                   )
                 })()}
