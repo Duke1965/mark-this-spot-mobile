@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { ArrowLeft, Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Settings } from "lucide-react"
-import type { PinData } from "@/app/page"
+import type { PinData } from "@/app/client-page"
 
 interface PinStoryModeProps {
   pins: PinData[]
@@ -48,22 +48,22 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
 
   if (mediaPins.length === 0) {
     return (
-              <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
             background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-            color: "white",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "2rem",
-          }}
-        >
+          color: "white",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+        }}
+      >
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📖</div>
           <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.5rem" }}>No Stories Yet</h2>
@@ -107,23 +107,23 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
       }}
     >
       {/* Header */}
-              <div
-          style={{
-            position: "absolute",
-            top: "1rem",
-            left: "1rem",
-            right: "1rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            zIndex: 10,
+      <div
+        style={{
+          position: "absolute",
+          top: "1rem",
+          left: "1rem",
+          right: "1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          zIndex: 10,
             background: "rgba(30, 58, 138, 0.95)",
             borderRadius: "0.75rem",
-            padding: "0.75rem",
+          padding: "0.75rem",
             backdropFilter: "blur(15px)",
             border: "1px solid rgba(255,255,255,0.2)",
-          }}
-        >
+        }}
+      >
         <button
           onClick={onBack}
           style={{
