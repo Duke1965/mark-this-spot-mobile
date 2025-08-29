@@ -51,10 +51,39 @@ export function usePinStorage() {
         _version: "1.0"
       }))
       
-      localStorage.setItem("pinit-pins", JSON.stringify(pinsWithMetadata))
+      const dataToSave = JSON.stringify(pinsWithMetadata)
+      
+      // Check storage quota before saving
+      if (typeof window !== "undefined" && 'storage' in navigator && 'estimate' in navigator.storage) {
+        navigator.storage.estimate().then(estimate => {
+          const usage = estimate.usage || 0
+          const quota = estimate.quota || 0
+          const usagePercent = quota > 0 ? (usage / quota) * 100 : 0
+          
+          if (usagePercent > 90) {
+            console.warn(`💾 Storage usage high: ${usagePercent.toFixed(1)}% - consider clearing old data`)
+          }
+        }).catch(() => {
+          // Storage estimate not supported, continue anyway
+        })
+      }
+      
+      localStorage.setItem("pinit-pins", dataToSave)
       console.log(`💾 Saved ${pins.length} pins to localStorage`)
     } catch (error) {
-      console.error("❌ Failed to save pins:", error)
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.error("❌ Storage quota exceeded - clearing old pins to make space")
+        try {
+          // Keep only the most recent 50 pins when quota exceeded
+          const recentPins = pins.slice(0, 50)
+          localStorage.setItem("pinit-pins", JSON.stringify(recentPins))
+          console.log(`💾 Saved ${recentPins.length} recent pins after quota cleanup`)
+        } catch (fallbackError) {
+          console.error("❌ Failed to save even after cleanup:", fallbackError)
+        }
+      } else {
+        console.error("❌ Failed to save pins:", error)
+      }
     }
   }, [pins])
 
