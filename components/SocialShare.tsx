@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { ArrowLeft, Instagram, Facebook, MessageCircle, Share2, Edit3, Download } from "lucide-react"
 import type { LocationData } from "@/hooks/useLocationServices"
-import type { MediaType } from "@/app/page"
+import type { MediaType } from "@/app/client-page"
 
 interface SocialShareProps {
   mediaUrl: string
