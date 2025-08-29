@@ -81,27 +81,20 @@ const nextConfig = {
     },
   ],
 
-  // Webpack optimizations
+  // Webpack optimizations (temporarily simplified for deployment)
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Import our optimized webpack configuration
-    const { nextWebpackConfig } = require('./lib/webpack.config.js')
-    
-    // Apply optimizations
-    const optimizedConfig = nextWebpackConfig(config, { buildId, dev, isServer, defaultLoaders, webpack })
-
-    // Additional Next.js specific optimizations
+    // Temporarily using basic optimizations until all files are deployed
     if (!isServer) {
-      // Optimize for client-side bundle
-      optimizedConfig.resolve.fallback = {
-        ...optimizedConfig.resolve.fallback,
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
         fs: false,
         net: false,
         tls: false,
       }
 
-      // Add performance monitoring
+      // Add build info
       if (process.env.NODE_ENV === 'production') {
-        optimizedConfig.plugins.push(
+        config.plugins.push(
           new webpack.DefinePlugin({
             'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString()),
             'process.env.BUILD_ID': JSON.stringify(buildId),
@@ -110,7 +103,7 @@ const nextConfig = {
       }
     }
 
-    return optimizedConfig
+    return config
   },
 
   // Environment variables optimization
