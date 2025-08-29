@@ -254,15 +254,36 @@ export function useAIBehaviorTracker() {
     const socialCounts = preferences.socialPlatforms
     const styleCounts = preferences.contentStyles
 
-    // Calculate personality traits
-    const isAdventureSeeker = (categoryCounts.adventure || 0) > totalBehaviors * 0.2
-    const isFoodie = (categoryCounts.food || 0) > totalBehaviors * 0.15
-    const isCultureLover = (categoryCounts.culture || 0) > totalBehaviors * 0.15
-    const isSocialButterfly = (categoryCounts.social || 0) > totalBehaviors * 0.2
-    const isNatureLover = (categoryCounts.nature || 0) > totalBehaviors * 0.15
+    // Enhanced personality trait analysis with weighted scoring
+    const getPersonalityScore = (category: string, threshold: number) => {
+      const count = categoryCounts[category] || 0
+      const percentage = count / totalBehaviors
+      const recentBehaviors = behaviors.slice(-10) // Look at recent behavior patterns
+      const recentCount = recentBehaviors.filter(b => b.category === category).length
+      const recentWeight = recentCount / Math.min(10, recentBehaviors.length)
+      
+      // Combine historical and recent patterns (70% historical, 30% recent)
+      const weightedScore = (percentage * 0.7) + (recentWeight * 0.3)
+      return weightedScore > threshold
+    }
 
-    // Calculate confidence based on data consistency
-    const confidence = Math.min(0.9, Math.max(0.1, totalBehaviors / 20))
+    const isAdventureSeeker = getPersonalityScore('adventure', 0.15)
+    const isFoodie = getPersonalityScore('food', 0.12)
+    const isCultureLover = getPersonalityScore('culture', 0.12)
+    const isSocialButterfly = getPersonalityScore('social', 0.15)
+    const isNatureLover = getPersonalityScore('nature', 0.12)
+
+    // Enhanced confidence calculation with consistency scoring
+    const baseConfidence = Math.min(0.9, Math.max(0.1, totalBehaviors / 15))
+    
+    // Calculate pattern consistency (how consistent user behavior is)
+    const categoryVariance = Object.values(categoryCounts).reduce((variance, count) => {
+      const percentage = count / totalBehaviors
+      return variance + Math.pow(percentage - 0.2, 2) // 0.2 = ideal balance
+    }, 0) / Object.keys(categoryCounts).length
+    
+    const consistencyBonus = Math.max(0, 0.2 - categoryVariance) // Up to 0.2 bonus for consistency
+    const confidence = Math.min(0.95, baseConfidence + consistencyBonus)
 
     // Calculate recommendation preferences
     const totalSocial = Object.values(socialCounts).reduce((sum, count) => sum + count, 0)
@@ -278,9 +299,10 @@ export function useAIBehaviorTracker() {
         confidence
       },
       recommendationPreferences: {
-        similarToLikes: 0.6, // Fixed 60/40 split as specified
-        discoveryMode: 0.4,
-        socialSharing: socialSharing
+        similarToLikes: Math.max(0.5, Math.min(0.8, 0.6 + (confidence - 0.5) * 0.2)), // Dynamic based on confidence
+        discoveryMode: Math.max(0.2, Math.min(0.5, 0.4 - (confidence - 0.5) * 0.2)), // Inverse of similar
+        socialSharing: socialSharing,
+        locationAccuracy: confidence > 0.7 ? 0.9 : 0.6 // Higher accuracy for confident users
       },
       learningProgress: {
         totalBehaviors,
