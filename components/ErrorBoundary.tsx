@@ -4,8 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Bug, Copy, Download } from 'lucide-react'
-import { APP_CONFIG, ERROR_MESSAGES } from '@/lib/constants'
-import { handleAsyncError, generateUniqueId } from '@/lib/helpers'
+// Remove imports from deleted files
 
 interface Props {
   children: ReactNode
@@ -37,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: true,
       error,
       errorInfo: null,
-      errorId: generateUniqueId(),
+      errorId: `error-${Date.now()}`,
       retryCount: 0
     }
   }
@@ -46,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({
       error,
       errorInfo,
-      errorId: generateUniqueId()
+      errorId: `error-${Date.now()}`
     })
 
     // Log error details
@@ -105,8 +104,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private copyErrorDetails = () => {
     const errorDetails = {
-      app: APP_CONFIG.NAME,
-      version: APP_CONFIG.VERSION,
+      app: 'PINIT',
+      version: '1.0.0',
       errorId: this.state.errorId,
       timestamp: new Date().toISOString(),
       error: this.state.error?.message,
@@ -162,14 +161,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 Something went wrong
               </AlertTitle>
               <AlertDescription className="text-red-700">
-                {this.state.error?.message || ERROR_MESSAGES.GENERIC_ERROR}
+                {this.state.error?.message || "Something went wrong. Please try again."}
               </AlertDescription>
             </Alert>
 
             <div className="bg-white rounded-lg p-6 shadow-lg space-y-4">
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                  {APP_CONFIG.NAME} Error
+                  PINIT Error
                 </h2>
                 <p className="text-gray-600 text-sm mb-4">
                   Error ID: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{this.state.errorId}</code>
