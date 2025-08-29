@@ -21,6 +21,9 @@ import dynamic from "next/dynamic"
 // Logging and debugging
 import { log } from '@/lib/logger'
 
+// Performance optimizations
+import { initPerformanceOptimizations, lazyLoader, cacheManager, performanceMonitor } from '@/lib/performance'
+
 // Icon imports
 import { Camera, Video, Library, MapPin, Check, Star } from "lucide-react"
 
@@ -466,6 +469,9 @@ export default function PINITApp() {
       localStorage.removeItem("pinit-app-state")
       setCurrentScreen("map")
       setLastActivity("app-start-fresh")
+      
+      // Initialize performance optimizations
+      initPerformanceOptimizations()
       
       // Auto-heal data on startup
       log.async(() => autoHealOnStartup(), "Data healing on startup", "PINITApp")
