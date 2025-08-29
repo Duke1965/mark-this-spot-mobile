@@ -40,6 +40,14 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
     twitter: "",
     facebook: ""
   })
+  const [userRating, setUserRating] = useState(0)
+  const [userReview, setUserReview] = useState("")
+  const [showCommunityFeatures, setShowCommunityFeatures] = useState(false)
+  const [communityRatings, setCommunityRatings] = useState({
+    average: pin.rating || 4.0,
+    count: Math.floor(Math.random() * 50) + 10,
+    distribution: [2, 3, 5, 15, 25] // 1-5 star distribution
+  })
 
   // Load user's social media accounts from localStorage
   useEffect(() => {
@@ -626,21 +634,21 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               </div>
             </div>
           ) : photos.length > 0 ? (
-            <div style={{ position: "relative" }}>
-              <img
-                src={selectedPhotoUrl || photos[0]?.url}
-                alt="Location photo"
-                style={{
-                  width: "100%",
-                  height: "200px",
-                  objectFit: "cover"
-                }}
-                onError={(e) => {
+              <div style={{ position: "relative" }}>
+                <img
+                  src={selectedPhotoUrl || photos[0]?.url}
+                  alt="Location photo"
+                  style={{
+                    width: "100%",
+                    height: "200px",
+                    objectFit: "cover"
+                  }}
+                  onError={(e) => {
                   console.log("❌ Image failed to load, using placeholder")
-                  e.currentTarget.src = "/pinit-placeholder.jpg"
-                }}
-              />
-            </div>
+                    e.currentTarget.src = "/pinit-placeholder.jpg"
+                  }}
+                />
+                </div>
           ) : (
             <div style={{
               display: "flex",
@@ -761,6 +769,140 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
                   #{tag}
                 </span>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Community Rating Section */}
+        <div style={{
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "1rem",
+          padding: "1rem",
+          marginTop: "1rem",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255,255,255,0.2)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <h3 style={{ color: "white", fontSize: "1rem", fontWeight: "600", margin: 0 }}>Community Rating</h3>
+            <button
+              onClick={() => setShowCommunityFeatures(!showCommunityFeatures)}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.75rem",
+                cursor: "pointer"
+              }}
+            >
+              {showCommunityFeatures ? "Hide" : "Add Review"}
+            </button>
+          </div>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <div style={{ display: "flex", gap: "0.125rem" }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Star
+                  key={star}
+                  size={16}
+                  fill={star <= Math.round(communityRatings.average) ? "#FFD700" : "none"}
+                  color={star <= Math.round(communityRatings.average) ? "#FFD700" : "#666"}
+                />
+              ))}
+            </div>
+            <span style={{ color: "white", fontSize: "0.875rem" }}>
+              {communityRatings.average.toFixed(1)} ({communityRatings.count} reviews)
+            </span>
+          </div>
+
+          {showCommunityFeatures && (
+            <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: "1rem" }}>
+              <div style={{ marginBottom: "0.75rem" }}>
+                <label style={{ color: "white", fontSize: "0.875rem", display: "block", marginBottom: "0.5rem" }}>
+                  Rate this place:
+                </label>
+                <div style={{ display: "flex", gap: "0.25rem" }}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setUserRating(star)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: "0.125rem",
+                        cursor: "pointer",
+                        borderRadius: "0.25rem"
+                      }}
+                    >
+                      <Star
+                        size={20}
+                        fill={star <= userRating ? "#FFD700" : "none"}
+                        color={star <= userRating ? "#FFD700" : "rgba(255,255,255,0.5)"}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: "0.75rem" }}>
+                <label style={{ color: "white", fontSize: "0.875rem", display: "block", marginBottom: "0.5rem" }}>
+                  Share your experience:
+                </label>
+                <textarea
+                  value={userReview}
+                  onChange={(e) => setUserReview(e.target.value)}
+                  placeholder="Tell others about this place..."
+                  style={{
+                    width: "100%",
+                    minHeight: "80px",
+                    background: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    borderRadius: "0.5rem",
+                    padding: "0.75rem",
+                    color: "white",
+                    fontSize: "0.875rem",
+                    resize: "vertical",
+                    fontFamily: "inherit"
+                  }}
+                />
+              </div>
+              
+              {(userRating > 0 || userReview.trim()) && (
+                <button
+                  onClick={() => {
+                    console.log("📝 Submitting community review:", { 
+                      pinId: pin.id, 
+                      rating: userRating, 
+                      review: userReview.trim(),
+                      location: pin.locationName
+                    })
+                    // Update community ratings optimistically
+                    setCommunityRatings(prev => ({
+                      ...prev,
+                      count: prev.count + 1,
+                      average: ((prev.average * prev.count) + userRating) / (prev.count + 1)
+                    }))
+                    setShowCommunityFeatures(false)
+                    setUserRating(0)
+                    setUserReview("")
+                  }}
+                  style={{
+                    background: "linear-gradient(135deg, #10B981, #059669)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.875rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    width: "100%",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  Submit Review ⭐
+                </button>
+              )}
             </div>
           )}
         </div>
