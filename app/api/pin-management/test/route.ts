@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
     const systemStatus = {
       enabled: isMapLifecycleEnabled(),
       needsMigration: needsPinMigration(),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      migratedPins: 0 // Initialize the property
     }
 
     if (systemStatus.enabled && systemStatus.needsMigration) {
