@@ -4,8 +4,6 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     scrollRestoration: true,
-    legacyBrowsers: false,
-    browsersListForSwc: true,
   },
 
   // Compiler optimizations
@@ -83,8 +81,9 @@ const nextConfig = {
 
   // Webpack optimizations (temporarily simplified for deployment)
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Temporarily using basic optimizations until all files are deployed
+    // Basic optimizations without requiring external files
     if (!isServer) {
+      // Client-side optimizations
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -92,15 +91,36 @@ const nextConfig = {
         tls: false,
       }
 
-      // Add build info
-      if (process.env.NODE_ENV === 'production') {
-        config.plugins.push(
-          new webpack.DefinePlugin({
-            'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString()),
-            'process.env.BUILD_ID': JSON.stringify(buildId),
-          })
-        )
+      // Basic bundle splitting
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          cacheGroups: {
+            ...config.optimization.splitChunks.cacheGroups,
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendors',
+              priority: 10,
+              chunks: 'all',
+            },
+            ui: {
+              test: /[\\/]components[\\/]ui[\\/]/,
+              name: 'ui',
+              priority: 8,
+              chunks: 'all',
+            },
+          },
+        },
       }
+
+      // Add build info
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString()),
+          'process.env.BUILD_ID': JSON.stringify(buildId || 'unknown'),
+        })
+      )
     }
 
     return config
