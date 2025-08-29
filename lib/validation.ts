@@ -1,6 +1,6 @@
 // Validation System for Pin Management
 // Ensures data integrity and system reliability
-import { PinData } from '@/app/page'
+import { PinData } from '@/app/client-page'
 import { MAP_LIFECYCLE } from './mapLifecycle'
 
 export interface ValidationResult {
@@ -140,11 +140,38 @@ export function validatePin(pin: PinData, rules: Partial<PinValidationRules> = {
   if (pin.category) {
     const validCategories = [
       'coffee', 'restaurant', 'museum', 'park', 'shopping', 
-      'hotel', 'bar', 'general', 'tourist_attraction', 'cafe'
+      'hotel', 'bar', 'general', 'tourist_attraction', 'cafe',
+      'food', 'entertainment', 'nature', 'culture', 'adventure'
     ]
     
     if (!validCategories.includes(pin.category)) {
       warnings.push(`Category '${pin.category}' is not in the standard list`)
+    }
+  }
+
+  // Enhanced data integrity checks
+  if (pin.title && pin.title.length > 200) {
+    warnings.push('Pin title is very long (>200 characters)')
+  }
+
+  if (pin.description && pin.description.length > 1000) {
+    warnings.push('Pin description is very long (>1000 characters)')
+  }
+
+  if (pin.tags && pin.tags.length > 20) {
+    warnings.push('Pin has many tags (>20)')
+  }
+
+  // AI content validation
+  if (pin.aiGenerated && !pin.title && !pin.description) {
+    warnings.push('AI-generated pin lacks content')
+  }
+
+  // Social validation
+  if (pin.totalEndorsements !== undefined && pin.downvotes !== undefined) {
+    const ratio = pin.downvotes / (pin.totalEndorsements + pin.downvotes)
+    if (ratio > 0.5) {
+      warnings.push('Pin has high downvote ratio (>50%)')
     }
   }
 
