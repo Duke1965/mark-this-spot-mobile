@@ -57,11 +57,11 @@ export function useAuth() {
       setError(null)
       setLoading(true)
       
-      if (!isFirebaseConfigured()) {
+      if (!isFirebaseConfigured() || !googleProvider) {
         throw new Error("Firebase authentication is not configured. Please set up environment variables.")
       }
       
-      const result = await signInWithPopup(auth, googleProvider)
+      const result = await signInWithPopup(auth, googleProvider!)
       console.log("✅ Google sign in successful:", result.user.displayName)
       return result.user
     } catch (error: any) {
@@ -79,11 +79,11 @@ export function useAuth() {
       setError(null)
       setLoading(true)
       
-      if (!isFirebaseConfigured()) {
+      if (!isFirebaseConfigured() || !facebookProvider) {
         throw new Error("Firebase authentication is not configured. Please set up environment variables.")
       }
       
-      const result = await signInWithPopup(auth, facebookProvider)
+      const result = await signInWithPopup(auth, facebookProvider!)
       console.log("✅ Facebook sign in successful:", result.user.displayName)
       return result.user
     } catch (error: any) {
