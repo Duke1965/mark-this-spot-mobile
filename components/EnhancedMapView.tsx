@@ -3,7 +3,7 @@ import { MapTabs, TabType } from './MapTabs'
 import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { getPinsForTab } from '@/lib/pinLifecycle'
 import { getScoreInsights } from '@/lib/scoringEngine'
-import { PinData } from '@/app/client-page'
+import type { PinData } from '@/lib/types'
 
 interface EnhancedMapViewProps {
   pins: PinData[]
