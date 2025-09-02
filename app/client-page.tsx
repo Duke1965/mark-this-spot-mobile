@@ -310,18 +310,21 @@ export default function PINITApp() {
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
       // First try the same reverseGeocode function that the map uses (more accurate)
+      console.log('📍 Trying reverseGeocode for coordinates:', lat, lng)
       const { reverseGeocode } = await import('@/lib/reverseGeocode')
       const reverseGeocodeResult = await reverseGeocode(lat, lng)
+      console.log('📍 reverseGeocode raw result:', reverseGeocodeResult)
+      
       if (reverseGeocodeResult?.short) {
         console.log('📍 Using reverseGeocode result (same as map):', reverseGeocodeResult.short)
         return reverseGeocodeResult.short
       }
       
       // Fallback to our custom logic if reverseGeocode fails
-      console.log('📍 reverseGeocode failed, using custom logic')
+      console.log('📍 reverseGeocode returned null, using custom logic')
       return await getRealLocationName(lat, lng)
     } catch (error) {
-      console.error("Failed to get location name:", error)
+      console.error("📍 getLocationName error:", error)
       return "Current Location"
     }
   }
