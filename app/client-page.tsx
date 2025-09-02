@@ -309,19 +309,8 @@ export default function PINITApp() {
 
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
-      // First try the same reverseGeocode function that the map uses (more accurate)
-      console.log('📍 Trying reverseGeocode for coordinates:', lat, lng)
-      const { reverseGeocode } = await import('@/lib/reverseGeocode')
-      const reverseGeocodeResult = await reverseGeocode(lat, lng)
-      console.log('📍 reverseGeocode raw result:', reverseGeocodeResult)
-      
-      if (reverseGeocodeResult?.short) {
-        console.log('📍 Using reverseGeocode result (same as map):', reverseGeocodeResult.short)
-        return reverseGeocodeResult.short
-      }
-      
-      // Fallback to our custom logic if reverseGeocode fails
-      console.log('📍 reverseGeocode returned null, using custom logic')
+      // Skip reverseGeocode due to API key restrictions, use our improved logic directly
+      console.log('📍 Getting location name for coordinates:', lat, lng)
       return await getRealLocationName(lat, lng)
     } catch (error) {
       console.error("📍 getLocationName error:", error)
@@ -1093,7 +1082,7 @@ export default function PINITApp() {
 
                   // If that also fails, show a nice gradient background
                   setTimeout(() => {
-                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                    if (e.currentTarget && e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
                       e.currentTarget.style.display = "none"
                     }
                   }, 2000)
