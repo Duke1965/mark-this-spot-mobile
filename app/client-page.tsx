@@ -213,6 +213,8 @@ export default function PINITApp() {
         const closestPlace = data.results[0]
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
+        
+        console.log('📍 API returned - placeName:', placeName, 'vicinity:', vicinity)
 
         // Process API response more intelligently
         if (vicinity) {
@@ -223,14 +225,19 @@ export default function PINITApp() {
             const capeTownLng = 18.4241
             const roughDistance = Math.sqrt(Math.pow(lat - capeTownLat, 2) + Math.pow(lng - capeTownLng, 2)) * 111 // rough km
             
+            console.log('📍 Distance to Cape Town center:', roughDistance.toFixed(1) + 'km')
+            
             if (roughDistance < 20) { // Within 20km of Cape Town
               const suburb = vicinity.split(",")[0].trim()
               if (suburb && suburb !== "Cape Town") {
+                console.log('📍 Within Cape Town area, using: Cape Town -', suburb)
                 return `Cape Town - ${suburb}`
               }
+              console.log('📍 Within Cape Town area, using: Cape Town')
               return "Cape Town"
             } else {
               // Too far from Cape Town, use the actual place name
+              console.log('📍 Not in Cape Town area (', roughDistance.toFixed(1) + 'km away), using actual place:', placeName)
               return placeName
             }
           }
