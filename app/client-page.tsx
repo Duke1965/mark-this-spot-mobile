@@ -191,12 +191,15 @@ export default function PINITApp() {
       console.log(`📍 [${isMobile ? "MOBILE" : "DESKTOP"}] Fetching real location name...`)
       
       const fetchWithRetry = async () => {
+        console.log('📍 Making API call to /api/places...')
         const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, {
           headers: {
             "User-Agent": isMobile ? "PINIT-Mobile-App" : "PINIT-Web-App",
             "X-Device-Type": isMobile ? "mobile" : "desktop",
           },
         })
+        
+        console.log('📍 Places API response status:', response.status, response.statusText)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -209,7 +212,8 @@ export default function PINITApp() {
       const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
       const data = await response.json()
       
-      console.log('📍 Places API response data:', data)
+      console.log('📍 Places API response data:', JSON.stringify(data, null, 2))
+      console.log('📍 Number of results:', data.results?.length || 0)
 
       if (data.results && data.results.length > 0) {
         const closestPlace = data.results[0]
@@ -295,7 +299,8 @@ export default function PINITApp() {
 
       return "Discovering location..."
     } catch (error) {
-      console.error("Error fetching location name:", error)
+      console.error("📍 getRealLocationName error:", error)
+      console.log('📍 Falling back to coordinate-based logic for:', lat, lng)
       
       // Enhanced fallback logic on error - better place names
       if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) return "Riebeek West"
