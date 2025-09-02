@@ -243,36 +243,52 @@ export default function PINITApp() {
         return "Western Cape"
       }
 
-      // Global fallback
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
+      // Enhanced global fallback with better place names
+      // Cape Town area - more specific suburbs
+      if (lat > -34.1 && lat < -33.7 && lng > 18.3 && lng < 18.9) {
+        if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) return "Cape Town - City Bowl"
+        if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) return "Cape Town - Southern Suburbs"
+        if (lat > -33.8 && lat < -33.7 && lng > 18.4 && lng < 18.5) return "Cape Town - Northern Suburbs"
+        if (lat > -34.0 && lat < -33.9 && lng > 18.5 && lng < 18.6) return "Cape Town - Eastern Suburbs"
+        return "Cape Town"
+      }
+      
+      // Western Cape towns
+      if (lat > -34.2 && lat < -33.5 && lng > 18.7 && lng < 19.5) {
+        if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) return "Riebeek West"
+        if (lat > -33.8 && lat < -33.7 && lng > 19.0 && lng < 19.1) return "Paarl"
+        if (lat > -33.9 && lat < -33.8 && lng > 18.8 && lng < 18.9) return "Stellenbosch"
+        return "Western Cape"
+      }
 
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
+      // Global regions - better names without coordinates
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) return "North America"
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) return "South America"
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) return "Europe"
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) return "Asia"
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) return "Africa"
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) return "Australia"
 
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      return "Discovering location..."
     } catch (error) {
       console.error("Error fetching location name:", error)
       
-      // Fallback logic on error
-      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
-      }
+      // Enhanced fallback logic on error - better place names
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) return "Riebeek West"
+      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) return "Cape Town - City Bowl"
+      if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) return "Cape Town - Southern Suburbs"
+      if (lat > -33.8 && lat < -33.7 && lng > 18.4 && lng < 18.5) return "Cape Town - Northern Suburbs"
+      if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) return "Western Cape"
 
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-      return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      // Global fallback - friendly names instead of coordinates
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) return "North America"
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) return "South America"
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) return "Europe"
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) return "Asia"
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) return "Africa"
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) return "Australia"
+      
+      return "Current Location"
     }
   }
 
