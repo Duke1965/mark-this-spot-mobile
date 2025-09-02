@@ -244,20 +244,22 @@ export default function PINITApp() {
       }
 
       // Enhanced global fallback with better place names
-      // Cape Town area - more specific suburbs
-      if (lat > -34.1 && lat < -33.7 && lng > 18.3 && lng < 18.9) {
-        if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) return "Cape Town - City Bowl"
-        if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) return "Cape Town - Southern Suburbs"
-        if (lat > -33.8 && lat < -33.7 && lng > 18.4 && lng < 18.5) return "Cape Town - Northern Suburbs"
-        if (lat > -34.0 && lat < -33.9 && lng > 18.5 && lng < 18.6) return "Cape Town - Eastern Suburbs"
+      // Cape Town area - MUCH more specific (only actual Cape Town)
+      if (lat > -34.0 && lat < -33.8 && lng > 18.3 && lng < 18.6) {
+        if (lat > -33.93 && lat < -33.88 && lng > 18.40 && lng < 18.45) return "Cape Town - City Bowl"
+        if (lat > -34.0 && lat < -33.93 && lng > 18.40 && lng < 18.50) return "Cape Town - Southern Suburbs"
+        if (lat > -33.88 && lat < -33.83 && lng > 18.40 && lng < 18.50) return "Cape Town - Northern Suburbs"
         return "Cape Town"
       }
       
-      // Western Cape towns
+      // Western Cape towns - more specific areas
       if (lat > -34.2 && lat < -33.5 && lng > 18.7 && lng < 19.5) {
-        if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) return "Riebeek West"
-        if (lat > -33.8 && lat < -33.7 && lng > 19.0 && lng < 19.1) return "Paarl"
-        if (lat > -33.9 && lat < -33.8 && lng > 18.8 && lng < 18.9) return "Stellenbosch"
+        if (lat > -34.15 && lat < -34.05 && lng > 18.85 && lng < 18.95) return "Riebeek West"
+        if (lat > -33.75 && lat < -33.70 && lng > 18.95 && lng < 19.05) return "Paarl"
+        if (lat > -33.95 && lat < -33.85 && lng > 18.85 && lng < 18.95) return "Stellenbosch"
+        if (lat > -33.85 && lat < -33.75 && lng > 18.75 && lng < 18.85) return "Malmesbury"
+        if (lat > -34.05 && lat < -33.95 && lng > 18.75 && lng < 18.85) return "Wellington"
+        if (lat > -33.65 && lat < -33.55 && lng > 18.85 && lng < 18.95) return "Worcester"
         return "Western Cape"
       }
 
