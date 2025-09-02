@@ -214,11 +214,24 @@ export default function PINITApp() {
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
 
+        // Process API response more intelligently
         if (vicinity) {
+          // Only use Cape Town if we're actually close to Cape Town (within 20km)
           if (vicinity.includes("Cape Town")) {
-            const suburb = vicinity.split(",")[0].trim()
-            if (suburb && suburb !== "Cape Town") {
-              return `Cape Town - ${suburb}`
+            // Calculate rough distance to Cape Town center (-33.9249, 18.4241)
+            const capeTownLat = -33.9249
+            const capeTownLng = 18.4241
+            const roughDistance = Math.sqrt(Math.pow(lat - capeTownLat, 2) + Math.pow(lng - capeTownLng, 2)) * 111 // rough km
+            
+            if (roughDistance < 20) { // Within 20km of Cape Town
+              const suburb = vicinity.split(",")[0].trim()
+              if (suburb && suburb !== "Cape Town") {
+                return `Cape Town - ${suburb}`
+              }
+              return "Cape Town"
+            } else {
+              // Too far from Cape Town, use the actual place name
+              return placeName
             }
           }
           if (!placeName.includes(vicinity)) {
