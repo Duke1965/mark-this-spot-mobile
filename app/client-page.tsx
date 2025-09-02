@@ -309,23 +309,20 @@ export default function PINITApp() {
 
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
+      // First try the same reverseGeocode function that the map uses (more accurate)
+      const { reverseGeocode } = await import('@/lib/reverseGeocode')
+      const reverseGeocodeResult = await reverseGeocode(lat, lng)
+      if (reverseGeocodeResult?.short) {
+        console.log('📍 Using reverseGeocode result (same as map):', reverseGeocodeResult.short)
+        return reverseGeocodeResult.short
+      }
+      
+      // Fallback to our custom logic if reverseGeocode fails
+      console.log('📍 reverseGeocode failed, using custom logic')
       return await getRealLocationName(lat, lng)
     } catch (error) {
       console.error("Failed to get location name:", error)
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
-
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      return "Current Location"
     }
   }
 
