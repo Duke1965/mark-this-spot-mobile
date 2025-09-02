@@ -208,6 +208,8 @@ export default function PINITApp() {
 
       const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
       const data = await response.json()
+      
+      console.log('📍 Places API response data:', data)
 
       if (data.results && data.results.length > 0) {
         const closestPlace = data.results[0]
