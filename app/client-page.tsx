@@ -117,6 +117,7 @@ export default function PINITApp() {
     | "place-navigation"
     | "results"
     | "settings"
+    | "recommendation-form"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [isQuickPinning, setIsQuickPinning] = useState(false)
@@ -729,7 +730,7 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      setCurrentScreen("editor")
+      setCurrentScreen("platform-select") // Fixed: Go directly to platform selection
     },
     [location],
   )
@@ -766,13 +767,9 @@ export default function PINITApp() {
           if (isPosting) return
           setIsPosting(true)
 
-          setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
-          setShowSuccessPopup(true)
-
-          setTimeout(() => {
-            setCurrentScreen("map")
-            setIsPosting(false)
-          }, 2000)
+          // Show recommendation prompt instead of going directly to map
+          setShowRecommendationForm(true)
+          setIsPosting(false)
         }}
         onSave={(contentData) => {
           setSuccessMessage("Saved to library successfully!")
@@ -782,11 +779,6 @@ export default function PINITApp() {
         }}
       />
     )
-  }
-
-  if (currentScreen === "editor" && capturedMedia) {
-    setCurrentScreen("platform-select")
-    return null
   }
 
   if (currentScreen === "results" && currentResultPin) {
@@ -814,6 +806,27 @@ export default function PINITApp() {
         onBack={() => {
           setCurrentResultPin(null)
           setCurrentScreen("map")
+        }}
+      />
+    )
+  }
+
+  if (currentScreen === "recommendation-form" && capturedMedia) {
+    return (
+      <RecommendationForm
+        mediaUrl={capturedMedia.url}
+        locationName={locationName}
+        onRecommend={(rating, review) => {
+          setSuccessMessage("Recommendation sent! Your content has been processed successfully.")
+          setShowSuccessPopup(true)
+          setTimeout(() => {
+            setCurrentScreen("map")
+            setShowRecommendationForm(false)
+          }, 2000)
+        }}
+        onSkip={() => {
+          setCurrentScreen("map")
+          setShowRecommendationForm(false)
         }}
       />
     )
