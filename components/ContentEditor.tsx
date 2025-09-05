@@ -366,6 +366,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Handle post
   const handlePost = async () => {
+    console.log("🎯 ContentEditor handlePost called")
     setIsRendering(true)
     try {
       // Render stickers onto the photo
@@ -376,6 +377,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         platform,
         finalImageUrl, // Include the rendered image
       }
+      console.log("🎯 ContentEditor calling onPost with:", contentData)
       onPost(contentData)
     } catch (error) {
       console.error('Error rendering image:', error)
@@ -384,6 +386,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         stickers,
         platform,
       }
+      console.log("🎯 ContentEditor calling onPost (fallback) with:", contentData)
       onPost(contentData)
     } finally {
       setIsRendering(false)
