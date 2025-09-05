@@ -878,6 +878,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           </button>
           <button
             onClick={() => {
+              alert("Post button clicked!")
               console.log("🎯 Post button clicked!")
               console.log(" isRendering:", isRendering)
               handlePost()
@@ -899,6 +900,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               gap: '8px',
               transition: 'all 0.2s ease',
               backdropFilter: 'blur(10px)',
+              zIndex: 9999, // Add high z-index
+              position: 'relative', // Add position
             }}
           >
             <Share2 size={16} />
