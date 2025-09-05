@@ -368,6 +368,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Handle post
   const handlePost = async () => {
+    alert("handlePost called!")
     console.log("🎯 ContentEditor handlePost called")
     setIsRendering(true)
     try {
@@ -914,4 +915,3 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     </div>
   )
 } 
-
