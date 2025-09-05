@@ -809,22 +809,19 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "recommendation-form" && capturedMedia) {
-    console.log("🎯 Rendering RecommendationForm with:", { currentScreen, capturedMedia })
+    console.log("🎯 RENDERING RecommendationForm - currentScreen:", currentScreen, "capturedMedia:", capturedMedia)
     return (
       <RecommendationForm
         mediaUrl={capturedMedia.url}
         locationName={locationName}
         onRecommend={(rating, review) => {
+          console.log("🎯 Recommendation submitted:", { rating, review })
           setSuccessMessage("Recommendation sent! Your content has been processed successfully.")
-          setShowSuccessPopup(true)
-          setTimeout(() => {
-            setCurrentScreen("map")
-            setShowRecommendationForm(false)
-          }, 2000)
+          setCurrentScreen("home")
         }}
         onSkip={() => {
-          setCurrentScreen("map")
-          setShowRecommendationForm(false)
+          console.log("🎯 Recommendation skipped")
+          setCurrentScreen("home")
         }}
       />
     )
