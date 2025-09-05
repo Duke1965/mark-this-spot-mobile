@@ -741,7 +741,7 @@ export default function PINITApp() {
           })
           setShowRecommendationForm(true)
         }}
-        onSave={(contentData) => {{(contentData) => {
+        onSave={(contentData) => {(contentData) => {
           setSuccessMessage("Saved to library successfully!")
           setShowSuccessPopup(true)
           setTimeout(() => setShowSuccessPopup(false), 2000)
