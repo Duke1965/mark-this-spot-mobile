@@ -768,7 +768,7 @@ export default function PINITApp() {
           setIsPosting(true)
 
           // Show recommendation prompt instead of going directly to map
-          setShowRecommendationForm(true)
+          setCurrentScreen("recommendation-form")
           setIsPosting(false)
         }}
         onSave={(contentData) => {
