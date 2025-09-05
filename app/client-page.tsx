@@ -117,6 +117,7 @@ export default function PINITApp() {
     | "place-navigation"
     | "results"
     | "settings"
+    | "recommendation-form"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
   const [isQuickPinning, setIsQuickPinning] = useState(false)
@@ -191,12 +192,15 @@ export default function PINITApp() {
       console.log(`📍 [${isMobile ? "MOBILE" : "DESKTOP"}] Fetching real location name...`)
       
       const fetchWithRetry = async () => {
+        console.log('📍 Making API call to /api/places...')
         const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, {
           headers: {
             "User-Agent": isMobile ? "PINIT-Mobile-App" : "PINIT-Web-App",
             "X-Device-Type": isMobile ? "mobile" : "desktop",
           },
         })
+        
+        console.log('📍 Places API response status:', response.status, response.statusText)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -208,17 +212,40 @@ export default function PINITApp() {
 
       const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
       const data = await response.json()
+      
+      console.log('📍 Places API response data:', JSON.stringify(data, null, 2))
+      console.log('📍 Number of results:', data.results?.length || 0)
 
       if (data.results && data.results.length > 0) {
         const closestPlace = data.results[0]
         const placeName = closestPlace.name
         const vicinity = closestPlace.vicinity || ""
+        
+        console.log('📍 API returned - placeName:', placeName, 'vicinity:', vicinity)
 
+        // Process API response more intelligently
         if (vicinity) {
+          // Only use Cape Town if we're actually close to Cape Town (within 20km)
           if (vicinity.includes("Cape Town")) {
-            const suburb = vicinity.split(",")[0].trim()
-            if (suburb && suburb !== "Cape Town") {
-              return `Cape Town - ${suburb}`
+            // Calculate rough distance to Cape Town center (-33.9249, 18.4241)
+            const capeTownLat = -33.9249
+            const capeTownLng = 18.4241
+            const roughDistance = Math.sqrt(Math.pow(lat - capeTownLat, 2) + Math.pow(lng - capeTownLng, 2)) * 111 // rough km
+            
+            console.log('📍 Distance to Cape Town center:', roughDistance.toFixed(1) + 'km')
+            
+            if (roughDistance < 20) { // Within 20km of Cape Town
+              const suburb = vicinity.split(",")[0].trim()
+              if (suburb && suburb !== "Cape Town") {
+                console.log('📍 Within Cape Town area, using: Cape Town -', suburb)
+                return `Cape Town - ${suburb}`
+              }
+              console.log('📍 Within Cape Town area, using: Cape Town')
+              return "Cape Town"
+            } else {
+              // Too far from Cape Town, use the actual place name
+              console.log('📍 Not in Cape Town area (', roughDistance.toFixed(1) + 'km away), using actual place:', placeName)
+              return placeName
             }
           }
           if (!placeName.includes(vicinity)) {
@@ -243,58 +270,66 @@ export default function PINITApp() {
         return "Western Cape"
       }
 
-      // Global fallback
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
-
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
-    } catch (error) {
-      console.error("Error fetching location name:", error)
+      // Enhanced global fallback with better place names
+      // Cape Town area - MUCH more specific (only actual Cape Town)
+      if (lat > -34.0 && lat < -33.8 && lng > 18.3 && lng < 18.6) {
+        if (lat > -33.93 && lat < -33.88 && lng > 18.40 && lng < 18.45) return "Cape Town - City Bowl"
+        if (lat > -34.0 && lat < -33.93 && lng > 18.40 && lng < 18.50) return "Cape Town - Southern Suburbs"
+        if (lat > -33.88 && lat < -33.83 && lng > 18.40 && lng < 18.50) return "Cape Town - Northern Suburbs"
+        return "Cape Town"
+      }
       
-      // Fallback logic on error
-      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
+      // Western Cape towns - more specific areas
+      if (lat > -34.2 && lat < -33.5 && lng > 18.7 && lng < 19.5) {
+        if (lat > -34.15 && lat < -34.05 && lng > 18.85 && lng < 18.95) return "Riebeek West"
+        if (lat > -33.75 && lat < -33.70 && lng > 18.95 && lng < 19.05) return "Paarl"
+        if (lat > -33.95 && lat < -33.85 && lng > 18.85 && lng < 18.95) return "Stellenbosch"
+        if (lat > -33.85 && lat < -33.75 && lng > 18.75 && lng < 18.85) return "Malmesbury"
+        if (lat > -34.05 && lat < -33.95 && lng > 18.75 && lng < 18.85) return "Wellington"
+        if (lat > -33.65 && lat < -33.55 && lng > 18.85 && lng < 18.95) return "Worcester"
+        return "Western Cape"
       }
 
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-      return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      // Global regions - better names without coordinates
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) return "North America"
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) return "South America"
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) return "Europe"
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) return "Asia"
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) return "Africa"
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) return "Australia"
+
+      return "Discovering location..."
+    } catch (error) {
+      console.error("📍 getRealLocationName error:", error)
+      console.log('📍 Falling back to coordinate-based logic for:', lat, lng)
+      
+      // Enhanced fallback logic on error - better place names
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) return "Riebeek West"
+      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) return "Cape Town - City Bowl"
+      if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) return "Cape Town - Southern Suburbs"
+      if (lat > -33.8 && lat < -33.7 && lng > 18.4 && lng < 18.5) return "Cape Town - Northern Suburbs"
+      if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) return "Western Cape"
+
+      // Global fallback - friendly names instead of coordinates
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) return "North America"
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) return "South America"
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) return "Europe"
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) return "Asia"
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) return "Africa"
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) return "Australia"
+      
+      return "Current Location"
     }
   }
 
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
+      // Skip reverseGeocode due to API key restrictions, use our improved logic directly
+      console.log('📍 Getting location name for coordinates:', lat, lng)
       return await getRealLocationName(lat, lng)
     } catch (error) {
-      console.error("Failed to get location name:", error)
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
-
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      console.error("📍 getLocationName error:", error)
+      return "Current Location"
     }
   }
 
@@ -695,7 +730,7 @@ export default function PINITApp() {
       })
 
       setLastActivity(`camera-${type}`)
-      setCurrentScreen("editor")
+      setCurrentScreen("platform-select") // Fixed: Go directly to platform selection
     },
     [location],
   )
@@ -732,53 +767,18 @@ export default function PINITApp() {
           if (isPosting) return
           setIsPosting(true)
 
-          // Prepare data for Recommendation overlay
-          const media = (contentData && contentData.finalImageUrl) ? contentData.finalImageUrl : capturedMedia.url
-          setRecommendationData({
-            mediaUrl: media,
-            locationName,
-            platform: selectedPlatform,
-          })
+          // Show recommendation prompt instead of going directly to map
           setShowRecommendationForm(true)
+          setIsPosting(false)
         }}
-        onSave={(contentData) => {(contentData) => {
+        onSave={(contentData) => {
           setSuccessMessage("Saved to library successfully!")
           setShowSuccessPopup(true)
           setTimeout(() => setShowSuccessPopup(false), 2000)
           setCurrentScreen("map")
         }}
       />
-      {showRecommendationForm && recommendationData && (
-        <RecommendationForm
-          mediaUrl={recommendationData.mediaUrl}
-          locationName={recommendationData.locationName}
-          onRecommend={(rating, review) => {
-            setShowRecommendationForm(false);
-            setSuccessMessage("Your place was recommended successfully!");
-            setShowSuccessPopup(true);
-            setTimeout(() => {
-              setCurrentScreen("map");
-              setIsPosting(false);
-            }, 2000);
-          }}
-          onSkip={() => {
-            setShowRecommendationForm(false);
-            setSuccessMessage(`Posted to ${selectedPlatform} successfully!`);
-            setShowSuccessPopup(true);
-            setTimeout(() => {
-              setCurrentScreen("map");
-              setIsPosting(false);
-            }, 2000);
-          }}
-        />
-      )}
-
     )
-  }
-
-  if (currentScreen === "editor" && capturedMedia) {
-    setCurrentScreen("platform-select")
-    return null
   }
 
   if (currentScreen === "results" && currentResultPin) {
@@ -806,6 +806,27 @@ export default function PINITApp() {
         onBack={() => {
           setCurrentResultPin(null)
           setCurrentScreen("map")
+        }}
+      />
+    )
+  }
+
+  if (currentScreen === "recommendation-form" && capturedMedia) {
+    return (
+      <RecommendationForm
+        mediaUrl={capturedMedia.url}
+        locationName={locationName}
+        onRecommend={(rating, review) => {
+          setSuccessMessage("Recommendation sent! Your content has been processed successfully.")
+          setShowSuccessPopup(true)
+          setTimeout(() => {
+            setCurrentScreen("map")
+            setShowRecommendationForm(false)
+          }, 2000)
+        }}
+        onSkip={() => {
+          setCurrentScreen("map")
+          setShowRecommendationForm(false)
         }}
       />
     )
@@ -1088,7 +1109,7 @@ export default function PINITApp() {
 
                   // If that also fails, show a nice gradient background
                   setTimeout(() => {
-                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                    if (e.currentTarget && e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
                       e.currentTarget.style.display = "none"
                     }
                   }, 2000)
