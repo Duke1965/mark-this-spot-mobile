@@ -772,6 +772,9 @@ export default function PINITApp() {
           console.log("🎯 Switching to recommendation-form screen")
           setCurrentScreen("recommendation-form")
           setIsPosting(false)
+          
+          // Clear any existing success message
+          setSuccessMessage("")
         }}
         onSave={(contentData) => {
           setSuccessMessage("Saved to library successfully!")
