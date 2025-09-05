@@ -250,6 +250,8 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
 }
 
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
+  console.log("🎯 ContentEditor component rendered with:", { mediaUrl, mediaType, platform })
+  
   // Available stickers (matching exact GitHub file names)
   const availableStickers = [
     // Old School stickers
@@ -912,3 +914,4 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     </div>
   )
 } 
+
