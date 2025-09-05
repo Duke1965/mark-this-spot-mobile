@@ -765,22 +765,13 @@ export default function PINITApp() {
         onBack={() => setCurrentScreen("platform-select")}
         onPost={(contentData) => {
           console.log("🎯 ContentEditor onPost called - START")
-          console.log("🎯 isPosting:", isPosting)
-          if (isPosting) {
-            console.log("🎯 Already posting, returning")
-            return
-          }
+          if (isPosting) return
           setIsPosting(true)
-          console.log("🎯 Set isPosting to true")
 
           // Show recommendation prompt instead of going directly to map
-          console.log("🎯 ContentEditor onPost called")
-          console.log("🎯 Current capturedMedia:", capturedMedia)
           console.log("🎯 Switching to recommendation-form screen")
           setCurrentScreen("recommendation-form")
-          console.log("🎯 Set currentScreen to recommendation-form")
           setIsPosting(false)
-          console.log("🎯 Set isPosting to false - END")
         }}
         onSave={(contentData) => {
           setSuccessMessage("Saved to library successfully!")
