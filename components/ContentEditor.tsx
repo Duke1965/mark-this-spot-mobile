@@ -877,7 +877,11 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             {isRendering ? 'Rendering...' : 'Save'}
           </button>
           <button
-            onClick={handlePost}
+            onClick={() => {
+              console.log("🎯 Post button clicked!")
+              console.log(" isRendering:", isRendering)
+              handlePost()
+            }}
             disabled={isRendering}
             style={{
               flex: 1,
