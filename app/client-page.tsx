@@ -768,6 +768,9 @@ export default function PINITApp() {
           setIsPosting(true)
 
           // Show recommendation prompt instead of going directly to map
+          console.log("🎯 ContentEditor onPost called")
+          console.log("🎯 Current capturedMedia:", capturedMedia)
+          console.log("🎯 Switching to recommendation-form screen")
           setCurrentScreen("recommendation-form")
           setIsPosting(false)
         }}
@@ -812,6 +815,7 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "recommendation-form" && capturedMedia) {
+    console.log("🎯 Rendering RecommendationForm with:", { currentScreen, capturedMedia })
     return (
       <RecommendationForm
         mediaUrl={capturedMedia.url}
