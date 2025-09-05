@@ -903,8 +903,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               gap: '8px',
               transition: 'all 0.2s ease',
               backdropFilter: 'blur(10px)',
-              zIndex: 9999, // Add high z-index
-              position: 'relative', // Add position
+              zIndex: 9999, // Add high z-index to ensure it's on top
+              position: 'relative', // Add position relative
             }}
           >
             <Share2 size={16} />
