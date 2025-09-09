@@ -153,6 +153,7 @@ export default function PINITApp() {
   const [isQuickPinning, setIsQuickPinning] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [showRecommendationPopup, setShowRecommendationPopup] = useState(false)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
 
