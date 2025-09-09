@@ -1388,6 +1388,9 @@ export default function PINITApp() {
           if (isPosting) return
           setIsPosting(true)
           
+          // Store the final image data for the recommendation popup
+          setFinalImageData(contentData)
+          
           // Handle posting with content data
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowRecommendationPopup(true) // Show recommendation popup instead of success popup
