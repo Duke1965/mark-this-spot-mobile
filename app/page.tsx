@@ -1596,6 +1596,89 @@ export default function PINITApp() {
         </div>
       )}
       
+      {/* Recommendation Popup */}
+      {showRecommendationPopup && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(30, 58, 138, 0.95)",
+            padding: "2rem",
+            borderRadius: "1rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            zIndex: 1000,
+            textAlign: "center",
+            minWidth: "300px",
+            backdropFilter: "blur(15px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
+          <h3 style={{ color: "white", marginBottom: "1rem", fontSize: "1.2rem" }}>
+            {successMessage}
+          </h3>
+          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "2rem", fontSize: "1rem" }}>
+            Would you like to recommend this place?
+          </p>
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+            <button
+              onClick={() => {
+                setShowRecommendationPopup(false)
+                setShowSuccessPopup(true)
+                setTimeout(() => setShowSuccessPopup(false), 2000)
+              }}
+              style={{
+                padding: "0.75rem 1.5rem",
+                background: "rgba(255,255,255,0.1)",
+                color: "white",
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "0.5rem",
+                cursor: "pointer",
+                fontSize: "1rem",
+                transition: "all 0.2s ease",
+              }}
+            >
+              No, Thanks
+            </button>
+            <button
+              onClick={() => {
+                setShowRecommendationPopup(false)
+                setRecommendationData({
+                  mediaUrl: capturedMedia?.url || "",
+                  locationName: capturedMedia?.location || capturedMedia?.title || "PINIT Location",
+                  platform: selectedPlatform,
+                  aiTitle: capturedMedia?.title,
+                  aiDescription: capturedMedia?.description,
+                  aiTags: capturedMedia?.tags,
+                  personalThoughts: capturedMedia?.personalThoughts,
+                  pinId: capturedMedia?.id,
+                  latitude: capturedMedia?.latitude,
+                  longitude: capturedMedia?.longitude,
+                  additionalPhotos: capturedMedia?.additionalPhotos
+                })
+                setShowRecommendationForm(true)
+              }}
+              style={{
+                padding: "0.75rem 1.5rem",
+                background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                cursor: "pointer",
+                fontSize: "1rem",
+                fontWeight: "600",
+                transition: "all 0.2s ease",
+                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+              }}
+            >
+              Yes, Recommend
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Recommendation Form */}
       {showRecommendationForm && recommendationData && (
         <RecommendationForm
