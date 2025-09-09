@@ -367,6 +367,14 @@ export default function PINITApp() {
     mediaUrl: string
     locationName: string
     platform: string
+    aiTitle?: string
+    aiDescription?: string
+    aiTags?: string[]
+    personalThoughts?: string
+    pinId?: string
+    latitude?: number
+    longitude?: number
+    additionalPhotos?: Array<{ url: string; placeName: string }>
   } | null>(null)
 
   // Add location name resolution
@@ -1383,7 +1391,15 @@ export default function PINITApp() {
             setRecommendationData({
               mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
                 locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
-              platform: selectedPlatform
+              platform: selectedPlatform,
+              aiTitle: capturedMedia.title,
+              aiDescription: capturedMedia.description,
+              aiTags: capturedMedia.tags,
+              personalThoughts: capturedMedia.personalThoughts,
+              pinId: capturedMedia.id,
+              latitude: capturedMedia.latitude,
+              longitude: capturedMedia.longitude,
+              additionalPhotos: capturedMedia.additionalPhotos
             })
             setShowRecommendationForm(true)
           }, 2000)
