@@ -154,6 +154,7 @@ export default function PINITApp() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [showRecommendationPopup, setShowRecommendationPopup] = useState(false)
+  const [finalImageData, setFinalImageData] = useState<any>(null)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
 
