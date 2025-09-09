@@ -1092,7 +1092,7 @@ export default function PINITApp() {
           
           if (filteredPhotos.length > 0) {
             // Get the best filtered photo (prefer landscape photos for location views)
-            const bestPhoto = filteredPhotos.reduce((best, current) => {
+            const bestPhoto = filteredPhotos.reduce((best: any, current: any) => {
               if (current.width && current.height && best.width && best.height) {
                 const currentRatio = current.width / current.height
                 const bestRatio = best.width / best.height
