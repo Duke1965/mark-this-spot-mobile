@@ -2022,7 +2022,6 @@ export default function PINITApp() {
               onClick={() => setShowNearbyPins(false)}
               style={{
                 padding: "0.5rem",
-                border: "none",
                 background: "rgba(255,255,255,0.15)",
                 color: "white",
                 cursor: "pointer",
