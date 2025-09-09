@@ -1604,28 +1604,39 @@ export default function PINITApp() {
         <div
           style={{
             position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "rgba(30, 58, 138, 0.95)",
-            padding: "2rem",
-            borderRadius: "1rem",
-            border: "1px solid rgba(255,255,255,0.2)",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
             zIndex: 1000,
-            textAlign: "center",
-            minWidth: "300px",
-            backdropFilter: "blur(15px)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
           }}
         >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
-          <h3 style={{ color: "white", marginBottom: "1rem", fontSize: "1.2rem" }}>
+          <div style={{ fontSize: "4rem", marginBottom: "2rem" }}>✅</div>
+          <h3 style={{ 
+            color: "white", 
+            marginBottom: "1rem", 
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            textAlign: "center"
+          }}>
             {successMessage}
           </h3>
-          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "2rem", fontSize: "1rem" }}>
+          <p style={{ 
+            color: "rgba(255,255,255,0.9)", 
+            marginBottom: "3rem", 
+            fontSize: "1.1rem",
+            textAlign: "center",
+            maxWidth: "300px"
+          }}>
             Would you like to recommend this place?
           </p>
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: "1.5rem", justifyContent: "center", width: "100%", maxWidth: "300px" }}>
             <button
               onClick={() => {
                 setShowRecommendationPopup(false)
@@ -1633,14 +1644,17 @@ export default function PINITApp() {
                 setTimeout(() => setShowSuccessPopup(false), 2000)
               }}
               style={{
-                padding: "0.75rem 1.5rem",
+                flex: 1,
+                padding: "1rem 1.5rem",
                 background: "rgba(255,255,255,0.1)",
                 color: "white",
-                border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: "0.5rem",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderRadius: "0.75rem",
                 cursor: "pointer",
                 fontSize: "1rem",
+                fontWeight: "600",
                 transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
               }}
             >
               No, Thanks
@@ -1649,7 +1663,7 @@ export default function PINITApp() {
               onClick={() => {
                 setShowRecommendationPopup(false)
                 setRecommendationData({
-                  mediaUrl: capturedMedia?.url || "",
+                  mediaUrl: finalImageData?.finalImageUrl || capturedMedia?.url || "",
                   locationName: capturedMedia?.location || capturedMedia?.title || "PINIT Location",
                   platform: selectedPlatform,
                   aiTitle: capturedMedia?.title,
@@ -1664,16 +1678,17 @@ export default function PINITApp() {
                 setShowRecommendationForm(true)
               }}
               style={{
-                padding: "0.75rem 1.5rem",
-                background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+                flex: 1,
+                padding: "1rem 1.5rem",
+                background: "rgba(255,255,255,0.2)",
                 color: "white",
-                border: "none",
-                borderRadius: "0.5rem",
+                border: "2px solid rgba(255,255,255,0.4)",
+                borderRadius: "0.75rem",
                 cursor: "pointer",
                 fontSize: "1rem",
                 fontWeight: "600",
                 transition: "all 0.2s ease",
-                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                backdropFilter: "blur(10px)",
               }}
             >
               Yes, Recommend
