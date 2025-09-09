@@ -44,7 +44,7 @@ export function PinRatingPopup({
                 <button
                   key={pin}
                   onClick={() => setRating(pin)}
-                  className={w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-colors }
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-colors"
                 >
                   📍
                 </button>
