@@ -51,7 +51,7 @@ export function PinRatingPopup({
               ))}
             </div>
             <p className="text-gray-300 text-sm mt-2">
-              {rating === 0 ? 'Select a rating' : ${rating} pin - }
+              {rating === 0 ? 'Select a rating' : `${rating} pin -`}
             </p>
           </div>
 
