@@ -1,97 +1,20 @@
 "use client"
 
-/**
- * PINIT Main Application Component
- * 
- * This is the core client-side component that handles the main PINIT functionality:
- * - Location-based pin creation (like Shazam for travel)
- * - Real-time GPS tracking and speed calculation
- * - AI-powered recommendations and content generation
- * - Camera capture and media handling
- * - Social sharing and community features
- * 
- * Architecture: Client-only component (SSR disabled) to handle browser APIs
- * Performance: Lazy-loaded components, debounced updates, mobile optimizations
- */
-
-// React core imports
-import { useState, useCallback, useEffect, useMemo } from "react"
-import dynamic from "next/dynamic"
-
-// Logging and debugging
-import { log } from '@/lib/logger'
-import type { PinData, GooglePlace, Recommendation } from '@/lib/types'
-
-// Icon imports
-import { Camera, Video, Library, MapPin, Check, Star } from "lucide-react"
-
-// Custom hooks
+import { useState, useCallback, useEffect } from "react"
+import { Camera, Video, Library, Sparkles, MapPin, Check, Star } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
-
-// Utility functions
-import { autoHealOnStartup } from "@/lib/dataHealing"
-// Simple utility functions (inlined to avoid external dependencies)
-const isMobileDevice = () => {
-  if (typeof window === "undefined") return false
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-}
-
-const generateUniqueId = () => `pin-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-
-const retryWithBackoff = async (fn: () => Promise<any>, maxRetries: number = 3) => {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn()
-    } catch (error) {
-      if (i === maxRetries - 1) throw error
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)))
-    }
-  }
-}
-
-// UI Components (direct imports for critical path)
 import { ReliableCamera } from "@/components/reliable-camera"
 import { SocialPlatformSelector } from "@/components/social-platform-selector"
 import { ContentEditor } from "@/components/ContentEditor"
 import { SettingsPage } from "@/components/SettingsPage"
 import { PinStoryMode } from "@/components/PinStoryMode"
+
 import { ProactiveAI } from "@/components/ProactiveAI"
 import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
-
-// Lazy load large components for better mobile performance
-const AIRecommendationsHub = dynamic(() => import("@/components/AIRecommendationsHub"), {
-  ssr: false,
-  loading: () => (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      color: "white"
-    }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{
-          width: "48px",
-          height: "48px",
-          border: "4px solid rgba(255,255,255,0.3)",
-          borderTop: "4px solid white",
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-          margin: "0 auto 1rem"
-        }} />
-        <p>Loading Recommendations...</p>
-      </div>
-    </div>
-  )
-})
+import AIRecommendationsHub from "@/components/AIRecommendationsHub"
 import { RecommendationForm } from "@/components/RecommendationForm"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
@@ -99,8 +22,115 @@ import { PinResults } from "@/components/PinResults"
 import { useAuth } from "@/hooks/useAuth"
 
 
+export interface PinData {
+  id: string
+  latitude: number
+  longitude: number
+  locationName: string
+  mediaUrl: string | null
+  mediaType: "photo" | "video" | null
+  audioUrl: string | null
+  timestamp: string
+  title: string
+  description?: string
+  tags?: string[]
+  isRecommended?: boolean
+  googlePlaceId?: string
+  rating?: number
+  priceLevel?: number
+  types?: string[]
+  isAISuggestion?: boolean
+  additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
+  personalThoughts?: string // NEW: User's personal thoughts about the place
+  originalPinId?: string // NEW: Reference to original PINIT pin
+  
+  // NEW: Pin Management System Fields
+  placeId?: string // Reference to aggregated Place
+  totalEndorsements?: number // All-time unique user recommendations
+  recentEndorsements?: number // Endorsements within RECENT_WINDOW_DAYS
+  lastEndorsedAt?: string // ISO timestamp of last endorsement/renewal
+  score?: number // Trending score for sorting
+  downvotes?: number // Community downvotes
+  isHidden?: boolean // Soft hide if downvotes exceed threshold
+  category?: string // Place category (e.g., 'coffee', 'museum', etc.)
+}
+
+interface GooglePlace {
+  place_id: string
+  name: string
+  geometry: {
+    location: {
+      lat: number
+      lng: number
+    }
+  }
+  rating?: number
+  price_level?: number
+  types: string[]
+  vicinity?: string
+  photos?: Array<{
+    photo_reference: string
+    height: number
+    width: number
+  }>
+}
+
+interface Recommendation {
+  id: string
+  type: string
+  title: string
+  description: string
+  action: string
+  data?: any
+  priority: number
+  color: string
+  isAISuggestion?: boolean
+  timestamp: number
+  category: string
+  isCompleted?: boolean
+}
+
+// NEW: Pin Management System Interfaces
+interface Place {
+  id: string
+  googlePlaceId: string
+  name: string
+  lat: number
+  lng: number
+  category: string
+  createdAt: string
+  updatedAt: string
+  
+  // Aggregates
+  totalEndorsements: number
+  recentEndorsements: number
+  lastEndorsedAt: string
+  score: number
+  
+  // Community signals
+  downvotes: number
+  isHidden: boolean
+}
+
+interface Endorsement {
+  id: string
+  placeId: string
+  userId: string
+  createdAt: string
+  // Optional: comment, media, etc.
+}
+
+interface Renewal {
+  id: string
+  placeId: string
+  userId: string
+  type: 'renew' | 'downvote'
+  createdAt: string
+}
 
 export default function PINITApp() {
+
+  // Auth state
   const { user, loading: authLoading } = useAuth()
 
   // Core state
@@ -119,11 +149,13 @@ export default function PINITApp() {
     | "settings"
   >("map")
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
+
   const [isQuickPinning, setIsQuickPinning] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("Getting location...")
+
   const [showRecommendToggle, setShowRecommendToggle] = useState(false)
   const [showNearbyPins, setShowNearbyPins] = useState(false)
   const [discoveryMode, setDiscoveryMode] = useState(false)
@@ -132,10 +164,13 @@ export default function PINITApp() {
   const [pins, setPins] = useState<PinData[]>([])
   const [newPins, setNewPins] = useState<number>(0)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
   const [lastActivity, setLastActivity] = useState<string>("app-start")
+
+  // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
   // Media state
@@ -143,15 +178,6 @@ export default function PINITApp() {
     url: string
     type: "photo" | "video"
     location: string
-    title?: string
-    description?: string
-    personalThoughts?: string
-    pinId?: string
-    latitude?: number
-    longitude?: number
-    timestamp?: string
-    tags?: string[]
-    additionalPhotos?: Array<{ url: string; placeName: string }>
   } | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
@@ -160,237 +186,7 @@ export default function PINITApp() {
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
-  // Additional state
-  const [selectedPlace, setSelectedPlace] = useState<any>(null)
-  const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
-  const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
-  const [showRecommendationForm, setShowRecommendationForm] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
-  const [recommendationData, setRecommendationData] = useState<{
-    mediaUrl: string
-    locationName: string
-    platform: string
-    aiTitle?: string
-    aiDescription?: string
-    aiTags?: string[]
-    personalThoughts?: string
-    pinId?: string
-    latitude?: number
-    longitude?: number
-    additionalPhotos?: Array<{ url: string; placeName: string }>
-  } | null>(null)
-  const [isPosting, setIsPosting] = useState(false)
-
-  // Using centralized utility functions from lib/helpers
-
-  // Location functions (defined before they are used)
-  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
-    const isMobile = isMobileDevice()
-
-    try {
-      console.log(`📍 [${isMobile ? "MOBILE" : "DESKTOP"}] Fetching real location name...`)
-      
-      const fetchWithRetry = async () => {
-        const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, {
-          headers: {
-            "User-Agent": isMobile ? "PINIT-Mobile-App" : "PINIT-Web-App",
-            "X-Device-Type": isMobile ? "mobile" : "desktop",
-          },
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`📍 API Error Response:`, errorText)
-          throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
-        }
-        return response
-      }
-
-      const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
-      const data = await response.json()
-
-      if (data.results && data.results.length > 0) {
-        const closestPlace = data.results[0]
-        const placeName = closestPlace.name
-        const vicinity = closestPlace.vicinity || ""
-
-        if (vicinity) {
-          if (vicinity.includes("Cape Town")) {
-            const suburb = vicinity.split(",")[0].trim()
-            if (suburb && suburb !== "Cape Town") {
-              return `Cape Town - ${suburb}`
-            }
-          }
-          if (!placeName.includes(vicinity)) {
-            return `${placeName}, ${vicinity}`
-          }
-        }
-        return placeName
-      }
-
-      // Fallback logic for specific regions
-      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-        return "Riebeek West"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
-      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Southern Suburbs"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Northern Suburbs"
-      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        return "Cape Town"
-      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        return "Western Cape"
-      }
-
-      // Global fallback
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
-
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
-    } catch (error) {
-      console.error("Error fetching location name:", error)
-      
-      // Fallback logic on error
-      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
-      }
-
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-      return `Location (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
-    }
-  }
-
-  const getLocationName = async (lat: number, lng: number): Promise<string> => {
-    try {
-      return await getRealLocationName(lat, lng)
-    } catch (error) {
-      console.error("Failed to get location name:", error)
-      const latDir = lat >= 0 ? "N" : "S"
-      const lngDir = lng >= 0 ? "E" : "W"
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-
-      let region = "Unknown Region"
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) region = "North America"
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) region = "South America"
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) region = "Europe"
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) region = "Asia"
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) region = "Africa"
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) region = "Australia"
-
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
-    }
-  }
-
-  // AI and photo functions (defined before they are used)
-  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
-    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
-
-    let locationType = "general"
-    let context = ""
-
-    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-      locationType = "small-town"
-      context = "Riebeek West - charming rural community"
-    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-      locationType = "urban-cbd"
-      context = "Cape Town CBD - vibrant city center"
-    }
-
-    let title = ""
-    if (motionData.isMoving && motionData.speed > 5) {
-      if (locationType === "small-town") {
-        title = "🏘️ Charming Rural Discovery"
-      } else if (locationType === "urban-cbd") {
-        title = "🏙️ Urban Gem Spotted"
-      } else {
-        title = "📍 Travel Discovery"
-      }
-    } else {
-      title = "📍 Local Discovery"
-    }
-
-    let description = ""
-    if (motionData.isMoving && motionData.speed > 5) {
-      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories.`
-    } else {
-      description = `Found this special place in ${context}. A wonderful location to remember and share.`
-    }
-
-    const tags = ["ai-generated", "pinit"]
-    if (motionData.isMoving && motionData.speed > 5) {
-      tags.push("travel-discovery", "speed-pinning")
-    }
-
-    let locationName = context
-    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
-      locationName = locationPhotos[0].placeName
-    }
-
-    return { title, description, locationName, tags }
-  }
-
-  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{ url: string; placeName: string }[]> => {
-    try {
-      console.log("📸 Fetching location photo...")
-
-      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
-
-      if (!photoResponse.ok) {
-        console.log(`📸 Places API returned ${photoResponse.status}, using placeholder`)
-        return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
-      }
-
-      const data = await photoResponse.json()
-      const photos: { url: string; placeName: string }[] = []
-
-      if (data.results && data.results.length > 0) {
-        const closestPlace = data.results[0]
-        if (closestPlace.photos && closestPlace.photos.length > 0) {
-          const bestPhoto = closestPlace.photos[0]
-          const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-          
-          if (apiKey) {
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${apiKey}`
-
-            photos.push({
-              url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place",
-            })
-
-            console.log(`✅ Found location photo: ${closestPlace.name}`)
-            return photos
-          } else {
-            console.log("📸 Google Maps API key not configured")
-          }
-        }
-      }
-
-      console.log("📸 No location photos found or API key missing, using placeholder")
-      return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
-    } catch (error) {
-      console.error("❌ Error fetching location photos:", error)
-      return [{ url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }]
-    }
-  }
-
-  // Core app functions
+  // Function to clear corrupted app state and reset to map
   const clearAppState = useCallback(() => {
     try {
       localStorage.removeItem("pinit-app-state")
@@ -405,170 +201,525 @@ export default function PINITApp() {
     }
   }, [])
 
-  // Effects
+  // FORCE RESET ON APP START - Clear any corrupted state
   useEffect(() => {
     console.log("🚀 PINIT App starting - clearing any corrupted state")
     try {
+      // Clear any potentially corrupted state immediately
       localStorage.removeItem("pinit-app-state")
+      console.log("🧹 Cleared app state on startup")
+      
+      // Force start on map screen
       setCurrentScreen("map")
       setLastActivity("app-start-fresh")
       
-      
-      
-      // Auto-heal data on startup
-      const healingResult = autoHealOnStartup()
-      log.info("Data healing on startup", { success: healingResult }, "PINITApp")
-      
-      // Set up network monitoring
-      setIsOnline(navigator.onLine)
-      log.info("Network monitoring initialized", { online: navigator.onLine }, "PINITApp")
-      
-      const handleOnline = () => {
-        setIsOnline(true)
-        log.info("Network connection restored", undefined, "PINITApp")
-      }
-      
-      const handleOffline = () => {
-        setIsOnline(false)
-        log.warn("Network connection lost - entering offline mode", undefined, "PINITApp")
-      }
-      
-      window.addEventListener('online', handleOnline)
-      window.addEventListener('offline', handleOffline)
-      
-      return () => {
-        window.removeEventListener('online', handleOnline)
-        window.removeEventListener('offline', handleOffline)
-      }
+      console.log("✅ App started fresh on map screen")
     } catch (error) {
       console.error("❌ Error during app startup reset:", error)
     }
   }, [])
 
-  // Debounced app state saving for better performance
+  // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const appState = {
-        currentScreen,
-        recommendations,
-        discoveryMode,
-        showRecommendToggle,
-        lastActivity,
-        timestamp: Date.now(),
+    // Load saved app state on mount
+    try {
+      const savedState = localStorage.getItem("pinit-app-state")
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+        console.log("🔄 Restoring app state from localStorage:", parsedState)
+        
+        // Validate and restore current screen with fallback to map
+        if (parsedState.currentScreen && 
+            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
+          // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
+          if (parsedState.currentScreen !== "camera") {
+            setCurrentScreen(parsedState.currentScreen)
+            console.log("✅ Restored screen:", parsedState.currentScreen)
+          } else {
+            console.log("⚠️ Preventing camera from opening on app start, staying on map")
+            setCurrentScreen("map")
+          }
+        } else {
+          console.log("⚠️ Invalid screen state, defaulting to map")
+          setCurrentScreen("map")
+        }
+        
+        // Restore recommendations
+        if (parsedState.recommendations && Array.isArray(parsedState.recommendations)) {
+          setRecommendations(parsedState.recommendations)
+        }
+        
+        // Restore other important state
+        if (parsedState.discoveryMode !== undefined) {
+          setDiscoveryMode(parsedState.discoveryMode)
+        }
+        
+        if (parsedState.showRecommendToggle !== undefined) {
+          setShowRecommendToggle(parsedState.showRecommendToggle)
+        }
+        
+        if (parsedState.lastActivity) {
+          setLastActivity(parsedState.lastActivity)
+        }
+        
+        console.log("✅ App state restored successfully")
+      } else {
+        console.log("🆕 No saved state found, starting fresh on map")
+        setCurrentScreen("map")
       }
-
+    } catch (error) {
+      console.error("❌ Failed to restore app state:", error)
+      // Clear corrupted state and start fresh
       try {
-        localStorage.setItem("pinit-app-state", JSON.stringify(appState))
-      } catch (error) {
-        console.error("❌ Failed to save app state:", error)
+        localStorage.removeItem("pinit-app-state")
+        console.log("🧹 Cleared corrupted app state")
+      } catch (clearError) {
+        console.error("❌ Failed to clear corrupted state:", clearError)
       }
-    }, 1000) // Debounce for 1 second to reduce localStorage writes
+      setCurrentScreen("map")
+    }
+  }, [])
 
-    return () => clearTimeout(timeoutId)
+  // Save app state whenever important state changes
+  useEffect(() => {
+    const appState = {
+      currentScreen,
+      recommendations,
+      discoveryMode,
+      showRecommendToggle,
+      lastActivity,
+      timestamp: Date.now()
+    }
+    
+    try {
+      localStorage.setItem("pinit-app-state", JSON.stringify(appState))
+      console.log("💾 App state saved to localStorage:", appState)
+    } catch (error) {
+      console.error("❌ Failed to save app state:", error)
+    }
   }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
 
+  // Initialize pins from storage
   useEffect(() => {
     if (storedPins.length > 0) {
       setPins(storedPins)
     }
   }, [storedPins])
 
+  // Continuous location watching
   useEffect(() => {
     let watchId: number | null = null
-    let isActive = true // Prevent memory leaks from async operations
 
-    if (typeof window !== "undefined" && navigator.geolocation) {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
       console.log("📍 Setting up location watching...")
-
-      // Mobile-optimized location watching
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       
+      // Start watching location continuously with better accuracy
       watchId = watchLocation({
-        enableHighAccuracy: !isMobile, // Lower accuracy on mobile for battery savings
-        timeout: isMobile ? 20000 : 15000, // More time for mobile GPS
-        maximumAge: isMobile ? 30000 : 10000, // Cache longer on mobile
+        enableHighAccuracy: true, // Use high accuracy for real-time updates
+        timeout: 15000, // Increase timeout
+        maximumAge: 10000, // Reduced to 10 seconds for real-time updates
       })
 
+      // Cleanup function
       return () => {
-        isActive = false
         if (watchId !== null) {
           clearWatch(watchId)
-          console.log("📍 Location watching cleaned up")
         }
       }
+    } else {
+      console.log("❌ Geolocation not available")
     }
   }, [watchLocation, clearWatch])
 
+  // Update userLocation when location changes
   useEffect(() => {
     if (location) {
       setUserLocation({
         latitude: location.latitude,
         longitude: location.longitude,
       })
-
-      // Debounce location name updates on mobile for better performance
-      const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-              const debounceTime = isMobile ? 2000 : 500 // 2 seconds on mobile, 500ms on desktop
       
-      const timeoutId = setTimeout(() => {
-        getLocationName(location.latitude, location.longitude).then((name) => {
-          setLocationName(name)
-        }).catch((error) => {
-          console.log("📍 Location name update failed:", error)
-        })
-      }, debounceTime)
-
-      return () => clearTimeout(timeoutId)
+      // Update location name when location changes
+      getLocationName(location.latitude, location.longitude).then((name) => {
+        setLocationName(name)
+      })
     }
   }, [location])
 
-  const addPin = useCallback(
-    (pin: PinData) => {
-      setPins((prev: PinData[]) => [...prev, pin])
-      setNewPins((prev: number) => prev + 1)
-      addPinFromStorage(pin)
-    },
-    [addPinFromStorage],
-  )
+  const addPin = useCallback((pin: PinData) => {
+    setPins((prev: PinData[]) => [...prev, pin])
+    setNewPins((prev: number) => prev + 1)
+    addPinFromStorage(pin) // Also save to storage
+  }, [addPinFromStorage])
 
   const openLibrary = useCallback(() => {
     setCurrentScreen("library")
-    setNewPins(0)
-  }, [])
+    setNewPins(0) // Reset new pins count when Library is opened
+  }, [setCurrentScreen])
 
+  const [selectedPlace, setSelectedPlace] = useState<any>(null)
+  const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
+  const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
+
+  // Recommendation form state
+  const [showRecommendationForm, setShowRecommendationForm] = useState(false)
+  const [recommendationData, setRecommendationData] = useState<{
+    mediaUrl: string
+    locationName: string
+    platform: string
+  } | null>(null)
+
+  // Add location name resolution
+  const getLocationName = async (lat: number, lng: number): Promise<string> => {
+    try {
+      // Use the new getRealLocationName function for better results
+      return await getRealLocationName(lat, lng)
+    } catch (error) {
+      console.error("Failed to get location name:", error)
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+    }
+  }
+
+  // Mobile detection utility
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // Retry logic with exponential backoff
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> => {
+    let lastError: Error
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error) {
+        lastError = error as Error
+        
+        if (attempt === maxRetries) {
+          throw lastError
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = baseDelay * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    
+    throw lastError!
+  }
+
+  // Get real location name from Google Places API with mobile-robust error handling
+  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
+    const isMobile = isMobileDevice()
+    
+    try {
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Fetching real location name...`)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
+      
+      // Enhanced fetch with mobile-specific headers and retry logic
+      const fetchWithRetry = async () => {
+        const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, {
+          headers: {
+            'User-Agent': isMobile ? 'PINIT-Mobile-App' : 'PINIT-Web-App',
+            'X-Device-Type': isMobile ? 'mobile' : 'desktop'
+          }
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Error Response:`, errorText)
+          throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
+        }
+        
+        return response
+      }
+      
+      // Use retry logic for mobile (3 attempts) vs desktop (1 attempt)
+      const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
+      const data = await response.json()
+      
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response status:`, response.status)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response data:`, data)
+
+      if (data.results && data.results.length > 0) {
+        // Get the closest place (first result)
+        const closestPlace = data.results[0]
+        const placeName = closestPlace.name
+        const vicinity = closestPlace.vicinity || ""
+        
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Found place:`, { placeName, vicinity })
+        
+        // Enhanced location formatting
+        if (vicinity) {
+          if (vicinity.includes("Cape Town")) {
+            const suburb = vicinity.split(",")[0].trim()
+            if (suburb && suburb !== "Cape Town") {
+              return `Cape Town - ${suburb}`
+            }
+          }
+          
+          if (!placeName.includes(vicinity)) {
+            return `${placeName}, ${vicinity}`
+          }
+        }
+        
+        return placeName
+      }
+
+      // If no places found, try alternative geocoding for mobile
+      if (isMobile && data.status === 'ZERO_RESULTS') {
+        console.log(`📍 [MOBILE] Places API returned no results, trying alternative geocoding...`)
+        
+        // Try reverse geocoding as fallback
+        try {
+          const geocodeResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          )
+          
+          if (geocodeResponse.ok) {
+            const geocodeData = await geocodeResponse.json()
+            if (geocodeData.results && geocodeData.results.length > 0) {
+              const addressComponents = geocodeData.results[0].address_components
+              
+              // Extract meaningful location name from address components
+              const locality = addressComponents.find((comp: any) => 
+                comp.types.includes('locality') || comp.types.includes('sublocality')
+              )
+              
+              if (locality) {
+                console.log(`📍 [MOBILE] Alternative geocoding successful:`, locality.long_name)
+                return locality.long_name
+              }
+            }
+          }
+        } catch (geocodeError) {
+          console.log(`📍 [MOBILE] Alternative geocoding failed:`, geocodeError)
+        }
+      }
+
+      // If no places found, return a descriptive location name instead of coordinates
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found, returning descriptive location name...`)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Processing coordinates: lat=${lat}, lng=${lng}`)
+      
+          // Enhanced fallback logic with mobile-specific ranges
+    if (isMobile) {
+      console.log(`📍 [MOBILE] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
+      // Mobile-specific coordinate ranges (more precise)
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+        console.log(`📍 [MOBILE] Hit Riebeek West range`)
+        return "Riebeek West"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [MOBILE] Hit Cape Town - CBD range`)
+        return "Cape Town - CBD"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [MOBILE] Hit Cape Town - Southern Suburbs range`)
+        return "Cape Town - Southern Suburbs"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [MOBILE] Hit Cape Town - Northern Suburbs range`)
+        return "Cape Town - Northern Suburbs"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        console.log(`📍 [MOBILE] Hit Cape Town range`)
+        return "Cape Town"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+        console.log(`📍 [MOBILE] Hit Western Cape range`)
+        return "Western Cape"
+      }
+    } else {
+      console.log(`📍 [DESKTOP] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
+      // Desktop fallback logic (existing)
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+        console.log(`📍 [DESKTOP] Hit Riebeek West range`)
+        return "Riebeek West"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [DESKTOP] Hit Cape Town - CBD range`)
+        return "Cape Town - CBD"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [DESKTOP] Hit Cape Town - Southern Suburbs range`)
+        return "Cape Town - Southern Suburbs"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        console.log(`📍 [DESKTOP] Hit Cape Town - Northern Suburbs range`)
+        return "Cape Town - Northern Suburbs"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        console.log(`📍 [DESKTOP] Hit Cape Town range`)
+        return "Cape Town"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+        console.log(`📍 [DESKTOP] Hit Western Cape range`)
+        return "Western Cape"
+      }
+    }
+      
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      
+    } catch (error) {
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error fetching location name:`, error)
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error details:`, { lat, lng, error: error instanceof Error ? error.message : String(error) })
+      
+      // Mobile-specific error handling
+      if (isMobile) {
+        console.log(`📍 [MOBILE] Attempting mobile-specific fallback...`)
+        
+        // Try to extract location from coordinates using basic logic
+        if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+          return "Riebeek West"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - CBD"
+        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - Southern Suburbs"
+        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+          return "Cape Town - Northern Suburbs"
+        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+          return "Cape Town"
+        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+          return "Western Cape"
+        }
+      }
+      
+      // Desktop fallback logic (existing)
+      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+        return "Riebeek West"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town - CBD"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town - Southern Suburbs"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town - Northern Suburbs"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        return "Cape Town"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+        return "Western Cape"
+      }
+      
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+    }
+  }
+
+  // ENHANCED: Real Google Places Integration
   const findNearbyPins = useCallback(async () => {
-    if (!location || typeof window === 'undefined') return
+    if (!location) return
 
     console.log("🌐 Discovering real nearby places...")
-    setIsLoadingPlaces(true)
-
+    
     try {
-      // Check network connectivity
-      if (!navigator.onLine) {
-        console.log("🌐 Offline mode: Using cached or mock data")
-        setIsLoadingPlaces(false)
-        return
-      }
-
-      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`, {
-        signal: AbortSignal.timeout(15000), // 15 second timeout
-      })
-
+      // Use our API route to avoid CORS issues
+      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
+      
       if (!response.ok) {
-        console.log(`🌐 Places API returned ${response.status}, continuing with available data`)
-        setIsLoadingPlaces(false)
-        return
+        throw new Error("Failed to fetch places from API")
       }
-
+      
       const data = await response.json()
       const realPlaces = data.results || []
-
-      if (realPlaces.length === 0) {
-        console.log("🌐 No nearby places found")
-        setIsLoadingPlaces(false)
-        return
-      }
-
+      
+      console.log("🌐 Found", realPlaces.length, "places via API route")
+      
+      // Transform API results to PinData format
       const transformedPlaces = realPlaces.map((place: any) => ({
         id: place.place_id,
         latitude: place.geometry.location.lat,
@@ -588,102 +739,102 @@ export default function PINITApp() {
         types: place.types,
         isAISuggestion: true,
       }))
-
+      
       setNearbyPins(transformedPlaces)
       setShowNearbyPins(true)
       setLastActivity("discovery")
-      console.log(`🌐 Successfully loaded ${transformedPlaces.length} nearby places`)
+      
     } catch (error) {
-      if (error instanceof Error && error.name === 'TimeoutError') {
-        console.log("🌐 Request timeout: Network may be slow")
-      } else {
-        console.error("🌐 Error fetching nearby places:", error)
-      }
-    } finally {
-      setIsLoadingPlaces(false)
+      console.error("🌐 Error fetching nearby places:", error)
+      // Don't set error state, just log it
     }
   }, [location])
 
-  // Memoize location key to prevent unnecessary effect runs
-  const locationKey = useMemo(() => {
-    if (!location) return null
-    return `${location.latitude.toFixed(4)},${location.longitude.toFixed(4)}`
-  }, [location])
-
+  // Auto-fetch nearby places when recommendations screen is opened
   useEffect(() => {
-    if (currentScreen === "recommendations" && locationKey && nearbyPins.length === 0) {
+    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
+      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
       findNearbyPins()
     }
+    
+    // Hide nearby places popup when leaving recommendations screen
     if (currentScreen !== "recommendations") {
       setShowNearbyPins(false)
     }
-  }, [currentScreen, locationKey, nearbyPins.length, findNearbyPins])
+  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
 
-  const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
+  // Debug: Monitor recommendations state changes
+  useEffect(() => {
+    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
+    console.log("🤖 Recommendations content:", recommendations)
+  }, [recommendations])
 
-    setIsQuickPinning(true)
-    setLastActivity("quick-pin")
+  // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
+  const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
+    console.log("🤖 AI generated recommendations:", newRecommendations)
+    console.log("🤖 Current recommendations count before:", recommendations.length)
+    
+    setRecommendations((prev) => {
+      // Avoid duplicates by checking IDs
+      const existingIds = new Set(prev.map((r) => r.id))
+      const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
+      
+      console.log("🤖 Unique new recommendations:", uniqueRecommendations.length)
+      console.log("🤖 Total recommendations after adding:", prev.length + uniqueRecommendations.length)
+      
+      return [...prev, ...uniqueRecommendations]
+    })
+  }, [recommendations.length])
 
-    try {
-      const currentLocation = await getCurrentLocation()
+  // Handle notification tap - GO TO RECOMMENDATIONS PAGE
+  const handleNotificationTap = useCallback(() => {
+    console.log("🤖 Opening recommendations hub")
+    setCurrentScreen("recommendations")
+    // Ensure nearby places popup is hidden when opening recommendations
+    setShowNearbyPins(false)
+  }, [])
 
-      let pinLatitude = currentLocation.latitude
-      let pinLongitude = currentLocation.longitude
-      let locationDescription = "Quick Pin Location"
+  // Handle recommendation actions
+  const handleRecommendationAction = useCallback(
+    (action: string, data?: any) => {
+      console.log("🎯 Taking recommendation action:", action, data)
+      // Go back to map after action and hide nearby places popup
+      setCurrentScreen("map")
+      setShowNearbyPins(false)
+    },
+    [],
+  )
 
-      if (motionData.isMoving && motionData.speed > 5) {
-        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+  // Handle recommendation dismiss
+  const handleRecommendationDismiss = useCallback((id: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== id))
+  }, [])
 
-        const reactionTime = 2
-        const speedInMPS = motionData.speed / 3.6
-        const distanceTraveled = speedInMPS * reactionTime
+  // Handle recommendation complete
+  const handleRecommendationComplete = useCallback((id: string) => {
+    setRecommendations((prev) => prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r)))
+  }, [])
 
-        if (motionData.lastPosition) {
-          const bearing = Math.atan2(
-            currentLocation.longitude - motionData.lastPosition.longitude,
-            currentLocation.latitude - motionData.lastPosition.latitude,
-          )
+  // Handle proactive AI suggestions
+  const handleProactiveSuggestion = useCallback(
+    (action: string, data?: any) => {
+      console.log("🤖 Proactive AI suggestion:", action, data)
 
-          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing)
-          const lngOffset =
-            (distanceTraveled / (111000 * Math.cos((currentLocation.latitude * Math.PI) / 180))) * Math.sin(bearing)
-
-          pinLatitude = currentLocation.latitude - latOffset
-          pinLongitude = currentLocation.longitude - lngOffset
-
-          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
-        }
+      switch (action) {
+        case "suggest-pin":
+          // Show recommendations instead of AI assistant
+          setCurrentScreen("recommendations")
+          break
+        default:
+          console.log("Unknown proactive suggestion:", action)
       }
 
-      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      setLastActivity(`proactive-${action}`)
+    },
+    [],
+  )
 
-      const newPin: PinData = {
-        id: Date.now().toString(),
-        latitude: pinLatitude,
-        longitude: pinLongitude,
-        locationName: aiGeneratedContent.locationName || locationDescription,
-        mediaUrl: locationPhotos[0]?.url || null,
-        mediaType: "photo",
-        audioUrl: null,
-        timestamp: new Date().toISOString(),
-        title: aiGeneratedContent.title,
-        description: aiGeneratedContent.description,
-        tags: aiGeneratedContent.tags,
-        additionalPhotos: locationPhotos,
-      }
-
-      setCurrentResultPin(newPin)
-      setCurrentScreen("results")
-    } catch (error) {
-      console.error("❌ Failed to create quick pin:", error)
-    } finally {
-      setIsQuickPinning(false)
-    }
-  }, [getCurrentLocation, isQuickPinning, motionData])
-
-  // Handler functions
+  // Handle camera capture
   const handleCameraCapture = useCallback(
     async (mediaUrl: string, type: "photo" | "video") => {
       if (!location) return
@@ -700,10 +851,497 @@ export default function PINITApp() {
     [location],
   )
 
+  // Handle platform select
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform)
     setCurrentScreen("content-editor")
   }, [])
+
+  // Handle quick pin with speed-based location calculation
+  const handleQuickPin = useCallback(async () => {
+    if (isQuickPinning) return
+
+    setIsQuickPinning(true)
+    setLastActivity("quick-pin")
+
+    try {
+      const currentLocation = await getCurrentLocation()
+      
+      // NEW: Calculate precise location based on speed and movement
+      let pinLatitude = currentLocation.latitude
+      let pinLongitude = currentLocation.longitude
+      let locationDescription = "Quick Pin Location"
+      
+      if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
+        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+        
+        // Calculate where the user likely saw the place (accounting for reaction time)
+        const reactionTime = 2 // 2 seconds reaction time
+        const speedInMPS = motionData.speed / 3.6 // Convert km/h to m/s
+        
+        // Calculate distance traveled during reaction time
+        const distanceTraveled = speedInMPS * reactionTime
+        
+        // Calculate bearing (direction of travel)
+        if (motionData.lastPosition) {
+          const bearing = Math.atan2(
+            currentLocation.longitude - motionData.lastPosition.longitude,
+            currentLocation.latitude - motionData.lastPosition.latitude
+          )
+          
+          // Calculate the location where the user likely saw the place
+          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing) // 111km per degree latitude
+          const lngOffset = (distanceTraveled / (111000 * Math.cos(currentLocation.latitude * Math.PI / 180))) * Math.sin(bearing)
+          
+          pinLatitude = currentLocation.latitude - latOffset
+          pinLongitude = currentLocation.longitude - lngOffset
+          
+          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
+          
+          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+        }
+      } else {
+        console.log("📍 Stationary pinning - using current location")
+      }
+      
+      // NEW: Fetch location photos before creating the pin
+      console.log("📸 Fetching location photos for speed-based pin...")
+      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+      
+      // NEW: Generate intelligent AI content based on location and context
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: pinLatitude,
+        longitude: pinLongitude,
+        locationName: aiGeneratedContent.locationName || locationDescription,
+        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
+        mediaType: "photo",
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description,
+        tags: aiGeneratedContent.tags,
+        // NEW: Store all photos for the carousel
+        additionalPhotos: locationPhotos
+      }
+
+      setCurrentResultPin(newPin)
+      setCurrentScreen("results")
+
+      console.log("📍 Quick pin created with photo:", newPin)
+    } catch (error) {
+      console.error("❌ Failed to create quick pin:", error)
+    } finally {
+      setIsQuickPinning(false)
+    }
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+
+  // NEW: Generate intelligent AI content based on location and context
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+    
+    // Determine location type and context
+    let locationType = "general"
+    let context = ""
+    
+    // Analyze location based on coordinates
+    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+      locationType = "small-town"
+      context = "Riebeek West - charming rural community"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "urban-cbd"
+      context = "Cape Town CBD - vibrant city center"
+    } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Southern Suburbs - residential area"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Northern Suburbs - growing community"
+    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+      locationType = "coastal"
+      context = "Cape Town - beautiful coastal city"
+    } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+      locationType = "provincial"
+      context = "Western Cape - diverse landscapes"
+    }
+    
+    // Generate title based on location type and context
+    let title = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      // Speed-based pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Charming Rural Discovery"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ Urban Gem Spotted"
+      } else if (locationType === "suburban") {
+        title = "🏡 Suburban Treasure"
+      } else if (locationType === "coastal") {
+        title = "🌊 Coastal Beauty"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Provincial Wonder"
+      } else {
+        title = "📍 Travel Discovery"
+      }
+    } else {
+      // Stationary pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Local Community Spot"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ City Center Location"
+      } else if (locationType === "suburban") {
+        title = "🏡 Neighborhood Place"
+      } else if (locationType === "coastal") {
+        title = "🌊 Seaside Location"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Regional Spot"
+      } else {
+        title = "📍 Local Discovery"
+      }
+    }
+    
+    // Generate intelligent description
+    let description = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+    } else {
+      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+    }
+    
+    // Generate smart tags based on context
+    const tags = []
+    if (motionData.isMoving && motionData.speed > 5) {
+      tags.push("travel-discovery", "speed-pinning")
+    }
+    if (locationType === "small-town") {
+      tags.push("rural", "community", "local")
+    } else if (locationType === "urban-cbd") {
+      tags.push("urban", "city", "vibrant")
+    } else if (locationType === "suburban") {
+      tags.push("suburban", "residential", "family")
+    } else if (locationType === "coastal") {
+      tags.push("coastal", "ocean", "scenic")
+    } else if (locationType === "provincial") {
+      tags.push("provincial", "landscape", "diverse")
+    }
+    tags.push("ai-generated", "pinit")
+    
+    // Use real location name if available from photos
+    let locationName = context
+    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
+      locationName = locationPhotos[0].placeName
+    }
+    
+    console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
+    
+    return {
+      title,
+      description,
+      locationName,
+      tags
+    }
+  }
+
+  // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
+  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
+    try {
+      console.log("📸 Fetching location photo with aggressive filtering...")
+      
+      // Use our API route instead of calling Google Maps directly
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
+      
+      if (!photoResponse.ok) {
+        throw new Error("Failed to fetch location data")
+      }
+
+      const data = await photoResponse.json()
+      const photos: {url: string, placeName: string}[] = []
+
+      if (data.results && data.results.length > 0) {
+        // Get the closest place
+        const closestPlace = data.results[0]
+        if (closestPlace.photos && closestPlace.photos.length > 0) {
+          // More aggressive filtering to exclude logos, clipart, and non-location photos
+          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
+            // Skip photos that are likely logos, clipart, or non-location photos
+            if (photo.width && photo.height) {
+              const aspectRatio = photo.width / photo.height
+              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
+              const isTooSmall = photo.width < 300 || photo.height < 300
+              const isTooLarge = photo.width > 2000 || photo.height > 2000
+              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
+              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
+              
+              // Log what we're filtering out
+              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
+                console.log("📸 Filtering out photo:", {
+                  dimensions: `${photo.width}x${photo.height}`,
+                  aspectRatio: aspectRatio.toFixed(2),
+                  reason: isSquareish ? "squareish (likely logo)" : 
+                          isTooSmall ? "too small" :
+                          isTooLarge ? "too large" :
+                          isPortrait ? "too tall (likely sign)" :
+                          isLandscape ? "too wide (likely banner)" : "unknown"
+                })
+                return false
+              }
+            }
+            return true
+          })
+          
+          if (filteredPhotos.length > 0) {
+            // Get the best filtered photo (prefer landscape photos for location views)
+            const bestPhoto = filteredPhotos.reduce((best, current) => {
+              if (current.width && current.height && best.width && best.height) {
+                const currentRatio = current.width / current.height
+                const bestRatio = best.width / best.height
+                
+                // Prefer photos closer to 16:9 ratio (typical landscape)
+                const currentScore = Math.abs(currentRatio - 1.78)
+                const bestScore = Math.abs(bestRatio - 1.78)
+                
+                return currentScore < bestScore ? current : best
+              }
+              return best
+            })
+            
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            
+            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
+            return photos
+          } else {
+            // If all photos were filtered out, try to get any photo but log it
+            console.log("⚠️ All photos filtered out, using fallback photo")
+            const fallbackPhoto = closestPlace.photos[0]
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            return photos
+          }
+        }
+      }
+      
+      console.log("📸 No location photos found, will use PINIT placeholder")
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    } catch (error) {
+      console.error("❌ Error fetching location photos:", error)
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    }
+  }
+
+  // Handle place navigation from recommendations
+  const handlePlaceNavigation = (place: any) => {
+    console.log("🗺️ Opening place navigation for:", place.title)
+    setSelectedPlace(place)
+    setCurrentScreen("place-navigation")
+  }
+
+  // Handle save for later
+  const handleSaveForLater = (place: any) => {
+    console.log("🔖 Saving place for later:", place.title)
+    setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
+    setCurrentScreen("recommendations")
+  }
+
+  // Handle navigation start
+  const handleStartNavigation = (place: any) => {
+    console.log("🧭 Starting navigation to:", place.title)
+    // Navigation is handled within the PlaceNavigation component
+  }
+
+  // Results page handlers
+  const handleSaveFromResults = (pin: PinData) => {
+    // Include personal thoughts in the saved pin
+    const pinToSave = {
+      ...pin,
+      personalThoughts: pin.personalThoughts || undefined
+    }
+    addPin(pinToSave)
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+    setQuickPinSuccess(true)
+    setTimeout(() => setQuickPinSuccess(false), 2000)
+  }
+
+  const handleShareFromResults = (pin: PinData) => {
+    // Create a comprehensive media object that captures ALL PINIT data
+    const mediaData = {
+      url: pin.mediaUrl || "/pinit-placeholder.jpg",
+      type: "photo" as const,
+      location: pin.locationName,
+        title: pin.title,
+      description: pin.description,
+      personalThoughts: pin.personalThoughts || undefined,
+      // Enhanced PINIT data
+      pinId: pin.id,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      timestamp: pin.timestamp,
+      tags: pin.tags || [],
+      additionalPhotos: pin.additionalPhotos || [],
+      // AI-generated content
+      aiTitle: pin.title,
+      aiDescription: pin.description,
+      aiTags: pin.tags || []
+    }
+    
+    // Set the captured media and go to platform selection (same flow as camera photos)
+    setCapturedMedia(mediaData)
+    setCurrentScreen("platform-select")
+  }
+
+  const handleEditFromResults = (pin: PinData) => {
+    // For now, just go back to map - could be enhanced with an edit modal
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+  }
+
+  const handleBackFromResults = () => {
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+  }
+
+  // Recommendation form handlers
+  const handleRecommendationSubmit = (rating: number, review: string) => {
+    console.log("⭐ Recommendation submitted:", { rating, review })
+    console.log("📍 Current recommendationData:", recommendationData)
+    console.log("📍 Current userLocation:", userLocation)
+    
+    // Check if this is a PINIT pin recommendation (has personalThoughts)
+    if (recommendationData?.personalThoughts) {
+      console.log("📌 This is a PINIT pin recommendation")
+      
+      // Create a new recommendation pin with ALL enhanced PINIT data
+      const newRecommendation: PinData = {
+        id: Date.now().toString(),
+        // Use original pin coordinates if available, otherwise current location
+        latitude: recommendationData?.latitude || userLocation?.latitude || 0,
+        longitude: recommendationData?.longitude || userLocation?.longitude || 0,
+        locationName: recommendationData?.locationName || "Unknown Location",
+        mediaUrl: recommendationData?.mediaUrl || null,
+        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `PINIT Recommendation - ${recommendationData?.aiTitle || recommendationData?.locationName || "Location"}`,
+        description: `${review}\n\nOriginal AI Description: ${recommendationData?.aiDescription || "No AI description available"}`,
+        personalThoughts: recommendationData.personalThoughts, // Include original user thoughts
+        // Combine AI tags with recommendation tags
+        tags: [
+          "recommendation", 
+          "user-submitted", 
+          "pinit-pin", 
+          recommendationData?.platform || "social",
+          ...(recommendationData?.aiTags || [])
+        ],
+        isRecommended: true,
+        rating: rating,
+        types: ["recommendation", "pinit"],
+        // Store reference to original pin
+        originalPinId: recommendationData?.pinId,
+        // Include additional photos if available
+        additionalPhotos: recommendationData?.additionalPhotos || []
+      }
+
+      console.log("📌 Created enhanced PINIT recommendation pin:", newRecommendation)
+      
+      // Add the recommendation to pins
+      addPin(newRecommendation)
+      
+      setShowRecommendationForm(false)
+      setRecommendationData(null)
+      setSuccessMessage("PINIT Recommendation sent!")
+      setShowSuccessPopup(true)
+      setTimeout(() => setShowSuccessPopup(false), 3000)
+      setCurrentScreen("map")
+    } else {
+      // Regular photo recommendation
+    const newRecommendation: PinData = {
+      id: Date.now().toString(),
+      latitude: userLocation?.latitude || 0,
+      longitude: userLocation?.longitude || 0,
+      locationName: recommendationData?.locationName || "Unknown Location",
+      mediaUrl: recommendationData?.mediaUrl || null,
+      mediaType: recommendationData?.mediaUrl ? "photo" : null,
+      audioUrl: null,
+      timestamp: new Date().toISOString(),
+      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
+      description: review,
+      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+      isRecommended: true,
+      rating: rating,
+      types: ["recommendation"],
+    }
+
+      console.log("📌 Created regular recommendation pin:", newRecommendation)
+
+    // Add the recommendation to pins
+    addPin(newRecommendation)
+    
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setSuccessMessage("Recommendation sent!")
+    setShowSuccessPopup(true)
+    setTimeout(() => setShowSuccessPopup(false), 3000)
+    setCurrentScreen("map")
+    }
+  }
+
+  const handleRecommendationSkip = () => {
+    console.log("⏭️ Recommendation skipped")
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setCurrentScreen("map")
+  }
+
+  // Debounce for post button to prevent multiple clicks
+  const [isPosting, setIsPosting] = useState(false)
+
+  // Handle arrival
+  const handleArrival = useCallback(
+    (place: any, shouldSave: boolean) => {
+      console.log("🎯 Arrived at:", place.title, "Save:", shouldSave)
+
+      if (shouldSave) {
+        // Create a new pin from the place
+        const newPin: PinData = {
+          id: Date.now().toString(),
+          latitude: place.latitude,
+          longitude: place.longitude,
+          locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
+          mediaUrl: place.mediaUrl || null,
+          mediaType: place.mediaUrl ? "photo" : null,
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: place.title,
+          description: place.description || `Visited ${place.title}`,
+          tags: ["visited", "recommended", ...(place.types || []).slice(0, 3)],
+          isRecommended: true,
+          googlePlaceId: place.googlePlaceId,
+          rating: place.rating,
+          priceLevel: place.priceLevel,
+          types: place.types,
+        }
+
+        addPin(newPin)
+        console.log("📍 Place saved as pin:", newPin)
+      }
+
+      // Go back to map
+      setCurrentScreen("map")
+      setSelectedPlace(null)
+      setLastActivity("place-visited")
+    },
+    [addPin],
+  )
 
   // Screen rendering
   if (currentScreen === "camera") {
@@ -729,18 +1367,36 @@ export default function PINITApp() {
         platform={selectedPlatform}
         onBack={() => setCurrentScreen("platform-select")}
         onPost={(contentData) => {
+          // Prevent multiple rapid clicks
           if (isPosting) return
           setIsPosting(true)
-
+          
+          // Handle posting with content data
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowSuccessPopup(true)
-
+          
+          // Check if this is a PINIT pin (has personalThoughts) and show recommendation form
+          if (capturedMedia.personalThoughts) {
+            // Show recommendation form after success message for PINIT pins
+          setTimeout(() => {
+            setShowSuccessPopup(false)
+            setRecommendationData({
+              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+                locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
+              platform: selectedPlatform
+            })
+            setShowRecommendationForm(true)
+          }, 2000)
+          } else {
+            // Regular photo - just return to map
           setTimeout(() => {
             setCurrentScreen("map")
             setIsPosting(false)
           }, 2000)
+          }
         }}
         onSave={(contentData) => {
+          // Handle saving with content data
           setSuccessMessage("Saved to library successfully!")
           setShowSuccessPopup(true)
           setTimeout(() => setShowSuccessPopup(false), 2000)
@@ -751,36 +1407,82 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "editor" && capturedMedia) {
+    // Redirect to social platform selector instead of photo editor
     setCurrentScreen("platform-select")
     return null
+  }
+
+
+
+  if (currentScreen === "story") {
+    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
+  }
+
+  if (currentScreen === "story-builder") {
+    return (
+      <PinStoryBuilder
+        pins={pins}
+        onBack={() => setCurrentScreen("library")}
+        onCreateStory={(selectedPins, storyTitle) => {
+          console.log("Story created:", storyTitle, selectedPins)
+          setCurrentScreen("library")
+          setLastActivity("story-created")
+        }}
+      />
+    )
+  }
+
+  // NEW RECOMMENDATIONS HUB SCREEN
+  if (currentScreen === "recommendations") {
+    console.log("🧠 Opening AI-Powered Recommendations Hub")
+    console.log("🧠 - AI brain is learning from user behavior")
+    console.log("🧠 - Generating personalized recommendations")
+    
+        return (
+      <AIRecommendationsHub
+        onBack={() => setCurrentScreen("map")} 
+        userLocation={location}
+          // NEW: Pass recommendations to the component (convert to expected format)
+  initialRecommendations={recommendations.map(rec => ({
+    id: rec.id,
+    title: rec.title,
+    description: rec.description,
+    category: rec.category,
+    location: {
+      lat: location?.latitude || -33.9,
+      lng: location?.longitude || 18.4
+    },
+    rating: 4.0 + Math.random() * 1.0, // Generate random rating
+    isAISuggestion: rec.isAISuggestion || false,
+    confidence: 0.7 + Math.random() * 0.3, // Generate confidence
+    reason: rec.description,
+    timestamp: new Date(rec.timestamp)
+  }))}
+      />
+    )
+  }
+
+  // NEW PLACE NAVIGATION SCREEN
+  if (currentScreen === "place-navigation" && selectedPlace) {
+    return (
+      <PlaceNavigation
+        place={selectedPlace}
+        userLocation={userLocation}
+        onBack={() => setCurrentScreen("recommendations")}
+        onSaveForLater={handleSaveForLater}
+        onNavigate={handleStartNavigation}
+        onArrived={handleArrival}
+      />
+    )
   }
 
   if (currentScreen === "results" && currentResultPin) {
     return (
       <PinResults
         pin={currentResultPin}
-        onSave={(pin: PinData) => {
-          addPin(pin)
-          setCurrentResultPin(null)
-          setCurrentScreen("map")
-          setQuickPinSuccess(true)
-          setTimeout(() => setQuickPinSuccess(false), 2000)
-        }}
-        onShare={(pin: PinData) => {
-          const mediaData = {
-            url: pin.mediaUrl || "/pinit-placeholder.jpg",
-            type: "photo" as const,
-            location: pin.locationName,
-            title: pin.title,
-            description: pin.description,
-          }
-          setCapturedMedia(mediaData)
-          setCurrentScreen("platform-select")
-        }}
-        onBack={() => {
-          setCurrentResultPin(null)
-          setCurrentScreen("map")
-        }}
+        onSave={handleSaveFromResults}
+        onShare={handleShareFromResults}
+        onBack={handleBackFromResults}
       />
     )
   }
@@ -791,9 +1493,15 @@ export default function PINITApp() {
         pins={pins}
         onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
+          // Handle pin selection
           console.log("Pin selected:", pin)
         }}
         onPinUpdate={(pinId: string, updates: any) => {
+          // Handle pin updates
+          const updatedPins = pins.map(pin => 
+            pin.id === pinId ? { ...pin, ...updates } : pin
+          )
+          // Update pins state here if needed
           console.log("Pin updated:", pinId, updates)
         }}
       />
@@ -801,53 +1509,16 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "settings") {
-    return <SettingsPage onBack={() => setCurrentScreen("map")} onComplete={() => setCurrentScreen("map")} />
-  }
-
-  if (currentScreen === "recommendations") {
     return (
-      <AIRecommendationsHub
+      <SettingsPage
         onBack={() => setCurrentScreen("map")}
-        userLocation={location}
-        initialRecommendations={[
-          // Include nearby pins with exact coordinates from Google Places
-          ...nearbyPins.map((pin) => ({
-            id: pin.id,
-            title: pin.title,
-            description: pin.description || `${pin.locationName} - AI Recommended`,
-            category: pin.types?.[0] || pin.category || "general",
-            location: {
-              lat: pin.latitude, // EXACT coordinates from Google Places
-              lng: pin.longitude, // EXACT coordinates from Google Places
-            },
-            rating: pin.rating || 4.0,
-            isAISuggestion: true,
-            confidence: 0.8 + Math.random() * 0.2,
-            reason: `AI recommends this ${pin.types?.[0] || 'place'} based on your preferences`,
-            timestamp: new Date(pin.timestamp),
-          })),
-          // Include user-generated recommendations
-          ...recommendations.map((rec) => ({
-            id: rec.id,
-            title: rec.title,
-            description: rec.description,
-            category: rec.category,
-            location: {
-              lat: rec.data?.latitude || location?.latitude || -33.9,
-              lng: rec.data?.longitude || location?.longitude || 18.4,
-            },
-            rating: 4.0 + Math.random() * 1.0,
-            isAISuggestion: rec.isAISuggestion || false,
-            confidence: 0.7 + Math.random() * 0.3,
-            reason: rec.description,
-            timestamp: new Date(rec.timestamp),
-          }))
-        ]}
+        onComplete={() => setCurrentScreen("map")}
       />
     )
   }
 
-  // Main map screen
+  // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
+
   return (
     <div
       style={{
@@ -883,28 +1554,67 @@ export default function PINITApp() {
           }}
         >
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
-          <div
-            style={{
-              fontSize: "1.125rem",
-              fontWeight: "600",
-              color: "#10B981",
-              marginBottom: "0.5rem",
-            }}
-          >
+          <div style={{ 
+            fontSize: "1.125rem", 
+            fontWeight: "600", 
+            color: "#10B981",
+            marginBottom: "0.5rem"
+          }}>
             {successMessage}
+          </div>
+          <div style={{ 
+            fontSize: "0.875rem", 
+            opacity: 0.8 
+          }}>
+            Your content has been processed successfully
           </div>
         </div>
       )}
+      
+      {/* Recommendation Form */}
+      {showRecommendationForm && recommendationData && (
+        <RecommendationForm
+          mediaUrl={recommendationData.mediaUrl}
+          locationName={recommendationData.locationName}
+          onRecommend={handleRecommendationSubmit}
+          onSkip={handleRecommendationSkip}
+        />
+      )}
+      
+      {/* SUBTLE PROACTIVE AI NOTIFICATIONS - WhatsApp Style with DARK BLUE */}
+      <ProactiveAI
+        userLocation={userLocation}
+        pins={pins}
+        isMoving={motionData.isMoving}
+        lastActivity={lastActivity}
+        onSuggestionAction={handleProactiveSuggestion}
+        onRecommendationGenerated={handleAIRecommendations}
+        onNotificationTap={handleNotificationTap}
+      />
 
-      {/* Settings Button */}
+
+
+      {/* Enhanced Location Service - Hidden but working */}
+      {location && (
+        <EnhancedLocationService
+          latitude={location.latitude}
+          longitude={location.longitude}
+          onLocationEnhanced={setLocationDetails}
+        />
+      )}
+
+      {/* Discovery Mode Toggle - Top Right */}
       <div
         style={{
           position: "absolute",
           top: "1rem",
           right: "1rem",
           zIndex: 10,
+          display: "flex",
+          gap: "0.5rem"
         }}
       >
+        {/* Settings Button */}
         <button
           onClick={() => setCurrentScreen("settings")}
           style={{
@@ -914,12 +1624,44 @@ export default function PINITApp() {
             color: "white",
             cursor: "pointer",
             borderRadius: "0.5rem",
-            fontSize: "1.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           ⚙️
         </button>
       </div>
+
+
+
+      {/* Motion Status Indicator (Hidden - functionality still works in background) */}
+      {/* {motionData.isMoving && (
+        <div
+          style={{
+            position: "absolute",
+            top: "1rem",
+            left: "1rem",
+            background: "rgba(16,185,129,0.8)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            fontSize: "0.75rem",
+            fontWeight: "bold",
+            zIndex: 10,
+          }}
+        >
+          🚶‍♂️ Moving ({motionData.speed.toFixed(1)} km/h)
+        </div>
+      )} */}
 
       {/* SHAZAM-STYLE CIRCLE - MOVED TO TOP THIRD & PULSATING */}
       <div
@@ -1016,7 +1758,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* Live Google Maps Background */}
+          {/* LIVE GOOGLE MAPS BACKGROUND - WORKING VERSION */}
           {(userLocation || location) && (
             <div
               style={{
@@ -1069,32 +1811,32 @@ export default function PINITApp() {
                 }}
               />
 
-              {/* Speed-based pinning indicator */}
-              {motionData.isMoving && motionData.speed > 5 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "10px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "rgba(34, 197, 94, 0.9)",
-                    color: "white",
-                    padding: "4px 8px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                    zIndex: 3,
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  🚗 Speed Pinning Active
-                </div>
-              )}
-
-              {/* Minimal location overlay - positioned at top */}
+                          {/* Speed-based pinning indicator */}
+            {motionData.isMoving && motionData.speed > 5 && (
               <div
                 style={{
                   position: "absolute",
+                  top: "10px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(34, 197, 94, 0.9)",
+                  color: "white",
+                  padding: "4px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  zIndex: 3,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                🚗 Speed Pinning Active
+              </div>
+            )}
+
+            {/* Minimal location overlay - positioned at top */}
+            <div
+              style={{
+                position: "absolute",
                   top: "10%",
                   left: "50%",
                   transform: "translateX(-50%)",
@@ -1137,12 +1879,30 @@ export default function PINITApp() {
                     marginBottom: "0.5rem",
                   }}
                 />
-                <span>Pinning...</span>
+                <span
+                  style={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Pinning...
+                </span>
               </>
             ) : quickPinSuccess ? (
               <>
                 <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
-                <span>Pinned!</span>
+                <span
+                  style={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Pinned!
+                </span>
               </>
             ) : (
               <>
@@ -1166,7 +1926,7 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* PINIT Branding */}
+      {/* PINIT Branding - Moved to center */}
       <div
         style={{
           position: "absolute",
@@ -1197,7 +1957,7 @@ export default function PINITApp() {
             fontWeight: "500",
           }}
         >
-                          Find It. Pin It. Share It.
+          Pin It. Find It. Share It.
         </p>
         <p
           style={{
@@ -1212,7 +1972,122 @@ export default function PINITApp() {
         </p>
       </div>
 
-      {/* Bottom Navigation */}
+      {/* ENHANCED: Real Google Places Discovery Panel */}
+      {showNearbyPins && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "8rem",
+            left: "1rem",
+            right: "1rem",
+            background: "rgba(30, 58, 138, 0.95)",
+            borderRadius: "1rem",
+            padding: "1rem",
+            backdropFilter: "blur(15px)",
+            maxHeight: "200px",
+            overflowY: "auto",
+            border: "2px solid rgba(255,255,255,0.2)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
+              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
+            </h3>
+            <button
+              onClick={() => setShowNearbyPins(false)}
+              style={{
+                padding: "0.5rem",
+                border: "none",
+                background: "rgba(255,255,255,0.15)",
+                color: "white",
+                cursor: "pointer",
+                borderRadius: "0.5rem",
+                transition: "all 0.2s ease",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: "1rem", overflowX: "auto" }}>
+            {nearbyPins.map((pin) => (
+              <div
+                key={pin.id}
+                style={{
+                  minWidth: "160px",
+                  background: "rgba(255,255,255,0.1)",
+                  borderRadius: "0.75rem",
+                  padding: "0.75rem",
+                  color: "white",
+                  cursor: "pointer",
+                  border: pin.googlePlaceId ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.15)",
+                  transition: "all 0.2s ease",
+                  backdropFilter: "blur(10px)",
+                }}
+                onClick={() => {
+                  // Add to user's pins
+                  addPin({ ...pin, id: Date.now().toString() })
+                  setShowNearbyPins(false)
+                }}
+              >
+                {pin.mediaUrl && (
+                  <img
+                    src={pin.mediaUrl || "/placeholder.svg"}
+                    alt={pin.title}
+                    style={{
+                      width: "100%",
+                      height: "80px",
+                      objectFit: "cover",
+                      borderRadius: "0.25rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  />
+                )}
+                <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", fontWeight: "bold" }}>{pin.title}</h4>
+                <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
+                {pin.rating && (
+                  <div style={{ fontSize: "0.625rem", color: "#F59E0B", marginBottom: "0.25rem" }}>
+                    {"⭐".repeat(Math.floor(pin.rating))} {pin.rating}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                  {pin.googlePlaceId && (
+                    <span
+                      style={{
+                        fontSize: "0.5rem",
+                        background: "rgba(255,255,255,0.2)",
+                        padding: "0.125rem 0.25rem",
+                        borderRadius: "0.25rem",
+                        border: "1px solid rgba(255,255,255,0.3)",
+                      }}
+                    >
+                      🌐 Google
+                    </span>
+                  )}
+                  {pin.isRecommended && (
+                    <span
+                      style={{
+                        fontSize: "0.5rem",
+                        background: "rgba(255,255,255,0.2)",
+                        padding: "0.125rem 0.25rem",
+                        borderRadius: "0.25rem",
+                        border: "1px solid rgba(255,255,255,0.3)",
+                      }}
+                    >
+                      ⭐ Top
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+              {/* Bottom Navigation - Photo/Video/Library/AI-Powered Recommendations */}
       <div
         style={{
           position: "absolute",
@@ -1235,7 +2110,19 @@ export default function PINITApp() {
             background: "transparent",
             color: "white",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             borderRadius: "0.5rem",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           <Camera size={28} />
@@ -1252,7 +2139,19 @@ export default function PINITApp() {
             background: "transparent",
             color: "white",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             borderRadius: "0.5rem",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
           <Video size={28} />
@@ -1266,11 +2165,24 @@ export default function PINITApp() {
             background: "transparent",
             color: "white",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             position: "relative",
             borderRadius: "0.5rem",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Library size={28} />
+          <Library size={28} style={{ color: "white" }} />
+          {/* Pin Count Badge */}
           {newPins > 0 && (
             <div
               style={{
@@ -1303,11 +2215,25 @@ export default function PINITApp() {
             background: "transparent",
             color: "white",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             position: "relative",
             borderRadius: "0.5rem",
+            transition: "all 0.2s ease",
+          }}
+          title="🧠 AI-Powered Recommendations"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent"
+            e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Star size={28} />
+          <Star size={28} style={{ color: "white" }} />
+          {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
               style={{
@@ -1332,6 +2258,8 @@ export default function PINITApp() {
           )}
         </button>
       </div>
+
+
 
       <style jsx>{`
         @keyframes spin {
@@ -1380,4 +2308,20 @@ export default function PINITApp() {
       `}</style>
     </div>
   )
-} 
+}
+
+// Helper function for platform dimensions
+function getPlatformDimensions(platform: string) {
+  const dimensions = {
+    "instagram-story": { width: 1080, height: 1920 },
+    "instagram-post": { width: 1080, height: 1080 },
+    "facebook-post": { width: 1200, height: 630 },
+            "x-post": { width: 1200, height: 675 },
+    "linkedin-post": { width: 1200, height: 627 },
+    tiktok: { width: 1080, height: 1920 },
+    snapchat: { width: 1080, height: 1920 },
+    whatsapp: { width: 1080, height: 1080 },
+  }
+
+  return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
+}
