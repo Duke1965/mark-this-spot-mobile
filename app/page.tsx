@@ -178,6 +178,14 @@ export default function PINITApp() {
     url: string
     type: "photo" | "video"
     location: string
+    title?: string
+    description?: string
+    tags?: string[]
+    personalThoughts?: string
+    id?: string
+    latitude?: number
+    longitude?: number
+    additionalPhotos?: Array<{ url: string; placeName: string }>
   } | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
