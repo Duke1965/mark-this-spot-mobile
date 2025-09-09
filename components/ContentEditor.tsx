@@ -250,8 +250,6 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
 }
 
 export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
-  console.log("🎯 ContentEditor component rendered with:", { mediaUrl, mediaType, platform })
-  
   // Available stickers (matching exact GitHub file names)
   const availableStickers = [
     // Old School stickers
@@ -368,8 +366,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Handle post
   const handlePost = async () => {
-    alert("handlePost called!")
-    console.log("🎯 ContentEditor handlePost called")
     setIsRendering(true)
     try {
       // Render stickers onto the photo
@@ -380,7 +376,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         platform,
         finalImageUrl, // Include the rendered image
       }
-      console.log("🎯 ContentEditor calling onPost with:", contentData)
       onPost(contentData)
     } catch (error) {
       console.error('Error rendering image:', error)
@@ -389,7 +384,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         stickers,
         platform,
       }
-      console.log("🎯 ContentEditor calling onPost (fallback) with:", contentData)
       onPost(contentData)
     } finally {
       setIsRendering(false)
@@ -880,12 +874,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
             {isRendering ? 'Rendering...' : 'Save'}
           </button>
           <button
-            onClick={() => {
-              alert("Post button clicked!")
-              console.log("🎯 Post button clicked!")
-              console.log(" isRendering:", isRendering)
-              handlePost()
-            }}
+            onClick={handlePost}
             disabled={isRendering}
             style={{
               flex: 1,
@@ -903,8 +892,6 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
               gap: '8px',
               transition: 'all 0.2s ease',
               backdropFilter: 'blur(10px)',
-              zIndex: 9999, // Add high z-index to ensure it's on top
-              position: 'relative', // Add position relative
             }}
           >
             <Share2 size={16} />
