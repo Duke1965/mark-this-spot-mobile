@@ -1389,13 +1389,13 @@ export default function PINITApp() {
           
           // Handle posting with content data
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
-          setShowSuccessPopup(true)
+          setShowRecommendationPopup(true) // Show recommendation popup instead of success popup
           
           // Check if this is a PINIT pin (has personalThoughts) and show recommendation form
           if (capturedMedia.personalThoughts) {
             // Show recommendation form after success message for PINIT pins
           setTimeout(() => {
-            setShowSuccessPopup(false)
+            setShowRecommendationPopup(false)
             setRecommendationData({
               mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
                 locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
