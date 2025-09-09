@@ -18,22 +18,15 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
   }
 
   try {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    console.log('🔑 reverseGeocode API key available:', !!apiKey)
-    
     // Fetch from Google Geocoding API
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=en&key=${apiKey}`
-    console.log('🌐 reverseGeocode URL:', url.replace(apiKey || '', 'API_KEY_HIDDEN'))
-    
-    const response = await fetch(url)
-    console.log('📡 reverseGeocode response status:', response.status, response.statusText)
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=en&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    )
     
     const data = await response.json()
-    console.log('📊 reverseGeocode API response:', data)
     
     // Check API response status
     if (data.status !== "OK" || !data.results || data.results.length === 0) {
-      console.log('❌ reverseGeocode API failed:', data.status, data.error_message || 'No results')
       // Cache the null result
       geocodeCache.set(cacheKey, { result: null, timestamp: now })
       return null
