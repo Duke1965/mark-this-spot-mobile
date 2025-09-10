@@ -116,11 +116,75 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
-  // NEW: Enhanced motion detection state
+  // NEW: Enhanced motion detection state with throttling
   const [isUserMoving, setIsUserMoving] = useState(false)
   const [lastMotionCheck, setLastMotionCheck] = useState(Date.now())
+  const [lastLocationUpdate, setLastLocationUpdate] = useState(Date.now())
   
-  // NEW: Dedicated motion detection effect - runs every second
+  // NEW: Function to get the appropriate marker icon based on motion
+  const getMarkerIcon = useCallback((isMoving: boolean) => {
+    if (isMoving) {
+      // Car icon when moving
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
+            <path d="M8 20 L24 20 L22 16 L10 16 Z" fill="white"/>
+            <circle cx="12" cy="22" r="2" fill="#10b981"/>
+            <circle cx="20" cy="22" r="2" fill="#10b981"/>
+            <path d="M14 14 L18 14 L17 12 L15 12 Z" fill="#10b981"/>
+          </svg>
+        `),
+        scaledSize: new window.google.maps.Size(32, 32),
+        anchor: new window.google.maps.Point(16, 16)
+      }
+    } else {
+      // Pin icon when stationary
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
+            <circle cx="16" cy="16" r="6" fill="white"/>
+            <text x="16" y="20" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">📍</text>
+          </svg>
+        `),
+        scaledSize: new window.google.maps.Size(32, 32),
+        anchor: new window.google.maps.Point(16, 16)
+      }
+    }
+  }, [])
+
+  // NEW: Throttled location updates with dynamic icon
+  useEffect(() => {
+    if (!location) return
+    
+    const now = Date.now()
+    const timeSinceLastUpdate = now - lastLocationUpdate
+    
+    // Only update location every 300ms (3.3 times per second) for smooth movement
+    if (timeSinceLastUpdate >= 300) {
+      setLastLocationUpdate(now)
+      
+      // Update user location marker with smooth movement and dynamic icon
+      if (mapInstanceRef.current && userLocationMarkerRef.current) {
+        const newPosition = { lat: location.latitude, lng: location.longitude }
+        
+        // Update marker position
+        userLocationMarkerRef.current.setPosition(newPosition)
+        
+        // Update marker icon based on motion state
+        const newIcon = getMarkerIcon(isUserMoving)
+        userLocationMarkerRef.current.setIcon(newIcon)
+        
+        // Pan map to keep marker centered (smooth pan)
+        mapInstanceRef.current.panTo(newPosition)
+        
+        console.log('🗺️ Smooth location update:', newPosition, isUserMoving ? '🚗 Moving' : ' Stationary')
+      }
+    }
+  }, [location, lastLocationUpdate, isUserMoving, getMarkerIcon])
+
+  // NEW: Motion detection with reduced frequency
   useEffect(() => {
     if (!location) return
     
@@ -128,23 +192,23 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       const now = Date.now()
       const timeSinceLastCheck = now - lastMotionCheck
       
-      // Check motion every second
-      if (timeSinceLastCheck >= 1000) {
+      // Check motion every 2 seconds instead of 1 second
+      if (timeSinceLastCheck >= 2000) {
         const speed = location.speed || 0
-        const isMoving = speed > 1.5 // More aggressive: consider moving if speed > 1.5 m/s (~5.4 km/h)
+        const isMoving = speed > 1.5 // Use existing algorithm threshold
         
         setIsUserMoving(isMoving)
         setLastMotionCheck(now)
         
         if (isMoving) {
-          console.log('🚗 Motion detected - speed:', speed.toFixed(2), 'm/s, blocking recommendations')
+          console.log('🚗 Motion detected - speed:', speed.toFixed(2), 'm/s - Switching to car icon')
         } else {
-          console.log('🛑 User stationary - speed:', speed.toFixed(2), 'm/s, allowing recommendations')
+          console.log('📍 User stationary - speed:', speed.toFixed(2), 'm/s - Switching to pin icon')
         }
       }
     }
     
-    const motionInterval = setInterval(checkMotion, 1000)
+    const motionInterval = setInterval(checkMotion, 2000)
     return () => clearInterval(motionInterval)
   }, [location, lastMotionCheck])
 
