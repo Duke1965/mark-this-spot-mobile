@@ -156,7 +156,7 @@ export default function PINITApp() {
   const [showRecommendationPopup, setShowRecommendationPopup] = useState(false)
   const [finalImageData, setFinalImageData] = useState<any>(null)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
-  const [locationName, setLocationName] = useState<string>("Getting location...")
+  const [locationName, setLocationName] = useState<string>("")
 
   const [showRecommendToggle, setShowRecommendToggle] = useState(false)
   const [showNearbyPins, setShowNearbyPins] = useState(false)
@@ -2085,17 +2085,6 @@ export default function PINITApp() {
           }}
         >
           Pin It. Find It. Share It.
-        </p>
-        <p
-          style={{
-            margin: "0.5rem 0 0 0",
-            opacity: 0.95,
-            fontSize: "1rem",
-            color: "white",
-            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
-          }}
-        >
-          📍 {locationName}
         </p>
       </div>
 
