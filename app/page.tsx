@@ -1676,7 +1676,7 @@ export default function PINITApp() {
                   longitude: capturedMedia?.longitude,
                   additionalPhotos: capturedMedia?.additionalPhotos
                 })
-                setShowRecommendationForm(true)
+                // REMOVED: setShowRecommendationForm(true) - this was causing the duplicate popup
               }}
               style={{
                 flex: 1,
