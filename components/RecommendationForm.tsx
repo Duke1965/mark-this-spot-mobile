@@ -133,34 +133,29 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
     <div
       style={{
         position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-        padding: "1.5rem", // Reduced padding for mobile
-        borderRadius: "1rem",
-        border: "2px solid rgba(255,255,255,0.2)",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         zIndex: 1000,
-        textAlign: "center",
-        minWidth: "320px", // Reduced for mobile
-        maxWidth: "90vw", // Responsive width
-        maxHeight: "90vh", // Ensure it fits on screen
+        display: "flex",
+        flexDirection: "column",
         color: "white",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-        overflowY: "auto", // Enable scrolling if content is too tall
-        overflowX: "hidden", // Prevent horizontal scrolling
+        padding: "2rem",
+        overflowY: "auto",
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-        <div style={{ fontSize: "1.25rem", fontWeight: "600", color: "#10B981" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
+        <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white" }}>
           Write a Review
         </div>
         <button
           onClick={onSkip}
           style={{
-            padding: "0.5rem",
-            border: "none",
+            padding: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
             background: "rgba(255,255,255,0.1)",
             color: "white",
             borderRadius: "0.5rem",
@@ -168,30 +163,32 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            fontSize: "1.2rem",
           }}
         >
-          <X size={20} />
+          <X size={24} />
         </button>
       </div>
 
-      {/* Media Preview - FIXED: Proper centering and social media dimensions */}
+      {/* Media Preview */}
       <div style={{ 
-        marginBottom: "1rem", // Reduced from 1.5rem
+        marginBottom: "2rem",
         display: "flex",
         flexDirection: "column",
         alignItems: "center"
       }}>
         <div style={{
-          width: "280px", // Instagram story width (scaled down for mobile)
-          height: "350px", // Reduced height for mobile - was 500px
-          borderRadius: "0.75rem",
+          width: "100%",
+          maxWidth: "400px",
+          height: "300px",
+          borderRadius: "1rem",
           overflow: "hidden",
           border: "2px solid rgba(255,255,255,0.2)",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
           backgroundColor: "#000",
-          marginBottom: "0.5rem"
+          marginBottom: "1rem"
         }}>
           <img
             src={mediaUrl}
@@ -199,14 +196,14 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "contain", // Show full image including stickers
+              objectFit: "contain",
               objectPosition: "center",
             }}
           />
         </div>
         <div style={{ 
-          fontSize: "0.875rem", 
-          opacity: 0.8, 
+          fontSize: "1rem", 
+          opacity: 0.9, 
           fontWeight: "500",
           textAlign: "center"
         }}>
@@ -215,25 +212,26 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
       </div>
 
       {/* Star Rating */}
-      <div style={{ marginBottom: "1rem" }}> {/* Reduced from 1.5rem */}
+      <div style={{ marginBottom: "2rem" }}>
         <div style={{ 
-          fontSize: "0.875rem", 
-          marginBottom: "0.5rem",
-          opacity: 0.8
+          fontSize: "1rem", 
+          marginBottom: "1rem",
+          opacity: 0.9,
+          textAlign: "center"
         }}>
           Rate this place (optional)
         </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem" }}>
           {[1, 2, 3, 4, 5].map((pin) => (
             <button
               key={pin}
               onClick={() => handleStarClick(pin)}
               style={{
-                padding: "0.25rem",
+                padding: "0.5rem",
                 border: "none",
                 background: "transparent",
                 cursor: "pointer",
-                fontSize: "1.5rem",
+                fontSize: "2rem",
                 color: pin <= rating ? "#FBBF24" : "rgba(255,255,255,0.3)",
                 transition: "color 0.2s ease",
                 transform: `rotate(${pin % 2 === 0 ? '15deg' : '-15deg'})`,
@@ -246,11 +244,12 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
       </div>
 
       {/* Review Text */}
-      <div style={{ marginBottom: "1rem" }}> {/* Reduced from 1.5rem */}
+      <div style={{ marginBottom: "2rem" }}>
         <div style={{ 
-          fontSize: "0.875rem", 
-          marginBottom: "0.5rem",
-          opacity: 0.8
+          fontSize: "1rem", 
+          marginBottom: "1rem",
+          opacity: 0.9,
+          textAlign: "center"
         }}>
           Tell others why you recommend this PIN – in a sentence or two.
         </div>
@@ -260,22 +259,22 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           placeholder="Share your experience..."
           style={{
             width: "100%",
-            minHeight: "80px",
-            padding: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.3)",
-            borderRadius: "0.5rem",
+            minHeight: "120px",
+            padding: "1rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: "0.75rem",
             background: "rgba(255,255,255,0.1)",
             color: "white",
-            fontSize: "0.875rem",
+            fontSize: "1rem",
             resize: "vertical",
             fontFamily: "inherit",
           }}
           maxLength={200}
         />
         <div style={{ 
-          fontSize: "0.75rem", 
-          opacity: 0.6, 
-          marginTop: "0.25rem",
+          fontSize: "0.875rem", 
+          opacity: 0.7, 
+          marginTop: "0.5rem",
           textAlign: "right"
         }}>
           {review.length}/200 characters
@@ -288,18 +287,18 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         disabled={review.trim().length === 0 || isSubmitting}
         style={{
           width: "100%",
-          padding: "0.75rem",
+          padding: "1rem 1.5rem",
           border: "none",
           background: review.trim().length > 0 ? "#10B981" : "rgba(255,255,255,0.2)",
           color: "white",
-          borderRadius: "0.5rem",
+          borderRadius: "0.75rem",
           cursor: review.trim().length > 0 ? "pointer" : "not-allowed",
-          fontSize: "0.875rem",
+          fontSize: "1.1rem",
           fontWeight: "600",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: "0.5rem",
+          gap: "0.75rem",
           transition: "all 0.2s ease",
           boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(16, 185, 129, 0.3)" : "none",
         }}
@@ -319,8 +318,8 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         {isSubmitting ? (
           <>
             <div style={{ 
-              width: "16px", 
-              height: "16px", 
+              width: "20px", 
+              height: "20px", 
               border: "2px solid transparent", 
               borderTop: "2px solid white", 
               borderRadius: "50%", 
@@ -330,7 +329,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           </>
         ) : (
           <>
-            <Send size={16} />
+            <Send size={20} />
             Send Recommendation
           </>
         )}
