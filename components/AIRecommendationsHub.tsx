@@ -681,41 +681,33 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         console.log('🗺️ User has interacted with map, preserving current position')
       }
       
-      // FIXED: Create user location marker that stays centered
+      // FIXED: Create user location marker with dynamic icon
       if (mapRef.current) {
         if (userLocationMarkerRef.current) {
-          // Update existing marker position smoothly
+          // Update existing marker position and icon smoothly
           const newPosition = { lat: location.latitude, lng: location.longitude }
+          const newIcon = getMarkerIcon(isUserMoving)
+          
           userLocationMarkerRef.current.setPosition(newPosition)
+          userLocationMarkerRef.current.setIcon(newIcon)
           
           // Pan map to keep marker centered
           mapInstanceRef.current.panTo(newPosition)
           
-          console.log('🗺️ User location marker updated smoothly')
+          console.log('🗺️ User location marker updated smoothly with', isUserMoving ? 'car' : 'pin', 'icon')
         } else {
-          // Create new marker with fixed center behavior
+          // Create new marker with dynamic icon based on current motion state
           const marker = new window.google.maps.Marker({
             position: { lat: location.latitude, lng: location.longitude },
             map: mapInstanceRef.current,
             title: 'Your Location',
-            icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
-                  <circle cx="16" cy="16" r="6" fill="white"/>
-                  <text x="16" y="20" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">📍</text>
-                </svg>
-              `),
-              scaledSize: new window.google.maps.Size(32, 32),
-              anchor: new window.google.maps.Point(16, 16) // Center the marker
-            },
-            // Keep marker centered on screen
+            icon: getMarkerIcon(isUserMoving),
             optimized: false // Disable optimization for smoother updates
           })
           
           // Store reference to marker
           userLocationMarkerRef.current = marker
-          console.log('🗺️ User location marker created with smooth updates')
+          console.log('🗺️ User location marker created with', isUserMoving ? 'car' : 'pin', 'icon')
         }
       }
       
