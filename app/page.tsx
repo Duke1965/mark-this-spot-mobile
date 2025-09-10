@@ -68,6 +68,11 @@ const SettingsPage = dynamic(() => import("@/components/SettingsPage"), {
 export default function HomePage() {
   // ... rest of the existing code ...
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+      {/* Your existing component content */}
+      
+      <style jsx>{`
         @keyframes mapShimmer {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
