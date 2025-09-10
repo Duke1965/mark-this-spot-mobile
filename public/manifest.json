@@ -3,7 +3,7 @@
   "short_name": "PINIT",
   "description": "Like Shazam, but for Travel - Discover and pin amazing places",
   "start_url": "/",
-  "display": "standalone",
+  "display": "minimal-ui",
   "background_color": "#1e3a8a",
   "theme_color": "#1e3a8a",
   "icons": [
