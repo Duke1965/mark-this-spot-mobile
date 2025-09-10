@@ -55,3 +55,35 @@ const SettingsPage = dynamic(() => import("@/components/SettingsPage"), {
 
 export default function HomePage() {
   // ... rest of the existing code ...
+
+        @keyframes mapShimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes pulse {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+          100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// Helper function for platform dimensions
+function getPlatformDimensions(platform: string) {
+  const dimensions = {
+    "instagram-story": { width: 1080, height: 1920 },
+    "instagram-post": { width: 1080, height: 1080 },
+    "facebook-post": { width: 1200, height: 630 },
+    "x-post": { width: 1200, height: 675 },
+    "linkedin-post": { width: 1200, height: 627 },
+    tiktok: { width: 1080, height: 1920 },
+    snapchat: { width: 1080, height: 1920 },
+    whatsapp: { width: 1080, height: 1080 },
+  }
+
+  return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
+}
