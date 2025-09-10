@@ -2084,7 +2084,7 @@ export default function PINITApp() {
             fontWeight: "500",
           }}
         >
-          Pin It. Find It. Share It.
+          Find It. Pin It. Share It.
         </p>
       </div>
 
