@@ -196,6 +196,24 @@ export default function PINITApp() {
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
 
+  // Add state to remember the last good location name
+  const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
+  
+  // Update location name with persistence
+  useEffect(() => {
+    if (location && location.latitude && location.longitude) {
+      getLocationName(location.latitude, location.longitude).then((name) => {
+        if (name && name !== "Unknown Location") {
+          setLocationName(name)
+          setLastGoodLocationName(name) // Remember the last good location
+        } else if (lastGoodLocationName) {
+          // Keep the last good location if current lookup fails
+          setLocationName(lastGoodLocationName)
+        }
+      })
+    }
+  }, [location, lastGoodLocationName])
+
   // Function to clear corrupted app state and reset to map
   const clearAppState = useCallback(() => {
     try {
