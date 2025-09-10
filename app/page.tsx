@@ -2086,6 +2086,17 @@ export default function PINITApp() {
         >
           Find It. Pin It. Share It.
         </p>
+        <p
+          style={{
+            margin: "0.5rem 0 0 0",
+            opacity: 0.95,
+            fontSize: "1rem",
+            color: "white",
+            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
+          }}
+        >
+          📍 {locationName}
+        </p>
       </div>
 
       {/* ENHANCED: Real Google Places Discovery Panel */}
