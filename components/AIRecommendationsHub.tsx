@@ -681,32 +681,41 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         console.log('🗺️ User has interacted with map, preserving current position')
       }
       
-      // FIXED: Update existing user location marker instead of creating new ones
+      // FIXED: Create user location marker that stays centered
       if (mapRef.current) {
         if (userLocationMarkerRef.current) {
-          // Update existing marker position
-          userLocationMarkerRef.current.setPosition({ lat: location.latitude, lng: location.longitude })
-          console.log('🗺️ User location marker updated')
+          // Update existing marker position smoothly
+          const newPosition = { lat: location.latitude, lng: location.longitude }
+          userLocationMarkerRef.current.setPosition(newPosition)
+          
+          // Pan map to keep marker centered
+          mapInstanceRef.current.panTo(newPosition)
+          
+          console.log('🗺️ User location marker updated smoothly')
         } else {
-          // Create new marker only if it doesn't exist
-        const marker = new window.google.maps.Marker({
-          position: { lat: location.latitude, lng: location.longitude },
-          map: mapInstanceRef.current,
-          title: 'Your Location',
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
-                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(24, 24)
-          }
-        })
-        
+          // Create new marker with fixed center behavior
+          const marker = new window.google.maps.Marker({
+            position: { lat: location.latitude, lng: location.longitude },
+            map: mapInstanceRef.current,
+            title: 'Your Location',
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
+                  <circle cx="16" cy="16" r="6" fill="white"/>
+                  <text x="16" y="20" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">📍</text>
+                </svg>
+              `),
+              scaledSize: new window.google.maps.Size(32, 32),
+              anchor: new window.google.maps.Point(16, 16) // Center the marker
+            },
+            // Keep marker centered on screen
+            optimized: false // Disable optimization for smoother updates
+          })
+          
           // Store reference to marker
           userLocationMarkerRef.current = marker
-          console.log('🗺️ User location marker created')
+          console.log('🗺️ User location marker created with smooth updates')
         }
       }
       
