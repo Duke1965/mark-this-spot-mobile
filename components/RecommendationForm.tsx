@@ -46,88 +46,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
     setRating(pinNumber)
   }
 
-  if (!showForm) {
-    // Initial recommendation prompt
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
-          padding: "2rem",
-          borderRadius: "1rem",
-          border: "2px solid rgba(255,255,255,0.2)",
-          zIndex: 1000,
-          textAlign: "center",
-          minWidth: "300px",
-          maxWidth: "400px",
-          color: "white",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-        }}
-      >
-        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🤔</div>
-        <div style={{ 
-          fontSize: "1.25rem", 
-          fontWeight: "600", 
-          marginBottom: "1rem",
-          color: "#10B981"
-        }}>
-          Do you recommend this pin?
-        </div>
-        <div style={{ 
-          fontSize: "0.875rem", 
-          opacity: 0.8,
-          marginBottom: "2rem",
-          lineHeight: "1.4"
-        }}>
-          Help others discover amazing places by sharing your experience
-        </div>
-        
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-          <button
-            onClick={handleSkip}
-            style={{
-              padding: "0.75rem 1.5rem",
-              border: "2px solid rgba(255,255,255,0.3)",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
-              borderRadius: "0.5rem",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              fontWeight: "500",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-          >
-            No, thanks
-          </button>
-          
-          <button
-            onClick={handleRecommendClick}
-            style={{
-              padding: "0.75rem 1.5rem",
-              border: "none",
-              background: "#10B981",
-              color: "white",
-              borderRadius: "0.5rem",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              fontWeight: "600",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#059669"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#10B981"}
-          >
-            Yes, recommend!
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  // Remove the initial recommendation prompt - go straight to the form
   // Recommendation form
   return (
     <div
@@ -281,16 +200,16 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         </div>
       </div>
 
-      {/* Submit Button */}
+      {/* Submit Button - FIXED STYLING */}
       <button
         onClick={handleSubmit}
         disabled={review.trim().length === 0 || isSubmitting}
         style={{
           width: "100%",
           padding: "1rem 1.5rem",
-          border: "none",
-          background: review.trim().length > 0 ? "#10B981" : "rgba(255,255,255,0.2)",
-          color: "white",
+          border: "1px solid rgba(255,255,255,0.2)",
+          background: review.trim().length > 0 ? "white" : "rgba(255,255,255,0.1)",
+          color: review.trim().length > 0 ? "#1e3a8a" : "rgba(255,255,255,0.5)",
           borderRadius: "0.75rem",
           cursor: review.trim().length > 0 ? "pointer" : "not-allowed",
           fontSize: "1.1rem",
@@ -300,18 +219,18 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           justifyContent: "center",
           gap: "0.75rem",
           transition: "all 0.2s ease",
-          boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(16, 185, 129, 0.3)" : "none",
+          boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(255,255,255,0.3)" : "none",
         }}
         onMouseEnter={(e) => {
           if (review.trim().length > 0) {
-            e.currentTarget.style.background = "#059669"
-            e.currentTarget.style.boxShadow = "0 6px 16px rgba(16, 185, 129, 0.4)"
+            e.currentTarget.style.background = "rgba(255,255,255,0.9)"
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(255,255,255,0.4)"
           }
         }}
         onMouseLeave={(e) => {
           if (review.trim().length > 0) {
-            e.currentTarget.style.background = "#10B981"
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.3)"
+            e.currentTarget.style.background = "white"
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,255,255,0.3)"
           }
         }}
       >
@@ -321,7 +240,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
               width: "20px", 
               height: "20px", 
               border: "2px solid transparent", 
-              borderTop: "2px solid white", 
+              borderTop: "2px solid #1e3a8a", 
               borderRadius: "50%", 
               animation: "spin 1s linear infinite" 
             }} />
