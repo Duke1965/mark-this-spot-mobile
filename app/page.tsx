@@ -2418,8 +2418,8 @@ function getPlatformDimensions(platform: string) {
 
 // COMPREHENSIVE LOCATION ACCURACY TESTING - Riebeek West Area
 const testLocationAccuracy = async () => {
-  console.log(" TESTING LOCATION ACCURACY IMPROVEMENTS")
-  console.log("=" * 50)
+  console.log("🧪 TESTING LOCATION ACCURACY IMPROVEMENTS")
+  console.log("=".repeat(50))
   
   // Test coordinates around Riebeek West (your home area)
   const testLocations = [
@@ -2570,7 +2570,7 @@ const testLocationAccuracy = async () => {
   }
   
   console.log("\n🎯 TEST SUMMARY")
-  console.log("=" * 50)
+  console.log("=".repeat(50))
   console.log("✅ Smart location detection implemented")
   console.log("✅ Reverse geocoding fallback implemented")
   console.log("✅ Ultra-precise radius (10m for businesses, 50m for photos)")
