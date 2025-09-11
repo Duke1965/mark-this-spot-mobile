@@ -488,12 +488,12 @@ export default function PINITApp() {
     throw lastError!
   }
 
-  // ULTRA-PRECISE LOCATION ACCURACY - Multi-tiered approach for exact pinning
+  // ENHANCED SMART LOCATION DETECTION - Prioritizes residential areas over businesses
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     const isMobile = isMobileDevice()
     
     try {
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE location detection...`)
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
       console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
       
       // TIER 1: ULTRA-PRECISE BUSINESS DETECTION (10m radius)
@@ -513,15 +513,22 @@ export default function PINITApp() {
             const closestBusiness = ultraPreciseData.results[0]
             console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
             
-            // Only use business name if it's very close (within 10m)
-            return closestBusiness.name
+            // SMART FILTER: Only use business name if it's VERY close (within 10m)
+            // AND it's not a distant landmark (like Allesverloren wine farm)
+            const businessDistance = closestBusiness.distance || 0
+            if (businessDistance <= 10) {
+              console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using close business:`, closestBusiness.name)
+              return closestBusiness.name
+            } else {
+              console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Business too far (${businessDistance}m), using reverse geocoding...`)
+            }
           }
         }
       } catch (ultraError) {
         console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
       }
       
-      // TIER 2: REVERSE GEOCODING FOR RESIDENTIAL AREAS
+      // TIER 2: SMART REVERSE GEOCODING FOR RESIDENTIAL AREAS
       // This is the key fix for Riebeek West vs Allesverloren
       try {
         const geocodeResponse = await fetch(
@@ -536,11 +543,12 @@ export default function PINITApp() {
             
             console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
             
-            // Extract the most specific location component
+            // SMART EXTRACTION: Prioritize residential components over business components
             let locality = ""
             let neighborhood = ""
             let route = ""
             let streetNumber = ""
+            let sublocality = ""
             
             for (const component of addressComponents) {
               const types = component.types
@@ -551,12 +559,14 @@ export default function PINITApp() {
                 route = component.long_name
               } else if (types.includes('neighborhood') || types.includes('sublocality_level_1')) {
                 neighborhood = component.long_name
-              } else if (types.includes('locality') || types.includes('sublocality')) {
+              } else if (types.includes('sublocality')) {
+                sublocality = component.long_name
+              } else if (types.includes('locality')) {
                 locality = component.long_name
               }
             }
             
-            // Build precise location name
+            // SMART LOCATION BUILDING: Prioritize residential areas
             let locationName = ""
             
             if (streetNumber && route) {
@@ -571,6 +581,9 @@ export default function PINITApp() {
             } else if (neighborhood && locality) {
               // Neighborhood and town: "Downtown, Riebeek West"
               locationName = `${neighborhood}, ${locality}`
+            } else if (sublocality && locality) {
+              // Sublocality and town: "Riebeek West"
+              locationName = sublocality
             } else if (locality) {
               // Just the town: "Riebeek West"
               locationName = locality
@@ -580,7 +593,7 @@ export default function PINITApp() {
               locationName = parts[0]?.trim() || "Unknown Location"
             }
             
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] PRECISE location:`, locationName)
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
             return locationName
           }
         }
@@ -588,8 +601,8 @@ export default function PINITApp() {
         console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
       }
       
-      // TIER 3: FALLBACK TO COORDINATES WITH REGION DETECTION
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using coordinate fallback...`)
+      // TIER 3: SMART FALLBACK WITH REGION DETECTION
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using smart coordinate fallback...`)
       
       // Riebeek West specific detection (your home area)
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
@@ -598,28 +611,14 @@ export default function PINITApp() {
       
       // Other known areas
       if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - CBD"
-      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Southern Suburbs"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town - Northern Suburbs"
-      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
         return "Cape Town"
-      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        return "Western Cape"
       }
       
-      // Global fallback
-      const latDir = lat >= 0 ? 'N' : 'S'
-      const lngDir = lng >= 0 ? 'E' : 'W'
-      const latAbs = Math.abs(lat).toFixed(4)
-      const lngAbs = Math.abs(lng).toFixed(4)
-      
-      return `${latAbs}°${latDir}, ${lngAbs}°${lngDir}`
-      
+      // Final fallback
+      return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     } catch (error) {
-      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection error:`, error)
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
+      return "Unknown Location"
     }
   }
 
@@ -2356,76 +2355,3 @@ function getPlatformDimensions(platform: string) {
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
-
-// ANDROID BACK BUTTON & PULL-TO-REFRESH IMPLEMENTATION
-
-// Add screen history for back button navigation
-const [screenHistory, setScreenHistory] = useState<string[]>(["map"])
-
-// Android back button handler
-useEffect(() => {
-  const handleBackButton = (event: PopStateEvent) => {
-    event.preventDefault()
-    
-    if (screenHistory.length > 1) {
-      // Go back to previous screen
-      const newHistory = [...screenHistory]
-      newHistory.pop() // Remove current screen
-      const previousScreen = newHistory[newHistory.length - 1]
-      
-      setScreenHistory(newHistory)
-      setCurrentScreen(previousScreen as any)
-      
-      console.log(` Android back button: ${currentScreen} → ${previousScreen}`)
-    } else {
-      // If we're at the root screen, show exit confirmation
-      if (confirm("Are you sure you want to exit PINIT?")) {
-        window.close()
-      } else {
-        // Push current state back to history to prevent exit
-        window.history.pushState(null, "", window.location.href)
-      }
-    }
-  }
-
-  // Listen for back button
-  window.addEventListener('popstate', handleBackButton)
-  
-  // Push initial state
-  window.history.pushState(null, "", window.location.href)
-  
-  return () => {
-    window.removeEventListener('popstate', handleBackButton)
-  }
-}, [currentScreen, screenHistory])
-
-// Update screen history when screen changes
-useEffect(() => {
-  setScreenHistory(prev => {
-    const newHistory = [...prev]
-    if (newHistory[newHistory.length - 1] !== currentScreen) {
-      newHistory.push(currentScreen)
-    }
-    return newHistory
-  })
-}, [currentScreen])
-
-// Pull-to-refresh handler
-const handlePullToRefresh = useCallback(() => {
-  console.log("🔄 Pull-to-refresh triggered")
-  
-  // Refresh location
-  if (location) {
-    getCurrentLocation().then(() => {
-      console.log("📍 Location refreshed via pull-to-refresh")
-    })
-  }
-  
-  // Refresh pins
-  setPins(prev => [...prev]) // Trigger re-render
-  
-  // Show refresh feedback
-  setSuccessMessage("Refreshed!")
-  setShowSuccessPopup(true)
-  setTimeout(() => setShowSuccessPopup(false), 2000)
-}, [location, getCurrentLocation])
