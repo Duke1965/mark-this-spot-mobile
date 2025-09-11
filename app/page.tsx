@@ -2356,3 +2356,76 @@ function getPlatformDimensions(platform: string) {
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
+
+// ANDROID BACK BUTTON & PULL-TO-REFRESH IMPLEMENTATION
+
+// Add screen history for back button navigation
+const [screenHistory, setScreenHistory] = useState<string[]>(["map"])
+
+// Android back button handler
+useEffect(() => {
+  const handleBackButton = (event: PopStateEvent) => {
+    event.preventDefault()
+    
+    if (screenHistory.length > 1) {
+      // Go back to previous screen
+      const newHistory = [...screenHistory]
+      newHistory.pop() // Remove current screen
+      const previousScreen = newHistory[newHistory.length - 1]
+      
+      setScreenHistory(newHistory)
+      setCurrentScreen(previousScreen as any)
+      
+      console.log(` Android back button: ${currentScreen} → ${previousScreen}`)
+    } else {
+      // If we're at the root screen, show exit confirmation
+      if (confirm("Are you sure you want to exit PINIT?")) {
+        window.close()
+      } else {
+        // Push current state back to history to prevent exit
+        window.history.pushState(null, "", window.location.href)
+      }
+    }
+  }
+
+  // Listen for back button
+  window.addEventListener('popstate', handleBackButton)
+  
+  // Push initial state
+  window.history.pushState(null, "", window.location.href)
+  
+  return () => {
+    window.removeEventListener('popstate', handleBackButton)
+  }
+}, [currentScreen, screenHistory])
+
+// Update screen history when screen changes
+useEffect(() => {
+  setScreenHistory(prev => {
+    const newHistory = [...prev]
+    if (newHistory[newHistory.length - 1] !== currentScreen) {
+      newHistory.push(currentScreen)
+    }
+    return newHistory
+  })
+}, [currentScreen])
+
+// Pull-to-refresh handler
+const handlePullToRefresh = useCallback(() => {
+  console.log("🔄 Pull-to-refresh triggered")
+  
+  // Refresh location
+  if (location) {
+    getCurrentLocation().then(() => {
+      console.log("📍 Location refreshed via pull-to-refresh")
+    })
+  }
+  
+  // Refresh pins
+  setPins(prev => [...prev]) // Trigger re-render
+  
+  // Show refresh feedback
+  setSuccessMessage("Refreshed!")
+  setShowSuccessPopup(true)
+  setTimeout(() => setShowSuccessPopup(false), 2000)
+}, [location, getCurrentLocation])
