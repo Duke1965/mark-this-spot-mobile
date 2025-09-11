@@ -1504,7 +1504,64 @@ export default function PINITApp() {
         color: "white",
         padding: "2rem",
       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
+      {/* Pull-to-refresh indicator */}
+      {isRefreshing && (
+        <div
+          style={{
+            position: "fixed",
+            top: "2rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(255,255,255,0.2)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            backdropFilter: "blur(10px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.875rem",
+          }}
+        >
+          <div
+            style={{
+              width: "16px",
+              height: "16px",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderTop: "2px solid white",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+            }}
+          />
+          Refreshing...
+        </div>
+      )}
+
+      {/* Pull indicator */}
+      {isPulling && pullDistance > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            top: `${Math.max(0, pullDistance - 30)}px`,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(255,255,255,0.1)",
+            padding: "0.5rem 1rem",
+            borderRadius: "1rem",
+            backdropFilter: "blur(10px)",
+            zIndex: 1000,
+            fontSize: "0.875rem",
+            opacity: Math.min(1, pullDistance / 60),
+          }}
+        >
+          {pullDistance > 60 ? "Release to refresh" : "Pull to refresh"}
+        </div>
+      )}
+
       {/* Success Popup */}
       {showSuccessPopup && (
         <div
