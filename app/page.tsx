@@ -21,6 +21,11 @@ import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
 import { useAuth } from "@/hooks/useAuth"
 
+import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
+import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
+import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
+import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
+
 
 export interface PinData {
   id: string
@@ -572,96 +577,12 @@ export default function PINITApp() {
         }
       }
 
-      // If no places found, return a descriptive location name instead of coordinates
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found, returning descriptive location name...`)
+      // If no places found, return coordinates instead of hardcoded fallback
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found, returning coordinates...`)
       console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Processing coordinates: lat=${lat}, lng=${lng}`)
       
-      // Enhanced fallback logic with more precise ranges
-      if (isMobile) {
-        console.log(`📍 [MOBILE] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
-        // More precise coordinate ranges for Riebeek West
-        if (lat > -33.95 && lat < -33.90 && lng > 18.85 && lng < 18.90) { // ✅ Tighter range
-          console.log(`📍 [MOBILE] Hit Riebeek West range`)
-          return "Riebeek West"
-        } else if (lat > -33.92 && lat < -33.90 && lng > 18.87 && lng < 18.89) { // ✅ Even tighter for Allesverloren
-          console.log(`📍 [MOBILE] Hit Allesverloren range`)
-          return "Allesverloren"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [MOBILE] Hit Cape Town - CBD range`)
-          return "Cape Town - CBD"
-        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [MOBILE] Hit Cape Town - Southern Suburbs range`)
-          return "Cape Town - Southern Suburbs"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [MOBILE] Hit Cape Town - Northern Suburbs range`)
-          return "Cape Town - Northern Suburbs"
-        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-          console.log(`📍 [MOBILE] Hit Cape Town range`)
-          return "Cape Town"
-        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-          console.log(`📍 [MOBILE] Hit Western Cape range`)
-          return "Western Cape"
-        }
-      } else {
-        console.log(`📍 [DESKTOP] Checking fallback ranges for coordinates: ${lat}, ${lng}`)
-        // Desktop fallback logic (existing)
-        if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-          console.log(`📍 [DESKTOP] Hit Riebeek West range`)
-          return "Riebeek West"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [DESKTOP] Hit Cape Town - CBD range`)
-          return "Cape Town - CBD"
-        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [DESKTOP] Hit Cape Town - Southern Suburbs range`)
-          return "Cape Town - Southern Suburbs"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          console.log(`📍 [DESKTOP] Hit Cape Town - Northern Suburbs range`)
-          return "Cape Town - Northern Suburbs"
-        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-          console.log(`📍 [DESKTOP] Hit Cape Town range`)
-          return "Cape Town"
-        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-          console.log(`📍 [DESKTOP] Hit Western Cape range`)
-          return "Western Cape"
-        }
-      }
-      
-      // Global fallback: Create descriptive name from coordinates with region detection
-      const latDir = lat >= 0 ? 'N' : 'S'
-      const lngDir = lng >= 0 ? 'E' : 'W'
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
-      
-      // Determine region based on coordinates for global users
-      let region = "Unknown Region"
-      
-      // North America (USA, Canada, Mexico)
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
-        region = "North America"
-      }
-      // South America
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
-        region = "South America"
-      }
-      // Europe
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
-        region = "Europe"
-      }
-      // Asia (including India, China, Japan, Southeast Asia)
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
-        region = "Asia"
-      }
-      // Africa
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
-        region = "Africa"
-      }
-      // Australia and Oceania
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
-        region = "Australia"
-      }
-      
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
-      
+      // Simple coordinate fallback - no more hardcoded place names
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error fetching location name:`, error)
       console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error details:`, { lat, lng, error: error instanceof Error ? error.message : String(error) })
