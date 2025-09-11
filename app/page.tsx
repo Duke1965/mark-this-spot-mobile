@@ -248,7 +248,7 @@ export default function PINITApp() {
       
       console.log("✅ App started fresh on map screen")
     } catch (error) {
-      console.error("❌ Error during app startup reset:", error)
+      console.error("❌ Error during app reset:", error)
     }
   }, [])
 
