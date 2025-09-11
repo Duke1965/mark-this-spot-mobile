@@ -30,6 +30,10 @@ export function useLocationServices() {
   const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null)
   const [placeName, setPlaceName] = useState<string | null>(null)
   
+  // NEW: Location persistence - remember last good location name
+  const [lastGoodPlaceName, setLastGoodPlaceName] = useState<string | null>(null)
+  const [lastGoodLocation, setLastGoodLocation] = useState<{ lat: number; lng: number } | null>(null)
+  
   // Refs for debouncing place name lookups
   const lastPlaceNameLookup = useRef<{ lat: number; lng: number; timestamp: number } | null>(null)
 
@@ -61,12 +65,40 @@ export function useLocationServices() {
     try {
       const res = await reverseGeocode(lat, lng)
       const label = res?.short || null
+      
+      // NEW: If we get a real place name, remember it
+      if (label && label !== "Unknown Location") {
+        setLastGoodPlaceName(label)
+        setLastGoodLocation({ lat, lng })
+        setPlaceName(label)
+        return label
+      }
+      
+      // NEW: If no real place name but we have a recent good one nearby, keep using it
+      if (lastGoodPlaceName && lastGoodLocation) {
+        const distance = calculateDistance(lat, lng, lastGoodLocation.lat, lastGoodLocation.lng)
+        if (distance < 0.5) { // Within 500m of last good location
+          console.log(`📍 Using persistent location: ${lastGoodPlaceName}`)
+          setPlaceName(lastGoodPlaceName)
+          return lastGoodPlaceName
+        }
+      }
+      
       setPlaceName(label)
       return label
     } catch {
+      // NEW: On error, try to use last good location if nearby
+      if (lastGoodPlaceName && lastGoodLocation) {
+        const distance = calculateDistance(lat, lng, lastGoodLocation.lat, lastGoodLocation.lng)
+        if (distance < 0.5) { // Within 500m of last good location
+          console.log(`📍 Using persistent location on error: ${lastGoodPlaceName}`)
+          setPlaceName(lastGoodPlaceName)
+          return lastGoodPlaceName
+        }
+      }
       return null
     }
-  }, [])
+  }, [calculateDistance, lastGoodPlaceName, lastGoodLocation])
 
   const getCurrentLocation = useCallback((options?: PositionOptions): Promise<LocationData> => {
     return new Promise((resolve, reject) => {
