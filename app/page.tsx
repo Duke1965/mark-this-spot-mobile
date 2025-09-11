@@ -662,6 +662,66 @@ export default function PINITApp() {
         isAISuggestion: true,
       }))
       
+      // REVERSE GEOCODING FALLBACK: If no businesses found, add residential area pins
+      if (transformedPlaces.length === 0) {
+        console.log("🌐 No businesses found, trying reverse geocoding fallback...")
+        
+        try {
+          const geocodeResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.latitude},${location.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          )
+          
+          if (geocodeResponse.ok) {
+            const geocodeData = await geocodeResponse.json()
+            if (geocodeData.results && geocodeData.results.length > 0) {
+              const addressComponents = geocodeData.results[0].address_components
+              const formattedAddress = geocodeData.results[0].formatted_address
+              
+              // Extract residential area information
+              let areaName = ""
+              let locality = ""
+              
+              for (const component of addressComponents) {
+                const types = component.types
+                if (types.includes('sublocality') || types.includes('neighborhood')) {
+                  areaName = component.long_name
+                } else if (types.includes('locality')) {
+                  locality = component.long_name
+                }
+              }
+              
+              if (areaName || locality) {
+                const residentialPin = {
+                  id: `residential_${Date.now()}`,
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  locationName: areaName || locality,
+                  mediaUrl: null,
+                  mediaType: null,
+                  audioUrl: null,
+                  timestamp: new Date().toISOString(),
+                  title: areaName || locality,
+                  description: `Residential Area • ${formattedAddress}`,
+                  tags: ["residential", "area"],
+                  isRecommended: true,
+                  googlePlaceId: null,
+                  rating: null,
+                  priceLevel: null,
+                  types: ["residential"],
+                  isAISuggestion: true,
+                  isResidentialArea: true
+                }
+                
+                transformedPlaces.push(residentialPin)
+                console.log(`🌐 Added residential area pin: ${residentialPin.title}`)
+              }
+            }
+          }
+        } catch (geocodeError) {
+          console.log("🌐 Reverse geocoding fallback failed:", geocodeError)
+        }
+      }
+      
       setNearbyPins(transformedPlaces)
       setShowNearbyPins(true)
       setLastActivity("discovery")
