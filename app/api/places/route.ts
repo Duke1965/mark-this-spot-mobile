@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
-  const radius = searchParams.get("radius") || "5000" // Increased from 1000 to 5000 (5km)
+  const radius = searchParams.get("radius") || "10" // Ultra-precise: 10 meters for exact location pinning
   
   // Detect mobile vs desktop from headers
   const userAgent = request.headers.get("user-agent") || ""
@@ -394,7 +394,7 @@ export async function GET(request: NextRequest) {
 // Add POST method support to handle frontend requests
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { lat, lng, radius = "5000" } = body
+  const { lat, lng, radius = "10" } = body // Ultra-precise: 10 meters for exact location pinning
   
   // Detect mobile vs desktop from headers
   const userAgent = request.headers.get("user-agent") || ""
