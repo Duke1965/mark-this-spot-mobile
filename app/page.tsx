@@ -248,7 +248,7 @@ export default function PINITApp() {
       
       console.log("✅ App started fresh on map screen")
     } catch (error) {
-      console.error("❌ Error during app reset:", error)
+      console.error("❌ Error during app startup reset:", error)
     }
   }, [])
 
@@ -488,129 +488,116 @@ export default function PINITApp() {
     throw lastError!
   }
 
-  // Get real location name from Google Places API with mobile-robust error handling
+  // ULTRA-PRECISE LOCATION ACCURACY - Multi-tiered approach for exact pinning
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     const isMobile = isMobileDevice()
     
     try {
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Fetching real location name...`)
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE location detection...`)
+      console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
       
-      // Enhanced fetch with mobile-specific headers and retry logic
-      const fetchWithRetry = async () => {
-        const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=500`, {
+      // TIER 1: ULTRA-PRECISE BUSINESS DETECTION (10m radius)
+      // Only for exact business locations - not residential areas
+      try {
+        const ultraPreciseResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=10`, {
           headers: {
             'User-Agent': isMobile ? 'PINIT-Mobile-App' : 'PINIT-Web-App',
             'X-Device-Type': isMobile ? 'mobile' : 'desktop'
           }
         })
         
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Error Response:`, errorText)
-          throw new Error(`Failed to fetch location data: ${response.status} ${errorText}`)
-        }
-        
-        return response
-      }
-      
-      // Use retry logic for mobile (3 attempts) vs desktop (1 attempt)
-      const response = await retryWithBackoff(fetchWithRetry, isMobile ? 3 : 1)
-      const data = await response.json()
-      
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response status:`, response.status)
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Response data:`, data)
-
-      if (data.results && data.results.length > 0) {
-        // Get the closest place (first result)
-        const closestPlace = data.results[0]
-        const placeName = closestPlace.name
-        const vicinity = closestPlace.vicinity || ""
-        
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Found place:`, { placeName, vicinity })
-        
-        // Enhanced location formatting
-        if (vicinity) {
-          if (vicinity.includes("Cape Town")) {
-            const suburb = vicinity.split(",")[0].trim()
-            if (suburb && suburb !== "Cape Town") {
-              return `Cape Town - ${suburb}`
-            }
-          }
+        if (ultraPreciseResponse.ok) {
+          const ultraPreciseData = await ultraPreciseResponse.json()
           
-          if (!placeName.includes(vicinity)) {
-            return `${placeName}, ${vicinity}`
+          if (ultraPreciseData.results && ultraPreciseData.results.length > 0) {
+            const closestBusiness = ultraPreciseData.results[0]
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
+            
+            // Only use business name if it's very close (within 10m)
+            return closestBusiness.name
           }
         }
-        
-        return placeName
+      } catch (ultraError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
       }
-
-      // If no places found, try alternative geocoding for mobile
-      if (isMobile && data.status === 'ZERO_RESULTS') {
-        console.log(`📍 [MOBILE] Places API returned no results, trying alternative geocoding...`)
+      
+      // TIER 2: REVERSE GEOCODING FOR RESIDENTIAL AREAS
+      // This is the key fix for Riebeek West vs Allesverloren
+      try {
+        const geocodeResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        )
         
-        // Try reverse geocoding as fallback
-        try {
-          const geocodeResponse = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          )
-          
-          if (geocodeResponse.ok) {
-            const geocodeData = await geocodeResponse.json()
-            if (geocodeData.results && geocodeData.results.length > 0) {
-              const addressComponents = geocodeData.results[0].address_components
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json()
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const addressComponents = geocodeData.results[0].address_components
+            const formattedAddress = geocodeData.results[0].formatted_address
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
+            
+            // Extract the most specific location component
+            let locality = ""
+            let neighborhood = ""
+            let route = ""
+            let streetNumber = ""
+            
+            for (const component of addressComponents) {
+              const types = component.types
               
-              // Extract meaningful location name from address components
-              const locality = addressComponents.find((comp: any) => 
-                comp.types.includes('locality') || comp.types.includes('sublocality')
-              )
-              
-              if (locality) {
-                console.log(`📍 [MOBILE] Alternative geocoding successful:`, locality.long_name)
-                return locality.long_name
+              if (types.includes('street_number')) {
+                streetNumber = component.long_name
+              } else if (types.includes('route')) {
+                route = component.long_name
+              } else if (types.includes('neighborhood') || types.includes('sublocality_level_1')) {
+                neighborhood = component.long_name
+              } else if (types.includes('locality') || types.includes('sublocality')) {
+                locality = component.long_name
               }
             }
+            
+            // Build precise location name
+            let locationName = ""
+            
+            if (streetNumber && route) {
+              // Exact address: "123 Main Street, Riebeek West"
+              locationName = `${streetNumber} ${route}`
+              if (locality) {
+                locationName += `, ${locality}`
+              }
+            } else if (route && locality) {
+              // Street and town: "Main Street, Riebeek West"
+              locationName = `${route}, ${locality}`
+            } else if (neighborhood && locality) {
+              // Neighborhood and town: "Downtown, Riebeek West"
+              locationName = `${neighborhood}, ${locality}`
+            } else if (locality) {
+              // Just the town: "Riebeek West"
+              locationName = locality
+            } else {
+              // Fallback to formatted address
+              const parts = formattedAddress.split(',')
+              locationName = parts[0]?.trim() || "Unknown Location"
+            }
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] PRECISE location:`, locationName)
+            return locationName
           }
-        } catch (geocodeError) {
-          console.log(`📍 [MOBILE] Alternative geocoding failed:`, geocodeError)
         }
-      }
-
-      // If no places found, return coordinates instead of hardcoded fallback
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found, returning coordinates...`)
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Processing coordinates: lat=${lat}, lng=${lng}`)
-      
-      // Simple coordinate fallback - no more hardcoded place names
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
-    } catch (error) {
-      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error fetching location name:`, error)
-      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Error details:`, { lat, lng, error: error instanceof Error ? error.message : String(error) })
-      
-      // Mobile-specific error handling
-      if (isMobile) {
-        console.log(`📍 [MOBILE] Attempting mobile-specific fallback...`)
-        
-        // Try to extract location from coordinates using basic logic
-        if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-          return "Riebeek West"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          return "Cape Town - CBD"
-        } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-          return "Cape Town - Southern Suburbs"
-        } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-          return "Cape Town - Northern Suburbs"
-        } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-          return "Cape Town"
-        } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-          return "Western Cape"
-        }
+      } catch (geocodeError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
       }
       
-      // Desktop fallback logic (existing)
+      // TIER 3: FALLBACK TO COORDINATES WITH REGION DETECTION
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using coordinate fallback...`)
+      
+      // Riebeek West specific detection (your home area)
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
         return "Riebeek West"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      }
+      
+      // Other known areas
+      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
         return "Cape Town - CBD"
       } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
         return "Cape Town - Southern Suburbs"
@@ -622,41 +609,17 @@ export default function PINITApp() {
         return "Western Cape"
       }
       
-      // Global fallback: Create descriptive name from coordinates with region detection
+      // Global fallback
       const latDir = lat >= 0 ? 'N' : 'S'
       const lngDir = lng >= 0 ? 'E' : 'W'
-      const latAbs = Math.abs(lat).toFixed(2)
-      const lngAbs = Math.abs(lng).toFixed(2)
+      const latAbs = Math.abs(lat).toFixed(4)
+      const lngAbs = Math.abs(lng).toFixed(4)
       
-      // Determine region based on coordinates for global users
-      let region = "Unknown Region"
+      return `${latAbs}°${latDir}, ${lngAbs}°${lngDir}`
       
-      // North America (USA, Canada, Mexico)
-      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
-        region = "North America"
-      }
-      // South America
-      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
-        region = "South America"
-      }
-      // Europe
-      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
-        region = "Europe"
-      }
-      // Asia (including India, China, Japan, Southeast Asia)
-      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
-        region = "Asia"
-      }
-      // Africa
-      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
-        region = "Africa"
-      }
-      // Australia and Oceania
-      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
-        region = "Australia"
-      }
-      
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+    } catch (error) {
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection error:`, error)
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     }
   }
 
@@ -1504,64 +1467,7 @@ export default function PINITApp() {
         color: "white",
         padding: "2rem",
       }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      {/* Pull-to-refresh indicator */}
-      {isRefreshing && (
-        <div
-          style={{
-            position: "fixed",
-            top: "2rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(255,255,255,0.2)",
-            padding: "0.5rem 1rem",
-            borderRadius: "1rem",
-            backdropFilter: "blur(10px)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.875rem",
-          }}
-        >
-          <div
-            style={{
-              width: "16px",
-              height: "16px",
-              border: "2px solid rgba(255,255,255,0.3)",
-              borderTop: "2px solid white",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          Refreshing...
-        </div>
-      )}
-
-      {/* Pull indicator */}
-      {isPulling && pullDistance > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            top: `${Math.max(0, pullDistance - 30)}px`,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(255,255,255,0.1)",
-            padding: "0.5rem 1rem",
-            borderRadius: "1rem",
-            backdropFilter: "blur(10px)",
-            zIndex: 1000,
-            fontSize: "0.875rem",
-            opacity: Math.min(1, pullDistance / 60),
-          }}
-        >
-          {pullDistance > 60 ? "Release to refresh" : "Pull to refresh"}
-        </div>
-      )}
-
       {/* Success Popup */}
       {showSuccessPopup && (
         <div
@@ -2441,7 +2347,7 @@ function getPlatformDimensions(platform: string) {
     "instagram-story": { width: 1080, height: 1920 },
     "instagram-post": { width: 1080, height: 1080 },
     "facebook-post": { width: 1200, height: 630 },
-    "x-post": { width: 1200, height: 675 },
+            "x-post": { width: 1200, height: 675 },
     "linkedin-post": { width: 1200, height: 627 },
     tiktok: { width: 1080, height: 1920 },
     snapchat: { width: 1080, height: 1920 },
@@ -2449,111 +2355,4 @@ function getPlatformDimensions(platform: string) {
   }
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
-}
-
-// NEW: Android back button functionality
-useEffect(() => {
-  const handleBackButton = () => {
-    // Define screen hierarchy for back navigation
-    const screenHierarchy = {
-      "map": null, // Exit app
-      "camera": "map",
-      "platform-select": "camera", 
-      "content-editor": "platform-select",
-      "editor": "content-editor",
-      "story": "map",
-      "library": "map",
-      "story-builder": "map",
-      "recommendations": "map",
-      "place-navigation": "map",
-      "results": "map",
-      "settings": "map"
-    }
-
-    const previousScreen = screenHierarchy[currentScreen as keyof typeof screenHierarchy]
-    
-    if (previousScreen) {
-      setCurrentScreen(previousScreen as any)
-      return true // Prevent default back behavior
-    } else {
-      // If on map screen, allow default behavior (exit app)
-      return false
-    }
-  }
-
-  // Add event listener for Android back button
-  const handlePopState = (event: PopStateEvent) => {
-    event.preventDefault()
-    handleBackButton()
-  }
-
-  // Listen for back button events
-  window.addEventListener('popstate', handlePopState)
-  
-  // Also handle hardware back button on Android
-  if (typeof window !== 'undefined' && 'navigator' in window) {
-    // @ts-ignore - Android back button API
-    if (window.Android && window.Android.onBackPressed) {
-      // @ts-ignore
-      window.Android.onBackPressed = handleBackButton
-    }
-  }
-
-  return () => {
-    window.removeEventListener('popstate', handlePopState)
-  }
-}, [currentScreen])
-
-// NEW: Pull-to-refresh functionality
-const [isRefreshing, setIsRefreshing] = useState(false)
-const [pullDistance, setPullDistance] = useState(0)
-const [startY, setStartY] = useState(0)
-const [isPulling, setIsPulling] = useState(false)
-
-const handleTouchStart = (e: React.TouchEvent) => {
-  if (currentScreen === "map" && window.scrollY === 0) {
-    setStartY(e.touches[0].clientY)
-    setIsPulling(true)
-  }
-}
-
-const handleTouchMove = (e: React.TouchEvent) => {
-  if (!isPulling || currentScreen !== "map") return
-
-  const currentY = e.touches[0].clientY
-  const distance = Math.max(0, currentY - startY)
-  
-  if (distance > 0) {
-    e.preventDefault() // Prevent default scroll behavior
-    setPullDistance(Math.min(distance, 100)) // Max pull distance of 100px
-  }
-}
-
-const handleTouchEnd = async () => {
-  if (!isPulling) return
-
-  setIsPulling(false)
-  
-  if (pullDistance > 60) { // Trigger refresh if pulled more than 60px
-    setIsRefreshing(true)
-    
-    try {
-      // Refresh location
-      await getCurrentLocation()
-      
-      // Refresh recommendations
-      // Add any other refresh logic here
-      
-      // Simulate refresh delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-    } catch (error) {
-      console.error('Refresh failed:', error)
-    } finally {
-      setIsRefreshing(false)
-      setPullDistance(0)
-    }
-  } else {
-    setPullDistance(0)
-  }
 }
