@@ -631,7 +631,7 @@ export default function PINITApp() {
     
     try {
       // Use our API route to avoid CORS issues
-      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
+      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=100`)
       
       if (!response.ok) {
         throw new Error("Failed to fetch places from API")
@@ -972,7 +972,7 @@ export default function PINITApp() {
       console.log("📸 Fetching location photo with aggressive filtering...")
       
       // Use our API route instead of calling Google Maps directly
-      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
       
       if (!photoResponse.ok) {
         throw new Error("Failed to fetch location data")
