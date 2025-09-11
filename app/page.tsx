@@ -2450,3 +2450,110 @@ function getPlatformDimensions(platform: string) {
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
+
+// NEW: Android back button functionality
+useEffect(() => {
+  const handleBackButton = () => {
+    // Define screen hierarchy for back navigation
+    const screenHierarchy = {
+      "map": null, // Exit app
+      "camera": "map",
+      "platform-select": "camera", 
+      "content-editor": "platform-select",
+      "editor": "content-editor",
+      "story": "map",
+      "library": "map",
+      "story-builder": "map",
+      "recommendations": "map",
+      "place-navigation": "map",
+      "results": "map",
+      "settings": "map"
+    }
+
+    const previousScreen = screenHierarchy[currentScreen as keyof typeof screenHierarchy]
+    
+    if (previousScreen) {
+      setCurrentScreen(previousScreen as any)
+      return true // Prevent default back behavior
+    } else {
+      // If on map screen, allow default behavior (exit app)
+      return false
+    }
+  }
+
+  // Add event listener for Android back button
+  const handlePopState = (event: PopStateEvent) => {
+    event.preventDefault()
+    handleBackButton()
+  }
+
+  // Listen for back button events
+  window.addEventListener('popstate', handlePopState)
+  
+  // Also handle hardware back button on Android
+  if (typeof window !== 'undefined' && 'navigator' in window) {
+    // @ts-ignore - Android back button API
+    if (window.Android && window.Android.onBackPressed) {
+      // @ts-ignore
+      window.Android.onBackPressed = handleBackButton
+    }
+  }
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState)
+  }
+}, [currentScreen])
+
+// NEW: Pull-to-refresh functionality
+const [isRefreshing, setIsRefreshing] = useState(false)
+const [pullDistance, setPullDistance] = useState(0)
+const [startY, setStartY] = useState(0)
+const [isPulling, setIsPulling] = useState(false)
+
+const handleTouchStart = (e: React.TouchEvent) => {
+  if (currentScreen === "map" && window.scrollY === 0) {
+    setStartY(e.touches[0].clientY)
+    setIsPulling(true)
+  }
+}
+
+const handleTouchMove = (e: React.TouchEvent) => {
+  if (!isPulling || currentScreen !== "map") return
+
+  const currentY = e.touches[0].clientY
+  const distance = Math.max(0, currentY - startY)
+  
+  if (distance > 0) {
+    e.preventDefault() // Prevent default scroll behavior
+    setPullDistance(Math.min(distance, 100)) // Max pull distance of 100px
+  }
+}
+
+const handleTouchEnd = async () => {
+  if (!isPulling) return
+
+  setIsPulling(false)
+  
+  if (pullDistance > 60) { // Trigger refresh if pulled more than 60px
+    setIsRefreshing(true)
+    
+    try {
+      // Refresh location
+      await getCurrentLocation()
+      
+      // Refresh recommendations
+      // Add any other refresh logic here
+      
+      // Simulate refresh delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+    } catch (error) {
+      console.error('Refresh failed:', error)
+    } finally {
+      setIsRefreshing(false)
+      setPullDistance(0)
+    }
+  } else {
+    setPullDistance(0)
+  }
+}
