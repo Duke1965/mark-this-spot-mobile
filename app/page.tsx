@@ -1334,16 +1334,13 @@ export default function PINITApp() {
     }
   }, [user, authLoading])
 
-  // Handle Android back button navigation
+  // Handle Android back button navigation - PROPER IMPLEMENTATION
   useEffect(() => {
-    const handleBackButton = (event: PopStateEvent) => {
-      event.preventDefault()
-      
+    const handleBackButton = () => {
       // Navigation stack logic
       if (currentScreen === "map") {
-        // If on main map, don't allow back (prevent app close)
-        window.history.pushState(null, "", window.location.href)
-        return
+        // If on main map, show confirmation before closing
+        return "Are you sure you want to close PINIT?"
       }
       
       // Navigate back through screens
@@ -1364,19 +1361,18 @@ export default function PINITApp() {
       const currentIndex = screenStack.indexOf(currentScreen)
       if (currentIndex > 0) {
         setCurrentScreen(screenStack[currentIndex - 1] as any)
+        return false // Prevent default back behavior
       } else {
         setCurrentScreen("map")
+        return false
       }
     }
 
-    // Add history state to prevent immediate back
-    window.history.pushState(null, "", window.location.href)
-    
-    // Listen for back button
-    window.addEventListener('popstate', handleBackButton)
+    // Add beforeunload listener for back button
+    window.addEventListener('beforeunload', handleBackButton)
     
     return () => {
-      window.removeEventListener('popstate', handleBackButton)
+      window.removeEventListener('beforeunload', handleBackButton)
     }
   }, [currentScreen])
 
