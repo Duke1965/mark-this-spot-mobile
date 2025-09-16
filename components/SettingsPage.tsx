@@ -97,13 +97,13 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithGoogle()
-      if (result?.user) {
+      const user = await signInWithGoogle()
+      if (user) {
         setUserProfile(prev => ({
           ...prev,
-          name: result.user.displayName || "User",
-          email: result.user.email || "",
-          avatar: result.user.photoURL || "https://via.placeholder.com/150"
+          name: user.displayName || "User",
+          email: user.email || "",
+          avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
         setTimeout(() => setCurrentStep("profile"), 1000)
@@ -115,13 +115,13 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
 
   const handleFacebookLogin = async () => {
     try {
-      const result = await signInWithFacebook()
-      if (result?.user) {
+      const user = await signInWithFacebook()
+      if (user) {
         setUserProfile(prev => ({
           ...prev,
-          name: result.user.displayName || "User",
-          email: result.user.email || "",
-          avatar: result.user.photoURL || "https://via.placeholder.com/150"
+          name: user.displayName || "User",
+          email: user.email || "",
+          avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
         setTimeout(() => setCurrentStep("profile"), 1000)
