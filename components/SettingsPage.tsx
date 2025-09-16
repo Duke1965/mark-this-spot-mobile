@@ -213,117 +213,166 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         {/* Login Step */}
         {currentStep === "login" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In to PINIT</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Choose your preferred way to sign in and start discovering amazing places.
-            </p>
+            {user ? (
+              // User is already logged in - show welcome back with logout option
+              <>
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👋</div>
+                <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome back, {user.displayName}!</h1>
+                <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+                  You're already signed in to PINIT
+                </p>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+                  <button
+                    onClick={onComplete}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      padding: "1rem 2rem",
+                      borderRadius: "0.5rem",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      cursor: "pointer",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.3)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                    }}
+                  >
+                    Continue to PINIT
+                  </button>
+                  
+                  <button
+                    onClick={signOutUser}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.2)",
+                      color: "#EF4444",
+                      padding: "1rem 2rem",
+                      borderRadius: "0.5rem",
+                      border: "2px solid rgba(239, 68, 68, 0.3)",
+                      cursor: "pointer",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"
+                    }}
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </>
+            ) : (
+              // User not logged in - show sign-in options
+              <>
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
+                <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In to PINIT</h1>
+                <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+                  Choose your preferred way to sign in and start discovering amazing places.
+                </p>
 
-            {/* Error Message */}
-            {error && (
-              <div style={{
-                background: "rgba(239,68,68,0.2)",
-                border: "1px solid #ef4444",
-                padding: "1rem",
-                borderRadius: "0.5rem",
-                marginBottom: "1rem"
-              }}>
-                {error}
-              </div>
-            )}
+                {/* Error Message */}
+                {error && (
+                  <div style={{
+                    background: "rgba(239,68,68,0.2)",
+                    border: "1px solid #ef4444",
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    marginBottom: "1rem"
+                  }}>
+                    {error}
+                  </div>
+                )}
 
-            {/* Login Buttons */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              <button
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  opacity: loading ? 0.6 : 1
-                }}
-              >
-                {loading ? "⏳" : "🔍"} Continue with Google
-              </button>
+                {/* Login Buttons */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
+                  <button
+                    onClick={handleGoogleLogin}
+                    disabled={loading}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      padding: "1rem 2rem",
+                      borderRadius: "0.5rem",
+                      border: "none",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      opacity: loading ? 0.6 : 1
+                    }}
+                  >
+                    {loading ? "⏳" : "🔍"} Continue with Google
+                  </button>
 
-              <button
-                onClick={handleFacebookLogin}
-                disabled={loading}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  opacity: loading ? 0.6 : 1
-                }}
-              >
-                {loading ? "⏳" : "📘"} Continue with Facebook
-              </button>
+                  <button
+                    onClick={handleFacebookLogin}
+                    disabled={loading}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      padding: "1rem 2rem",
+                      borderRadius: "0.5rem",
+                      border: "none",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      opacity: loading ? 0.6 : 1
+                    }}
+                  >
+                    {loading ? "⏳" : "📘"} Continue with Facebook
+                  </button>
 
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "1rem", 
-                margin: "1rem 0",
-                opacity: 0.7 
-              }}>
-                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
-                <span style={{ fontSize: "0.875rem" }}>or</span>
-                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
-              </div>
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "1rem", 
+                    margin: "1rem 0",
+                    opacity: 0.7 
+                  }}>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
+                    <span style={{ fontSize: "0.875rem" }}>or</span>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
+                  </div>
 
-              <button
-                onClick={() => setCurrentStep("email-login")}
-                disabled={loading}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  opacity: loading ? 0.6 : 1
-                }}
-              >
-                {loading ? "⏳" : "📧"} Continue with Email
-              </button>
-            </div>
-
-            {/* Success Message */}
-            {user && (
-              <div style={{
-                background: "rgba(34,197,94,0.2)",
-                border: "1px solid #22c55e",
-                padding: "1rem",
-                borderRadius: "0.5rem",
-                marginTop: "1rem"
-              }}>
-                ✅ Welcome, {user.displayName || user.email}!
-              </div>
+                  <button
+                    onClick={() => setCurrentStep("email-login")}
+                    disabled={loading}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      padding: "1rem 2rem",
+                      borderRadius: "0.5rem",
+                      border: "none",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      fontSize: "1.1rem",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      opacity: loading ? 0.6 : 1
+                    }}
+                  >
+                    {loading ? "⏳" : "📧"} Continue with Email
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
