@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
+import { GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
 
 // Firebase configuration
 // Environment variables should be set in production for full functionality
@@ -34,6 +35,9 @@ try {
   if (isFirebaseConfigured()) {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
+    
+    // Enable persistence
+    setPersistence(auth, browserLocalPersistence)
   } else {
     // Create mock auth object for demo mode
     auth = {
