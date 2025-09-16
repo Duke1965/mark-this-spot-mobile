@@ -28,7 +28,7 @@ interface User {
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Changed from true to false - removes splash screen
   const [error, setError] = useState<string | null>(null)
 
   // Listen for auth state changes
