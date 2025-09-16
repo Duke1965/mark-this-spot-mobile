@@ -83,6 +83,34 @@ export default function PINITApp() {
     | "results"
     | "settings"
   >("map")
+  const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
+
+  const [isQuickPinning, setIsQuickPinning] = useState(false)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+  const [showRecommendationPopup, setShowRecommendationPopup] = useState(false)
+  const [finalImageData, setFinalImageData] = useState<any>(null)
+  const [quickPinSuccess, setQuickPinSuccess] = useState(false)
+  const [locationName, setLocationName] = useState<string>("")
+
+  const [showRecommendToggle, setShowRecommendToggle] = useState(false)
+  const [showNearbyPins, setShowNearbyPins] = useState(false)
+  const [discoveryMode, setDiscoveryMode] = useState(false)
+  const [nearbyPins, setNearbyPins] = useState<PinData[]>([])
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
+  const [pins, setPins] = useState<PinData[]>([])
+  const [newPins, setNewPins] = useState<number>(0)
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+
+  const [locationDetails, setLocationDetails] = useState<any>(null)
+  const [currentTheme, setCurrentTheme] = useState<any>(null)
+  const [showStoryBuilder, setShowStoryBuilder] = useState(false)
+  const [lastActivity, setLastActivity] = useState<string>("app-start")
+
+  // Add this new state for user location
+  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
+  const [capturedMedia, setCapturedMedia] = useState<any>(null)
+  const [motionData, setMotionData] = useState<any>(null)
 
   // Auto-redirect to settings if not authenticated
   useEffect(() => {
