@@ -26,6 +26,7 @@ import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 
+
 export interface PinData {
   id: string
   latitude: number
@@ -44,27 +45,96 @@ export interface PinData {
   priceLevel?: number
   types?: string[]
   isAISuggestion?: boolean
-  additionalPhotos?: Array<{url: string, placeName: string}>
-  personalThoughts?: string
-  originalPinId?: string
+  additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
+  personalThoughts?: string // NEW: User's personal thoughts about the place
+  originalPinId?: string // NEW: Reference to original PINIT pin
+  
+  // NEW: Pin Management System Fields
+  placeId?: string // Reference to aggregated Place
+  totalEndorsements?: number // All-time unique user recommendations
+  recentEndorsements?: number // Endorsements within RECENT_WINDOW_DAYS
+  lastEndorsedAt?: string // ISO timestamp of last endorsement/renewal
+  score?: number // Trending score for sorting
+  downvotes?: number // Community downvotes
+  isHidden?: boolean // Soft hide if downvotes exceed threshold
+  category?: string // Place category (e.g., 'coffee', 'museum', etc.)
 }
 
-export interface Recommendation {
+interface GooglePlace {
+  place_id: string
+  name: string
+  geometry: {
+    location: {
+      lat: number
+      lng: number
+    }
+  }
+  rating?: number
+  price_level?: number
+  types: string[]
+  vicinity?: string
+  photos?: Array<{
+    photo_reference: string
+    height: number
+    width: number
+  }>
+}
+
+interface Recommendation {
   id: string
-  latitude: number
-  longitude: number
+  type: string
   title: string
   description: string
-  type: string
-  distance: number
-  rating?: number
-  priceLevel?: number
+  action: string
+  data?: any
+  priority: number
+  color: string
   isAISuggestion?: boolean
-  source?: string
-  timestamp: string
+  timestamp: number
+  category: string
+  isCompleted?: boolean
+}
+
+// NEW: Pin Management System Interfaces
+interface Place {
+  id: string
+  googlePlaceId: string
+  name: string
+  lat: number
+  lng: number
+  category: string
+  createdAt: string
+  updatedAt: string
+  
+  // Aggregates
+  totalEndorsements: number
+  recentEndorsements: number
+  lastEndorsedAt: string
+  score: number
+  
+  // Community signals
+  downvotes: number
+  isHidden: boolean
+}
+
+interface Endorsement {
+  id: string
+  placeId: string
+  userId: string
+  createdAt: string
+  // Optional: comment, media, etc.
+}
+
+interface Renewal {
+  id: string
+  placeId: string
+  userId: string
+  type: 'renew' | 'downvote'
+  createdAt: string
 }
 
 export default function PINITApp() {
+
   // Auth state
   const { user, loading: authLoading } = useAuth()
 
@@ -108,130 +178,1152 @@ export default function PINITApp() {
   const [lastActivity, setLastActivity] = useState<string>("app-start")
 
   // Add this new state for user location
-  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
-  const [capturedMedia, setCapturedMedia] = useState<any>(null)
-  const [motionData, setMotionData] = useState<any>(null)
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
-  // Auto-redirect to settings if not authenticated
+  // Media state
+  const [capturedMedia, setCapturedMedia] = useState<{
+    url: string
+    type: "photo" | "video"
+    location: string
+    title?: string
+    description?: string
+    tags?: string[]
+    personalThoughts?: string
+    id?: string
+    latitude?: number
+    longitude?: number
+    additionalPhotos?: Array<{ url: string; placeName: string }>
+  } | null>(null)
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("")
+
+  // Hooks
+  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
+  const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
+  const motionData = useMotionDetection()
+
+  // Add state to remember the last good location name
+  const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
+  
+  // Update location name with persistence
   useEffect(() => {
-    console.log("🔐 Auth state:", { user, authLoading })
-    
-    if (!authLoading && !user) {
-      console.log("🔐 No user, redirecting to settings")
-      setCurrentScreen("settings")
-    } else if (!authLoading && user) {
-      console.log("🔐 User authenticated:", user.displayName)
-      setCurrentScreen("map")
+    if (location && location.latitude && location.longitude) {
+      getLocationName(location.latitude, location.longitude).then((name) => {
+        if (name && name !== "Unknown Location") {
+          setLocationName(name)
+          setLastGoodLocationName(name) // Remember the last good location
+        } else if (lastGoodLocationName) {
+          // Keep the last good location if current lookup fails
+          setLocationName(lastGoodLocationName)
+        }
+      })
     }
-  }, [user, authLoading])
+  }, [location, lastGoodLocationName])
 
-  // Handle Android back button navigation - CORRECT IMPLEMENTATION
+  // Function to clear corrupted app state and reset to map
+  const clearAppState = useCallback(() => {
+    try {
+      localStorage.removeItem("pinit-app-state")
+      console.log("🧹 App state cleared manually")
+      setCurrentScreen("map")
+      setRecommendations([])
+      setDiscoveryMode(false)
+      setShowRecommendToggle(false)
+      setLastActivity("app-reset")
+    } catch (error) {
+      console.error("❌ Failed to clear app state:", error)
+    }
+  }, [])
+
+  // FORCE RESET ON APP START - Clear any corrupted state
   useEffect(() => {
-    const handleBackButton = (event: PopStateEvent) => {
-      event.preventDefault()
+    console.log("🚀 PINIT App starting - clearing any corrupted state")
+    try {
+      // Clear any potentially corrupted state immediately
+      localStorage.removeItem("pinit-app-state")
+      console.log("🧹 Cleared app state on startup")
       
-      // Navigation stack logic
-      if (currentScreen === "map") {
-        // If on main map, don't allow back (prevent app close)
-        window.history.pushState(null, "", window.location.href)
-        return
-      }
+      // Force start on map screen
+      setCurrentScreen("map")
+      setLastActivity("app-start-fresh")
       
-      // Navigate back through screens
-      const screenStack = [
-        "map",           // Main screen
-        "settings",      // Settings
-        "camera",        // Camera
-        "platform-select", // Platform selection
-        "content-editor", // Content editor
-        "story",         // Story mode
-        "library",       // Library
-        "story-builder", // Story builder
-        "recommendations", // Recommendations
-        "place-navigation", // Place navigation
-        "results"        // Results
-      ]
-      
-      const currentIndex = screenStack.indexOf(currentScreen)
-      if (currentIndex > 0) {
-        setCurrentScreen(screenStack[currentIndex - 1] as any)
+      console.log("✅ App started fresh on map screen")
+    } catch (error) {
+      console.error("❌ Error during app startup reset:", error)
+    }
+  }, [])
+
+  // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
+  useEffect(() => {
+    // Load saved app state on mount
+    try {
+      const savedState = localStorage.getItem("pinit-app-state")
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+        console.log("🔄 Restoring app state from localStorage:", parsedState)
+        
+        // Validate and restore current screen with fallback to map
+        if (parsedState.currentScreen && 
+            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
+          // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
+          if (parsedState.currentScreen !== "camera") {
+            setCurrentScreen(parsedState.currentScreen)
+            console.log("✅ Restored screen:", parsedState.currentScreen)
+          } else {
+            console.log("⚠️ Preventing camera from opening on app start, staying on map")
+            setCurrentScreen("map")
+          }
+        } else {
+          console.log("⚠️ Invalid screen state, defaulting to map")
+          setCurrentScreen("map")
+        }
+        
+        // Restore recommendations
+        if (parsedState.recommendations && Array.isArray(parsedState.recommendations)) {
+          setRecommendations(parsedState.recommendations)
+        }
+        
+        // Restore other important state
+        if (parsedState.discoveryMode !== undefined) {
+          setDiscoveryMode(parsedState.discoveryMode)
+        }
+        
+        if (parsedState.showRecommendToggle !== undefined) {
+          setShowRecommendToggle(parsedState.showRecommendToggle)
+        }
+        
+        if (parsedState.lastActivity) {
+          setLastActivity(parsedState.lastActivity)
+        }
+        
+        console.log("✅ App state restored successfully")
       } else {
+        console.log("🆕 No saved state found, starting fresh on map")
         setCurrentScreen("map")
       }
-    }
-
-    // Add history state to prevent immediate back
-    window.history.pushState(null, "", window.location.href)
-    
-    // Listen for back button
-    window.addEventListener('popstate', handleBackButton)
-    
-    return () => {
-      window.removeEventListener('popstate', handleBackButton)
-    }
-  }, [currentScreen])
-
-  // Handler functions
-  const handleCameraCapture = useCallback((mediaData: any) => {
-    setCapturedMedia(mediaData)
-    setCurrentScreen("platform-select")
-  }, [])
-
-  const handlePlatformSelect = useCallback((platform: string) => {
-    console.log("Selected platform:", platform)
-    setCurrentScreen("content-editor")
-  }, [])
-
-  const handleQuickPin = useCallback(async () => {
-    if (!userLocation) return
-    
-    setIsQuickPinning(true)
-    try {
-      // Quick pin logic here
-      console.log("Quick pin created at:", userLocation)
-      setQuickPinSuccess(true)
-      setSuccessMessage("Pin created successfully!")
     } catch (error) {
-      console.error("Quick pin failed:", error)
-    } finally {
-      setIsQuickPinning(false)
+      console.error("❌ Failed to restore app state:", error)
+      // Clear corrupted state and start fresh
+      try {
+        localStorage.removeItem("pinit-app-state")
+        console.log("🧹 Cleared corrupted app state")
+      } catch (clearError) {
+        console.error("❌ Failed to clear corrupted state:", clearError)
+      }
+      setCurrentScreen("map")
     }
-  }, [userLocation])
+  }, [])
 
+  // Save app state whenever important state changes
+  useEffect(() => {
+    const appState = {
+      currentScreen,
+      recommendations,
+      discoveryMode,
+      showRecommendToggle,
+      lastActivity,
+      timestamp: Date.now()
+    }
+    
+    try {
+      localStorage.setItem("pinit-app-state", JSON.stringify(appState))
+      console.log("💾 App state saved to localStorage:", appState)
+    } catch (error) {
+      console.error("❌ Failed to save app state:", error)
+    }
+  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
+
+  // Initialize pins from storage
+  useEffect(() => {
+    if (storedPins.length > 0) {
+      setPins(storedPins)
+    }
+  }, [storedPins])
+
+  // Continuous location watching
+  useEffect(() => {
+    let watchId: number | null = null
+
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      console.log("📍 Setting up location watching...")
+      
+      // Start watching location continuously with better accuracy
+      watchId = watchLocation({
+        enableHighAccuracy: true, // Use high accuracy for real-time updates
+        timeout: 15000, // Increase timeout
+        maximumAge: 10000, // Reduced to 10 seconds for real-time updates
+      })
+
+      // Cleanup function
+      return () => {
+        if (watchId !== null) {
+          clearWatch(watchId)
+        }
+      }
+    } else {
+      console.log("❌ Geolocation not available")
+    }
+  }, [watchLocation, clearWatch])
+
+  // Update userLocation when location changes
+  useEffect(() => {
+    if (location) {
+      setUserLocation({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })
+      
+      // Update location name when location changes
+      getLocationName(location.latitude, location.longitude).then((name) => {
+        setLocationName(name)
+      })
+    }
+  }, [location])
+
+  const addPin = useCallback((pin: PinData) => {
+    setPins((prev: PinData[]) => [...prev, pin])
+    setNewPins((prev: number) => prev + 1)
+    addPinFromStorage(pin) // Also save to storage
+  }, [addPinFromStorage])
+
+  const openLibrary = useCallback(() => {
+    setCurrentScreen("library")
+    setNewPins(0) // Reset new pins count when Library is opened
+  }, [setCurrentScreen])
+
+  const [selectedPlace, setSelectedPlace] = useState<any>(null)
+  const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
+  const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
+
+  // Recommendation form state
+  const [showRecommendationForm, setShowRecommendationForm] = useState(false)
+  const [recommendationData, setRecommendationData] = useState<{
+    mediaUrl: string
+    locationName: string
+    platform: string
+    aiTitle?: string
+    aiDescription?: string
+    aiTags?: string[]
+    personalThoughts?: string
+    pinId?: string
+    latitude?: number
+    longitude?: number
+    additionalPhotos?: Array<{ url: string; placeName: string }>
+  } | null>(null)
+
+  // Add location name resolution
+  const getLocationName = async (lat: number, lng: number): Promise<string> => {
+    try {
+      // Use the new getRealLocationName function for better results
+      return await getRealLocationName(lat, lng)
+    } catch (error) {
+      console.error("Failed to get location name:", error)
+      // Global fallback: Create descriptive name from coordinates with region detection
+      const latDir = lat >= 0 ? 'N' : 'S'
+      const lngDir = lng >= 0 ? 'E' : 'W'
+      const latAbs = Math.abs(lat).toFixed(2)
+      const lngAbs = Math.abs(lng).toFixed(2)
+      
+      // Determine region based on coordinates for global users
+      let region = "Unknown Region"
+      
+      // North America (USA, Canada, Mexico)
+      if (lat >= 25 && lat <= 70 && lng >= -170 && lng <= -50) {
+        region = "North America"
+      }
+      // South America
+      else if (lat >= -60 && lat <= 15 && lng >= -90 && lng <= -30) {
+        region = "South America"
+      }
+      // Europe
+      else if (lat >= 35 && lat <= 75 && lng >= -10 && lng <= 40) {
+        region = "Europe"
+      }
+      // Asia (including India, China, Japan, Southeast Asia)
+      else if (lat >= 10 && lat <= 75 && lng >= 60 && lng <= 180) {
+        region = "Asia"
+      }
+      // Africa
+      else if (lat >= -35 && lat <= 35 && lng >= -20 && lng <= 55) {
+        region = "Africa"
+      }
+      // Australia and Oceania
+      else if (lat >= -45 && lat <= -10 && lng >= 110 && lng <= 155) {
+        region = "Australia"
+      }
+      
+      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+    }
+  }
+
+  // Mobile detection utility
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // Retry logic with exponential backoff
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> => {
+    let lastError: Error
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error) {
+        lastError = error as Error
+        
+        if (attempt === maxRetries) {
+          throw lastError
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = baseDelay * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    
+    throw lastError!
+  }
+
+  // ENHANCED SMART LOCATION DETECTION - Prioritizes residential areas over businesses
+  const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
+    const isMobile = isMobileDevice()
+    
+    try {
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
+      console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
+      
+      // TIER 1: ULTRA-PRECISE BUSINESS DETECTION (10m radius)
+      // Only for exact business locations - not residential areas
+      try {
+        const ultraPreciseResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=10`, {
+          headers: {
+            'User-Agent': isMobile ? 'PINIT-Mobile-App' : 'PINIT-Web-App',
+            'X-Device-Type': isMobile ? 'mobile' : 'desktop'
+          }
+        })
+        
+        if (ultraPreciseResponse.ok) {
+          const ultraPreciseData = await ultraPreciseResponse.json()
+          
+          if (ultraPreciseData.results && ultraPreciseData.results.length > 0) {
+            const closestBusiness = ultraPreciseData.results[0]
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
+            
+            // SMART FILTER: Only use business name if it's VERY close (within 10m)
+            // AND it's not a distant landmark (like Allesverloren wine farm)
+            const businessDistance = closestBusiness.distance || 0
+            if (businessDistance <= 10) {
+              console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using close business:`, closestBusiness.name)
+              return closestBusiness.name
+            } else {
+              console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Business too far (${businessDistance}m), using reverse geocoding...`)
+            }
+          }
+        }
+      } catch (ultraError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
+      }
+      
+      // TIER 2: SMART REVERSE GEOCODING FOR RESIDENTIAL AREAS
+      // This is the key fix for Riebeek West vs Allesverloren
+      try {
+        const geocodeResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+        )
+        
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json()
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const addressComponents = geocodeData.results[0].address_components
+            const formattedAddress = geocodeData.results[0].formatted_address
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
+            
+            // SMART EXTRACTION: Prioritize residential components over business components
+            let locality = ""
+            let neighborhood = ""
+            let route = ""
+            let streetNumber = ""
+            let sublocality = ""
+            
+            for (const component of addressComponents) {
+              const types = component.types
+              
+              if (types.includes('street_number')) {
+                streetNumber = component.long_name
+              } else if (types.includes('route')) {
+                route = component.long_name
+              } else if (types.includes('neighborhood') || types.includes('sublocality_level_1')) {
+                neighborhood = component.long_name
+              } else if (types.includes('sublocality')) {
+                sublocality = component.long_name
+              } else if (types.includes('locality')) {
+                locality = component.long_name
+              }
+            }
+            
+            // SMART LOCATION BUILDING: Prioritize residential areas
+            let locationName = ""
+            
+            if (streetNumber && route) {
+              // Exact address: "123 Main Street, Riebeek West"
+              locationName = `${streetNumber} ${route}`
+              if (locality) {
+                locationName += `, ${locality}`
+              }
+            } else if (route && locality) {
+              // Street and town: "Main Street, Riebeek West"
+              locationName = `${route}, ${locality}`
+            } else if (neighborhood && locality) {
+              // Neighborhood and town: "Downtown, Riebeek West"
+              locationName = `${neighborhood}, ${locality}`
+            } else if (sublocality && locality) {
+              // Sublocality and town: "Riebeek West"
+              locationName = sublocality
+            } else if (locality) {
+              // Just the town: "Riebeek West"
+              locationName = locality
+            } else {
+              // Fallback to formatted address
+              const parts = formattedAddress.split(',')
+              locationName = parts[0]?.trim() || "Unknown Location"
+            }
+            
+            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
+            return locationName
+          }
+        }
+      } catch (geocodeError) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
+      }
+      
+      // TIER 3: SMART FALLBACK WITH REGION DETECTION
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using smart coordinate fallback...`)
+      
+      // Riebeek West specific detection (your home area)
+      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
+        return "Riebeek West"
+      }
+      
+      // Other known areas
+      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town"
+      }
+      
+      // Final fallback
+      return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    } catch (error) {
+      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
+      return "Unknown Location"
+    }
+  }
+
+  // ENHANCED: Real Google Places Integration
+  const findNearbyPins = useCallback(async () => {
+    if (!location) return
+
+    console.log("🌐 Discovering real nearby places...")
+    
+    try {
+      // Use our API route to avoid CORS issues
+      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=100`)
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch places from API")
+      }
+      
+      const data = await response.json()
+      const realPlaces = data.results || []
+      
+      console.log("🌐 Found", realPlaces.length, "places via API route")
+      
+      // Transform API results to PinData format
+      const transformedPlaces = realPlaces.map((place: any) => ({
+        id: place.place_id,
+        latitude: place.geometry.location.lat,
+        longitude: place.geometry.location.lng,
+        locationName: place.vicinity || place.name,
+        mediaUrl: null,
+        mediaType: null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: place.name,
+        description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
+        tags: place.types || [],
+        isRecommended: true,
+        googlePlaceId: place.place_id,
+        rating: place.rating,
+        priceLevel: place.price_level,
+        types: place.types,
+        isAISuggestion: true,
+      }))
+      
+      // REVERSE GEOCODING FALLBACK: If no businesses found, add residential area pins
+      if (transformedPlaces.length === 0) {
+        console.log("🌐 No businesses found, trying reverse geocoding fallback...")
+        
+        try {
+          const geocodeResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.latitude},${location.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+          )
+          
+          if (geocodeResponse.ok) {
+            const geocodeData = await geocodeResponse.json()
+            if (geocodeData.results && geocodeData.results.length > 0) {
+              const addressComponents = geocodeData.results[0].address_components
+              const formattedAddress = geocodeData.results[0].formatted_address
+              
+              // Extract residential area information
+              let areaName = ""
+              let locality = ""
+              
+              for (const component of addressComponents) {
+                const types = component.types
+                if (types.includes('sublocality') || types.includes('neighborhood')) {
+                  areaName = component.long_name
+                } else if (types.includes('locality')) {
+                  locality = component.long_name
+                }
+              }
+              
+              if (areaName || locality) {
+                const residentialPin = {
+                  id: `residential_${Date.now()}`,
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  locationName: areaName || locality,
+                  mediaUrl: null,
+                  mediaType: null,
+                  audioUrl: null,
+                  timestamp: new Date().toISOString(),
+                  title: areaName || locality,
+                  description: `Residential Area • ${formattedAddress}`,
+                  tags: ["residential", "area"],
+                  isRecommended: true,
+                  googlePlaceId: null,
+                  rating: null,
+                  priceLevel: null,
+                  types: ["residential"],
+                  isAISuggestion: true,
+                  isResidentialArea: true
+                }
+                
+                transformedPlaces.push(residentialPin)
+                console.log(`🌐 Added residential area pin: ${residentialPin.title}`)
+              }
+            }
+          }
+        } catch (geocodeError) {
+          console.log("🌐 Reverse geocoding fallback failed:", geocodeError)
+        }
+      }
+      
+      setNearbyPins(transformedPlaces)
+      setShowNearbyPins(true)
+      setLastActivity("discovery")
+      
+    } catch (error) {
+      console.error("🌐 Error fetching nearby places:", error)
+      // Don't set error state, just log it
+    }
+  }, [location])
+
+  // Auto-fetch nearby places when recommendations screen is opened
+  useEffect(() => {
+    if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
+      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
+      findNearbyPins()
+    }
+    
+    // Hide nearby places popup when leaving recommendations screen
+    if (currentScreen !== "recommendations") {
+      setShowNearbyPins(false)
+    }
+  }, [currentScreen, location, nearbyPins.length, findNearbyPins])
+
+  // Debug: Monitor recommendations state changes
+  useEffect(() => {
+    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
+    console.log("🤖 Recommendations content:", recommendations)
+  }, [recommendations])
+
+  // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
   const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
-    setRecommendations(prev => [...prev, ...newRecommendations])
-  }, [])
+    console.log("🤖 AI generated recommendations:", newRecommendations)
+    console.log("🤖 Current recommendations count before:", recommendations.length)
+    
+    setRecommendations((prev) => {
+      // Avoid duplicates by checking IDs
+      const existingIds = new Set(prev.map((r) => r.id))
+      const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
+      
+      console.log("🤖 Unique new recommendations:", uniqueRecommendations.length)
+      console.log("🤖 Total recommendations after adding:", prev.length + uniqueRecommendations.length)
+      
+      return [...prev, ...uniqueRecommendations]
+    })
+  }, [recommendations.length])
 
+  // Handle notification tap - GO TO RECOMMENDATIONS PAGE
   const handleNotificationTap = useCallback(() => {
-    setShowRecommendationPopup(true)
-  }, [])
-
-  const handleRecommendationAction = useCallback((id: string) => {
-    console.log("Recommendation action:", id)
-    setCurrentScreen("map")
+    console.log("🤖 Opening recommendations hub")
+    setCurrentScreen("recommendations")
+    // Ensure nearby places popup is hidden when opening recommendations
     setShowNearbyPins(false)
   }, [])
 
+  // Handle recommendation actions
+  const handleRecommendationAction = useCallback(
+    (action: string, data?: any) => {
+      console.log("🎯 Taking recommendation action:", action, data)
+      // Go back to map after action and hide nearby places popup
+      setCurrentScreen("map")
+      setShowNearbyPins(false)
+    },
+    [],
+  )
+
+  // Handle recommendation dismiss
   const handleRecommendationDismiss = useCallback((id: string) => {
-    setRecommendations(prev => prev.filter(rec => rec.id !== id))
+    setRecommendations((prev) => prev.filter((r) => r.id !== id))
   }, [])
 
+  // Handle recommendation complete
   const handleRecommendationComplete = useCallback((id: string) => {
-    console.log("Recommendation completed:", id)
+    setRecommendations((prev) => prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r)))
   }, [])
 
-  const handleProactiveSuggestion = useCallback((suggestion: any) => {
-    console.log("Proactive suggestion:", suggestion)
+  // Handle proactive AI suggestions
+  const handleProactiveSuggestion = useCallback(
+    (action: string, data?: any) => {
+      console.log("🤖 Proactive AI suggestion:", action, data)
+
+      switch (action) {
+        case "suggest-pin":
+          // Show recommendations instead of AI assistant
+          setCurrentScreen("recommendations")
+          break
+        default:
+          console.log("Unknown proactive suggestion:", action)
+      }
+
+      setLastActivity(`proactive-${action}`)
+    },
+    [],
+  )
+
+  // Handle camera capture
+  const handleCameraCapture = useCallback(
+    async (mediaUrl: string, type: "photo" | "video") => {
+      if (!location) return
+
+      setCapturedMedia({
+        url: mediaUrl,
+        type,
+        location: "Camera Capture",
+      })
+
+      setLastActivity(`camera-${type}`)
+      setCurrentScreen("editor")
+    },
+    [location],
+  )
+
+  // Handle platform select
+  const handlePlatformSelect = useCallback((platform: string) => {
+    setSelectedPlatform(platform)
+    setCurrentScreen("content-editor")
   }, [])
 
-  const handleBackFromResults = useCallback(() => {
+  // Handle quick pin with speed-based location calculation
+  const handleQuickPin = useCallback(async () => {
+    if (isQuickPinning) return
+
+    setIsQuickPinning(true)
+    setLastActivity("quick-pin")
+
+    try {
+      const currentLocation = await getCurrentLocation()
+      
+      // NEW: Calculate precise location based on speed and movement
+      let pinLatitude = currentLocation.latitude
+      let pinLongitude = currentLocation.longitude
+      let locationDescription = "Quick Pin Location"
+      
+      if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
+        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+        
+        // Calculate where the user likely saw the place (accounting for reaction time)
+        const reactionTime = 2 // 2 seconds reaction time
+        const speedInMPS = motionData.speed / 3.6 // Convert km/h to m/s
+        
+        // Calculate distance traveled during reaction time
+        const distanceTraveled = speedInMPS * reactionTime
+        
+        // Calculate bearing (direction of travel)
+        if (motionData.lastPosition) {
+          const bearing = Math.atan2(
+            currentLocation.longitude - motionData.lastPosition.longitude,
+            currentLocation.latitude - motionData.lastPosition.latitude
+          )
+          
+          // Calculate the location where the user likely saw the place
+          const latOffset = (distanceTraveled / 111000) * Math.cos(bearing) // 111km per degree latitude
+          const lngOffset = (distanceTraveled / (111000 * Math.cos(currentLocation.latitude * Math.PI / 180))) * Math.sin(bearing)
+          
+          pinLatitude = currentLocation.latitude - latOffset
+          pinLongitude = currentLocation.longitude - lngOffset
+          
+          locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
+          
+          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+        }
+      } else {
+        console.log("📍 Stationary pinning - using current location")
+      }
+      
+      // NEW: Fetch location photos before creating the pin
+      console.log("📸 Fetching location photos for speed-based pin...")
+      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+      
+      // NEW: Generate intelligent AI content based on location and context
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      
+      const newPin: PinData = {
+        id: Date.now().toString(),
+        latitude: pinLatitude,
+        longitude: pinLongitude,
+        locationName: aiGeneratedContent.locationName || locationDescription,
+        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
+        mediaType: "photo",
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description,
+        tags: aiGeneratedContent.tags,
+        // NEW: Store all photos for the carousel
+        additionalPhotos: locationPhotos
+      }
+
+      setCurrentResultPin(newPin)
+      setCurrentScreen("results")
+
+      console.log("📍 Quick pin created with photo:", newPin)
+    } catch (error) {
+      console.error("❌ Failed to create quick pin:", error)
+    } finally {
+      setIsQuickPinning(false)
+    }
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+
+  // NEW: Generate intelligent AI content based on location and context
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+    
+    // Determine location type and context
+    let locationType = "general"
+    let context = ""
+    
+    // Analyze location based on coordinates
+    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+      locationType = "small-town"
+      context = "Riebeek West - charming rural community"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "urban-cbd"
+      context = "Cape Town CBD - vibrant city center"
+    } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Southern Suburbs - residential area"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Northern Suburbs - growing community"
+    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+      locationType = "coastal"
+      context = "Cape Town - beautiful coastal city"
+    } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+      locationType = "provincial"
+      context = "Western Cape - diverse landscapes"
+    }
+    
+    // Generate title based on location type and context
+    let title = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      // Speed-based pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Charming Rural Discovery"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ Urban Gem Spotted"
+      } else if (locationType === "suburban") {
+        title = "🏡 Suburban Treasure"
+      } else if (locationType === "coastal") {
+        title = "🌊 Coastal Beauty"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Provincial Wonder"
+      } else {
+        title = "📍 Travel Discovery"
+      }
+    } else {
+      // Stationary pinning titles
+      if (locationType === "small-town") {
+        title = "🏘️ Local Community Spot"
+      } else if (locationType === "urban-cbd") {
+        title = "🏙️ City Center Location"
+      } else if (locationType === "suburban") {
+        title = "🏡 Neighborhood Place"
+      } else if (locationType === "coastal") {
+        title = "🌊 Seaside Location"
+      } else if (locationType === "provincial") {
+        title = "🏔️ Regional Spot"
+      } else {
+        title = "📍 Local Discovery"
+      }
+    }
+    
+    // Generate intelligent description
+    let description = ""
+    if (motionData.isMoving && motionData.speed > 5) {
+      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+    } else {
+      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+    }
+    
+    // Generate smart tags based on context
+    const tags = []
+    if (motionData.isMoving && motionData.speed > 5) {
+      tags.push("travel-discovery", "speed-pinning")
+    }
+    if (locationType === "small-town") {
+      tags.push("rural", "community", "local")
+    } else if (locationType === "urban-cbd") {
+      tags.push("urban", "city", "vibrant")
+    } else if (locationType === "suburban") {
+      tags.push("suburban", "residential", "family")
+    } else if (locationType === "coastal") {
+      tags.push("coastal", "ocean", "scenic")
+    } else if (locationType === "provincial") {
+      tags.push("provincial", "landscape", "diverse")
+    }
+    tags.push("ai-generated", "pinit")
+    
+    // Use real location name if available from photos
+    let locationName = context
+    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
+      locationName = locationPhotos[0].placeName
+    }
+    
+    console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
+    
+    return {
+      title,
+      description,
+      locationName,
+      tags
+    }
+  }
+
+  // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
+  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
+    try {
+      console.log("📸 Fetching location photo with aggressive filtering...")
+      
+      // Use our API route instead of calling Google Maps directly
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
+      
+      if (!photoResponse.ok) {
+        throw new Error("Failed to fetch location data")
+      }
+
+      const data = await photoResponse.json()
+      const photos: {url: string, placeName: string}[] = []
+
+      if (data.results && data.results.length > 0) {
+        // Get the closest place
+        const closestPlace = data.results[0]
+        if (closestPlace.photos && closestPlace.photos.length > 0) {
+          // More aggressive filtering to exclude logos, clipart, and non-location photos
+          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
+            // Skip photos that are likely logos, clipart, or non-location photos
+            if (photo.width && photo.height) {
+              const aspectRatio = photo.width / photo.height
+              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
+              const isTooSmall = photo.width < 300 || photo.height < 300
+              const isTooLarge = photo.width > 2000 || photo.height > 2000
+              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
+              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
+              
+              // Log what we're filtering out
+              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
+                console.log("📸 Filtering out photo:", {
+                  dimensions: `${photo.width}x${photo.height}`,
+                  aspectRatio: aspectRatio.toFixed(2),
+                  reason: isSquareish ? "squareish (likely logo)" : 
+                          isTooSmall ? "too small" :
+                          isTooLarge ? "too large" :
+                          isPortrait ? "too tall (likely sign)" :
+                          isLandscape ? "too wide (likely banner)" : "unknown"
+                })
+                return false
+              }
+            }
+            return true
+          })
+          
+          if (filteredPhotos.length > 0) {
+            // Get the best filtered photo (prefer landscape photos for location views)
+            const bestPhoto = filteredPhotos.reduce((best: any, current: any) => {
+              if (current.width && current.height && best.width && best.height) {
+                const currentRatio = current.width / current.height
+                const bestRatio = best.width / best.height
+                
+                // Prefer photos closer to 16:9 ratio (typical landscape)
+                const currentScore = Math.abs(currentRatio - 1.78)
+                const bestScore = Math.abs(bestRatio - 1.78)
+                
+                return currentScore < bestScore ? current : best
+              }
+              return best
+            })
+            
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            
+            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
+            return photos
+          } else {
+            // If all photos were filtered out, try to get any photo but log it
+            console.log("⚠️ All photos filtered out, using fallback photo")
+            const fallbackPhoto = closestPlace.photos[0]
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            return photos
+          }
+        }
+      }
+      
+      console.log("📸 No location photos found, will use PINIT placeholder")
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    } catch (error) {
+      console.error("❌ Error fetching location photos:", error)
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    }
+  }
+
+  // Handle place navigation from recommendations
+  const handlePlaceNavigation = (place: any) => {
+    console.log("🗺️ Opening place navigation for:", place.title)
+    setSelectedPlace(place)
+    setCurrentScreen("place-navigation")
+  }
+
+  // Handle save for later
+  const handleSaveForLater = (place: any) => {
+    console.log("🔖 Saving place for later:", place.title)
+    setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
+    setCurrentScreen("recommendations")
+  }
+
+  // Handle navigation start
+  const handleStartNavigation = (place: any) => {
+    console.log("🧭 Starting navigation to:", place.title)
+    // Navigation is handled within the PlaceNavigation component
+  }
+
+  // Results page handlers
+  const handleSaveFromResults = (pin: PinData) => {
+    // Include personal thoughts in the saved pin
+    const pinToSave = {
+      ...pin,
+      personalThoughts: pin.personalThoughts || undefined
+    }
+    addPin(pinToSave)
+    setCurrentResultPin(null)
     setCurrentScreen("map")
-  }, [])
+    setQuickPinSuccess(true)
+    setTimeout(() => setQuickPinSuccess(false), 2000)
+  }
 
-  const handleArrival = useCallback((location: any) => {
-    console.log("Arrived at:", location)
+  const handleShareFromResults = (pin: PinData) => {
+    // Create a comprehensive media object that captures ALL PINIT data
+    const mediaData = {
+      url: pin.mediaUrl || "/pinit-placeholder.jpg",
+      type: "photo" as const,
+      location: pin.locationName,
+        title: pin.title,
+      description: pin.description,
+      personalThoughts: pin.personalThoughts || undefined,
+      // Enhanced PINIT data
+      pinId: pin.id,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      timestamp: pin.timestamp,
+      tags: pin.tags || [],
+      additionalPhotos: pin.additionalPhotos || [],
+      // AI-generated content
+      aiTitle: pin.title,
+      aiDescription: pin.description,
+      aiTags: pin.tags || []
+    }
+    
+    // Set the captured media and go to platform selection (same flow as camera photos)
+    setCapturedMedia(mediaData)
+    setCurrentScreen("platform-select")
+  }
+
+  const handleEditFromResults = (pin: PinData) => {
+    // For now, just go back to map - could be enhanced with an edit modal
+    setCurrentResultPin(null)
     setCurrentScreen("map")
-  }, [])
+  }
+
+  const handleBackFromResults = () => {
+    setCurrentResultPin(null)
+    setCurrentScreen("map")
+  }
+
+  // Recommendation form handlers
+  const handleRecommendationSubmit = (rating: number, review: string) => {
+    console.log("⭐ Recommendation submitted:", { rating, review })
+    console.log("📍 Current recommendationData:", recommendationData)
+    console.log("📍 Current userLocation:", userLocation)
+    
+    // Check if this is a PINIT pin recommendation (has personalThoughts)
+    if (recommendationData?.personalThoughts) {
+      console.log("📌 This is a PINIT pin recommendation")
+      
+      // Create a new recommendation pin with ALL enhanced PINIT data
+      const newRecommendation: PinData = {
+        id: Date.now().toString(),
+        // Use original pin coordinates if available, otherwise current location
+        latitude: recommendationData?.latitude || userLocation?.latitude || 0,
+        longitude: recommendationData?.longitude || userLocation?.longitude || 0,
+        locationName: recommendationData?.locationName || "Unknown Location",
+        mediaUrl: recommendationData?.mediaUrl || null,
+        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        title: `PINIT Recommendation - ${recommendationData?.aiTitle || recommendationData?.locationName || "Location"}`,
+        description: `${review}\n\nOriginal AI Description: ${recommendationData?.aiDescription || "No AI description available"}`,
+        personalThoughts: recommendationData.personalThoughts, // Include original user thoughts
+        // Combine AI tags with recommendation tags
+        tags: [
+          "recommendation", 
+          "user-submitted", 
+          "pinit-pin", 
+          recommendationData?.platform || "social",
+          ...(recommendationData?.aiTags || [])
+        ],
+        isRecommended: true,
+        rating: rating,
+        types: ["recommendation", "pinit"],
+        // Store reference to original pin
+        originalPinId: recommendationData?.pinId,
+        // Include additional photos if available
+        additionalPhotos: recommendationData?.additionalPhotos || []
+      }
+
+      console.log("📌 Created enhanced PINIT recommendation pin:", newRecommendation)
+      
+      // Add the recommendation to pins
+      addPin(newRecommendation)
+      
+      setShowRecommendationForm(false)
+      setRecommendationData(null)
+      setSuccessMessage("PINIT Recommendation sent!")
+      setShowSuccessPopup(true)
+      setTimeout(() => setShowSuccessPopup(false), 3000)
+      setCurrentScreen("map")
+    } else {
+      // Regular photo recommendation
+    const newRecommendation: PinData = {
+      id: Date.now().toString(),
+      latitude: userLocation?.latitude || 0,
+      longitude: userLocation?.longitude || 0,
+      locationName: recommendationData?.locationName || "Unknown Location",
+      mediaUrl: recommendationData?.mediaUrl || null,
+      mediaType: recommendationData?.mediaUrl ? "photo" : null,
+      audioUrl: null,
+      timestamp: new Date().toISOString(),
+      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
+      description: review,
+      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+      isRecommended: true,
+      rating: rating,
+      types: ["recommendation"],
+    }
+
+      console.log("📌 Created regular recommendation pin:", newRecommendation)
+
+    // Add the recommendation to pins
+    addPin(newRecommendation)
+    
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setSuccessMessage("Recommendation sent!")
+    setShowSuccessPopup(true)
+    setTimeout(() => setShowSuccessPopup(false), 3000)
+    setCurrentScreen("map")
+    }
+  }
+
+  const handleRecommendationSkip = () => {
+    console.log("⏭️ Recommendation skipped")
+    setShowRecommendationForm(false)
+    setRecommendationData(null)
+    setCurrentScreen("map")
+  }
+
+  // Debounce for post button to prevent multiple clicks
+  const [isPosting, setIsPosting] = useState(false)
+
+  // Handle arrival
+  const handleArrival = useCallback(
+    (place: any, shouldSave: boolean) => {
+      console.log("🎯 Arrived at:", place.title, "Save:", shouldSave)
+
+      if (shouldSave) {
+        // Create a new pin from the place
+        const newPin: PinData = {
+          id: Date.now().toString(),
+          latitude: place.latitude,
+          longitude: place.longitude,
+          locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
+          mediaUrl: place.mediaUrl || null,
+          mediaType: place.mediaUrl ? "photo" : null,
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: place.title,
+          description: place.description || `Visited ${place.title}`,
+          tags: ["visited", "recommended", ...(place.types || []).slice(0, 3)],
+          isRecommended: true,
+          googlePlaceId: place.googlePlaceId,
+          rating: place.rating,
+          priceLevel: place.priceLevel,
+          types: place.types,
+        }
+
+        addPin(newPin)
+        console.log("📍 Place saved as pin:", newPin)
+      }
+
+      // Go back to map
+      setCurrentScreen("map")
+      setSelectedPlace(null)
+      setLastActivity("place-visited")
+    },
+    [addPin],
+  )
 
   // Screen rendering
   if (currentScreen === "camera") {
@@ -1323,3 +2415,62 @@ function getPlatformDimensions(platform: string) {
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
+
+// Auto-redirect to settings if not authenticated
+useEffect(() => {
+  console.log("🔐 Auth state:", { user, authLoading })
+  
+  if (!authLoading && !user) {
+    console.log("🔐 No user, redirecting to settings")
+    setCurrentScreen("settings")
+  } else if (!authLoading && user) {
+    console.log("🔐 User authenticated:", user.displayName)
+    setCurrentScreen("map")
+  }
+}, [user, authLoading])
+
+// Handle Android back button navigation
+useEffect(() => {
+  const handleBackButton = (event: PopStateEvent) => {
+    event.preventDefault()
+    
+    // Navigation stack logic
+    if (currentScreen === "map") {
+      // If on main map, don't allow back (prevent app close)
+      window.history.pushState(null, "", window.location.href)
+      return
+    }
+    
+    // Navigate back through screens
+    const screenStack = [
+      "map",           // Main screen
+      "settings",      // Settings
+      "camera",        // Camera
+      "platform-select", // Platform selection
+      "content-editor", // Content editor
+      "story",         // Story mode
+      "library",       // Library
+      "story-builder", // Story builder
+      "recommendations", // Recommendations
+      "place-navigation", // Place navigation
+      "results"        // Results
+    ]
+    
+    const currentIndex = screenStack.indexOf(currentScreen)
+    if (currentIndex > 0) {
+      setCurrentScreen(screenStack[currentIndex - 1] as any)
+    } else {
+      setCurrentScreen("map")
+    }
+  }
+
+  // Add history state to prevent immediate back
+  window.history.pushState(null, "", window.location.href)
+  
+  // Listen for back button
+  window.addEventListener('popstate', handleBackButton)
+  
+  return () => {
+    window.removeEventListener('popstate', handleBackButton)
+  }
+}, [currentScreen])
