@@ -2428,7 +2428,9 @@ export default function PINITApp() {
     
     // Wait for auth to finish loading - CRITICAL!
     if (authLoading) {
-      console.log(" Still loading auth, waiting...")
+      console.log("🔐 Still loading auth, waiting...")
+      // Show map immediately while auth loads (removes splash screen)
+      setCurrentScreen("map")
       return
     }
     
