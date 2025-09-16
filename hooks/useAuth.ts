@@ -28,7 +28,7 @@ interface User {
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false) // Changed from true to false - removes splash screen
+  const [loading, setLoading] = useState(true) // RESTORE to true for proper auth initialization
   const [error, setError] = useState<string | null>(null)
 
   // Listen for auth state changes
@@ -45,7 +45,7 @@ export function useAuth() {
       } else {
         setUser(null)
       }
-      setLoading(false)
+      setLoading(false) // Set to false only after Firebase responds
     })
 
     return () => unsubscribe()
