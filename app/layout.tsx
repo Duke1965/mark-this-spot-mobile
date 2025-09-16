@@ -27,10 +27,9 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Mobile touch handling - ENABLE PULL-TO-REFRESH
+              // Mobile touch handling - ALLOW PULL-TO-REFRESH
               let startY = 0;
               let currentY = 0;
-              let isScrolling = false;
               
               // Detect mobile device
               const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -38,7 +37,6 @@ export default function RootLayout({
               if (isMobile) {
                 document.addEventListener('touchstart', function(e) {
                   startY = e.touches[0].clientY;
-                  isScrolling = false;
                 }, { passive: true });
                 
                 document.addEventListener('touchmove', function(e) {
@@ -50,16 +48,9 @@ export default function RootLayout({
                   const clientHeight = document.documentElement.clientHeight;
                   if (scrollTop + clientHeight >= scrollHeight - 5 && currentY < startY - 60) {
                     e.preventDefault();
-                    isScrolling = true;
                   }
                 }, { passive: false });
               }
-              
-              document.addEventListener('touchend', function(e) {
-                if (isScrolling) {
-                  e.preventDefault();
-                }
-              }, { passive: false });
               
               // Enable pull-to-refresh
               console.log(' PINIT PWA: Pull-to-refresh enabled');
