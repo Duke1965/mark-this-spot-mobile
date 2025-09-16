@@ -27,7 +27,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Enhanced mobile touch handling - OPTIMIZED VERSION
+              // Enhanced mobile touch handling - ENABLE PULL-TO-REFRESH
               let startY = 0;
               let currentY = 0;
               let isScrolling = false;
@@ -48,14 +48,7 @@ export default function RootLayout({
                   const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                   const touchDuration = Date.now() - touchStartTime;
                   
-                  // Only prevent pull-to-refresh when at very top of page AND pulling down significantly
-                  // Also check touch duration to avoid interfering with quick swipes
-                  if (scrollTop <= 5 && currentY > startY + 60 && touchDuration > 100) {
-                    e.preventDefault();
-                    isScrolling = true;
-                  }
-                  
-                  // Prevent overscroll at bottom
+                  // Only prevent overscroll at bottom, allow pull-to-refresh at top
                   const scrollHeight = document.documentElement.scrollHeight;
                   const clientHeight = document.documentElement.clientHeight;
                   if (scrollTop + clientHeight >= scrollHeight - 5 && currentY < startY - 60 && touchDuration > 100) {
@@ -71,8 +64,8 @@ export default function RootLayout({
                 }
               }, { passive: false });
               
-              // Allow normal page refresh behavior
-              console.log('🔄 PINIT PWA: Pull-to-refresh prevention enabled (less aggressive)');
+              // Enable pull-to-refresh
+              console.log(' PINIT PWA: Pull-to-refresh enabled');
             `,
           }}
         />
