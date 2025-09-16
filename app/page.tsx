@@ -261,7 +261,20 @@ export default function PINITApp() {
         const parsedState = JSON.parse(savedState)
         console.log("🔄 Restoring app state from localStorage:", parsedState)
         
-        // Validate and restore current screen with fallback to map
+        // ONLY restore screen if user is authenticated, otherwise force settings
+        if (authLoading) {
+          // Still loading auth, wait
+          return
+        }
+        
+        if (!user) {
+          // No user, force settings screen
+          console.log(" No authenticated user, forcing settings screen")
+          setCurrentScreen("settings")
+          return
+        }
+        
+        // User is authenticated, restore screen if valid
         if (parsedState.currentScreen && 
             ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
           // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
@@ -297,8 +310,13 @@ export default function PINITApp() {
         
         console.log("✅ App state restored successfully")
       } else {
-        console.log("🆕 No saved state found, starting fresh on map")
-        setCurrentScreen("map")
+        console.log("🆕 No saved state found, starting fresh")
+        // Check auth state before setting screen
+        if (!authLoading && !user) {
+          setCurrentScreen("settings")
+        } else if (!authLoading && user) {
+          setCurrentScreen("map")
+        }
       }
     } catch (error) {
       console.error("❌ Failed to restore app state:", error)
@@ -309,9 +327,14 @@ export default function PINITApp() {
       } catch (clearError) {
         console.error("❌ Failed to clear corrupted state:", clearError)
       }
-      setCurrentScreen("map")
+      // Check auth state before setting screen
+      if (!authLoading && !user) {
+        setCurrentScreen("settings")
+      } else if (!authLoading && user) {
+        setCurrentScreen("map")
+      }
     }
-  }, [])
+  }, [authLoading, user]) // Add authLoading and user as dependencies
 
   // Save app state whenever important state changes
   useEffect(() => {
