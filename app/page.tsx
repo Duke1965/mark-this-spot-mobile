@@ -1325,6 +1325,15 @@ export default function PINITApp() {
     [addPin],
   )
 
+  // Auto-redirect to settings if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setCurrentScreen("settings")
+    } else if (!authLoading && user) {
+      setCurrentScreen("map")
+    }
+  }, [user, authLoading])
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
