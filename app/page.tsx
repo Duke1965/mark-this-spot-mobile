@@ -2421,6 +2421,65 @@ export default function PINITApp() {
       `}</style>
     </div>
   )
+
+  // Auto-redirect to settings if not authenticated
+  useEffect(() => {
+    console.log("🔐 Auth state:", { user, authLoading })
+    
+    if (!authLoading && !user) {
+      console.log("🔐 No user, redirecting to settings")
+      setCurrentScreen("settings")
+    } else if (!authLoading && user) {
+      console.log("🔐 User authenticated:", user.displayName)
+      setCurrentScreen("map")
+    }
+  }, [user, authLoading])
+
+  // Handle Android back button navigation
+  useEffect(() => {
+    const handleBackButton = (event: PopStateEvent) => {
+      event.preventDefault()
+      
+      // Navigation stack logic
+      if (currentScreen === "map") {
+        // If on main map, don't allow back (prevent app close)
+        window.history.pushState(null, "", window.location.href)
+        return
+      }
+      
+      // Navigate back through screens
+      const screenStack = [
+        "map",           // Main screen
+        "settings",      // Settings
+        "camera",        // Camera
+        "platform-select", // Platform selection
+        "content-editor", // Content editor
+        "story",         // Story mode
+        "library",       // Library
+        "story-builder", // Story builder
+        "recommendations", // Recommendations
+        "place-navigation", // Place navigation
+        "results"        // Results
+      ]
+      
+      const currentIndex = screenStack.indexOf(currentScreen)
+      if (currentIndex > 0) {
+        setCurrentScreen(screenStack[currentIndex - 1] as any)
+      } else {
+        setCurrentScreen("map")
+      }
+    }
+
+    // Add history state to prevent immediate back
+    window.history.pushState(null, "", window.location.href)
+    
+    // Listen for back button
+    window.addEventListener('popstate', handleBackButton)
+    
+    return () => {
+      window.removeEventListener('popstate', handleBackButton)
+    }
+  }, [currentScreen])
 }
 
 // Helper function for platform dimensions
@@ -2429,71 +2488,12 @@ function getPlatformDimensions(platform: string) {
     "instagram-story": { width: 1080, height: 1920 },
     "instagram-post": { width: 1080, height: 1080 },
     "facebook-post": { width: 1200, height: 630 },
-            "x-post": { width: 1200, height: 675 },
+    "x-post": { width: 1200, height: 675 },
     "linkedin-post": { width: 1200, height: 627 },
     tiktok: { width: 1080, height: 1920 },
     snapchat: { width: 1080, height: 1920 },
-    whatsapp: { width: 1080, height: 1080 },
+    whatsapp: { width: 1080, height: 1920 },
   }
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
-
-// Auto-redirect to settings if not authenticated
-useEffect(() => {
-  console.log("🔐 Auth state:", { user, authLoading })
-  
-  if (!authLoading && !user) {
-    console.log("🔐 No user, redirecting to settings")
-    setCurrentScreen("settings")
-  } else if (!authLoading && user) {
-    console.log("🔐 User authenticated:", user.displayName)
-    setCurrentScreen("map")
-  }
-}, [user, authLoading])
-
-// Handle Android back button navigation
-useEffect(() => {
-  const handleBackButton = (event: PopStateEvent) => {
-    event.preventDefault()
-    
-    // Navigation stack logic
-    if (currentScreen === "map") {
-      // If on main map, don't allow back (prevent app close)
-      window.history.pushState(null, "", window.location.href)
-      return
-    }
-    
-    // Navigate back through screens
-    const screenStack = [
-      "map",           // Main screen
-      "settings",      // Settings
-      "camera",        // Camera
-      "platform-select", // Platform selection
-      "content-editor", // Content editor
-      "story",         // Story mode
-      "library",       // Library
-      "story-builder", // Story builder
-      "recommendations", // Recommendations
-      "place-navigation", // Place navigation
-      "results"        // Results
-    ]
-    
-    const currentIndex = screenStack.indexOf(currentScreen)
-    if (currentIndex > 0) {
-      setCurrentScreen(screenStack[currentIndex - 1] as any)
-    } else {
-      setCurrentScreen("map")
-    }
-  }
-
-  // Add history state to prevent immediate back
-  window.history.pushState(null, "", window.location.href)
-  
-  // Listen for back button
-  window.addEventListener('popstate', handleBackButton)
-  
-  return () => {
-    window.removeEventListener('popstate', handleBackButton)
-  }
-}, [currentScreen])
