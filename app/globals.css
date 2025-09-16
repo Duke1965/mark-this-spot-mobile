@@ -59,22 +59,16 @@ button {
   animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* Prevent pull-to-refresh and ensure smooth PWA experience */
+/* Ensure smooth PWA experience - REMOVED pull-to-refresh prevention */
 html, body {
-  overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
 }
 
-/* Disable pull-to-refresh on mobile */
-body {
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
-}
+/* REMOVED: Disable pull-to-refresh on mobile - this was conflicting with layout.tsx */
 
 /* Ensure the app container handles touch events properly */
 #__next {
-  overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
 }
 
