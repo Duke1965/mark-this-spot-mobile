@@ -1,3 +1,92 @@
+"use client"
+
+import { useState, useCallback, useEffect } from "react"
+import { Camera, Video, Library, Sparkles, MapPin, Check, Star } from "lucide-react"
+import { useLocationServices } from "@/hooks/useLocationServices"
+import { usePinStorage } from "@/hooks/usePinStorage"
+import { useMotionDetection } from "@/hooks/useMotionDetection"
+import { ReliableCamera } from "@/components/reliable-camera"
+import { SocialPlatformSelector } from "@/components/social-platform-selector"
+import { ContentEditor } from "@/components/ContentEditor"
+import { SettingsPage } from "@/components/SettingsPage"
+import { PinStoryMode } from "@/components/PinStoryMode"
+
+import { ProactiveAI } from "@/components/ProactiveAI"
+import { EnhancedLocationService } from "@/components/EnhancedLocationService"
+import { PinStoryBuilder } from "@/components/PinStoryBuilder"
+import AIRecommendationsHub from "@/components/AIRecommendationsHub"
+import { RecommendationForm } from "@/components/RecommendationForm"
+import { PlaceNavigation } from "@/components/PlaceNavigation"
+import { PinLibrary } from "@/components/PinLibrary"
+import { PinResults } from "@/components/PinResults"
+import { useAuth } from "@/hooks/useAuth"
+
+import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
+import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
+import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
+import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
+
+export interface PinData {
+  id: string
+  latitude: number
+  longitude: number
+  locationName: string
+  mediaUrl: string | null
+  mediaType: "photo" | "video" | null
+  audioUrl: string | null
+  timestamp: string
+  title: string
+  description?: string
+  tags?: string[]
+  isRecommended?: boolean
+  googlePlaceId?: string
+  rating?: number
+  priceLevel?: number
+  types?: string[]
+  isAISuggestion?: boolean
+  additionalPhotos?: Array<{url: string, placeName: string}>
+  personalThoughts?: string
+  originalPinId?: string
+}
+
+export interface Recommendation {
+  id: string
+  latitude: number
+  longitude: number
+  title: string
+  description: string
+  type: string
+  distance: number
+  rating?: number
+  priceLevel?: number
+  isAISuggestion?: boolean
+  source?: string
+  timestamp: string
+}
+
+export default function PINITApp() {
+  // Auth state
+  const { user, loading: authLoading } = useAuth()
+
+  // Core state
+  const [currentScreen, setCurrentScreen] = useState<
+    | "map"
+    | "camera"
+    | "platform-select"
+    | "content-editor"
+    | "editor"
+    | "story"
+    | "library"
+    | "story-builder"
+    | "recommendations"
+    | "place-navigation"
+    | "results"
+    | "settings"
+  >("map")
+
+  // Auto-redirect to settings if not authenticated
+  useEffect(() => {
+    console.log("🔐 Auth state:", { user, authLoading })
     
     if (!authLoading && !user) {
       console.log("🔐 No user, redirecting to settings")
