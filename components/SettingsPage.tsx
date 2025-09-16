@@ -97,35 +97,37 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
 
   const handleGoogleLogin = async () => {
     try {
-      // Temporary mock login for testing
-      console.log("🔐 Mock Google login - Firebase not configured yet")
-      setUserProfile(prev => ({
-        ...prev,
-        name: "Test User",
-        email: "test@example.com",
-        avatar: "https://via.placeholder.com/150"
-      }))
-      // Auto-advance to next step on successful login
-      setTimeout(() => setCurrentStep("profile"), 1000)
+      const result = await signInWithGoogle()
+      if (result?.user) {
+        setUserProfile(prev => ({
+          ...prev,
+          name: result.user.displayName || "User",
+          email: result.user.email || "",
+          avatar: result.user.photoURL || "https://via.placeholder.com/150"
+        }))
+        // Auto-advance to next step on successful login
+        setTimeout(() => setCurrentStep("profile"), 1000)
+      }
     } catch (error) {
-      console.error("Login failed:", error)
+      console.error("Google login failed:", error)
     }
   }
 
   const handleFacebookLogin = async () => {
     try {
-      // Temporary mock login for testing
-      console.log("🔐 Mock Facebook login - Firebase not configured yet")
-      setUserProfile(prev => ({
-        ...prev,
-        name: "Test User",
-        email: "test@example.com",
-        avatar: "https://via.placeholder.com/150"
-      }))
-      // Auto-advance to next step on successful login
-      setTimeout(() => setCurrentStep("profile"), 1000)
+      const result = await signInWithFacebook()
+      if (result?.user) {
+        setUserProfile(prev => ({
+          ...prev,
+          name: result.user.displayName || "User",
+          email: result.user.email || "",
+          avatar: result.user.photoURL || "https://via.placeholder.com/150"
+        }))
+        // Auto-advance to next step on successful login
+        setTimeout(() => setCurrentStep("profile"), 1000)
+      }
     } catch (error) {
-      console.error("Login failed:", error)
+      console.error("Facebook login failed:", error)
     }
   }
 
