@@ -1334,6 +1334,52 @@ export default function PINITApp() {
     }
   }, [user, authLoading])
 
+  // Handle Android back button navigation
+  useEffect(() => {
+    const handleBackButton = (event: PopStateEvent) => {
+      event.preventDefault()
+      
+      // Navigation stack logic
+      if (currentScreen === "map") {
+        // If on main map, don't allow back (prevent app close)
+        window.history.pushState(null, "", window.location.href)
+        return
+      }
+      
+      // Navigate back through screens
+      const screenStack = [
+        "map",           // Main screen
+        "settings",      // Settings
+        "camera",        // Camera
+        "platform-select", // Platform selection
+        "content-editor", // Content editor
+        "story",         // Story mode
+        "library",       // Library
+        "story-builder", // Story builder
+        "recommendations", // Recommendations
+        "place-navigation", // Place navigation
+        "results"        // Results
+      ]
+      
+      const currentIndex = screenStack.indexOf(currentScreen)
+      if (currentIndex > 0) {
+        setCurrentScreen(screenStack[currentIndex - 1] as any)
+      } else {
+        setCurrentScreen("map")
+      }
+    }
+
+    // Add history state to prevent immediate back
+    window.history.pushState(null, "", window.location.href)
+    
+    // Listen for back button
+    window.addEventListener('popstate', handleBackButton)
+    
+    return () => {
+      window.removeEventListener('popstate', handleBackButton)
+    }
+  }, [currentScreen])
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
