@@ -12,7 +12,11 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete">("welcome")
+  
+  // FIX: Check if user is already authenticated and skip to complete step
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete">(
+    user ? "complete" : "welcome" // If user exists, go directly to complete
+  )
   const [userProfile, setUserProfile] = useState({
     name: "",
     email: "",
