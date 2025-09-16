@@ -171,6 +171,68 @@ export default function PINITApp() {
     }
   }, [currentScreen])
 
+  // Handler functions
+  const handleCameraCapture = useCallback((mediaData: any) => {
+    setCapturedMedia(mediaData)
+    setCurrentScreen("platform-select")
+  }, [])
+
+  const handlePlatformSelect = useCallback((platform: string) => {
+    console.log("Selected platform:", platform)
+    setCurrentScreen("content-editor")
+  }, [])
+
+  const handleQuickPin = useCallback(async () => {
+    if (!userLocation) return
+    
+    setIsQuickPinning(true)
+    try {
+      // Quick pin logic here
+      console.log("Quick pin created at:", userLocation)
+      setQuickPinSuccess(true)
+      setSuccessMessage("Pin created successfully!")
+    } catch (error) {
+      console.error("Quick pin failed:", error)
+    } finally {
+      setIsQuickPinning(false)
+    }
+  }, [userLocation])
+
+  const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
+    setRecommendations(prev => [...prev, ...newRecommendations])
+  }, [])
+
+  const handleNotificationTap = useCallback(() => {
+    setShowRecommendationPopup(true)
+  }, [])
+
+  const handleRecommendationAction = useCallback((id: string) => {
+    console.log("Recommendation action:", id)
+    setCurrentScreen("map")
+    setShowNearbyPins(false)
+  }, [])
+
+  const handleRecommendationDismiss = useCallback((id: string) => {
+    setRecommendations(prev => prev.filter(rec => rec.id !== id))
+  }, [])
+
+  const handleRecommendationComplete = useCallback((id: string) => {
+    console.log("Recommendation completed:", id)
+  }, [])
+
+  const handleProactiveSuggestion = useCallback((suggestion: any) => {
+    console.log("Proactive suggestion:", suggestion)
+  }, [])
+
+  const handleBackFromResults = useCallback(() => {
+    setCurrentScreen("map")
+  }, [])
+
+  const handleArrival = useCallback((location: any) => {
+    console.log("Arrived at:", location)
+    setCurrentScreen("map")
+  }, [])
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
