@@ -2451,9 +2451,9 @@ export default function PINITApp() {
       
       // Navigation stack logic
       if (currentScreen === "map") {
-        // If on main map, don't allow back (prevent app close)
-        window.history.pushState(null, "", window.location.href)
-        return
+        // FIX: Don't allow back from main map - prevent app close
+        console.log("🚫 Back button blocked on main screen")
+        return // Don't push history state, just prevent
       }
       
       // Navigate back through screens
