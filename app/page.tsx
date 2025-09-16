@@ -2426,8 +2426,9 @@ export default function PINITApp() {
   useEffect(() => {
     console.log("🔐 Auth state:", { user, authLoading })
     
-    // Wait for auth to finish loading
+    // Wait for auth to finish loading - CRITICAL!
     if (authLoading) {
+      console.log(" Still loading auth, waiting...")
       return
     }
     
