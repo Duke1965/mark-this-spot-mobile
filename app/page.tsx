@@ -1456,7 +1456,7 @@ export default function PINITApp() {
     
         return (
       <AIRecommendationsHub
-         
+        onBack={() => setCurrentScreen("map")}
         userLocation={location}
           // NEW: Pass recommendations to the component (convert to expected format)
   initialRecommendations={recommendations.map(rec => ({
