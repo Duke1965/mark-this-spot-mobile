@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "PINIT - Pin It. Find It. Share It.",
   description: "Location-based discovery and sharing app",
   generator: 'v0.dev',
-  manifest: '/manifest.json',
+  // manifest: '/manifest.json', // Removed to eliminate PWA splash screen
   icons: {
     icon: '/pinit-logo.png',
     apple: '/pinit-logo.png',
