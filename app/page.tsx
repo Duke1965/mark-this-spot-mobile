@@ -224,7 +224,7 @@ export default function PINITApp() {
     try {
       localStorage.removeItem("pinit-app-state")
       console.log("🧹 App state cleared manually")
-      setCurrentScreen("map")
+      setTimeout(() => setCurrentScreen("map"), 100)
       setRecommendations([])
       setDiscoveryMode(false)
       setShowRecommendToggle(false)
@@ -243,7 +243,7 @@ export default function PINITApp() {
       console.log("🧹 Cleared app state on startup")
       
       // Force start on map screen
-      setCurrentScreen("map")
+      setTimeout(() => setCurrentScreen("map"), 100)
       setLastActivity("app-start-fresh")
       
       console.log("✅ App started fresh on map screen")
@@ -283,11 +283,11 @@ export default function PINITApp() {
             console.log("✅ Restored screen:", parsedState.currentScreen)
           } else {
             console.log("⚠️ Preventing camera from opening on app start, staying on map")
-            setCurrentScreen("map")
+            setTimeout(() => setCurrentScreen("map"), 100)
           }
         } else {
           console.log("⚠️ Invalid screen state, defaulting to map")
-          setCurrentScreen("map")
+          setTimeout(() => setCurrentScreen("map"), 100)
         }
         
         // Restore recommendations
@@ -315,7 +315,7 @@ export default function PINITApp() {
         if (!authLoading && !user) {
           setCurrentScreen("settings")
         } else if (!authLoading && user) {
-          setCurrentScreen("map")
+          setTimeout(() => setCurrentScreen("map"), 100)
         }
       }
     } catch (error) {
@@ -331,7 +331,7 @@ export default function PINITApp() {
       if (!authLoading && !user) {
         setCurrentScreen("settings")
       } else if (!authLoading && user) {
-        setCurrentScreen("map")
+        setTimeout(() => setCurrentScreen("map"), 100)
       }
     }
   }, [authLoading, user]) // Add authLoading and user as dependencies
@@ -804,7 +804,7 @@ export default function PINITApp() {
     (action: string, data?: any) => {
       console.log("🎯 Taking recommendation action:", action, data)
       // Go back to map after action and hide nearby places popup
-      setCurrentScreen("map")
+      setTimeout(() => setCurrentScreen("map"), 100)
       setShowNearbyPins(false)
     },
     [],
@@ -1172,7 +1172,7 @@ export default function PINITApp() {
     }
     addPin(pinToSave)
     setCurrentResultPin(null)
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
     setQuickPinSuccess(true)
     setTimeout(() => setQuickPinSuccess(false), 2000)
   }
@@ -1207,12 +1207,12 @@ export default function PINITApp() {
   const handleEditFromResults = (pin: PinData) => {
     // For now, just go back to map - could be enhanced with an edit modal
     setCurrentResultPin(null)
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
   }
 
   const handleBackFromResults = () => {
     setCurrentResultPin(null)
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
   }
 
   // Recommendation form handlers
@@ -1266,7 +1266,7 @@ export default function PINITApp() {
       setSuccessMessage("PINIT Recommendation sent!")
       setShowSuccessPopup(true)
       setTimeout(() => setShowSuccessPopup(false), 3000)
-      setCurrentScreen("map")
+      setTimeout(() => setCurrentScreen("map"), 100)
     } else {
       // Regular photo recommendation
     const newRecommendation: PinData = {
@@ -1296,7 +1296,7 @@ export default function PINITApp() {
     setSuccessMessage("Recommendation sent!")
     setShowSuccessPopup(true)
     setTimeout(() => setShowSuccessPopup(false), 3000)
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
     }
   }
 
@@ -1304,7 +1304,7 @@ export default function PINITApp() {
     console.log("⏭️ Recommendation skipped")
     setShowRecommendationForm(false)
     setRecommendationData(null)
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
   }
 
   // Debounce for post button to prevent multiple clicks
@@ -1341,7 +1341,7 @@ export default function PINITApp() {
       }
 
       // Go back to map
-      setCurrentScreen("map")
+      setTimeout(() => setCurrentScreen("map"), 100)
       setSelectedPlace(null)
       setLastActivity("place-visited")
     },
@@ -1406,7 +1406,7 @@ export default function PINITApp() {
           } else {
             // Regular photo - just return to map
           setTimeout(() => {
-            setCurrentScreen("map")
+            setTimeout(() => setCurrentScreen("map"), 100)
             setIsPosting(false)
           }, 2000)
           }
@@ -1416,7 +1416,7 @@ export default function PINITApp() {
           setSuccessMessage("Saved to library successfully!")
           setShowSuccessPopup(true)
           setTimeout(() => setShowSuccessPopup(false), 2000)
-          setCurrentScreen("map")
+          setTimeout(() => setCurrentScreen("map"), 100)
         }}
       />
     )
@@ -2463,7 +2463,7 @@ export default function PINITApp() {
     
     // Default to map for authenticated users (only if no saved state)
     console.log("🔐 User authenticated, going to main screen")
-    setCurrentScreen("map")
+    setTimeout(() => setCurrentScreen("map"), 100)
   }, [user, authLoading])
 
   // Handle Android back button navigation
@@ -2497,7 +2497,7 @@ export default function PINITApp() {
       if (currentIndex > 0) {
         setCurrentScreen(screenStack[currentIndex - 1] as any)
       } else {
-        setCurrentScreen("map")
+        setTimeout(() => setCurrentScreen("map"), 100)
       }
     }
 
