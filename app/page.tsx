@@ -1431,7 +1431,7 @@ export default function PINITApp() {
 
 
   if (currentScreen === "story") {
-    return <PinStoryMode pins={pins}  />
+    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("library")} />
   }
 
   if (currentScreen === "story-builder") {
