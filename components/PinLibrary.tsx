@@ -15,22 +15,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
   const [searchTerm, setSearchTerm] = useState("")
   const [currentTab, setCurrentTab] = useState<"photos" | "videos" | "pins" | "recommended">("pins")
 
-  // Mock data for demonstration
-  const mockPhotos = [
-    { id: "1", title: "Sunset at Beach", locationName: "Malibu Beach", timestamp: "2024-01-15", mediaUrl: "/placeholder.jpg", mediaType: "photo" as const },
-    { id: "2", title: "Mountain View", locationName: "Rocky Mountains", timestamp: "2024-01-14", mediaUrl: "/placeholder.jpg", mediaType: "photo" as const },
-  ]
-
-  const mockVideos = [
-    { id: "3", title: "City Tour", locationName: "Downtown", timestamp: "2024-01-13", mediaUrl: "/placeholder.jpg", mediaType: "video" as const },
-    { id: "4", title: "Nature Walk", locationName: "Forest Trail", timestamp: "2024-01-12", mediaUrl: "/placeholder.jpg", mediaType: "video" as const },
-  ]
-
-  const mockRecommended = [
-    { id: "5", title: "Hidden Cafe", locationName: "Arts District", timestamp: "2024-01-11", mediaUrl: "/placeholder.jpg", isRecommended: true },
-    { id: "6", title: "Scenic Overlook", locationName: "Hilltop Park", timestamp: "2024-01-10", mediaUrl: "/placeholder.jpg", isRecommended: true },
-  ]
-
   const getTabData = () => {
     console.log("🔍 Current tab:", currentTab, "Total pins:", pins.length)
     console.log("📌 Sample pins:", pins.slice(0, 2))
