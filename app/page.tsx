@@ -1527,7 +1527,7 @@ export default function PINITApp() {
   if (currentScreen === "settings") {
     return (
       <SettingsPage
-        
+        onBack={() => setCurrentScreen("map")}
         onComplete={() => setCurrentScreen("map")}
       />
     )
