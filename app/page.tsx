@@ -1507,7 +1507,7 @@ export default function PINITApp() {
     return (
       <PinLibrary
         pins={pins}
-        
+        onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
           // Handle pin selection
           console.log("Pin selected:", pin)
