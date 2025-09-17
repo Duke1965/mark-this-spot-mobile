@@ -1359,7 +1359,7 @@ export default function PINITApp() {
         mediaUrl={capturedMedia.url}
         mediaType={capturedMedia.type}
         onPlatformSelect={handlePlatformSelect}
-        
+        onBack={() => {}} // Empty function - no UI back button
       />
     )
   }
