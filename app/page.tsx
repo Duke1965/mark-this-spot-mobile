@@ -175,7 +175,7 @@ export default function PINITApp() {
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
-  const [lastActivity, setLastActivity] = useState<string>("app-start")
+  const [lastActivity, setLastActivity] = useState<string>("app-start")\n  const [hasRedirected, setHasRedirected] = useState(false)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -353,7 +353,7 @@ export default function PINITApp() {
     } catch (error) {
       console.error("❌ Failed to save app state:", error)
     }
-  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
+  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])\n\n  // Save state before page refresh\n  useEffect(() => {\n    const handleBeforeUnload = () => {\n      const appState = {\n        currentScreen,\n        recommendations,\n        discoveryMode,\n        showRecommendToggle,\n        lastActivity,\n        timestamp: Date.now()\n      }\n      localStorage.setItem("pinit-app-state", JSON.stringify(appState))\n      console.log("?? App state saved before refresh:", appState)\n    }\n\n    window.addEventListener("beforeunload", handleBeforeUnload)\n    return () => window.removeEventListener("beforeunload", handleBeforeUnload)\n  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
 
   // Initialize pins from storage
   useEffect(() => {
@@ -1359,7 +1359,7 @@ export default function PINITApp() {
         mediaUrl={capturedMedia.url}
         mediaType={capturedMedia.type}
         onPlatformSelect={handlePlatformSelect}
-        onBack={() => setCurrentScreen("map")}
+        
       />
     )
   }
@@ -1431,7 +1431,7 @@ export default function PINITApp() {
 
 
   if (currentScreen === "story") {
-    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("map")} />
+    return <PinStoryMode pins={pins}  />
   }
 
   if (currentScreen === "story-builder") {
@@ -1456,7 +1456,7 @@ export default function PINITApp() {
     
         return (
       <AIRecommendationsHub
-        onBack={() => setCurrentScreen("map")} 
+         
         userLocation={location}
           // NEW: Pass recommendations to the component (convert to expected format)
   initialRecommendations={recommendations.map(rec => ({
@@ -1507,7 +1507,7 @@ export default function PINITApp() {
     return (
       <PinLibrary
         pins={pins}
-        onBack={() => setCurrentScreen("map")}
+        
         onPinSelect={(pin: PinData) => {
           // Handle pin selection
           console.log("Pin selected:", pin)
@@ -1527,7 +1527,7 @@ export default function PINITApp() {
   if (currentScreen === "settings") {
     return (
       <SettingsPage
-        onBack={() => setCurrentScreen("map")}
+        
         onComplete={() => setCurrentScreen("map")}
       />
     )
@@ -2473,8 +2473,8 @@ export default function PINITApp() {
       
       // Navigation stack logic
       if (currentScreen === "map") {
-        // FIX: Don't allow back from main map - prevent app close
-        console.log("🚫 Back button blocked on main screen")
+        // FIX: Don't allow back from main map - allow app to close
+        console.log("📱 Back button blocked on main screen")
         return // Don't push history state, just prevent
       }
       
