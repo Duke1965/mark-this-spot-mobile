@@ -175,7 +175,7 @@ export default function PINITApp() {
   const [locationDetails, setLocationDetails] = useState<any>(null)
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
-  const [lastActivity, setLastActivity] = useState<string>("app-start")\n  const [hasRedirected, setHasRedirected] = useState(false)
+  const [lastActivity, setLastActivity] = useState<string>("app-start")
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -353,7 +353,7 @@ export default function PINITApp() {
     } catch (error) {
       console.error("❌ Failed to save app state:", error)
     }
-  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])\n\n  // Save state before page refresh\n  useEffect(() => {\n    const handleBeforeUnload = () => {\n      const appState = {\n        currentScreen,\n        recommendations,\n        discoveryMode,\n        showRecommendToggle,\n        lastActivity,\n        timestamp: Date.now()\n      }\n      localStorage.setItem("pinit-app-state", JSON.stringify(appState))\n      console.log("?? App state saved before refresh:", appState)\n    }\n\n    window.addEventListener("beforeunload", handleBeforeUnload)\n    return () => window.removeEventListener("beforeunload", handleBeforeUnload)\n  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
+  }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
 
   // Initialize pins from storage
   useEffect(() => {
