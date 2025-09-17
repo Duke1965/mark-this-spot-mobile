@@ -2426,11 +2426,10 @@ export default function PINITApp() {
   useEffect(() => {
     console.log("🔐 Auth state:", { user, authLoading })
     
-    // Wait for auth to finish loading - CRITICAL!
+    // Wait for auth to finish loading - but don't show splash screen
     if (authLoading) {
       console.log("🔐 Still loading auth, waiting...")
-      // Show map immediately while auth loads (removes splash screen)
-      setCurrentScreen("map")
+      // Don't set screen here - let it stay on current screen
       return
     }
     
