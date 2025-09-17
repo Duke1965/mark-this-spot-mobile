@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Camera, Video, Library, Sparkles, MapPin, Check, Star } from "lucide-react"
+import { Camera, Video, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
