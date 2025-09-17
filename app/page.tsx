@@ -2441,7 +2441,28 @@ export default function PINITApp() {
       return
     }
     
-    // User is authenticated - ALWAYS go to main/home screen (map)
+    // User is authenticated - check if this is a page refresh
+    const savedState = localStorage.getItem("pinit-app-state")
+    if (savedState) {
+      try {
+        const parsedState = JSON.parse(savedState)
+        console.log("🔄 Page refreshed - restoring last screen:", parsedState.currentScreen)
+        
+        // Restore the user's last screen if it's valid and not camera
+        if (parsedState.currentScreen && 
+            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
+          if (parsedState.currentScreen !== "camera") {
+            setCurrentScreen(parsedState.currentScreen)
+            console.log("✅ Restored screen after refresh:", parsedState.currentScreen)
+            return
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to restore screen after refresh:", error)
+      }
+    }
+    
+    // Default to map for authenticated users (only if no saved state)
     console.log("🔐 User authenticated, going to main screen")
     setCurrentScreen("map")
   }, [user, authLoading])
