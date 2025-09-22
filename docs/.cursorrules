@@ -1,0 +1,45 @@
+# Project Overview
+PINIT is a React Native mobile app for users to mark locations (e.g., diners, shops) on the go by tapping a circular button, auto-placing pins based on travel speed and distance. It integrates Google Maps for place photos/details, Firebase for pin storage, and an AI system to recommend nearby spots based on user behavior (e.g., pinned place types, social shares). We're 98% complete—focus on UI polish, bug fixes (e.g., map performance, AI suggestion speed), and offline support. Prioritize simple UX for non-tech users, iOS/Android parity, and secure data handling.
+
+# Tech Stack & Architecture
+- Framework: React Native (Expo SDK ~50+), TypeScript for new code, hooks only.
+- Mapping: react-native-maps + expo-location for pin drops; Google Maps API (place details/photos) via app.json key.
+- Backend: Firebase (Auth for users, Firestore for pins, Storage for user-uploaded photos). Config in /src/services/firebase.js.
+- State: Redux Toolkit (/src/store) for user/pins; React Query for caching Google Maps queries.
+- Styling: NativeWind (Tailwind-like, e.g., "flex-1 bg-gray-100 p-4"). Support dark/light mode.
+- Navigation: @react-navigation/native (stack/tabs) for MapScreen, ResultsScreen, AuthScreen, PinDetailScreen.
+- Key Dependencies: expo-location, react-native-maps, firebase, @reduxjs/toolkit, react-query, expo-image-picker, expo-notifications.
+- Folder Structure:
+  - /src/screens: MapScreen.js (main map, pin drop), ResultsScreen.js (star icon, AI suggestions), AuthScreen.js, PinDetailScreen.js.
+  - /src/components: PinMarker.js (map pins), PinForm.js (edit pin), ClusterPin.js (grouped pins with count).
+  - /src/store: Redux slices (authSlice.js, pinsSlice.js, aiRecommendationsSlice.js).
+  - /src/services: firebaseAuth.js, firestorePins.js, googleMapsApi.js.
+  - /src/utils: locationUtils.js (speed/distance calc), aiAnalytics.js (user behavior tracking).
+  - /docs: CURSOR_HANDOVER.md (ChatGPT context), DEPLOYMENT_GUIDE.md (Expo EAS), PIN_MANAGEMENT_CONFIG.md (pin categories/sharing).
+  - Root: app.json, package.json.
+
+# Coding Standards
+- Naming: PascalCase for components/files (e.g., MapScreen.js), camelCase for vars. Pin fields: id, lat, lng, title, description, category, photoUrl.
+- Code: Use hooks (e.g., useEffect for map updates). Wrap async (e.g., Google Maps API, Firestore) in try-catch with Expo toast alerts. JSDoc for props/functions.
+- Style: Prettier + ESLint (`npm run lint`), 2-space indent. Accessibility: VoiceOver labels for pins/buttons.
+- Security: Firebase rules (auth-only pin access); validate inputs in PinForm.js. No API keys in code.
+- Performance: Cluster pins (>50, use ClusterPin.js); cache Google Maps queries; offline Firestore persistence for pins.
+- Testing: Jest for utils (e.g., test locationUtils.js calc); run `npm test` or `expo test`.
+
+# AI Behavior Guidelines (Cursor-Specific)
+- Context: Pull @filename (e.g., @MapScreen.js) or /ref open files. Start prompts with "Per .cursorrules: [task]". Reference /docs for deep context (e.g., PIN_MANAGEMENT_CONFIG.md for categories).
+- Workflow: 
+  - Bugs: Add console.logs (e.g., map render errors, AI suggestion delays), suggest Expo sim run, fix iteratively.
+  - Features: Plan in comments, write Jest tests, implement, verify with `npm test`.
+  - Pins: Handle speed-based placement (locationUtils.js), Google Maps photo fetches, AI suggestions (aiAnalytics.js).
+- Output: ```diff for changes, 2-sentence explanation. Confirm shell commands (e.g., `expo install`). If looping, reset: "Ignore prior; back to .cursorrules task."
+- Avoid: Breaking map renders, touching unrelated files, assuming internet (test offline via Firestore persistence).
+- Polish: Smooth pin drops (debounce button), fast AI suggestions, clear pin counts on clusters.
+
+# Key Features & Patterns
+- Pin Drop: Circular button triggers locationUtils.js to calc pin position (speed × time delta). Fetches Google Maps place data (photo, name) via googleMapsApi.js.
+- AI Recommendations: aiAnalytics.js tracks pinned categories (e.g., "diner", "shop") and social shares; suggests spots on ResultsScreen.js (star icon, live map).
+- Pin Clustering: ClusterPin.js groups pins with recommendation count (e.g., "5" on pin). Optimize for low-end devices.
+- Auth: Firebase Auth (email/Google); guard screens with useAuth hook, redirect to AuthScreen.
+- Offline: Cache pins/photos in Firestore/Storage; queue uploads on reconnect.
+- Deployment: Per DEPLOYMENT_GUIDE.md—Expo EAS builds, Firebase rules deploy. Update app.json for versions.
