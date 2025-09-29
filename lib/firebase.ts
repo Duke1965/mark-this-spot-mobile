@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
+import { getItem, setItem, removeItem } from '@/lib/serverStore'
+import { logger } from '@/lib/logger'
 
 // Firebase configuration
 // Environment variables should be set in production for full functionality
@@ -21,9 +23,9 @@ const isFirebaseConfigured = () => {
 // Log configuration status for debugging
 if (typeof window !== "undefined") {
   if (isFirebaseConfigured()) {
-    console.log("🔥 Firebase: Configuration loaded successfully")
+    logger.info("🔥 Firebase: Configuration loaded successfully", undefined, 'Firebase')
   } else {
-    console.log("🔥 Firebase: Using demo mode - set environment variables for full functionality")
+    logger.info("🔥 Firebase: Using demo mode - set environment variables for full functionality", undefined, 'Firebase')
   }
 }
 
@@ -50,7 +52,7 @@ try {
     }
   }
 } catch (error) {
-  console.error("🔥 Firebase initialization failed:", error)
+  logger.error("🔥 Firebase initialization failed", error, 'Firebase')
   // Fallback mock auth
   auth = {
     currentUser: null,
