@@ -910,7 +910,7 @@ export default function PINITApp() {
       }
       
       // NEW: Fetch location photos before creating the pin
-      console.log("dY", Fetching location photos for speed-based pin...)
+      console.log("🔄 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
       // NEW: Generate intelligent AI content based on location and context
