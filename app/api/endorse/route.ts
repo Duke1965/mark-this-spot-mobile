@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Migrate existing pins if needed
     if (needsPinMigration()) {
-      console.log('🔄 Migrating existing pins...')
+      console.log('?? Migrating existing pins...')
       migrateAllPins()
     }
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       )
       setItem('pinit-pins', JSON.stringify(updatedPins))
       
-      console.log(✅ Updated existing place: )
+      console.log(" ? Updated existing place:\, existingPlace.locationName)
       
       return NextResponse.json({
         success: true,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       pins.push(newPlace)
       setItem('pinit-pins', JSON.stringify(pins))
       
-      console.log(✅ Created new place: )
+      console.log(" ? Created new place:\, newPlace.name)
       
       return NextResponse.json({
         success: true,
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('❌ Error in endorse endpoint:', error)
+    console.error('? Error in endorse endpoint:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
