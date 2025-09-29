@@ -2445,7 +2445,7 @@ export default function PINITApp() {
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState)
-        console.log("dY", Page refreshed - restoring last screen:", parsedState.currentScreen)
+        console.log("🔄 Page refreshed - restoring last screen:", parsedState.currentScreen)
         
         // Restore the user's last screen if it's valid and not camera
         if (parsedState.currentScreen && 
