@@ -1051,7 +1051,7 @@ export default function PINITApp() {
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("dY", Fetching location photo with aggressive filtering...)
+      console.log("🔄 Fetching location photo with aggressive filtering...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
