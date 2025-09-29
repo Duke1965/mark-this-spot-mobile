@@ -1903,7 +1903,9 @@ export default function PINITApp() {
                 onError={(e) => {
                   console.log("Static map failed, using fallback...")
                   e.currentTarget.style.display = "none"
-                  e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
+                  if (e.currentTarget.parentElement) {
+                    e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
+                  }
                 }}
               />
 
