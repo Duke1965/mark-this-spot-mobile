@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       )
       setItem('pinit-pins', JSON.stringify(updatedPins))
       
-      console.log(" ? Updated existing place:\, existingPlace.locationName)
+      console.log("Updated existing place:", existingPlace.locationName)
       
       return NextResponse.json({
         success: true,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       pins.push(newPlace)
       setItem('pinit-pins', JSON.stringify(pins))
       
-      console.log(" ? Created new place:\, newPlace.name)
+      console.log("Created new place:", newPlace.name)
       
       return NextResponse.json({
         success: true,
