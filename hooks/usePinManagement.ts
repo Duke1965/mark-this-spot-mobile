@@ -5,6 +5,7 @@ import { getPinsForTab, getLifecycleStatistics, updateAllPinsLifecycle } from '@
 import { updateAllPinScores, getScoreInsights } from '@/lib/scoringEngine'
 import { getMaintenanceStatistics, performNightlyMaintenance } from '@/lib/nightlyMaintenance'
 import type { PinData } from '@/lib/types'
+import { logger } from '@/lib/logger'
 
 interface PinManagementState {
   isEnabled: boolean
@@ -105,7 +106,7 @@ export function usePinManagement(initialPins: PinData[] = []): PinManagementStat
         error: errorMessage,
         isLoading: false
       }))
-      console.error('Error updating pin management state:', error)
+      logger.error('Error updating pin management state:', error)
     }
   }, [state.isEnabled, state.activeTab, state.pins])
 
@@ -121,7 +122,7 @@ export function usePinManagement(initialPins: PinData[] = []): PinManagementStat
       const pins: PinData[] = JSON.parse(pinsJson)
       setState(prev => ({ ...prev, pins }))
     } catch (error) {
-      console.error('Error refreshing pins:', error)
+      logger.error('Error refreshing pins:', error)
       setState(prev => ({ ...prev, error: 'Failed to refresh pins' }))
     }
   }, [])
@@ -146,7 +147,7 @@ export function usePinManagement(initialPins: PinData[] = []): PinManagementStat
         isLoading: false
       }))
 
-      console.log('Maintenance completed:', report)
+      logger.info('Maintenance completed:', report)
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -155,7 +156,7 @@ export function usePinManagement(initialPins: PinData[] = []): PinManagementStat
         error: errorMessage,
         isLoading: false
       }))
-      console.error('Error during maintenance:', error)
+      logger.error('Error during maintenance:', error)
     }
   }, [state.isEnabled, state.pins])
 
@@ -188,7 +189,7 @@ export function usePinManagement(initialPins: PinData[] = []): PinManagementStat
 
     const checkMaintenance = async () => {
       if (state.maintenanceStats.maintenanceStatus === 'overdue') {
-        console.log('Auto-triggering overdue maintenance...')
+        logger.info('Auto-triggering overdue maintenance...')
         await triggerMaintenance()
       }
     }
