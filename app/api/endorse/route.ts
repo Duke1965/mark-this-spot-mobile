@@ -3,6 +3,7 @@ import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { migrateAllPins, needsPinMigration } from '@/lib/pinMigration'
 import { computeTrendingScore, getEventWeight, daysAgo } from '@/lib/trending'
 import { MAP_LIFECYCLE } from '@/lib/mapLifecycle'
+import { getItem, setItem, removeItem } from '@/lib/serverStore'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,8 +32,8 @@ export async function POST(request: NextRequest) {
       migrateAllPins()
     }
 
-    // Get existing pins from localStorage (simulating database)
-    const pinsJson = localStorage.getItem('pinit-pins') || '[]'
+    // Get existing pins from server store
+    const pinsJson = getItem('pinit-pins') || '[]'
     const pins = JSON.parse(pinsJson)
 
     // Find existing place by Google Place ID
@@ -71,13 +72,13 @@ export async function POST(request: NextRequest) {
       ]
       existingPlace.score = computeTrendingScore(events, MAP_LIFECYCLE.DECAY_HALF_LIFE_DAYS)
       
-      // Update in localStorage
+      // Update in server store
       const updatedPins = pins.map((pin: any) => 
         pin.id === existingPlace.id ? existingPlace : pin
       )
-      localStorage.setItem('pinit-pins', JSON.stringify(updatedPins))
+      setItem('pinit-pins', JSON.stringify(updatedPins))
       
-      console.log(`✅ Updated existing place: ${existingPlace.locationName}`)
+      console.log(✅ Updated existing place: )
       
       return NextResponse.json({
         success: true,
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       // Create new place
       const now = new Date().toISOString()
       const newPlace = {
-        id: `place_${Date.now()}`,
+        id: place_,
         googlePlaceId,
         name,
         lat,
@@ -106,9 +107,9 @@ export async function POST(request: NextRequest) {
       
       // Add to pins array
       pins.push(newPlace)
-      localStorage.setItem('pinit-pins', JSON.stringify(pins))
+      setItem('pinit-pins', JSON.stringify(pins))
       
-      console.log(`✅ Created new place: ${newPlace.name}`)
+      console.log(✅ Created new place: )
       
       return NextResponse.json({
         success: true,
@@ -123,4 +124,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
