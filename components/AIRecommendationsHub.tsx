@@ -834,12 +834,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           console.log('🗺️ Existing script loaded, resolving...')
           resolve()
         })
-        existingScript.addEventListener('error', () => {
-          console.error('🗺️ Google Maps script failed to load: Script loading error')
-          console.log('🗺️ Attempting fallback: Using static map instead')
-          // Don't reject - use fallback instead
-          resolve()
-        })
+        existingScript.addEventListener('error', reject) // ✅ Properly rejects on error
         return
       }
 
@@ -853,10 +848,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         resolve()
       }
       script.onerror = (error) => {
-        console.error('🗺️ Google Maps script failed to load: Script loading error')
-        console.log('🗺️ Attempting fallback: Using static map instead')
-        // Don't reject - use fallback instead
-        resolve()
+        console.error('🗺️ Google Maps script failed to load:', error)
+        reject(error)
       }
       document.head.appendChild(script)
       console.log('🗺️ Google Maps script added to document head')
