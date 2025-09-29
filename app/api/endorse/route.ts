@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       // Create new place
       const now = new Date().toISOString()
       const newPlace = {
-        id: place_,
+        id: `place_${Date.now()}`,
         googlePlaceId,
         name,
         lat,
