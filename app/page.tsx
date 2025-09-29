@@ -1080,7 +1080,7 @@ export default function PINITApp() {
               
               // Log what we're filtering out
               if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
-                console.log("dY", Filtering out photo:", {
+                console.log("🔄 Filtering out photo:", {
                   dimensions: `${photo.width}x${photo.height}`,
                   aspectRatio: aspectRatio.toFixed(2),
                   reason: isSquareish ? "squareish (likely logo)" : 
