@@ -2082,7 +2082,7 @@ export default function PINITApp() {
             textShadow: "0 2px 6px rgba(0,0,0,0.4)",
           }}
         >
-          dY? {motionData.isMoving ? "Driving..." : (locationName || "Getting location...")}
+          📍 {motionData.isMoving ? "Driving..." : (locationName || "Getting location...")}
         </p>
       </div>
 
