@@ -223,32 +223,32 @@ export default function PINITApp() {
   const clearAppState = useCallback(() => {
     try {
       localStorage.removeItem("pinit-app-state")
-      console.log("🧹 App state cleared manually")
+      console.log("dY1 App state cleared manually")
       setTimeout(() => setCurrentScreen("map"), 100)
       setRecommendations([])
       setDiscoveryMode(false)
       setShowRecommendToggle(false)
       setLastActivity("app-reset")
     } catch (error) {
-      console.error("❌ Failed to clear app state:", error)
+      console.error("�?O Failed to clear app state:", error)
     }
   }, [])
 
   // FORCE RESET ON APP START - Clear any corrupted state
   useEffect(() => {
-    console.log("🚀 PINIT App starting - clearing any corrupted state")
+    console.log("dYs? PINIT App starting - clearing any corrupted state")
     try {
       // Clear any potentially corrupted state immediately
       localStorage.removeItem("pinit-app-state")
-      console.log("🧹 Cleared app state on startup")
+      console.log("dY1 Cleared app state on startup")
       
       // Force start on map screen
       setTimeout(() => setCurrentScreen("map"), 100)
       setLastActivity("app-start-fresh")
       
-      console.log("✅ App started fresh on map screen")
+      console.log("�o. App started fresh on map screen")
     } catch (error) {
-      console.error("❌ Error during app startup reset:", error)
+      console.error("�?O Error during app startup reset:", error)
     }
   }, [])
 
@@ -259,7 +259,7 @@ export default function PINITApp() {
       const savedState = localStorage.getItem("pinit-app-state")
       if (savedState) {
         const parsedState = JSON.parse(savedState)
-        console.log("🔄 Restoring app state from localStorage:", parsedState)
+        console.log("dY", Restoring app state from localStorage:", parsedState)
         
         // ONLY restore screen if user is authenticated, otherwise force settings
         if (authLoading) {
@@ -280,13 +280,13 @@ export default function PINITApp() {
           // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
           if (parsedState.currentScreen !== "camera") {
             setCurrentScreen(parsedState.currentScreen)
-            console.log("✅ Restored screen:", parsedState.currentScreen)
+            console.log("�o. Restored screen:", parsedState.currentScreen)
           } else {
-            console.log("⚠️ Preventing camera from opening on app start, staying on map")
+            console.log("�s��,? Preventing camera from opening on app start, staying on map")
             setTimeout(() => setCurrentScreen("map"), 100)
           }
         } else {
-          console.log("⚠️ Invalid screen state, defaulting to map")
+          console.log("�s��,? Invalid screen state, defaulting to map")
           setTimeout(() => setCurrentScreen("map"), 100)
         }
         
@@ -308,9 +308,9 @@ export default function PINITApp() {
           setLastActivity(parsedState.lastActivity)
         }
         
-        console.log("✅ App state restored successfully")
+        console.log("�o. App state restored successfully")
       } else {
-        console.log("🆕 No saved state found, starting fresh")
+        console.log("dY+ No saved state found, starting fresh")
         // Check auth state before setting screen
         if (!authLoading && !user) {
           setCurrentScreen("settings")
@@ -319,13 +319,13 @@ export default function PINITApp() {
         }
       }
     } catch (error) {
-      console.error("❌ Failed to restore app state:", error)
+      console.error("�?O Failed to restore app state:", error)
       // Clear corrupted state and start fresh
       try {
         localStorage.removeItem("pinit-app-state")
-        console.log("🧹 Cleared corrupted app state")
+        console.log("dY1 Cleared corrupted app state")
       } catch (clearError) {
-        console.error("❌ Failed to clear corrupted state:", clearError)
+        console.error("�?O Failed to clear corrupted state:", clearError)
       }
       // Check auth state before setting screen
       if (!authLoading && !user) {
@@ -349,9 +349,9 @@ export default function PINITApp() {
     
     try {
       localStorage.setItem("pinit-app-state", JSON.stringify(appState))
-      console.log("💾 App state saved to localStorage:", appState)
+      console.log("dY'_ App state saved to localStorage:", appState)
     } catch (error) {
-      console.error("❌ Failed to save app state:", error)
+      console.error("�?O Failed to save app state:", error)
     }
   }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
 
@@ -367,7 +367,7 @@ export default function PINITApp() {
     let watchId: number | null = null
 
     if (typeof window !== 'undefined' && navigator.geolocation) {
-      console.log("📍 Setting up location watching...")
+      console.log("dY"? Setting up location watching...")
       
       // Start watching location continuously with better accuracy
       watchId = watchLocation({
@@ -383,7 +383,7 @@ export default function PINITApp() {
         }
       }
     } else {
-      console.log("❌ Geolocation not available")
+      console.log("�?O Geolocation not available")
     }
   }, [watchLocation, clearWatch])
 
@@ -474,7 +474,7 @@ export default function PINITApp() {
         region = "Australia"
       }
       
-      return `${region} (${latAbs}°${latDir}, ${lngAbs}°${lngDir})`
+      return `${region} (${latAbs}A�${latDir}, ${lngAbs}A�${lngDir})`
     }
   }
 
@@ -516,7 +516,7 @@ export default function PINITApp() {
     const isMobile = isMobileDevice()
     
     try {
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
+      console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
       console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
       
       // TIER 1: ULTRA-PRECISE BUSINESS DETECTION (10m radius)
@@ -534,7 +534,7 @@ export default function PINITApp() {
           
           if (ultraPreciseData.results && ultraPreciseData.results.length > 0) {
             const closestBusiness = ultraPreciseData.results[0]
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
+            console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
             
             // SMART FILTER: Only use business name if it's VERY close (within 10m)
             // AND it's not a distant landmark (like Allesverloren wine farm)
@@ -543,12 +543,12 @@ export default function PINITApp() {
               console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using close business:`, closestBusiness.name)
               return closestBusiness.name
             } else {
-              console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Business too far (${businessDistance}m), using reverse geocoding...`)
+              console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Business too far (${businessDistance}m), using reverse geocoding...`)
             }
           }
         }
       } catch (ultraError) {
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
+        console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
       }
       
       // TIER 2: SMART REVERSE GEOCODING FOR RESIDENTIAL AREAS
@@ -564,7 +564,7 @@ export default function PINITApp() {
             const addressComponents = geocodeData.results[0].address_components
             const formattedAddress = geocodeData.results[0].formatted_address
             
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
+            console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
             
             // SMART EXTRACTION: Prioritize residential components over business components
             let locality = ""
@@ -616,16 +616,16 @@ export default function PINITApp() {
               locationName = parts[0]?.trim() || "Unknown Location"
             }
             
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
+            console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
             return locationName
           }
         }
       } catch (geocodeError) {
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
+        console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
       }
       
       // TIER 3: SMART FALLBACK WITH REGION DETECTION
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using smart coordinate fallback...`)
+      console.log(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using smart coordinate fallback...`)
       
       // Riebeek West specific detection (your home area)
       if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
@@ -638,9 +638,9 @@ export default function PINITApp() {
       }
       
       // Final fallback
-      return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+      return `Unknown Location`
     } catch (error) {
-      console.error(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
+      console.error(`dY"? [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
       return "Unknown Location"
     }
   }
@@ -649,7 +649,7 @@ export default function PINITApp() {
   const findNearbyPins = useCallback(async () => {
     if (!location) return
 
-    console.log("🌐 Discovering real nearby places...")
+    console.log("dYO? Discovering real nearby places...")
     
     try {
       // Use our API route to avoid CORS issues
@@ -662,7 +662,7 @@ export default function PINITApp() {
       const data = await response.json()
       const realPlaces = data.results || []
       
-      console.log("🌐 Found", realPlaces.length, "places via API route")
+      console.log("dYO? Found", realPlaces.length, "places via API route")
       
       // Transform API results to PinData format
       const transformedPlaces = realPlaces.map((place: any) => ({
@@ -675,7 +675,7 @@ export default function PINITApp() {
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: place.name,
-        description: `Rating: ${place.rating || "N/A"} • ${place.types?.join(", ") || "Place"}`,
+        description: `Rating: ${place.rating || "N/A"} �?� ${place.types?.join(", ") || "Place"}`,
         tags: place.types || [],
         isRecommended: true,
         googlePlaceId: place.place_id,
@@ -687,7 +687,7 @@ export default function PINITApp() {
       
       // REVERSE GEOCODING FALLBACK: If no businesses found, add residential area pins
       if (transformedPlaces.length === 0) {
-        console.log("🌐 No businesses found, trying reverse geocoding fallback...")
+        console.log("dYO? No businesses found, trying reverse geocoding fallback...")
         
         try {
           const geocodeResponse = await fetch(
@@ -724,7 +724,7 @@ export default function PINITApp() {
                   audioUrl: null,
                   timestamp: new Date().toISOString(),
                   title: areaName || locality,
-                  description: `Residential Area • ${formattedAddress}`,
+                  description: `Residential Area �?� ${formattedAddress}`,
                   tags: ["residential", "area"],
                   isRecommended: true,
                   googlePlaceId: null,
@@ -736,12 +736,12 @@ export default function PINITApp() {
                 }
                 
                 transformedPlaces.push(residentialPin)
-                console.log(`🌐 Added residential area pin: ${residentialPin.title}`)
+                console.log(`dYO? Added residential area pin: ${residentialPin.title}`)
               }
             }
           }
         } catch (geocodeError) {
-          console.log("🌐 Reverse geocoding fallback failed:", geocodeError)
+          console.log("dYO? Reverse geocoding fallback failed:", geocodeError)
         }
       }
       
@@ -750,7 +750,7 @@ export default function PINITApp() {
       setLastActivity("discovery")
       
     } catch (error) {
-      console.error("🌐 Error fetching nearby places:", error)
+      console.error("dYO? Error fetching nearby places:", error)
       // Don't set error state, just log it
     }
   }, [location])
@@ -758,7 +758,7 @@ export default function PINITApp() {
   // Auto-fetch nearby places when recommendations screen is opened
   useEffect(() => {
     if (currentScreen === "recommendations" && location && nearbyPins.length === 0) {
-      console.log("🗺️ Recommendations screen opened, fetching nearby places...")
+      console.log("dY-��,? Recommendations screen opened, fetching nearby places...")
       findNearbyPins()
     }
     
@@ -770,22 +770,22 @@ export default function PINITApp() {
 
   // Debug: Monitor recommendations state changes
   useEffect(() => {
-    console.log("🤖 Recommendations state changed:", recommendations.length, "recommendations")
-    console.log("🤖 Recommendations content:", recommendations)
+    console.log("dY- Recommendations state changed:", recommendations.length, "recommendations")
+    console.log("dY- Recommendations content:", recommendations)
   }, [recommendations])
 
   // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
   const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
-    console.log("🤖 AI generated recommendations:", newRecommendations)
-    console.log("🤖 Current recommendations count before:", recommendations.length)
+    console.log("dY- AI generated recommendations:", newRecommendations)
+    console.log("dY- Current recommendations count before:", recommendations.length)
     
     setRecommendations((prev) => {
       // Avoid duplicates by checking IDs
       const existingIds = new Set(prev.map((r) => r.id))
       const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
       
-      console.log("🤖 Unique new recommendations:", uniqueRecommendations.length)
-      console.log("🤖 Total recommendations after adding:", prev.length + uniqueRecommendations.length)
+      console.log("dY- Unique new recommendations:", uniqueRecommendations.length)
+      console.log("dY- Total recommendations after adding:", prev.length + uniqueRecommendations.length)
       
       return [...prev, ...uniqueRecommendations]
     })
@@ -793,7 +793,7 @@ export default function PINITApp() {
 
   // Handle notification tap - GO TO RECOMMENDATIONS PAGE
   const handleNotificationTap = useCallback(() => {
-    console.log("🤖 Opening recommendations hub")
+    console.log("dY- Opening recommendations hub")
     setCurrentScreen("recommendations")
     // Ensure nearby places popup is hidden when opening recommendations
     setShowNearbyPins(false)
@@ -802,7 +802,7 @@ export default function PINITApp() {
   // Handle recommendation actions
   const handleRecommendationAction = useCallback(
     (action: string, data?: any) => {
-      console.log("🎯 Taking recommendation action:", action, data)
+      console.log("dYZ_ Taking recommendation action:", action, data)
       // Go back to map after action and hide nearby places popup
       setTimeout(() => setCurrentScreen("map"), 100)
       setShowNearbyPins(false)
@@ -823,7 +823,7 @@ export default function PINITApp() {
   // Handle proactive AI suggestions
   const handleProactiveSuggestion = useCallback(
     (action: string, data?: any) => {
-      console.log("🤖 Proactive AI suggestion:", action, data)
+      console.log("dY- Proactive AI suggestion:", action, data)
 
       switch (action) {
         case "suggest-pin":
@@ -878,7 +878,7 @@ export default function PINITApp() {
       let locationDescription = "Quick Pin Location"
       
       if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
-        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+        console.log(`dYs- Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
         
         // Calculate where the user likely saw the place (accounting for reaction time)
         const reactionTime = 2 // 2 seconds reaction time
@@ -903,14 +903,14 @@ export default function PINITApp() {
           
           locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
           
-          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+          console.log(`dY"? Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
         }
       } else {
-        console.log("📍 Stationary pinning - using current location")
+        console.log("dY"? Stationary pinning - using current location")
       }
       
       // NEW: Fetch location photos before creating the pin
-      console.log("📸 Fetching location photos for speed-based pin...")
+      console.log("dY", Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
       // NEW: Generate intelligent AI content based on location and context
@@ -935,9 +935,9 @@ export default function PINITApp() {
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("📍 Quick pin created with photo:", newPin)
+      console.log("dY"? Quick pin created with photo:", newPin)
     } catch (error) {
-      console.error("❌ Failed to create quick pin:", error)
+      console.error("�?O Failed to create quick pin:", error)
     } finally {
       setIsQuickPinning(false)
     }
@@ -945,7 +945,7 @@ export default function PINITApp() {
 
   // NEW: Generate intelligent AI content based on location and context
   const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
-    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+    console.log("dY� Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
     
     // Determine location type and context
     let locationType = "general"
@@ -977,32 +977,32 @@ export default function PINITApp() {
     if (motionData.isMoving && motionData.speed > 5) {
       // Speed-based pinning titles
       if (locationType === "small-town") {
-        title = "🏘️ Charming Rural Discovery"
+        title = "dY?~�,? Charming Rural Discovery"
       } else if (locationType === "urban-cbd") {
-        title = "🏙️ Urban Gem Spotted"
+        title = "dY?T�,? Urban Gem Spotted"
       } else if (locationType === "suburban") {
-        title = "🏡 Suburban Treasure"
+        title = "dY?� Suburban Treasure"
       } else if (locationType === "coastal") {
-        title = "🌊 Coastal Beauty"
+        title = "dYOS Coastal Beauty"
       } else if (locationType === "provincial") {
-        title = "🏔️ Provincial Wonder"
+        title = "dY?"�,? Provincial Wonder"
       } else {
-        title = "📍 Travel Discovery"
+        title = "dY"? Travel Discovery"
       }
     } else {
       // Stationary pinning titles
       if (locationType === "small-town") {
-        title = "🏘️ Local Community Spot"
+        title = "dY?~�,? Local Community Spot"
       } else if (locationType === "urban-cbd") {
-        title = "🏙️ City Center Location"
+        title = "dY?T�,? City Center Location"
       } else if (locationType === "suburban") {
-        title = "🏡 Neighborhood Place"
+        title = "dY?� Neighborhood Place"
       } else if (locationType === "coastal") {
-        title = "🌊 Seaside Location"
+        title = "dYOS Seaside Location"
       } else if (locationType === "provincial") {
-        title = "🏔️ Regional Spot"
+        title = "dY?"�,? Regional Spot"
       } else {
-        title = "📍 Local Discovery"
+        title = "dY"? Local Discovery"
       }
     }
     
@@ -1038,7 +1038,7 @@ export default function PINITApp() {
       locationName = locationPhotos[0].placeName
     }
     
-    console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
+    console.log("dY� AI Generated Content:", { title, description, locationName, tags })
     
     return {
       title,
@@ -1051,7 +1051,7 @@ export default function PINITApp() {
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
     try {
-      console.log("📸 Fetching location photo with aggressive filtering...")
+      console.log("dY", Fetching location photo with aggressive filtering...")
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
@@ -1080,7 +1080,7 @@ export default function PINITApp() {
               
               // Log what we're filtering out
               if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
-                console.log("📸 Filtering out photo:", {
+                console.log("dY", Filtering out photo:", {
                   dimensions: `${photo.width}x${photo.height}`,
                   aspectRatio: aspectRatio.toFixed(2),
                   reason: isSquareish ? "squareish (likely logo)" : 
@@ -1118,11 +1118,11 @@ export default function PINITApp() {
               placeName: closestPlace.name || "Unknown Place"
             })
             
-            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
+            console.log(`�o. Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
             return photos
           } else {
             // If all photos were filtered out, try to get any photo but log it
-            console.log("⚠️ All photos filtered out, using fallback photo")
+            console.log("�s��,? All photos filtered out, using fallback photo")
             const fallbackPhoto = closestPlace.photos[0]
             const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
             
@@ -1135,31 +1135,31 @@ export default function PINITApp() {
         }
       }
       
-      console.log("📸 No location photos found, will use PINIT placeholder")
+      console.log("dY", No location photos found, will use PINIT placeholder")
       return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     } catch (error) {
-      console.error("❌ Error fetching location photos:", error)
+      console.error("�?O Error fetching location photos:", error)
       return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     }
   }
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = (place: any) => {
-    console.log("🗺️ Opening place navigation for:", place.title)
+    console.log("dY-��,? Opening place navigation for:", place.title)
     setSelectedPlace(place)
     setCurrentScreen("place-navigation")
   }
 
   // Handle save for later
   const handleSaveForLater = (place: any) => {
-    console.log("🔖 Saving place for later:", place.title)
+    console.log("dY"- Saving place for later:", place.title)
     setSavedForLaterPlaces((prev) => [...prev, { ...place, savedAt: Date.now() }])
     setCurrentScreen("recommendations")
   }
 
   // Handle navigation start
   const handleStartNavigation = (place: any) => {
-    console.log("🧭 Starting navigation to:", place.title)
+    console.log("dY- Starting navigation to:", place.title)
     // Navigation is handled within the PlaceNavigation component
   }
 
@@ -1217,13 +1217,13 @@ export default function PINITApp() {
 
   // Recommendation form handlers
   const handleRecommendationSubmit = (rating: number, review: string) => {
-    console.log("⭐ Recommendation submitted:", { rating, review })
-    console.log("📍 Current recommendationData:", recommendationData)
-    console.log("📍 Current userLocation:", userLocation)
+    console.log("�-? Recommendation submitted:", { rating, review })
+    console.log("dY"? Current recommendationData:", recommendationData)
+    console.log("dY"? Current userLocation:", userLocation)
     
     // Check if this is a PINIT pin recommendation (has personalThoughts)
     if (recommendationData?.personalThoughts) {
-      console.log("📌 This is a PINIT pin recommendation")
+      console.log("dY"O This is a PINIT pin recommendation")
       
       // Create a new recommendation pin with ALL enhanced PINIT data
       const newRecommendation: PinData = {
@@ -1256,7 +1256,7 @@ export default function PINITApp() {
         additionalPhotos: recommendationData?.additionalPhotos || []
       }
 
-      console.log("📌 Created enhanced PINIT recommendation pin:", newRecommendation)
+      console.log("dY"O Created enhanced PINIT recommendation pin:", newRecommendation)
       
       // Add the recommendation to pins
       addPin(newRecommendation)
@@ -1286,7 +1286,7 @@ export default function PINITApp() {
       types: ["recommendation"],
     }
 
-      console.log("📌 Created regular recommendation pin:", newRecommendation)
+      console.log("dY"O Created regular recommendation pin:", newRecommendation)
 
     // Add the recommendation to pins
     addPin(newRecommendation)
@@ -1301,7 +1301,7 @@ export default function PINITApp() {
   }
 
   const handleRecommendationSkip = () => {
-    console.log("⏭️ Recommendation skipped")
+    console.log("�?-�,? Recommendation skipped")
     setShowRecommendationForm(false)
     setRecommendationData(null)
     setTimeout(() => setCurrentScreen("map"), 100)
@@ -1313,7 +1313,7 @@ export default function PINITApp() {
   // Handle arrival
   const handleArrival = useCallback(
     (place: any, shouldSave: boolean) => {
-      console.log("🎯 Arrived at:", place.title, "Save:", shouldSave)
+      console.log("dYZ_ Arrived at:", place.title, "Save:", shouldSave)
 
       if (shouldSave) {
         // Create a new pin from the place
@@ -1337,7 +1337,7 @@ export default function PINITApp() {
         }
 
         addPin(newPin)
-        console.log("📍 Place saved as pin:", newPin)
+        console.log("dY"? Place saved as pin:", newPin)
       }
 
       // Go back to map
@@ -1450,9 +1450,9 @@ export default function PINITApp() {
 
   // NEW RECOMMENDATIONS HUB SCREEN
   if (currentScreen === "recommendations") {
-    console.log("🧠 Opening AI-Powered Recommendations Hub")
-    console.log("🧠 - AI brain is learning from user behavior")
-    console.log("🧠 - Generating personalized recommendations")
+    console.log("dY� Opening AI-Powered Recommendations Hub")
+    console.log("dY� - AI brain is learning from user behavior")
+    console.log("dY� - Generating personalized recommendations")
     
         return (
       <AIRecommendationsHub
@@ -1569,7 +1569,7 @@ export default function PINITApp() {
             boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
           }}
         >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>✅</div>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>�o.</div>
           <div style={{ 
             fontSize: "1.125rem", 
             fontWeight: "600", 
@@ -1605,7 +1605,7 @@ export default function PINITApp() {
             padding: "2rem",
           }}
         >
-          <div style={{ fontSize: "4rem", marginBottom: "2rem" }}>✅</div>
+          <div style={{ fontSize: "4rem", marginBottom: "2rem" }}>�o.</div>
           <h3 style={{ 
             color: "white", 
             marginBottom: "1rem", 
@@ -1752,7 +1752,7 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          ⚙️
+          �sT�,?
         </button>
       </div>
 
@@ -1773,7 +1773,7 @@ export default function PINITApp() {
             zIndex: 10,
           }}
         >
-          🚶‍♂️ Moving ({motionData.speed.toFixed(1)} km/h)
+          dYs�??�T,�,? Moving ({motionData.speed.toFixed(1)} km/h)
         </div>
       )} */}
 
@@ -1943,7 +1943,7 @@ export default function PINITApp() {
                   whiteSpace: "nowrap"
                 }}
               >
-                🚗 Speed Pinning Active
+                dYs- Speed Pinning Active
               </div>
             )}
 
@@ -1963,7 +1963,7 @@ export default function PINITApp() {
                   pointerEvents: "none",
                 }}
               >
-                📍 Live
+                dY"? Live
               </div>
             </div>
           )}
@@ -2082,7 +2082,7 @@ export default function PINITApp() {
             textShadow: "0 2px 6px rgba(0,0,0,0.4)",
           }}
         >
-          📍 {locationName}
+          dY"? {motionData.isMoving ? "Driving..." : (locationName || "Getting location...")}
         </p>
       </div>
 
@@ -2106,7 +2106,7 @@ export default function PINITApp() {
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
             <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
-              🌐 Real Places Nearby {isLoadingPlaces && "⏳"}
+              dYO? Real Places Nearby {isLoadingPlaces && "�?3"}
             </h3>
             <button
               onClick={() => setShowNearbyPins(false)}
@@ -2121,7 +2121,7 @@ export default function PINITApp() {
                 border: "1px solid rgba(255,255,255,0.1)",
               }}
             >
-              ✕
+              �o
             </button>
           </div>
 
@@ -2163,7 +2163,7 @@ export default function PINITApp() {
                 <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.625rem", opacity: 0.8 }}>{pin.description}</p>
                 {pin.rating && (
                   <div style={{ fontSize: "0.625rem", color: "#F59E0B", marginBottom: "0.25rem" }}>
-                    {"⭐".repeat(Math.floor(pin.rating))} {pin.rating}
+                    {"�-?".repeat(Math.floor(pin.rating))} {pin.rating}
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
@@ -2177,7 +2177,7 @@ export default function PINITApp() {
                         border: "1px solid rgba(255,255,255,0.3)",
                       }}
                     >
-                      🌐 Google
+                      dYO? Google
                     </span>
                   )}
                   {pin.isRecommended && (
@@ -2190,7 +2190,7 @@ export default function PINITApp() {
                         border: "1px solid rgba(255,255,255,0.3)",
                       }}
                     >
-                      ⭐ Top
+                      �-? Top
                     </span>
                   )}
                 </div>
@@ -2335,7 +2335,7 @@ export default function PINITApp() {
             borderRadius: "0.5rem",
             transition: "all 0.2s ease",
           }}
-          title="🧠 AI-Powered Recommendations"
+          title="dY� AI-Powered Recommendations"
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "rgba(255,255,255,0.1)"
             e.currentTarget.style.transform = "scale(1.05)"
@@ -2424,18 +2424,18 @@ export default function PINITApp() {
 
   // Auto-redirect to settings if not authenticated - CONSOLIDATED LOGIC
   useEffect(() => {
-    console.log("🔐 Auth state:", { user, authLoading })
+    console.log("dY"? Auth state:", { user, authLoading })
     
     // Wait for auth to finish loading - but don't show splash screen
     if (authLoading) {
-      console.log("🔐 Still loading auth, waiting...")
+      console.log("dY"? Still loading auth, waiting...")
       // Don't set screen here - let it stay on current screen
       return
     }
     
     // Check if user is authenticated
     if (!user) {
-      console.log("🔐 No user, redirecting to settings")
+      console.log("dY"? No user, redirecting to settings")
       setCurrentScreen("settings")
       return
     }
@@ -2445,24 +2445,24 @@ export default function PINITApp() {
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState)
-        console.log("🔄 Page refreshed - restoring last screen:", parsedState.currentScreen)
+        console.log("dY", Page refreshed - restoring last screen:", parsedState.currentScreen)
         
         // Restore the user's last screen if it's valid and not camera
         if (parsedState.currentScreen && 
             ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
           if (parsedState.currentScreen !== "camera") {
             setCurrentScreen(parsedState.currentScreen)
-            console.log("✅ Restored screen after refresh:", parsedState.currentScreen)
+            console.log("�o. Restored screen after refresh:", parsedState.currentScreen)
             return
           }
         }
       } catch (error) {
-        console.error("❌ Failed to restore screen after refresh:", error)
+        console.error("�?O Failed to restore screen after refresh:", error)
       }
     }
     
     // Default to map for authenticated users (only if no saved state)
-    console.log("🔐 User authenticated, going to main screen")
+    console.log("dY"? User authenticated, going to main screen")
     setTimeout(() => setCurrentScreen("map"), 100)
   }, [user, authLoading])
 
@@ -2474,7 +2474,7 @@ export default function PINITApp() {
       // Navigation stack logic
       if (currentScreen === "map") {
         // FIX: Don't allow back from main map - allow app to close
-        console.log("📱 Back button blocked on main screen")
+        console.log("dY"� Back button blocked on main screen")
         return // Don't push history state, just prevent
       }
       
