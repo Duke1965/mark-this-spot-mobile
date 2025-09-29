@@ -3,6 +3,7 @@ import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { getLifecycleStatistics, getPinsForTab } from '@/lib/pinLifecycle'
 import { getScoreInsights } from '@/lib/scoringEngine'
 import { getMaintenanceStatistics } from '@/lib/nightlyMaintenance'
+import { getItem, setItem, removeItem } from '@/lib/serverStore'
 
 // GET: Get comprehensive dashboard data
 export async function GET(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pins from localStorage
-    const pinsJson = localStorage.getItem('pinit-pins') || '[]'
+    const pinsJson = getItem('pinit-pins') || '[]'
     const pins = JSON.parse(pinsJson)
 
     if (pins.length === 0) {
