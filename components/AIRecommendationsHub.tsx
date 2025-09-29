@@ -864,15 +864,6 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         return
       }
 
-      // Debug location object structure
-      console.log('🗺️ Raw location object:', location)
-      console.log('🗺️ Location type:', typeof location)
-      if (location) {
-        console.log('🗺️ Location properties:', Object.keys(location))
-        console.log('🗺️ Location.latitude:', location.latitude)
-        console.log('🗺️ Location.longitude:', location.longitude)
-      }
-
       // Use the actual location that was passed to the component
       if (!location || !location.latitude || !location.longitude) {
         console.log('🗺️ No valid location available, cannot create map')
@@ -895,7 +886,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef.current, {
         center: centerLocation,
-        zoom: 16, // Street level zoom for precise location
+        zoom: 16,
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
         zoomControl: true,
@@ -906,54 +897,17 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         mapTypeControl: false,
         fullscreenControl: false,
         backgroundColor: '#000000',
-        // Remove custom styles that might interfere with tiles
         styles: [],
-        gestureHandling: 'auto', // Let Google Maps automatically choose the best gesture handling
-        scrollwheel: true, // Enable mouse wheel zoom
-        draggable: true, // Ensure map can be dragged
-        // Mobile-specific optimizations
+        gestureHandling: 'auto',
+        scrollwheel: true,
+        draggable: true,
         clickableIcons: true,
-        keyboardShortcuts: false, // Disable keyboard shortcuts on mobile
-        // Ensure touch events work properly
-        tilt: 0 // Disable 3D tilt on mobile for better performance
+        keyboardShortcuts: false,
+        tilt: 0
       })
 
       console.log('🗺️ Google Maps instance created successfully')
       mapInstanceRef.current = map
-      
-      // NEW: Add event listeners to track user interactions
-      map.addListener('center_changed', () => {
-        if (mapInitialized && userHasInteracted) {
-          const center = map.getCenter()
-          if (center) {
-            setMapCenter({ lat: center.lat(), lng: center.lng() })
-            console.log('🗺️ Map center changed by user to:', { lat: center.lat(), lng: center.lng() })
-          }
-        }
-      })
-      
-      map.addListener('zoom_changed', () => {
-        if (mapInitialized && userHasInteracted) {
-          const zoom = map.getZoom()
-          if (zoom !== undefined) {
-            setMapZoom(zoom)
-            console.log('🗺️ Map zoom changed by user to:', zoom)
-          }
-        }
-      })
-      
-      map.addListener('dragstart', () => {
-        setUserHasInteracted(true)
-        console.log('🗺️ User started dragging map')
-      })
-      
-      map.addListener('zoom_changed', () => {
-        setUserHasInteracted(true)
-        console.log('🗺️ User changed zoom level')
-      })
-      
-      // Let Google Maps handle all touch events natively
-      console.log('🗺️ Map created with interaction tracking, letting Google Maps handle touch events natively')
       
       // Wait for map to render and then remove loading
       setTimeout(() => {
@@ -969,21 +923,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               console.log('🗺️ Map rendered successfully, removing loading state')
               setIsMapLoading(false)
               
-              // NEW: Only center map if it's the first time or user hasn't interacted
-              if (!mapInitialized || !userHasInteracted) {
-                console.log('🗺️ First time map render, centering on user location:', mapLocation)
-                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-                map.setZoom(16)
-                setMapCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-                setMapInitialized(true)
-              } else {
-                console.log('🗺️ Map already initialized, preserving user position')
-                // Restore user's last position if available
-                if (mapCenter) {
-                  map.setCenter(mapCenter)
-                  map.setZoom(mapZoom)
-                }
-              }
+              // Center map on user location
+              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+              map.setZoom(16)
               
               // Add a user location marker
               new window.google.maps.Marker({
@@ -1005,9 +947,6 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               setTimeout(() => {
                 window.google.maps.event.trigger(map, 'resize')
                 setIsMapLoading(false)
-                
-                // Center map on user location
-                console.log('🗺️ Centering map on user location after resize:', mapLocation)
                 map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
               }, 500)
             }
