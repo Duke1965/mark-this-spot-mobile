@@ -1752,7 +1752,7 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          sT,?
+          ⚙️
         </button>
       </div>
 
