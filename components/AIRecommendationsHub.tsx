@@ -834,7 +834,12 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           console.log('🗺️ Existing script loaded, resolving...')
           resolve()
         })
-        existingScript.addEventListener('error', reject)
+        existingScript.addEventListener('error', () => {
+          console.error('🗺️ Google Maps script failed to load:', error)
+          console.log('🗺️ Attempting fallback: Using static map instead')
+          // Don't reject - use fallback instead
+          resolve()
+        })
         return
       }
 
@@ -849,7 +854,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       }
       script.onerror = (error) => {
         console.error('🗺️ Google Maps script failed to load:', error)
-        reject(error)
+        console.log('🗺️ Attempting fallback: Using static map instead')
+        // Don't reject - use fallback instead
+        resolve()
       }
       document.head.appendChild(script)
       console.log('🗺️ Google Maps script added to document head')
@@ -1155,6 +1162,22 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     } catch (error) {
       console.error('🗺️ Failed to add clustered markers:', error)
     }
+  }
+
+  // Add after createMapInstance function:
+  const createFallbackMap = () => {
+    if (!mapRef.current) return
+    
+    console.log('🗺️ Creating fallback static map...')
+    mapRef.current.innerHTML = `
+      <div style="width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #666;">
+        <div style="font-size: 24px; margin-bottom: 10px;">🗺️</div>
+        <div style="font-size: 16px; text-align: center;">
+          Map temporarily unavailable<br/>
+          <small style="font-size: 12px;">Location: ${location?.latitude?.toFixed(4)}, ${location?.longitude?.toFixed(4)}</small>
+        </div>
+      </div>
+    `
   }
 
   return (
