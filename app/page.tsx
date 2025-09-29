@@ -248,7 +248,7 @@ export default function PINITApp() {
       
       console.log("o. App started fresh on map screen")
     } catch (error) {
-      console.error("O Error during app startup reset:", error)
+      console.error("❌ Error during app startup reset:", error)
     }
   }, [])
 
@@ -1122,7 +1122,7 @@ export default function PINITApp() {
             return photos
           } else {
             // If all photos were filtered out, try to get any photo but log it
-            console.log("s,? All photos filtered out, using fallback photo")
+            console.log("🔄 No location photos found, will use PINIT placeholder")
             const fallbackPhoto = closestPlace.photos[0]
             const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
             
@@ -1135,10 +1135,10 @@ export default function PINITApp() {
         }
       }
       
-      console.log("dY", No location photos found, will use PINIT placeholder")
+      console.log("🔄 No location photos found, will use PINIT placeholder")
       return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     } catch (error) {
-      console.error("O Error fetching location photos:", error)
+      console.error("❌ Error fetching location photos:", error)
       return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
     }
   }
