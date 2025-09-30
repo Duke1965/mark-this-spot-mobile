@@ -1930,15 +1930,9 @@ export default function PINITApp() {
                   console.log("🗺️ API Key in URL:", e.currentTarget.src.includes('key='))
                   console.log("🗺️ Error details:", e)
                   e.currentTarget.style.display = "none"
+                  // Don't modify parentElement.innerHTML - just keep the background
                   if (e.currentTarget.parentElement) {
                     e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
-                    // Add a simple location indicator
-                    e.currentTarget.parentElement.innerHTML = `
-                      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white; text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📍</div>
-                        <div style="font-size: 0.8rem; font-weight: bold;">Live</div>
-                      </div>
-                    `
                   }
                 }}
               />
