@@ -563,12 +563,19 @@ export default function PINITApp() {
       // TIER 2: SMART REVERSE GEOCODING FOR RESIDENTIAL AREAS
       // This is the key fix for Riebeek West vs Allesverloren
       try {
+        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Attempting reverse geocoding...`)
+        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Key present:`, !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
+        
         const geocodeResponse = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
         )
         
+        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode response status:`, geocodeResponse.status)
+        
         if (geocodeResponse.ok) {
           const geocodeData = await geocodeResponse.json()
+          console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode data:`, geocodeData)
+          
           if (geocodeData.results && geocodeData.results.length > 0) {
             const addressComponents = geocodeData.results[0].address_components
             const formattedAddress = geocodeData.results[0].formatted_address
@@ -578,23 +585,21 @@ export default function PINITApp() {
             // SMART EXTRACTION: Prioritize residential components over business components
             let locality = ""
             let neighborhood = ""
+            let sublocality = ""
             let route = ""
             let streetNumber = ""
-            let sublocality = ""
             
             for (const component of addressComponents) {
-              const types = component.types
-              
-              if (types.includes('street_number')) {
-                streetNumber = component.long_name
-              } else if (types.includes('route')) {
-                route = component.long_name
-              } else if (types.includes('neighborhood') || types.includes('sublocality_level_1')) {
-                neighborhood = component.long_name
-              } else if (types.includes('sublocality')) {
-                sublocality = component.long_name
-              } else if (types.includes('locality')) {
+              if (component.types.includes('locality')) {
                 locality = component.long_name
+              } else if (component.types.includes('neighborhood')) {
+                neighborhood = component.long_name
+              } else if (component.types.includes('sublocality')) {
+                sublocality = component.long_name
+              } else if (component.types.includes('route')) {
+                route = component.long_name
+              } else if (component.types.includes('street_number')) {
+                streetNumber = component.long_name
               }
             }
             
@@ -628,6 +633,8 @@ export default function PINITApp() {
             console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
             return locationName
           }
+        } else {
+          console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode API error:`, geocodeResponse.status, geocodeResponse.statusText)
         }
       } catch (geocodeError) {
         console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
@@ -646,11 +653,11 @@ export default function PINITApp() {
         return "Cape Town"
       }
       
-      // Final fallback
-      return `Unknown Location`
+      // Final fallback - use a more user-friendly approach
+      return `Current Location`
     } catch (error) {
       console.error(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
-      return "Unknown Location"
+      return `Current Location`
     }
   }
 
