@@ -524,6 +524,22 @@ export default function PINITApp() {
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     const isMobile = isMobileDevice()
     
+    // DEVELOPMENT MODE: Skip all API calls to prevent billing
+    const DEVELOPMENT_MODE = true // Set to false when ready for production
+    
+    if (DEVELOPMENT_MODE) {
+      console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] DEVELOPMENT MODE: Skipping API calls`)
+      
+      // Use coordinate fallback immediately
+      if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        return "Riebeek West"
+      }
+      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        return "Cape Town"
+      }
+      return "Current Location"
+    }
+    
     try {
       console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
       console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
