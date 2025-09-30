@@ -207,14 +207,23 @@ export default function PINITApp() {
   // Update location name with persistence
   useEffect(() => {
     if (location && location.latitude && location.longitude) {
+      console.log("📍 Getting location name for:", location.latitude, location.longitude)
       getLocationName(location.latitude, location.longitude).then((name) => {
+        console.log("📍 Location name result:", name)
         if (name && name !== "Unknown Location") {
           setLocationName(name)
           setLastGoodLocationName(name) // Remember the last good location
         } else if (lastGoodLocationName) {
           // Keep the last good location if current lookup fails
           setLocationName(lastGoodLocationName)
+        } else {
+          // If no good location name, show coordinates
+          setLocationName(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
         }
+      }).catch((error) => {
+        console.error("📍 Location name error:", error)
+        // Show coordinates as fallback
+        setLocationName(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
       })
     }
   }, [location, lastGoodLocationName])
@@ -1947,7 +1956,7 @@ export default function PINITApp() {
                   pointerEvents: "none",
                 }}
               >
-                dY? Live
+                📍 Live
               </div>
             </div>
           )}
