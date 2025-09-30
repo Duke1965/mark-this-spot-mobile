@@ -1914,10 +1914,13 @@ export default function PINITApp() {
                   filter: "contrast(1.1) saturate(1.2)",
                 }}
                 onLoad={(e) => {
-                  console.log("Static map loaded successfully")
+                  console.log("🗺️ Static map loaded successfully")
+                  console.log("🗺️ Static map URL:", e.currentTarget.src)
                 }}
                 onError={(e) => {
-                  console.log("Static map failed, using fallback...")
+                  console.log("🗺️ Static map failed, using fallback...")
+                  console.log("🗺️ Static map URL that failed:", e.currentTarget.src)
+                  console.log("🗺️ API Key in URL:", e.currentTarget.src.includes('key='))
                   e.currentTarget.style.display = "none"
                   if (e.currentTarget.parentElement) {
                     e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
