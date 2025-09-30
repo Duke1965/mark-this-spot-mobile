@@ -581,6 +581,7 @@ export default function PINITApp() {
             const formattedAddress = geocodeData.results[0].formatted_address
             
             console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
+            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Address components:`, addressComponents)
             
             // SMART EXTRACTION: Prioritize residential components over business components
             let locality = ""
@@ -590,6 +591,8 @@ export default function PINITApp() {
             let streetNumber = ""
             
             for (const component of addressComponents) {
+              console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Component:`, component.long_name, component.types)
+              
               if (component.types.includes('locality')) {
                 locality = component.long_name
               } else if (component.types.includes('neighborhood')) {
@@ -602,6 +605,8 @@ export default function PINITApp() {
                 streetNumber = component.long_name
               }
             }
+            
+            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Extracted:`, { locality, neighborhood, sublocality, route, streetNumber })
             
             // SMART LOCATION BUILDING: Prioritize residential areas
             let locationName = ""
@@ -632,6 +637,8 @@ export default function PINITApp() {
             
             console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
             return locationName
+          } else {
+            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] No results in geocode data`)
           }
         } else {
           console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode API error:`, geocodeResponse.status, geocodeResponse.statusText)
@@ -1921,6 +1928,7 @@ export default function PINITApp() {
                   console.log("🗺️ Static map failed, using fallback...")
                   console.log("🗺️ Static map URL that failed:", e.currentTarget.src)
                   console.log("🗺️ API Key in URL:", e.currentTarget.src.includes('key='))
+                  console.log("🗺️ Error details:", e)
                   e.currentTarget.style.display = "none"
                   if (e.currentTarget.parentElement) {
                     e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
