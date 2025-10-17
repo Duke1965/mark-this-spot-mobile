@@ -1648,7 +1648,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND - WORKING VERSION */}
+          {/* LIVE BACKGROUND - SIMPLIFIED */}
           {(userLocation || location) && (
             <div
               style={{
@@ -1658,78 +1658,50 @@ export default function PINITApp() {
                 overflow: "hidden",
                 zIndex: 1,
                 background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
               }}
             >
-              <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                  userLocation?.latitude || location?.latitude || -25.7479
-                },${
-                  userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
-                alt="Live Map"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  filter: "contrast(1.1) saturate(1.2)",
-                }}
-                onLoad={(e) => {
-                  console.log("🗺️ Static map loaded successfully")
-                  console.log("🗺️ Static map URL:", e.currentTarget.src)
-                }}
-                onError={(e) => {
-                  console.log("🗺️ Static map failed, using fallback...")
-                  console.log("🗺️ Static map URL that failed:", e.currentTarget.src)
-                  console.log("🗺️ API Key in URL:", e.currentTarget.src.includes('key='))
-                  console.log("🗺️ Error details:", e)
-                  e.currentTarget.style.display = "none"
-                  // Don't modify parentElement.innerHTML - just keep the background
-                  if (e.currentTarget.parentElement) {
-                    e.currentTarget.parentElement.style.background = "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)"
-                  }
-                }}
-              />
-
-                          {/* Speed-based pinning indicator */}
-            {motionData.isMoving && motionData.speed > 5 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "10px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "rgba(34, 197, 94, 0.9)",
-                  color: "white",
-                  padding: "4px 8px",
-                  borderRadius: "12px",
-                  fontSize: "12px",
-                  fontWeight: "bold",
-                  zIndex: 3,
-                  whiteSpace: "nowrap"
-                }}
-              >
-                dYs- Speed Pinning Active
+              {/* Simple location indicator */}
+              <div style={{
+                fontSize: "3rem",
+                marginBottom: "0.5rem",
+                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
+              }}>
+                📍
               </div>
-            )}
-
-            {/* Minimal location overlay - positioned at top */}
-            <div
-              style={{
-                position: "absolute",
-                  top: "10%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  color: "white",
-                  fontSize: "0.6rem",
-                  fontWeight: "bold",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  padding: "0.2rem 0.4rem",
-                  borderRadius: "0.2rem",
-                  pointerEvents: "none",
-                }}
-              >
-                📍 Live
+              <div style={{
+                fontSize: "0.7rem",
+                fontWeight: "bold",
+                color: "white",
+                textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+              }}>
+                Live
               </div>
+
+              {/* Speed-based pinning indicator */}
+              {motionData.isMoving && motionData.speed > 5 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "rgba(34, 197, 94, 0.9)",
+                    color: "white",
+                    padding: "4px 8px",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    zIndex: 3,
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  🚗 Speed Pinning Active
+                </div>
+              )}
             </div>
           )}
 
