@@ -1679,7 +1679,7 @@ export default function PINITApp() {
                   userLocation?.latitude || location?.latitude || -25.7479
                 },${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                }&zoom=17&size=280x280&maptype=hybrid&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
@@ -1693,10 +1693,20 @@ export default function PINITApp() {
                   console.log("🗺️ Map natural dimensions:", e.currentTarget.naturalWidth, "x", e.currentTarget.naturalHeight)
                 }}
                 onError={(e) => {
-                  console.log("❌ Static map failed to load")
+                  console.log("❌ Static map failed to load (hybrid), trying roadmap...")
                   console.log("🗺️ Failed URL:", e.currentTarget.src)
-                  console.log("🗺️ Error event:", e)
-                  e.currentTarget.style.display = "none"
+                  // Try roadmap as fallback
+                  e.currentTarget.src = `https://maps.googleapis.com/maps/api/staticmap?center=${
+                    userLocation?.latitude || location?.latitude || -25.7479
+                  },${
+                    userLocation?.longitude || location?.longitude || 28.2293
+                  }&zoom=17&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
+                  
+                  // Set up one-time error handler for roadmap fallback
+                  e.currentTarget.onerror = () => {
+                    console.log("❌ Static map (roadmap) also failed, hiding map")
+                    e.currentTarget.style.display = "none"
+                  }
                 }}
               />
 
