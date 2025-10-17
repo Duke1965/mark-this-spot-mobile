@@ -204,30 +204,44 @@ export default function PINITApp() {
 
   // Add state to remember the last good location name
   const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
+  const [lastLocationCheck, setLastLocationCheck] = useState<{lat: number, lng: number} | null>(null)
   
-  // Update location name with persistence
+  // Update location name with persistence - THROTTLED
   useEffect(() => {
     if (location && location.latitude && location.longitude) {
+      // Only update if location changed significantly (more than 50m)
+      if (lastLocationCheck) {
+        const latDiff = Math.abs(location.latitude - lastLocationCheck.lat)
+        const lngDiff = Math.abs(location.longitude - lastLocationCheck.lng)
+        const distanceChanged = latDiff > 0.0005 || lngDiff > 0.0005 // ~50m
+        
+        if (!distanceChanged) {
+          console.log("📍 Location hasn't changed significantly, skipping update")
+          return
+        }
+      }
+      
       console.log("📍 Getting location name for:", location.latitude, location.longitude)
+      setLastLocationCheck({ lat: location.latitude, lng: location.longitude })
+      
       getLocationName(location.latitude, location.longitude).then((name) => {
         console.log("📍 Location name result:", name)
-        if (name && name !== "Unknown Location") {
+        if (name && name !== "Unknown Location" && name !== "Current Location") {
           setLocationName(name)
           setLastGoodLocationName(name) // Remember the last good location
         } else if (lastGoodLocationName) {
           // Keep the last good location if current lookup fails
           setLocationName(lastGoodLocationName)
-        } else {
-          // If no good location name, show coordinates
-          setLocationName(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
         }
       }).catch((error) => {
         console.error("📍 Location name error:", error)
-        // Show coordinates as fallback
-        setLocationName(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`)
+        // Keep last good location on error
+        if (lastGoodLocationName) {
+          setLocationName(lastGoodLocationName)
+        }
       })
     }
-  }, [location, lastGoodLocationName])
+  }, [location])
 
   // Function to clear corrupted app state and reset to map
   const clearAppState = useCallback(() => {
@@ -1658,29 +1672,8 @@ export default function PINITApp() {
                 overflow: "hidden",
                 zIndex: 1,
                 background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
               }}
             >
-              {/* Simple location indicator */}
-              <div style={{
-                fontSize: "3rem",
-                marginBottom: "0.5rem",
-                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
-              }}>
-                📍
-              </div>
-              <div style={{
-                fontSize: "0.7rem",
-                fontWeight: "bold",
-                color: "white",
-                textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-              }}>
-                Live
-              </div>
-
               {/* Speed-based pinning indicator */}
               {motionData.isMoving && motionData.speed > 5 && (
                 <div
@@ -1702,6 +1695,34 @@ export default function PINITApp() {
                   🚗 Speed Pinning Active
                 </div>
               )}
+
+              {/* Simple location indicator - positioned at top */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "10%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  color: "white",
+                  textAlign: "center",
+                  pointerEvents: "none",
+                }}
+              >
+                <div style={{
+                  fontSize: "2rem",
+                  marginBottom: "0.25rem",
+                  filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))"
+                }}>
+                  📍
+                </div>
+                <div style={{
+                  fontSize: "0.6rem",
+                  fontWeight: "bold",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                }}>
+                  Live
+                </div>
+              </div>
             </div>
           )}
 
