@@ -25,6 +25,7 @@ import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHe
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
+import { postPinIntel, cancelPinIntel } from "@/lib/pinIntelApi"
 
 
 export interface PinData {
@@ -520,276 +521,86 @@ export default function PINITApp() {
     throw lastError!
   }
 
-  // ENHANCED SMART LOCATION DETECTION - Prioritizes residential areas over businesses
+  // UPDATED: Use pin-intel gateway for location name (NO MORE GOOGLE API CALLS)
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     const isMobile = isMobileDevice()
     
-    // DEVELOPMENT MODE: Skip all API calls to prevent billing
-    const DEVELOPMENT_MODE = true // Set to false when ready for production
-    
-    if (DEVELOPMENT_MODE) {
-      console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] DEVELOPMENT MODE: Skipping API calls`)
-      
-      // Use coordinate fallback immediately
-      if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        return "Riebeek West"
-      }
-      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town"
-      }
-      return "Current Location"
-    }
-    
     try {
-      console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location detection...`)
-      console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Coordinates:`, { lat, lng })
+      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Getting location name via gateway...`)
       
-      // TIER 1: ULTRA-PRECISE BUSINESS DETECTION (10m radius)
-      // Only for exact business locations - not residential areas
-      try {
-        const ultraPreciseResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=10`, {
-          headers: {
-            'User-Agent': isMobile ? 'PINIT-Mobile-App' : 'PINIT-Web-App',
-            'X-Device-Type': isMobile ? 'mobile' : 'desktop'
-          }
-        })
-        
-        if (ultraPreciseResponse.ok) {
-          const ultraPreciseData = await ultraPreciseResponse.json()
-          
-          if (ultraPreciseData.results && ultraPreciseData.results.length > 0) {
-            const closestBusiness = ultraPreciseData.results[0]
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] ULTRA-PRECISE business found:`, closestBusiness.name)
-            
-            // SMART FILTER: Only use business name if it's VERY close (within 10m)
-            // AND it's not a distant landmark (like Allesverloren wine farm)
-            const businessDistance = closestBusiness.distance || 0
-            if (businessDistance <= 10) {
-              console.log(` [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using close business:`, closestBusiness.name)
-              return closestBusiness.name
-            } else {
-              console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Business too far (${businessDistance}m), using reverse geocoding...`)
-            }
-          }
-        }
-      } catch (ultraError) {
-        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Ultra-precise search failed, trying reverse geocoding...`)
+      // Use the new pin-intel gateway (one-shot call)
+      const pinIntel = await postPinIntel(lat, lng, 5)
+      
+      if (pinIntel && pinIntel.geocode && pinIntel.geocode.formatted) {
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location name from gateway:`, pinIntel.geocode.formatted)
+        return pinIntel.geocode.formatted
       }
       
-      // TIER 2: SMART REVERSE GEOCODING FOR RESIDENTIAL AREAS
-      // This is the key fix for Riebeek West vs Allesverloren
-      try {
-        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Attempting reverse geocoding...`)
-        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] API Key present:`, !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
-        
-        const geocodeResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        )
-        
-        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode response status:`, geocodeResponse.status)
-        
-        if (geocodeResponse.ok) {
-          const geocodeData = await geocodeResponse.json()
-          console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode data:`, geocodeData)
-          
-          if (geocodeData.results && geocodeData.results.length > 0) {
-            const addressComponents = geocodeData.results[0].address_components
-            const formattedAddress = geocodeData.results[0].formatted_address
-            
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding result:`, formattedAddress)
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Address components:`, addressComponents)
-            
-            // SMART EXTRACTION: Prioritize residential components over business components
-            let locality = ""
-            let neighborhood = ""
-            let sublocality = ""
-            let route = ""
-            let streetNumber = ""
-            
-            for (const component of addressComponents) {
-              console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Component:`, component.long_name, component.types)
-              
-              if (component.types.includes('locality')) {
-                locality = component.long_name
-              } else if (component.types.includes('neighborhood')) {
-                neighborhood = component.long_name
-              } else if (component.types.includes('sublocality')) {
-                sublocality = component.long_name
-              } else if (component.types.includes('route')) {
-                route = component.long_name
-              } else if (component.types.includes('street_number')) {
-                streetNumber = component.long_name
-              }
-            }
-            
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Extracted:`, { locality, neighborhood, sublocality, route, streetNumber })
-            
-            // SMART LOCATION BUILDING: Prioritize residential areas
-            let locationName = ""
-            
-            if (streetNumber && route) {
-              // Exact address: "123 Main Street, Riebeek West"
-              locationName = `${streetNumber} ${route}`
-              if (locality) {
-                locationName += `, ${locality}`
-              }
-            } else if (route && locality) {
-              // Street and town: "Main Street, Riebeek West"
-              locationName = `${route}, ${locality}`
-            } else if (neighborhood && locality) {
-              // Neighborhood and town: "Downtown, Riebeek West"
-              locationName = `${neighborhood}, ${locality}`
-            } else if (sublocality && locality) {
-              // Sublocality and town: "Riebeek West"
-              locationName = sublocality
-            } else if (locality) {
-              // Just the town: "Riebeek West"
-              locationName = locality
-            } else {
-              // Fallback to formatted address
-              const parts = formattedAddress.split(',')
-              locationName = parts[0]?.trim() || "Unknown Location"
-            }
-            
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] SMART location:`, locationName)
-            return locationName
-          } else {
-            console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] No results in geocode data`)
-          }
-        } else {
-          console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocode API error:`, geocodeResponse.status, geocodeResponse.statusText)
-        }
-      } catch (geocodeError) {
-        console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Reverse geocoding failed:`, geocodeError)
-      }
-      
-      // TIER 3: SMART FALLBACK WITH REGION DETECTION
-      console.log(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using smart coordinate fallback...`)
-      
-      // Riebeek West specific detection (your home area)
-      if (lat > -33.8 && lat < -33.7 && lng > 18.9 && lng < 19.0) {
-        return "Riebeek West"
-      }
-      
-      // Other known areas
-      if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        return "Cape Town"
-      }
-      
-      // Final fallback - use a more user-friendly approach
-      return `Current Location`
+      // Fallback to coordinate-based detection
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway returned no location, using coordinate fallback`)
     } catch (error) {
-      console.error(`dY [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location detection failed:`, error)
-      return `Current Location`
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway error, using coordinate fallback:`, error)
     }
+    
+    // COORDINATE-BASED FALLBACK (no API calls)
+    console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using coordinate fallback...`)
+    
+    // Riebeek West area - expanded range
+    if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+      return "Riebeek West"
+    }
+    
+    // Cape Town CBD
+    if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      return "Cape Town"
+    }
+    
+    // Western Cape region (broader fallback)
+    if (lat > -34.5 && lat < -33.0 && lng > 18.0 && lng < 19.5) {
+      return "Western Cape"
+    }
+    
+    // Final fallback
+    return `Current Location`
   }
 
-  // ENHANCED: Real Google Places Integration
+  // UPDATED: Use pin-intel gateway for nearby places (NO MORE GOOGLE PLACES API)
   const findNearbyPins = useCallback(async () => {
     if (!location) return
 
-    console.log("dYO? Discovering real nearby places...")
+    console.log("🏪 Discovering nearby places via gateway...")
     
     try {
-      // Use our API route to avoid CORS issues
-      const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=100`)
+      // Use the new pin-intel gateway (one-shot call)
+      const pinIntel = await postPinIntel(location.latitude, location.longitude, 5)
       
-      if (!response.ok) {
-        throw new Error("Failed to fetch places from API")
-      }
+      console.log("✅ Found", pinIntel.places.length, "places via gateway")
       
-      const data = await response.json()
-      const realPlaces = data.results || []
-      
-      console.log("dYO? Found", realPlaces.length, "places via API route")
-      
-      // Transform API results to PinData format
-      const transformedPlaces = realPlaces.map((place: any) => ({
-        id: place.place_id,
-        latitude: place.geometry.location.lat,
-        longitude: place.geometry.location.lng,
-        locationName: place.vicinity || place.name,
+      // Transform gateway results to PinData format
+      const transformedPlaces: PinData[] = pinIntel.places.map((place: any) => ({
+        id: place.id,
+        latitude: place.lat,
+        longitude: place.lng,
+        locationName: place.name || pinIntel.geocode.formatted,
         mediaUrl: null,
         mediaType: null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: place.name,
-        description: `Rating: ${place.rating || "N/A"}  ${place.types?.join(", ") || "Place"}`,
-        tags: place.types || [],
+        title: place.name || "Nearby Place",
+        description: `${place.categories?.join(", ") || "Place"} • ${place.distance_m}m away`,
+        tags: place.categories || [],
         isRecommended: true,
-        googlePlaceId: place.place_id,
-        rating: place.rating,
-        priceLevel: place.price_level,
-        types: place.types,
+        rating: undefined,
+        types: place.categories,
         isAISuggestion: true,
       }))
-      
-      // REVERSE GEOCODING FALLBACK: If no businesses found, add residential area pins
-      if (transformedPlaces.length === 0) {
-        console.log("dYO? No businesses found, trying reverse geocoding fallback...")
-        
-        try {
-          const geocodeResponse = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.latitude},${location.longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-          )
-          
-          if (geocodeResponse.ok) {
-            const geocodeData = await geocodeResponse.json()
-            if (geocodeData.results && geocodeData.results.length > 0) {
-              const addressComponents = geocodeData.results[0].address_components
-              const formattedAddress = geocodeData.results[0].formatted_address
-              
-              // Extract residential area information
-              let areaName = ""
-              let locality = ""
-              
-              for (const component of addressComponents) {
-                const types = component.types
-                if (types.includes('sublocality') || types.includes('neighborhood')) {
-                  areaName = component.long_name
-                } else if (types.includes('locality')) {
-                  locality = component.long_name
-                }
-              }
-              
-              if (areaName || locality) {
-                const residentialPin = {
-                  id: `residential_${Date.now()}`,
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  locationName: areaName || locality,
-                  mediaUrl: null,
-                  mediaType: null,
-                  audioUrl: null,
-                  timestamp: new Date().toISOString(),
-                  title: areaName || locality,
-                  description: `Residential Area  ${formattedAddress}`,
-                  tags: ["residential", "area"],
-                  isRecommended: true,
-                  googlePlaceId: null,
-                  rating: null,
-                  priceLevel: null,
-                  types: ["residential"],
-                  isAISuggestion: true,
-                  isResidentialArea: true
-                }
-                
-                transformedPlaces.push(residentialPin)
-                console.log(`dYO? Added residential area pin: ${residentialPin.title}`)
-              }
-            }
-          }
-        } catch (geocodeError) {
-          console.log("dYO? Reverse geocoding fallback failed:", geocodeError)
-        }
-      }
       
       setNearbyPins(transformedPlaces)
       setShowNearbyPins(true)
       setLastActivity("discovery")
       
     } catch (error) {
-      console.error("dYO? Error fetching nearby places:", error)
+      console.error("❌ Error fetching nearby places:", error)
       // Don't set error state, just log it
     }
   }, [location])
@@ -901,7 +712,7 @@ export default function PINITApp() {
     setCurrentScreen("content-editor")
   }, [])
 
-  // Handle quick pin with speed-based location calculation
+  // Handle quick pin with speed-based location calculation - UPDATED TO USE NEW GATEWAY
   const handleQuickPin = useCallback(async () => {
     if (isQuickPinning) return
 
@@ -911,13 +722,13 @@ export default function PINITApp() {
     try {
       const currentLocation = await getCurrentLocation()
       
-      // NEW: Calculate precise location based on speed and movement
+      // Calculate precise location based on speed and movement
       let pinLatitude = currentLocation.latitude
       let pinLongitude = currentLocation.longitude
       let locationDescription = "Quick Pin Location"
       
       if (motionData.isMoving && motionData.speed > 5) { // Only adjust if moving faster than 5 km/h
-        console.log(`dYs- Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
+        console.log(`🚗 Speed-based pinning: ${motionData.speed.toFixed(1)} km/h`)
         
         // Calculate where the user likely saw the place (accounting for reaction time)
         const reactionTime = 2 // 2 seconds reaction time
@@ -942,45 +753,64 @@ export default function PINITApp() {
           
           locationDescription = `Speed-based pin (${motionData.speed.toFixed(0)} km/h)`
           
-          console.log(`dY? Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
+          console.log(`📍 Speed-adjusted location: ${pinLatitude.toFixed(6)}, ${pinLongitude.toFixed(6)}`)
         }
       } else {
-        console.log("dY? Stationary pinning - using current location")
+        console.log("📍 Stationary pinning - using current location")
       }
       
-      // NEW: Fetch location photos before creating the pin
-      console.log("🔄 Fetching location photos for speed-based pin...")
-      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+      // NEW: Use pin-intel gateway for one-shot location enrichment
+      console.log("📡 Fetching location intelligence from gateway...")
+      const pinIntel = await postPinIntel(pinLatitude, pinLongitude, 5, user?.uid)
       
-      // NEW: Generate intelligent AI content based on location and context
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      console.log("✅ Pin intel received:", pinIntel)
+      console.log("📍 Location:", pinIntel.geocode.formatted)
+      console.log("🏪 Nearby places:", pinIntel.places.length)
+      
+      // Use gateway data for location name
+      const locationName = pinIntel.geocode.formatted || locationDescription
+      
+      // Generate AI content based on location and context
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, [])
+      
+      // Use imagery from gateway if available, otherwise use PINIT placeholder
+      const mediaUrl = pinIntel.imagery?.image_url || "/pinit-placeholder.jpg"
+      const additionalPhotos = pinIntel.imagery ? [
+        { url: pinIntel.imagery.image_url, placeName: locationName }
+      ] : [
+        { url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }
+      ]
       
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
-        locationName: aiGeneratedContent.locationName || locationDescription,
-        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
+        locationName: locationName,
+        mediaUrl: mediaUrl,
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: aiGeneratedContent.title,
         description: aiGeneratedContent.description,
         tags: aiGeneratedContent.tags,
-        // NEW: Store all photos for the carousel
-        additionalPhotos: locationPhotos
+        additionalPhotos: additionalPhotos
       }
 
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("dY? Quick pin created with photo:", newPin)
+      console.log("✅ Quick pin created with gateway data:", newPin)
     } catch (error) {
-      console.error("O Failed to create quick pin:", error)
+      console.error("❌ Failed to create quick pin:", error)
+      
+      // Show user-friendly error
+      if (error instanceof Error && error.message === 'Already captured - please wait') {
+        console.log("⏳ Debounce: User tapped too quickly")
+      }
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, user])
 
   // NEW: Generate intelligent AI content based on location and context
   const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
@@ -1087,100 +917,7 @@ export default function PINITApp() {
     }
   }
 
-  // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
-  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
-    try {
-      console.log("🔄 Fetching location photo with aggressive filtering...")
-      
-      // Use our API route instead of calling Google Maps directly
-      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
-      
-      if (!photoResponse.ok) {
-        throw new Error("Failed to fetch location data")
-      }
-
-      const data = await photoResponse.json()
-      const photos: {url: string, placeName: string}[] = []
-
-      if (data.results && data.results.length > 0) {
-        // Get the closest place
-        const closestPlace = data.results[0]
-        if (closestPlace.photos && closestPlace.photos.length > 0) {
-          // More aggressive filtering to exclude logos, clipart, and non-location photos
-          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
-            // Skip photos that are likely logos, clipart, or non-location photos
-            if (photo.width && photo.height) {
-              const aspectRatio = photo.width / photo.height
-              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
-              const isTooSmall = photo.width < 300 || photo.height < 300
-              const isTooLarge = photo.width > 2000 || photo.height > 2000
-              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
-              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
-              
-              // Log what we're filtering out
-              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
-                console.log("🔄 Filtering out photo:", {
-                  dimensions: `${photo.width}x${photo.height}`,
-                  aspectRatio: aspectRatio.toFixed(2),
-                  reason: isSquareish ? "squareish (likely logo)" : 
-                          isTooSmall ? "too small" :
-                          isTooLarge ? "too large" :
-                          isPortrait ? "too tall (likely sign)" :
-                          isLandscape ? "too wide (likely banner)" : "unknown"
-                })
-                return false
-              }
-            }
-            return true
-          })
-          
-          if (filteredPhotos.length > 0) {
-            // Get the best filtered photo (prefer landscape photos for location views)
-            const bestPhoto = filteredPhotos.reduce((best: any, current: any) => {
-              if (current.width && current.height && best.width && best.height) {
-                const currentRatio = current.width / current.height
-                const bestRatio = best.width / best.height
-                
-                // Prefer photos closer to 16:9 ratio (typical landscape)
-                const currentScore = Math.abs(currentRatio - 1.78)
-                const bestScore = Math.abs(bestRatio - 1.78)
-                
-                return currentScore < bestScore ? current : best
-              }
-              return best
-            })
-            
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-            
-            photos.push({
-              url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place"
-            })
-            
-            console.log(`o. Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
-            return photos
-          } else {
-            // If all photos were filtered out, try to get any photo but log it
-            console.log("🔄 No location photos found, will use PINIT placeholder")
-            const fallbackPhoto = closestPlace.photos[0]
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-            
-            photos.push({
-              url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place"
-            })
-            return photos
-          }
-        }
-      }
-      
-      console.log("🔄 No location photos found, will use PINIT placeholder")
-      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-    } catch (error) {
-      console.error("❌ Error fetching location photos:", error)
-      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-    }
-  }
+  // REMOVED: Old fetchLocationPhotos function - now using pin-intel gateway
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = (place: any) => {
