@@ -125,7 +125,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
     }
   }, [autoReturnTimer, isUserMoving, onBack])
 
-  // Use already fetched photos from pin.additionalPhotos instead of re-fetching
+  // Use already fetched photos from pin.additionalPhotos and imagery data
   useEffect(() => {
     try {
       console.log("📸 Setting up photo display from pin data...")
@@ -158,6 +158,20 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
         console.log("📸 No additional photos found in pin data")
       }
       
+      // Check if we have imagery data from the pin-intel gateway
+      if ((pin as any).imagery && Array.isArray((pin as any).imagery)) {
+        console.log("📸 Found", (pin as any).imagery.length, "imagery photos from gateway")
+        
+        (pin as any).imagery.forEach((imageData: any, index: number) => {
+          allPhotos.push({
+            photo_reference: `imagery-${index}`,
+            url: imageData.image_url,
+            width: 400,
+            height: 300
+          })
+        })
+      }
+      
       setPhotos(allPhotos)
       if (allPhotos.length > 0) {
         setSelectedPhotoUrl(allPhotos[0].url)
@@ -171,7 +185,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
       console.error("❌ Error setting up photo display:", error)
       setIsLoading(false)
     }
-  }, [pin.mediaUrl, pin.additionalPhotos])
+  }, [pin.mediaUrl, pin.additionalPhotos, (pin as any).imagery])
 
   const handleSave = () => {
     const updatedPin = {
@@ -609,7 +623,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {/* Single Photo Display */}
+        {/* Photo Carousel Display */}
         <div style={{
           marginBottom: "1.5rem",
           position: "relative",
@@ -630,25 +644,133 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
             }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📸</div>
-                <div>Loading area photo...</div>
+                <div>Loading area photos...</div>
               </div>
             </div>
           ) : photos.length > 0 ? (
-              <div style={{ position: "relative" }}>
-                <img
-                  src={selectedPhotoUrl || photos[0]?.url}
-                  alt="Location photo"
-                  style={{
-                    width: "100%",
-                    height: "200px",
-                    objectFit: "cover"
-                  }}
-                  onError={(e) => {
+            <div style={{ position: "relative" }}>
+              {/* Main Photo Display */}
+              <img
+                src={selectedPhotoUrl || photos[0]?.url}
+                alt="Location photo"
+                style={{
+                  width: "100%",
+                  height: "200px",
+                  objectFit: "cover"
+                }}
+                onError={(e) => {
                   console.log("❌ Image failed to load, using placeholder")
-                    e.currentTarget.src = "/pinit-placeholder.jpg"
-                  }}
-                />
-                </div>
+                  e.currentTarget.src = "/pinit-placeholder.jpg"
+                }}
+              />
+              
+              {/* Carousel Navigation */}
+              {photos.length > 1 && (
+                <>
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => {
+                      const newIndex = currentPhotoIndex > 0 ? currentPhotoIndex - 1 : photos.length - 1
+                      setCurrentPhotoIndex(newIndex)
+                      setSelectedPhotoUrl(photos[newIndex].url)
+                    }}
+                    style={{
+                      position: "absolute",
+                      left: "0.5rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "rgba(0,0,0,0.6)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: "2.5rem",
+                      height: "2.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: "1.25rem",
+                      backdropFilter: "blur(10px)",
+                    }}
+                  >
+                    ‹
+                  </button>
+                  
+                  {/* Next Button */}
+                  <button
+                    onClick={() => {
+                      const newIndex = currentPhotoIndex < photos.length - 1 ? currentPhotoIndex + 1 : 0
+                      setCurrentPhotoIndex(newIndex)
+                      setSelectedPhotoUrl(photos[newIndex].url)
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "0.5rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "rgba(0,0,0,0.6)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: "2.5rem",
+                      height: "2.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: "1.25rem",
+                      backdropFilter: "blur(10px)",
+                    }}
+                  >
+                    ›
+                  </button>
+                  
+                  {/* Photo Counter */}
+                  <div style={{
+                    position: "absolute",
+                    bottom: "0.5rem",
+                    right: "0.5rem",
+                    background: "rgba(0,0,0,0.7)",
+                    color: "white",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.5rem",
+                    fontSize: "0.75rem",
+                    backdropFilter: "blur(10px)",
+                  }}>
+                    {currentPhotoIndex + 1} / {photos.length}
+                  </div>
+                  
+                  {/* Photo Dots Indicator */}
+                  <div style={{
+                    position: "absolute",
+                    bottom: "0.5rem",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    display: "flex",
+                    gap: "0.25rem",
+                  }}>
+                    {photos.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setCurrentPhotoIndex(index)
+                          setSelectedPhotoUrl(photos[index].url)
+                        }}
+                        style={{
+                          width: index === currentPhotoIndex ? "1rem" : "0.5rem",
+                          height: "0.5rem",
+                          borderRadius: "0.25rem",
+                          background: index === currentPhotoIndex ? "white" : "rgba(255,255,255,0.5)",
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <div style={{
               display: "flex",
