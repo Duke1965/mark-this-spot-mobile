@@ -859,7 +859,7 @@ export default function PINITApp() {
     let context = ""
     
     // Analyze location based on coordinates
-    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+    if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
       locationType = "small-town"
       context = "Riebeek West - charming rural community"
     } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
@@ -871,7 +871,7 @@ export default function PINITApp() {
     } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
       locationType = "suburban"
       context = "Cape Town Northern Suburbs - growing community"
-    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+    } else if (lat > -34.2 && lat < -34.0 && lng > 18.3 && lng < 18.5) {
       locationType = "coastal"
       context = "Cape Town - beautiful coastal city"
     } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
@@ -884,32 +884,32 @@ export default function PINITApp() {
     if (motionData.isMoving && motionData.speed > 5) {
       // Speed-based pinning titles
       if (locationType === "small-town") {
-        title = "dY~,? Charming Rural Discovery"
+        title = "📍 Charming Rural Discovery"
       } else if (locationType === "urban-cbd") {
-        title = "dYT,? Urban Gem Spotted"
+        title = "🏙️ Urban Gem Spotted"
       } else if (locationType === "suburban") {
-        title = "dY Suburban Treasure"
+        title = "🏘️ Suburban Treasure"
       } else if (locationType === "coastal") {
-        title = "dYOS Coastal Beauty"
+        title = "🌊 Coastal Beauty"
       } else if (locationType === "provincial") {
-        title = "dY?,? Provincial Wonder"
+        title = "🗺️ Provincial Wonder"
       } else {
-        title = "dY? Travel Discovery"
+        title = "🚗 Travel Discovery"
       }
     } else {
       // Stationary pinning titles
       if (locationType === "small-town") {
-        title = "dY~,? Local Community Spot"
+        title = "📍 Local Community Spot"
       } else if (locationType === "urban-cbd") {
-        title = "dYT,? City Center Location"
+        title = "🏙️ City Center Location"
       } else if (locationType === "suburban") {
-        title = "dY Neighborhood Place"
+        title = "🏘️ Neighborhood Place"
       } else if (locationType === "coastal") {
-        title = "dYOS Seaside Location"
+        title = "🌊 Seaside Location"
       } else if (locationType === "provincial") {
-        title = "dY?,? Regional Spot"
+        title = "🗺️ Regional Spot"
       } else {
-        title = "dY? Local Discovery"
+        title = "📍 Local Discovery"
       }
     }
     
