@@ -780,25 +780,17 @@ export default function PINITApp() {
       
       if (imageryData && Array.isArray(imageryData) && imageryData.length > 0) {
         console.log("📸 Found", imageryData.length, "images from gateway")
+        const imageSource = imageryData[0].source || 'unknown'
+        console.log(`📸 Image source: ${imageSource}`)
+        
         mediaUrl = imageryData[0].image_url // Use first image as main
         additionalPhotos = imageryData.map((img, index) => ({
           url: img.image_url,
-          placeName: `${locationName} - Image ${index + 1}`
+          placeName: `${locationName} - Photo ${index + 1}`
         }))
       } else {
-        // Fallback: Use mock images for testing carousel functionality
-        console.log("📸 No imagery from gateway, using mock images for testing")
-        const mockImages = [
-          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
-          "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop", 
-          "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=300&fit=crop"
-        ]
-        
-        mediaUrl = mockImages[0]
-        additionalPhotos = mockImages.map((url, index) => ({
-          url: url,
-          placeName: `${locationName} - Mock Image ${index + 1}`
-        }))
+        // No imagery available - use PINIT placeholder
+        console.log("📸 No imagery from gateway, using PINIT placeholder")
       }
       
       const newPin: PinData = {
