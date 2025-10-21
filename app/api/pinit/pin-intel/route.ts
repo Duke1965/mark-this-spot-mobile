@@ -264,8 +264,8 @@ async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ 
 async function fetchWikimediaPhotos(locationName: string, lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; title?: string }> | null> {
   try {
     // Search for images on Wikimedia Commons near coordinates
-    // Using geosearch to find images within 500m radius (tighter to avoid irrelevant results)
-    const radius = 500 // meters
+    // Using geosearch to find images within 1km radius
+    const radius = 1000 // meters
     const url = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${radius}&gslimit=20&gsnamespace=6&format=json&origin=*`
     
     const response = await fetchWithTimeout(url, {}, 5000, 0)
@@ -277,8 +277,11 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
     const data = await response.json()
     
     if (!data.query?.geosearch || data.query.geosearch.length === 0) {
+      console.log(`📸 Wikimedia: No images found near ${lat}, ${lng}`)
       return null
     }
+    
+    console.log(`📸 Wikimedia: Found ${data.query.geosearch.length} nearby images`)
     
     // Get image details for the found pages
     const pageIds = data.query.geosearch.map((item: any) => item.pageid).join('|')
@@ -299,11 +302,10 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
     // Extract and filter image URLs
     const allImages: Array<{ image_url: string; thumb_url?: string; title: string; priority: number }> = []
     
-    // Filter keywords - EXCLUDE these (nature/wildlife)
+    // Filter keywords - EXCLUDE these (nature/wildlife closeups only)
     const excludeKeywords = [
-      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'fly', 'spider', 'bee', 'wasp',
-      'bird', 'animal', 'wildlife', 'fauna', 'flower', 'plant', 'flora', 'leaf',
-      'mushroom', 'fungus', 'snake', 'lizard', 'frog', 'species', 'macro'
+      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'spider', 'bee', 'wasp',
+      'wildlife', 'fauna', 'species', 'macro'
     ]
     
     // Prefer keywords - INCLUDE these (places, buildings, landmarks)
@@ -321,9 +323,11 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
         // Skip if title contains exclude keywords
         const shouldExclude = excludeKeywords.some(keyword => title.includes(keyword))
         if (shouldExclude) {
-          console.log(`🚫 Filtered out: ${title}`)
+          console.log(`🚫 Wikimedia: Filtered out: ${page.title}`)
           return
         }
+        
+        console.log(`✅ Wikimedia: Including: ${page.title} (priority will be calculated)`)
         
         // Calculate priority based on prefer keywords
         let priority = 0
