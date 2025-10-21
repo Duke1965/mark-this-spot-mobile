@@ -223,16 +223,16 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
 }
 
 /**
- * Optional: Fetch Mapillary imagery
+ * Optional: Fetch Mapillary imagery (multiple images for carousel)
  */
-async function fetchMapillaryImagery(lat: number, lng: number): Promise<{ image_url: string; thumb_url?: string; bearing?: number } | null> {
+async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; bearing?: number }> | null> {
   if (!MAPILLARY_TOKEN) {
     return null // Skip if token not configured
   }
   
   try {
-    // Mapillary API v4: search for images near location
-    const url = `https://graph.mapillary.com/images?access_token=${MAPILLARY_TOKEN}&fields=id,thumb_2048_url,thumb_256_url,compass_angle&bbox=${lng - 0.001},${lat - 0.001},${lng + 0.001},${lat + 0.001}&limit=1`
+    // Mapillary API v4: search for images near location - get multiple images for carousel
+    const url = `https://graph.mapillary.com/images?access_token=${MAPILLARY_TOKEN}&fields=id,thumb_2048_url,thumb_256_url,compass_angle&bbox=${lng - 0.001},${lat - 0.001},${lng + 0.001},${lat + 0.001}&limit=4`
     
     const response = await fetchWithTimeout(url, {}, 5000, 0) // No retry for imagery
     
@@ -246,13 +246,12 @@ async function fetchMapillaryImagery(lat: number, lng: number): Promise<{ image_
       return null
     }
     
-    const image = data.data[0]
-    
-    return {
+    // Return array of images for carousel
+    return data.data.map((image: any) => ({
       image_url: image.thumb_2048_url || image.thumb_256_url,
       thumb_url: image.thumb_256_url,
       bearing: image.compass_angle
-    }
+    }))
   } catch (error) {
     console.error('❌ Mapillary error:', error)
     return null
@@ -421,14 +420,14 @@ export async function POST(request: NextRequest) {
         try {
           imageryData = await fetchMapillaryImagery(lat, lng)
           
-          if (imageryData) {
+          if (imageryData && imageryData.length > 0) {
             // Store in cache
             imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
             if (isRedisConfigured) {
               await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
             }
             
-            console.log(`✅ Imagery fetched and cached`)
+            console.log(`✅ Imagery fetched and cached: ${imageryData.length} images`)
           }
         } catch (error) {
           console.error('❌ Imagery fetch failed:', error)
