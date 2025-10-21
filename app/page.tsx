@@ -1693,20 +1693,23 @@ export default function PINITApp() {
                   console.log("🗺️ Map natural dimensions:", e.currentTarget.naturalWidth, "x", e.currentTarget.naturalHeight)
                 }}
                 onError={(e) => {
+                  const imgElement = e.currentTarget
+                  if (!imgElement) return
+                  
+                  // Only try fallback once
+                  if (imgElement.dataset.tried === "true") {
+                    console.log("❌ Static map failed after fallback, hiding map")
+                    imgElement.style.display = "none"
+                    return
+                  }
+                  
                   console.log("❌ Static map failed to load (hybrid), trying roadmap...")
-                  console.log("🗺️ Failed URL:", e.currentTarget.src)
-                  // Try roadmap as fallback
-                  e.currentTarget.src = `https://maps.googleapis.com/maps/api/staticmap?center=${
+                  imgElement.dataset.tried = "true"
+                  imgElement.src = `https://maps.googleapis.com/maps/api/staticmap?center=${
                     userLocation?.latitude || location?.latitude || -25.7479
                   },${
                     userLocation?.longitude || location?.longitude || 28.2293
                   }&zoom=17&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
-                  
-                  // Set up one-time error handler for roadmap fallback
-                  e.currentTarget.onerror = () => {
-                    console.log("❌ Static map (roadmap) also failed, hiding map")
-                    e.currentTarget.style.display = "none"
-                  }
                 }}
               />
 
