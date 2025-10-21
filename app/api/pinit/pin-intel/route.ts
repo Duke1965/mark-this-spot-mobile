@@ -258,124 +258,8 @@ async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ 
   }
 }
 
-/**
- * Fetch Wikimedia Commons photos for a location (filtered for relevant place photos)
- */
-async function fetchWikimediaPhotos(locationName: string, lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; title?: string }> | null> {
-  try {
-    // Search for images on Wikimedia Commons near coordinates
-    // Using geosearch to find images within 1km radius
-    const radius = 1000 // meters
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${radius}&gslimit=20&gsnamespace=6&format=json&origin=*`
-    
-    const response = await fetchWithTimeout(url, {}, 5000, 0)
-    
-    if (!response.ok) {
-      return null
-    }
-    
-    const data = await response.json()
-    
-    if (!data.query?.geosearch || data.query.geosearch.length === 0) {
-      console.log(`📸 Wikimedia: No images found near ${lat}, ${lng}`)
-      return null
-    }
-    
-    console.log(`📸 Wikimedia: Found ${data.query.geosearch.length} nearby images`)
-    
-    // Get image details for the found pages
-    const pageIds = data.query.geosearch.map((item: any) => item.pageid).join('|')
-    const imageUrl = `https://commons.wikimedia.org/w/api.php?action=query&pageids=${pageIds}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`
-    
-    const imageResponse = await fetchWithTimeout(imageUrl, {}, 5000, 0)
-    
-    if (!imageResponse.ok) {
-      return null
-    }
-    
-    const imageData = await imageResponse.json()
-    
-    if (!imageData.query?.pages) {
-      return null
-    }
-    
-    // Extract and filter image URLs
-    const allImages: Array<{ image_url: string; thumb_url?: string; title: string; priority: number }> = []
-    
-    // Filter keywords - EXCLUDE these (nature/wildlife/closeups)
-    const excludeKeywords = [
-      // Insects
-      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'spider', 'bee', 'wasp', 'ant', 'fly',
-      'dragonfly', 'grasshopper', 'cricket', 'caterpillar', 'larvae', 'mantis',
-      // Wildlife
-      'bird', 'animal', 'wildlife', 'fauna', 'mammal', 'reptile', 'amphibian',
-      'snake', 'lizard', 'frog', 'toad',
-      // Nature closeups
-      'flower', 'plant', 'flora', 'leaf', 'petal', 'blossom', 'bloom',
-      'mushroom', 'fungus', 'lichen', 'moss',
-      // Technical terms
-      'species', 'macro', 'specimen', 'taxonomy', 'genus', 'order', 'family'
-    ]
-    
-    // Prefer keywords - INCLUDE these (places, buildings, landmarks)
-    const preferKeywords = [
-      'building', 'church', 'street', 'town', 'village', 'house', 'architecture',
-      'hotel', 'restaurant', 'square', 'market', 'shop', 'historic', 'monument',
-      'view', 'panorama', 'cityscape', 'landscape', locationName.toLowerCase()
-    ]
-    
-    Object.values(imageData.query.pages).forEach((page: any) => {
-      if (page.imageinfo && page.imageinfo.length > 0) {
-        const info = page.imageinfo[0]
-        const title = page.title?.replace('File:', '').toLowerCase() || ''
-        
-        console.log(`🔍 Wikimedia: Checking: "${page.title}"`)
-        
-        // Skip if title contains exclude keywords
-        const matchedKeyword = excludeKeywords.find(keyword => title.includes(keyword))
-        if (matchedKeyword) {
-          console.log(`🚫 Wikimedia: BLOCKED (matched "${matchedKeyword}"): ${page.title}`)
-          return
-        }
-        
-        console.log(`✅ Wikimedia: ALLOWED: ${page.title}`)
-        
-        // Calculate priority based on prefer keywords
-        let priority = 0
-        preferKeywords.forEach(keyword => {
-          if (title.includes(keyword)) {
-            priority++
-          }
-        })
-        
-        allImages.push({
-          image_url: info.url || info.thumburl,
-          thumb_url: info.thumburl,
-          title: page.title?.replace('File:', '') || 'Location photo',
-          priority
-        })
-      }
-    })
-    
-    // Sort by priority (highest first) and take top 3
-    const sortedImages = allImages
-      .sort((a, b) => b.priority - a.priority)
-      .slice(0, 3)
-      .map(({ image_url, thumb_url, title }) => ({ image_url, thumb_url, title }))
-    
-    if (sortedImages.length === 0) {
-      console.log(`📸 Wikimedia: All ${allImages.length} images were filtered out (insects/nature)`)
-      return null
-    }
-    
-    console.log(`📸 Wikimedia: Filtered from ${Object.keys(imageData.query.pages).length} to ${allImages.length} valid images, selected top ${sortedImages.length}`)
-    
-    return sortedImages
-  } catch (error) {
-    console.error('❌ Wikimedia error:', error)
-    return null
-  }
-}
+// Wikimedia Commons integration removed - unreliable filenames caused nature/insect photos
+// Now using Mapillary only for street-level imagery, with PINIT placeholder as fallback
 
 /**
  * Main POST handler
@@ -536,54 +420,30 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Fetch imagery if not cached - try multiple sources
-    if (!imageryData) {
-      console.log(`📸 Fetching imagery...`)
+    // Fetch imagery if not cached - Mapillary only
+    if (!imageryData && MAPILLARY_TOKEN) {
+      console.log(`📸 Fetching street-level imagery from Mapillary...`)
       
-      // Try Mapillary first (street-level imagery)
-      if (MAPILLARY_TOKEN) {
-        try {
-          console.log(`📸 Trying Mapillary...`)
-          imageryData = await fetchMapillaryImagery(lat, lng)
+      try {
+        imageryData = await fetchMapillaryImagery(lat, lng)
+        
+        if (imageryData && imageryData.length > 0) {
+          imagerySource = 'mapillary'
+          imageryData = imageryData.map((img: any) => ({ ...img, source: 'mapillary' }))
           
-          if (imageryData && imageryData.length > 0) {
-            imagerySource = 'mapillary'
-            imageryData = imageryData.map((img: any) => ({ ...img, source: 'mapillary' }))
-            console.log(`✅ Mapillary: ${imageryData.length} images`)
+          // Cache the result
+          imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
+          if (isRedisConfigured) {
+            await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
           }
-        } catch (error) {
-          console.error('❌ Mapillary fetch failed:', error)
-          imageryData = null
-        }
-      }
-      
-      // Fallback to Wikimedia Commons if Mapillary failed or no token
-      if (!imageryData || imageryData.length === 0) {
-        try {
-          console.log(`📸 Trying Wikimedia Commons...`)
-          const locationName = geocodeData?.formatted || ''
-          imageryData = await fetchWikimediaPhotos(locationName, lat, lng)
           
-          if (imageryData && imageryData.length > 0) {
-            imagerySource = 'wikimedia'
-            imageryData = imageryData.map((img: any) => ({ ...img, source: 'wikimedia' }))
-            console.log(`✅ Wikimedia Commons: ${imageryData.length} images`)
-          }
-        } catch (error) {
-          console.error('❌ Wikimedia fetch failed:', error)
-          imageryData = null
+          console.log(`✅ Mapillary: Found ${imageryData.length} street-level images`)
+        } else {
+          console.log(`📸 No Mapillary imagery available for this location - will use placeholder`)
         }
-      }
-      
-      // Cache the result if we got images
-      if (imageryData && imageryData.length > 0) {
-        imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
-        if (isRedisConfigured) {
-          await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
-        }
-        console.log(`✅ Imagery cached: ${imageryData.length} images from ${imagerySource}`)
-      } else {
-        console.log(`📸 No imagery found from any source`)
+      } catch (error) {
+        console.error('❌ Mapillary fetch failed:', error)
+        imageryData = null
       }
     }
     
