@@ -119,9 +119,13 @@ export default function SystemHealthCheck() {
         }
       }
 
-      // Test API connectivity
+      // Test API connectivity using pin-intel gateway
       const startTime = Date.now()
-      const response = await fetch('/api/places?lat=0&lng=0&test=true')
+      const response = await fetch('/api/pinit/pin-intel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: 0, lng: 0, precision: 5 })
+      })
       const duration = Date.now() - startTime
 
       if (response.ok) {
