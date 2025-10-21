@@ -1679,7 +1679,7 @@ export default function PINITApp() {
                   userLocation?.latitude || location?.latitude || -25.7479
                 },${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=17&size=280x280&maptype=hybrid&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
@@ -1688,28 +1688,30 @@ export default function PINITApp() {
                   filter: "contrast(1.1) saturate(1.2)",
                 }}
                 onLoad={(e) => {
-                  console.log("✅ Static map loaded successfully")
-                  console.log("🗺️ Map URL:", e.currentTarget.src)
-                  console.log("🗺️ Map natural dimensions:", e.currentTarget.naturalWidth, "x", e.currentTarget.naturalHeight)
+                  console.log("Map loaded successfully")
                 }}
                 onError={(e) => {
-                  const imgElement = e.currentTarget
-                  if (!imgElement) return
-                  
-                  // Only try fallback once
-                  if (imgElement.dataset.tried === "true") {
-                    console.log("❌ Static map failed after fallback, hiding map")
-                    imgElement.style.display = "none"
-                    return
-                  }
-                  
-                  console.log("❌ Static map failed to load (hybrid), trying roadmap...")
-                  imgElement.dataset.tried = "true"
-                  imgElement.src = `https://maps.googleapis.com/maps/api/staticmap?center=${
-                    userLocation?.latitude || location?.latitude || -25.7479
-                  },${
-                    userLocation?.longitude || location?.longitude || 28.2293
-                  }&zoom=17&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`
+                  console.log("Google Maps failed, trying alternative...")
+                  // Try OpenStreetMap tile service as fallback
+                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
+                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
+                  )}/${Math.floor(
+                    ((1 -
+                      Math.log(
+                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
+                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
+                      ) /
+                        Math.PI) /
+                      2) *
+                      Math.pow(2, 16),
+                  )}.png`
+
+                  // If that also fails, show a nice gradient background
+                  setTimeout(() => {
+                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
+                      e.currentTarget.style.display = "none"
+                    }
+                  }, 2000)
                 }}
               />
 
