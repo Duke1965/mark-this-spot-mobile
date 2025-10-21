@@ -159,10 +159,11 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
       }
       
       // Check if we have imagery data from the pin-intel gateway
-      if ((pin as any).imagery && Array.isArray((pin as any).imagery)) {
-        console.log("📸 Found", (pin as any).imagery.length, "imagery photos from gateway")
+      const imageryData = (pin as any).imagery
+      if (imageryData && Array.isArray(imageryData)) {
+        console.log("📸 Found", imageryData.length, "imagery photos from gateway")
         
-        (pin as any).imagery.forEach((imageData: any, index: number) => {
+        imageryData.forEach((imageData: any, index: number) => {
           allPhotos.push({
             photo_reference: `imagery-${index}`,
             url: imageData.image_url,
