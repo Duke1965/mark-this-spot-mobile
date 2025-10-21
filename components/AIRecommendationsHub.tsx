@@ -903,7 +903,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       console.log('🗺️ Creating Google Maps instance...')
       const map = new window.google.maps.Map(mapRef.current, {
         center: centerLocation,
-        zoom: 16,
+        zoom: 16, // Street level zoom for precise location
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
         zoomControl: true,
@@ -914,13 +914,16 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         mapTypeControl: false,
         fullscreenControl: false,
         backgroundColor: '#000000',
+        // Remove custom styles that might interfere with tiles
         styles: [],
-        gestureHandling: 'auto',
-        scrollwheel: true,
-        draggable: true,
+        gestureHandling: 'auto', // Let Google Maps automatically choose the best gesture handling
+        scrollwheel: true, // Enable mouse wheel zoom
+        draggable: true, // Ensure map can be dragged
+        // Mobile-specific optimizations
         clickableIcons: true,
-        keyboardShortcuts: false,
-        tilt: 0
+        keyboardShortcuts: false, // Disable keyboard shortcuts on mobile
+        // Ensure touch events work properly
+        tilt: 0 // Disable 3D tilt on mobile for better performance
       })
 
       console.log('🗺️ Google Maps instance created successfully')
@@ -941,8 +944,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               setIsMapLoading(false)
               
               // Center map on user location
-                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-                map.setZoom(16)
+              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+              map.setZoom(16)
               
               // Add a user location marker
               new window.google.maps.Marker({
@@ -964,6 +967,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               setTimeout(() => {
                 window.google.maps.event.trigger(map, 'resize')
                 setIsMapLoading(false)
+                
+                // Center map on user location
+                console.log('🗺️ Centering map on user location after resize:', mapLocation)
                 map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
               }, 500)
             }
