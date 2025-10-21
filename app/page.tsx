@@ -768,8 +768,8 @@ export default function PINITApp() {
       // Use gateway data for location name
       const locationName = pinIntel.geocode.formatted || locationDescription
       
-      // Generate AI content based on location and context
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, [])
+      // Generate AI content based on location and context with real gateway data
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, pinIntel)
       
       // Use imagery from gateway if available, otherwise use PINIT placeholder
       const imageryData = pinIntel.imagery
@@ -835,8 +835,8 @@ export default function PINITApp() {
   }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, user])
 
   // NEW: Generate intelligent AI content based on location and context
-  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
-    console.log("dY Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+  const generateAIContent = (lat: number, lng: number, motionData: any, pinIntel: any) => {
+    console.log("dY Generating AI content for location:", { lat, lng, speed: motionData.speed, places: pinIntel?.places?.length || 0 })
     
     // Determine location type and context
     let locationType = "general"
@@ -897,16 +897,57 @@ export default function PINITApp() {
       }
     }
     
-    // Generate intelligent description
+    // Generate intelligent description using real gateway data
     let description = ""
-    if (motionData.isMoving && motionData.speed > 5) {
-      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+    
+    // Get location details from gateway
+    const locationDetails = pinIntel?.geocode?.formatted || context
+    const nearbyPlaces = pinIntel?.places || []
+    const geocodeComponents = pinIntel?.geocode?.components || {}
+    
+    // Extract meaningful location info
+    const city = geocodeComponents.city || geocodeComponents.town || geocodeComponents.village || ""
+    const suburb = geocodeComponents.suburb || geocodeComponents.neighbourhood || ""
+    const region = geocodeComponents.state || geocodeComponents.county || ""
+    
+    // Build description based on nearby places
+    if (nearbyPlaces.length > 0) {
+      // Group places by category
+      const placesByCategory: Record<string, string[]> = {}
+      nearbyPlaces.slice(0, 5).forEach((place: any) => {
+        const category = place.categories?.[0] || "place"
+        if (!placesByCategory[category]) {
+          placesByCategory[category] = []
+        }
+        placesByCategory[category].push(place.name || "location")
+      })
+      
+      const categories = Object.keys(placesByCategory)
+      const categoryText = categories.map(cat => {
+        const places = placesByCategory[cat]
+        if (places.length === 1) {
+          return places[0]
+        } else {
+          return `${places.length} ${cat}s`
+        }
+      }).join(", ")
+      
+      if (motionData.isMoving && motionData.speed > 5) {
+        description = `Discovered while traveling at ${motionData.speed.toFixed(1)} km/h in ${city || region}. Nearby: ${categoryText}. ${locationType === "small-town" ? "A charming rural area" : locationType === "coastal" ? "Beautiful coastal region" : "Great spot"} perfect for exploring and sharing memories!`
+      } else {
+        description = `Located in ${suburb ? suburb + ", " : ""}${city || region}. You'll find ${categoryText} nearby. ${locationType === "small-town" ? "This quiet community" : locationType === "urban-cbd" ? "This vibrant area" : "This location"} is worth remembering and sharing with friends!`
+      }
     } else {
-      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+      // Fallback when no nearby places
+      if (motionData.isMoving && motionData.speed > 5) {
+        description = `Discovered this ${locationType === "small-town" ? "charming rural" : locationType === "coastal" ? "beautiful coastal" : "interesting"} spot while traveling at ${motionData.speed.toFixed(1)} km/h through ${city || region}. Perfect for capturing memories!`
+      } else {
+        description = `A ${locationType === "small-town" ? "peaceful" : locationType === "urban-cbd" ? "vibrant" : "special"} location in ${city || region}. ${locationType === "small-town" ? "This quiet area" : "This spot"} is perfect for remembering and sharing.`
+      }
     }
     
     // Generate smart tags based on context
-    const tags = []
+    const tags: string[] = []
     if (motionData.isMoving && motionData.speed > 5) {
       tags.push("travel-discovery", "speed-pinning")
     }
@@ -923,18 +964,23 @@ export default function PINITApp() {
     }
     tags.push("ai-generated", "pinit")
     
-    // Use real location name if available from photos
-    let locationName = context
-    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
-      locationName = locationPhotos[0].placeName
+    // Add tags from nearby places
+    if (nearbyPlaces.length > 0) {
+      nearbyPlaces.slice(0, 3).forEach((place: any) => {
+        if (place.categories && place.categories.length > 0) {
+          const category = place.categories[0].split('.').pop() || place.categories[0]
+          if (!tags.includes(category)) {
+            tags.push(category)
+          }
+        }
+      })
     }
     
-    console.log("dY AI Generated Content:", { title, description, locationName, tags })
+    console.log("dY AI Generated Content:", { title, description, tags, nearbyPlacesCount: nearbyPlaces.length })
     
     return {
       title,
       description,
-      locationName,
       tags
     }
   }
