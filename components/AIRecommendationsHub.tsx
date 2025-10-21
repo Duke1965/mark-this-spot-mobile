@@ -274,40 +274,47 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     return clusters
   }, [])
 
-  // NEW: Function to fetch real place names from Google Places API
+  // NEW: Function to fetch real place names from pin-intel gateway
   const fetchPlaceName = useCallback(async (lat: number, lng: number): Promise<{name: string, category: string, photoUrl?: string} | null> => {
     try {
       console.log('🧠 Fetching place name for coordinates:', lat, lng)
       
-      // Call our Places API route
-      const response = await fetch('/api/places', {
+      // Call our pin-intel gateway
+      const response = await fetch('/api/pinit/pin-intel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          latitude: lat,
-          longitude: lng,
-          radius: 100 // 100m radius to find nearby places
+          lat: lat,
+          lng: lng,
+          precision: 5
         })
       })
       
       if (!response.ok) {
-        console.log('🧠 Places API error:', response.status)
+        console.log('🧠 Pin-intel gateway error:', response.status)
         return null
       }
       
       const data = await response.json()
-      console.log('🧠 Places API response:', data)
+      console.log('🧠 Pin-intel gateway response:', data)
       
       if (data.places && data.places.length > 0) {
         const place = data.places[0] // Get the closest place
         return {
-          name: place.name,
-          category: place.types?.[0] || 'general',
-          photoUrl: place.photos?.[0] ? 
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}` : 
-            undefined
+          name: place.name || data.geocode?.formatted || 'Unknown Place',
+          category: place.categories?.[0] || 'general',
+          photoUrl: data.imagery?.image_url || undefined
+        }
+      }
+      
+      // Fallback to just the geocoded address if no places found
+      if (data.geocode?.formatted) {
+        return {
+          name: data.geocode.formatted,
+          category: 'general',
+          photoUrl: data.imagery?.image_url || undefined
         }
       }
       
@@ -503,24 +510,34 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
             const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
             
-            // Fetch real places from Google Places API for each category
+            // Fetch real places from pin-intel gateway for each category
             for (const category of shuffledCategories) {
               try {
-                // Get real places for this category from Google Places API
-                const response = await fetch(`/api/places?lat=${location.latitude}&lng=${location.longitude}&radius=5000`)
+                // Get real places for this category from pin-intel gateway
+                const response = await fetch('/api/pinit/pin-intel', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    lat: location.latitude,
+                    lng: location.longitude,
+                    precision: 5
+                  })
+                })
                 
                 if (response.ok) {
                   const data = await response.json()
-                  const places = data.results || []
+                  const places = data.places || []
                   
                   // Filter places by category preference
                   const categoryPlaces = places.filter((place: any) => 
-                    place.types?.some((type: string) => 
-                      type.includes(category) || 
-                      (category === 'food' && ['restaurant', 'cafe', 'meal_takeaway', 'bakery'].includes(type)) ||
-                      (category === 'adventure' && ['tourist_attraction', 'amusement_park', 'park'].includes(type)) ||
-                      (category === 'culture' && ['museum', 'art_gallery', 'library'].includes(type)) ||
-                      (category === 'nature' && ['park', 'natural_feature'].includes(type))
+                    place.categories?.some((cat: string) => 
+                      cat.includes(category) || 
+                      (category === 'food' && ['catering', 'restaurant', 'cafe'].some(c => cat.includes(c))) ||
+                      (category === 'adventure' && ['activity', 'leisure', 'tourism'].some(c => cat.includes(c))) ||
+                      (category === 'culture' && ['entertainment', 'art'].some(c => cat.includes(c))) ||
+                      (category === 'nature' && ['natural'].some(c => cat.includes(c)))
                     )
                   )
                   
@@ -528,20 +545,20 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
                     
                     aiRecs.push({
-                      id: `ai-${category}-${selectedPlace.place_id}`,
-                      title: selectedPlace.name,
+                      id: `ai-${category}-${selectedPlace.id}`,
+                      title: selectedPlace.name || 'Interesting Place',
                       description: `AI recommends this ${category} spot based on your preferences`,
                       category: category,
                       location: {
-                        lat: selectedPlace.geometry.location.lat, // EXACT Google Places coordinates
-                        lng: selectedPlace.geometry.location.lng, // EXACT Google Places coordinates
+                        lat: selectedPlace.lat,
+                        lng: selectedPlace.lng,
                       },
-                      rating: selectedPlace.rating || 4.0,
+                      rating: 4.0, // Default rating since Geoapify doesn't provide ratings
                       isAISuggestion: true,
                       confidence: Math.round(insights.userPersonality.confidence * 100),
                       reason: `Learned from your ${category} preferences`,
                       timestamp: new Date(),
-                      fallbackImage: selectedPlace.photos?.[0] ? undefined : getFallbackImage(category)
+                      fallbackImage: data.imagery ? undefined : getFallbackImage(category)
                     })
                   }
                 }
@@ -924,8 +941,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               setIsMapLoading(false)
               
               // Center map on user location
-              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-              map.setZoom(16)
+                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
+                map.setZoom(16)
               
               // Add a user location marker
               new window.google.maps.Marker({
