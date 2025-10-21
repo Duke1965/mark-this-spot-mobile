@@ -69,10 +69,10 @@ export async function postPinIntel(
     throw new Error('Request already in flight')
   }
   
-  // Guard: debounce (3s minimum between calls)
+  // Guard: debounce (1s minimum between calls - reduced for driving scenarios)
   const now = Date.now()
-  if (now - lastAt < 3000) {
-    console.log('⚠️ Debounce: Too soon since last call (3s minimum)')
+  if (now - lastAt < 1000) {
+    console.log('⚠️ Debounce: Too soon since last call (1s minimum)')
     throw new Error('Already captured - please wait')
   }
   
