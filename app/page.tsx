@@ -712,7 +712,10 @@ export default function PINITApp() {
 
   // Handle quick pin with speed-based location calculation - UPDATED TO USE NEW GATEWAY
   const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
+    if (isQuickPinning) {
+      console.log("⏳ Already pinning, please wait...")
+      return
+    }
 
     setIsQuickPinning(true)
     setLastActivity("quick-pin")
@@ -817,9 +820,20 @@ export default function PINITApp() {
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
       
-      // Show user-friendly error
-      if (error instanceof Error && error.message === 'Already captured - please wait') {
-        console.log("⏳ Debounce: User tapped too quickly")
+      // Show user-friendly error feedback
+      if (error instanceof Error) {
+        if (error.message === 'Already captured - please wait' || error.message === 'Request already in flight') {
+          console.log("⏳ Please wait - processing previous pin...")
+          // Show brief visual feedback
+          setSuccessMessage("⏳ Processing... please wait")
+          setShowSuccessPopup(true)
+          setTimeout(() => setShowSuccessPopup(false), 1500)
+        } else {
+          console.log("❌ Error:", error.message)
+          setSuccessMessage("❌ Unable to pin - try again")
+          setShowSuccessPopup(true)
+          setTimeout(() => setShowSuccessPopup(false), 2000)
+        }
       }
     } finally {
       setIsQuickPinning(false)
