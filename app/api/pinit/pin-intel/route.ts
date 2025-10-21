@@ -302,10 +302,19 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
     // Extract and filter image URLs
     const allImages: Array<{ image_url: string; thumb_url?: string; title: string; priority: number }> = []
     
-    // Filter keywords - EXCLUDE these (nature/wildlife closeups only)
+    // Filter keywords - EXCLUDE these (nature/wildlife/closeups)
     const excludeKeywords = [
-      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'spider', 'bee', 'wasp',
-      'wildlife', 'fauna', 'species', 'macro'
+      // Insects
+      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'spider', 'bee', 'wasp', 'ant', 'fly',
+      'dragonfly', 'grasshopper', 'cricket', 'caterpillar', 'larvae', 'mantis',
+      // Wildlife
+      'bird', 'animal', 'wildlife', 'fauna', 'mammal', 'reptile', 'amphibian',
+      'snake', 'lizard', 'frog', 'toad',
+      // Nature closeups
+      'flower', 'plant', 'flora', 'leaf', 'petal', 'blossom', 'bloom',
+      'mushroom', 'fungus', 'lichen', 'moss',
+      // Technical terms
+      'species', 'macro', 'specimen', 'taxonomy', 'genus', 'order', 'family'
     ]
     
     // Prefer keywords - INCLUDE these (places, buildings, landmarks)
@@ -320,14 +329,16 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
         const info = page.imageinfo[0]
         const title = page.title?.replace('File:', '').toLowerCase() || ''
         
+        console.log(`🔍 Wikimedia: Checking: "${page.title}"`)
+        
         // Skip if title contains exclude keywords
-        const shouldExclude = excludeKeywords.some(keyword => title.includes(keyword))
-        if (shouldExclude) {
-          console.log(`🚫 Wikimedia: Filtered out: ${page.title}`)
+        const matchedKeyword = excludeKeywords.find(keyword => title.includes(keyword))
+        if (matchedKeyword) {
+          console.log(`🚫 Wikimedia: BLOCKED (matched "${matchedKeyword}"): ${page.title}`)
           return
         }
         
-        console.log(`✅ Wikimedia: Including: ${page.title} (priority will be calculated)`)
+        console.log(`✅ Wikimedia: ALLOWED: ${page.title}`)
         
         // Calculate priority based on prefer keywords
         let priority = 0
@@ -352,9 +363,14 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
       .slice(0, 3)
       .map(({ image_url, thumb_url, title }) => ({ image_url, thumb_url, title }))
     
-    console.log(`📸 Wikimedia: Found ${allImages.length} images, selected ${sortedImages.length} relevant ones`)
+    if (sortedImages.length === 0) {
+      console.log(`📸 Wikimedia: All ${allImages.length} images were filtered out (insects/nature)`)
+      return null
+    }
     
-    return sortedImages.length > 0 ? sortedImages : null
+    console.log(`📸 Wikimedia: Filtered from ${Object.keys(imageData.query.pages).length} to ${allImages.length} valid images, selected top ${sortedImages.length}`)
+    
+    return sortedImages
   } catch (error) {
     console.error('❌ Wikimedia error:', error)
     return null
