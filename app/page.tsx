@@ -788,12 +788,20 @@ export default function PINITApp() {
       const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, [])
       
       // Use imagery from gateway if available, otherwise use PINIT placeholder
-      const mediaUrl = pinIntel.imagery?.image_url || "/pinit-placeholder.jpg"
-      const additionalPhotos = pinIntel.imagery ? [
-        { url: pinIntel.imagery.image_url, placeName: locationName }
-      ] : [
+      const imageryData = pinIntel.imagery
+      let mediaUrl = "/pinit-placeholder.jpg"
+      let additionalPhotos: Array<{ url: string; placeName: string }> = [
         { url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }
       ]
+      
+      if (imageryData && Array.isArray(imageryData) && imageryData.length > 0) {
+        console.log("📸 Found", imageryData.length, "images from gateway")
+        mediaUrl = imageryData[0].image_url // Use first image as main
+        additionalPhotos = imageryData.map((img, index) => ({
+          url: img.image_url,
+          placeName: `${locationName} - Image ${index + 1}`
+        }))
+      }
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -807,8 +815,10 @@ export default function PINITApp() {
         title: aiGeneratedContent.title,
         description: aiGeneratedContent.description,
         tags: aiGeneratedContent.tags,
-        additionalPhotos: additionalPhotos
-      }
+        additionalPhotos: additionalPhotos,
+        // Pass imagery data directly for carousel
+        imagery: imageryData
+      } as PinData & { imagery?: any }
 
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
