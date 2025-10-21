@@ -801,6 +801,20 @@ export default function PINITApp() {
           url: img.image_url,
           placeName: `${locationName} - Image ${index + 1}`
         }))
+      } else {
+        // Fallback: Use mock images for testing carousel functionality
+        console.log("📸 No imagery from gateway, using mock images for testing")
+        const mockImages = [
+          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
+          "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop", 
+          "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=300&fit=crop"
+        ]
+        
+        mediaUrl = mockImages[0]
+        additionalPhotos = mockImages.map((url, index) => ({
+          url: url,
+          placeName: `${locationName} - Mock Image ${index + 1}`
+        }))
       }
       
       const newPin: PinData = {
