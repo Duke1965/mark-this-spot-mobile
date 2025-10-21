@@ -259,14 +259,14 @@ async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ 
 }
 
 /**
- * Fetch Wikimedia Commons photos for a location
+ * Fetch Wikimedia Commons photos for a location (filtered for relevant place photos)
  */
 async function fetchWikimediaPhotos(locationName: string, lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; title?: string }> | null> {
   try {
     // Search for images on Wikimedia Commons near coordinates
-    // Using geosearch to find images within 1km radius
-    const radius = 1000 // meters
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${radius}&gslimit=10&gsnamespace=6&format=json&origin=*`
+    // Using geosearch to find images within 500m radius (tighter to avoid irrelevant results)
+    const radius = 500 // meters
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${radius}&gslimit=20&gsnamespace=6&format=json&origin=*`
     
     const response = await fetchWithTimeout(url, {}, 5000, 0)
     
@@ -281,8 +281,8 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
     }
     
     // Get image details for the found pages
-    const pageIds = data.query.geosearch.slice(0, 4).map((item: any) => item.pageid).join('|')
-    const imageUrl = `https://commons.wikimedia.org/w/api.php?action=query&pageids=${pageIds}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`
+    const pageIds = data.query.geosearch.map((item: any) => item.pageid).join('|')
+    const imageUrl = `https://commons.wikimedia.org/w/api.php?action=query&pageids=${pageIds}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`
     
     const imageResponse = await fetchWithTimeout(imageUrl, {}, 5000, 0)
     
@@ -296,21 +296,61 @@ async function fetchWikimediaPhotos(locationName: string, lat: number, lng: numb
       return null
     }
     
-    // Extract image URLs
-    const images: Array<{ image_url: string; thumb_url?: string; title?: string }> = []
+    // Extract and filter image URLs
+    const allImages: Array<{ image_url: string; thumb_url?: string; title: string; priority: number }> = []
+    
+    // Filter keywords - EXCLUDE these (nature/wildlife)
+    const excludeKeywords = [
+      'insect', 'bug', 'beetle', 'butterfly', 'moth', 'fly', 'spider', 'bee', 'wasp',
+      'bird', 'animal', 'wildlife', 'fauna', 'flower', 'plant', 'flora', 'leaf',
+      'mushroom', 'fungus', 'snake', 'lizard', 'frog', 'species', 'macro'
+    ]
+    
+    // Prefer keywords - INCLUDE these (places, buildings, landmarks)
+    const preferKeywords = [
+      'building', 'church', 'street', 'town', 'village', 'house', 'architecture',
+      'hotel', 'restaurant', 'square', 'market', 'shop', 'historic', 'monument',
+      'view', 'panorama', 'cityscape', 'landscape', locationName.toLowerCase()
+    ]
     
     Object.values(imageData.query.pages).forEach((page: any) => {
       if (page.imageinfo && page.imageinfo.length > 0) {
         const info = page.imageinfo[0]
-        images.push({
+        const title = page.title?.replace('File:', '').toLowerCase() || ''
+        
+        // Skip if title contains exclude keywords
+        const shouldExclude = excludeKeywords.some(keyword => title.includes(keyword))
+        if (shouldExclude) {
+          console.log(`🚫 Filtered out: ${title}`)
+          return
+        }
+        
+        // Calculate priority based on prefer keywords
+        let priority = 0
+        preferKeywords.forEach(keyword => {
+          if (title.includes(keyword)) {
+            priority++
+          }
+        })
+        
+        allImages.push({
           image_url: info.url || info.thumburl,
           thumb_url: info.thumburl,
-          title: page.title?.replace('File:', '') || 'Location photo'
+          title: page.title?.replace('File:', '') || 'Location photo',
+          priority
         })
       }
     })
     
-    return images.length > 0 ? images : null
+    // Sort by priority (highest first) and take top 3
+    const sortedImages = allImages
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 3)
+      .map(({ image_url, thumb_url, title }) => ({ image_url, thumb_url, title }))
+    
+    console.log(`📸 Wikimedia: Found ${allImages.length} images, selected ${sortedImages.length} relevant ones`)
+    
+    return sortedImages.length > 0 ? sortedImages : null
   } catch (error) {
     console.error('❌ Wikimedia error:', error)
     return null
