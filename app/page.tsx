@@ -248,7 +248,7 @@ export default function PINITApp() {
     try {
       localStorage.removeItem("pinit-app-state")
       console.log("dY1 App state cleared manually")
-      setTimeout(() => setCurrentScreen("map"), 100)
+      setCurrentScreen("map")
       setRecommendations([])
       setDiscoveryMode(false)
       setShowRecommendToggle(false)
@@ -258,23 +258,7 @@ export default function PINITApp() {
     }
   }, [])
 
-  // FORCE RESET ON APP START - Clear any corrupted state
-  useEffect(() => {
-    console.log("dYs PINIT App starting - clearing any corrupted state")
-    try {
-      // Clear any potentially corrupted state immediately
-      localStorage.removeItem("pinit-app-state")
-      console.log("dY1 Cleared app state on startup")
-      
-      // Force start on map screen
-      setTimeout(() => setCurrentScreen("map"), 100)
-      setLastActivity("app-start-fresh")
-      
-      console.log("o. App started fresh on map screen")
-    } catch (error) {
-      console.error("❌ Error during app startup reset:", error)
-    }
-  }, [])
+  // Removed conflicting force reset - state persistence handles initialization
 
   // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
   useEffect(() => {
@@ -307,11 +291,11 @@ export default function PINITApp() {
             console.log("o. Restored screen:", parsedState.currentScreen)
           } else {
             console.log("s,? Preventing camera from opening on app start, staying on map")
-            setTimeout(() => setCurrentScreen("map"), 100)
+            setCurrentScreen("map")
           }
         } else {
           console.log("s,? Invalid screen state, defaulting to map")
-          setTimeout(() => setCurrentScreen("map"), 100)
+          setCurrentScreen("map")
         }
         
         // Restore recommendations
@@ -339,7 +323,7 @@ export default function PINITApp() {
         if (!authLoading && !user) {
           setCurrentScreen("settings")
         } else if (!authLoading && user) {
-          setTimeout(() => setCurrentScreen("map"), 100)
+          setCurrentScreen("map")
         }
       }
     } catch (error) {
@@ -355,7 +339,7 @@ export default function PINITApp() {
       if (!authLoading && !user) {
         setCurrentScreen("settings")
       } else if (!authLoading && user) {
-        setTimeout(() => setCurrentScreen("map"), 100)
+        setCurrentScreen("map")
       }
     }
   }, [authLoading, user]) // Add authLoading and user as dependencies
@@ -2239,49 +2223,7 @@ export default function PINITApp() {
     </div>
   )
 
-  // Auto-redirect to settings if not authenticated - CONSOLIDATED LOGIC
-  useEffect(() => {
-    console.log("dY? Auth state:", { user, authLoading })
-    
-    // Wait for auth to finish loading - but don't show splash screen
-    if (authLoading) {
-      console.log("dY? Still loading auth, waiting...")
-      // Don't set screen here - let it stay on current screen
-      return
-    }
-    
-    // Check if user is authenticated
-    if (!user) {
-      console.log("dY? No user, redirecting to settings")
-      setCurrentScreen("settings")
-      return
-    }
-    
-    // User is authenticated - check if this is a page refresh
-    const savedState = localStorage.getItem("pinit-app-state")
-    if (savedState) {
-      try {
-        const parsedState = JSON.parse(savedState)
-        console.log("🔄 Page refreshed - restoring last screen:", parsedState.currentScreen)
-        
-        // Restore the user's last screen if it's valid and not camera
-        if (parsedState.currentScreen && 
-            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
-          if (parsedState.currentScreen !== "camera") {
-            setCurrentScreen(parsedState.currentScreen)
-            console.log("o. Restored screen after refresh:", parsedState.currentScreen)
-            return
-          }
-        }
-      } catch (error) {
-        console.error("O Failed to restore screen after refresh:", error)
-      }
-    }
-    
-    // Default to map for authenticated users (only if no saved state)
-    console.log("dY? User authenticated, going to main screen")
-    setTimeout(() => setCurrentScreen("map"), 100)
-  }, [user, authLoading])
+  // Auth redirect removed - handled by state persistence useEffect above to prevent flicker
 
   // Handle Android back button navigation
   useEffect(() => {
