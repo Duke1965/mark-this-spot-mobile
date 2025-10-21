@@ -1679,7 +1679,7 @@ export default function PINITApp() {
                   userLocation?.latitude || location?.latitude || -25.7479
                 },${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=satellite&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                }&zoom=16&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
@@ -1692,8 +1692,11 @@ export default function PINITApp() {
                 }}
                 onError={(e) => {
                   console.log("Google Maps failed, trying alternative...")
+                  const imgElement = e.currentTarget
+                  if (!imgElement) return
+                  
                   // Try OpenStreetMap tile service as fallback
-                  e.currentTarget.src = `https://tile.openstreetmap.org/16/${Math.floor(
+                  imgElement.src = `https://tile.openstreetmap.org/16/${Math.floor(
                     (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
                   )}/${Math.floor(
                     ((1 -
@@ -1708,8 +1711,8 @@ export default function PINITApp() {
 
                   // If that also fails, show a nice gradient background
                   setTimeout(() => {
-                    if (e.currentTarget.complete && e.currentTarget.naturalHeight === 0) {
-                      e.currentTarget.style.display = "none"
+                    if (imgElement && imgElement.complete && imgElement.naturalHeight === 0) {
+                      imgElement.style.display = "none"
                     }
                   }, 2000)
                 }}
