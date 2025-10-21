@@ -259,6 +259,65 @@ async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ 
 }
 
 /**
+ * Fetch Wikimedia Commons photos for a location
+ */
+async function fetchWikimediaPhotos(locationName: string, lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; title?: string }> | null> {
+  try {
+    // Search for images on Wikimedia Commons near coordinates
+    // Using geosearch to find images within 1km radius
+    const radius = 1000 // meters
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${radius}&gslimit=10&gsnamespace=6&format=json&origin=*`
+    
+    const response = await fetchWithTimeout(url, {}, 5000, 0)
+    
+    if (!response.ok) {
+      return null
+    }
+    
+    const data = await response.json()
+    
+    if (!data.query?.geosearch || data.query.geosearch.length === 0) {
+      return null
+    }
+    
+    // Get image details for the found pages
+    const pageIds = data.query.geosearch.slice(0, 4).map((item: any) => item.pageid).join('|')
+    const imageUrl = `https://commons.wikimedia.org/w/api.php?action=query&pageids=${pageIds}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`
+    
+    const imageResponse = await fetchWithTimeout(imageUrl, {}, 5000, 0)
+    
+    if (!imageResponse.ok) {
+      return null
+    }
+    
+    const imageData = await imageResponse.json()
+    
+    if (!imageData.query?.pages) {
+      return null
+    }
+    
+    // Extract image URLs
+    const images: Array<{ image_url: string; thumb_url?: string; title?: string }> = []
+    
+    Object.values(imageData.query.pages).forEach((page: any) => {
+      if (page.imageinfo && page.imageinfo.length > 0) {
+        const info = page.imageinfo[0]
+        images.push({
+          image_url: info.url || info.thumburl,
+          thumb_url: info.thumburl,
+          title: page.title?.replace('File:', '') || 'Location photo'
+        })
+      }
+    })
+    
+    return images.length > 0 ? images : null
+  } catch (error) {
+    console.error('❌ Wikimedia error:', error)
+    return null
+  }
+}
+
+/**
  * Main POST handler
  */
 export async function POST(request: NextRequest) {
@@ -396,43 +455,75 @@ export async function POST(request: NextRequest) {
     // Try to get imagery from cache (optional)
     let imageryData: any = null
     let imageryCached = false
+    let imagerySource = 'none'
     
-    if (MAPILLARY_TOKEN) {
-      if (isRedisConfigured) {
-        imageryData = await redisGet(imageryKey)
-        if (imageryData) {
-          imageryCached = true
-          console.log(`✅ Imagery cache hit (Redis): ${imageryKey}`)
-        }
+    // Check cache first
+    if (isRedisConfigured) {
+      imageryData = await redisGet(imageryKey)
+      if (imageryData) {
+        imageryCached = true
+        imagerySource = imageryData[0]?.source || 'cached'
+        console.log(`✅ Imagery cache hit (Redis): ${imageryKey}`)
       }
-      
-      if (!imageryData) {
-        imageryData = imageryCache.get(imageryKey)
-        if (imageryData) {
-          imageryCached = true
-          console.log(`✅ Imagery cache hit (Memory): ${imageryKey}`)
-        }
+    }
+    
+    if (!imageryData) {
+      imageryData = imageryCache.get(imageryKey)
+      if (imageryData) {
+        imageryCached = true
+        imagerySource = imageryData[0]?.source || 'cached'
+        console.log(`✅ Imagery cache hit (Memory): ${imageryKey}`)
       }
+    }
+    
+    // Fetch imagery if not cached - try multiple sources
+    if (!imageryData) {
+      console.log(`📸 Fetching imagery...`)
       
-      // Fetch imagery if not cached
-      if (!imageryData) {
-        console.log(`📸 Fetching imagery from Mapillary...`)
+      // Try Mapillary first (street-level imagery)
+      if (MAPILLARY_TOKEN) {
         try {
+          console.log(`📸 Trying Mapillary...`)
           imageryData = await fetchMapillaryImagery(lat, lng)
           
           if (imageryData && imageryData.length > 0) {
-            // Store in cache
-            imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
-            if (isRedisConfigured) {
-              await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
-            }
-            
-            console.log(`✅ Imagery fetched and cached: ${imageryData.length} images`)
+            imagerySource = 'mapillary'
+            imageryData = imageryData.map((img: any) => ({ ...img, source: 'mapillary' }))
+            console.log(`✅ Mapillary: ${imageryData.length} images`)
           }
         } catch (error) {
-          console.error('❌ Imagery fetch failed:', error)
+          console.error('❌ Mapillary fetch failed:', error)
           imageryData = null
         }
+      }
+      
+      // Fallback to Wikimedia Commons if Mapillary failed or no token
+      if (!imageryData || imageryData.length === 0) {
+        try {
+          console.log(`📸 Trying Wikimedia Commons...`)
+          const locationName = geocodeData?.formatted || ''
+          imageryData = await fetchWikimediaPhotos(locationName, lat, lng)
+          
+          if (imageryData && imageryData.length > 0) {
+            imagerySource = 'wikimedia'
+            imageryData = imageryData.map((img: any) => ({ ...img, source: 'wikimedia' }))
+            console.log(`✅ Wikimedia Commons: ${imageryData.length} images`)
+          }
+        } catch (error) {
+          console.error('❌ Wikimedia fetch failed:', error)
+          imageryData = null
+        }
+      }
+      
+      // Cache the result if we got images
+      if (imageryData && imageryData.length > 0) {
+        imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
+        if (isRedisConfigured) {
+          await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
+        }
+        console.log(`✅ Imagery cached: ${imageryData.length} images from ${imagerySource}`)
+      } else {
+        console.log(`📸 No imagery found from any source`)
       }
     }
     
@@ -442,12 +533,12 @@ export async function POST(request: NextRequest) {
         source: {
           geocode: 'opencage',
           places: 'geoapify',
-          ...(MAPILLARY_TOKEN ? { imagery: 'mapillary' } : {})
+          ...(imagerySource !== 'none' ? { imagery: imagerySource } : {})
         },
         cached: {
           geocode: geocodeCached,
           places: poiCached,
-          ...(MAPILLARY_TOKEN ? { imagery: imageryCached } : {})
+          ...(imageryData ? { imagery: imageryCached } : {})
         },
         ...(idempotencyKey ? { idempotencyKey } : {}),
         rate: {
