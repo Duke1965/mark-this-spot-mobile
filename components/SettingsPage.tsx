@@ -505,6 +505,84 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
                 />
               </div>
 
+              {/* Facebook */}
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>👥</span>
+                  <span style={{ fontWeight: "bold" }}>Facebook</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="facebook.com/yourprofile"
+                  value={userProfile.socialAccounts.facebook}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    socialAccounts: { ...prev.socialAccounts, facebook: e.target.value }
+                  }))}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </div>
+
+              {/* LinkedIn */}
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>💼</span>
+                  <span style={{ fontWeight: "bold" }}>LinkedIn</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="linkedin.com/in/yourprofile"
+                  value={userProfile.socialAccounts.linkedin}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    socialAccounts: { ...prev.socialAccounts, linkedin: e.target.value }
+                  }))}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </div>
+
+              {/* WhatsApp */}
+              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>💬</span>
+                  <span style={{ fontWeight: "bold" }}>WhatsApp</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="+27 123 456 7890"
+                  value={userProfile.socialAccounts.whatsapp}
+                  onChange={(e) => setUserProfile(prev => ({
+                    ...prev,
+                    socialAccounts: { ...prev.socialAccounts, whatsapp: e.target.value }
+                  }))}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </div>
+
               <button
                 onClick={handleNext}
                 style={{
