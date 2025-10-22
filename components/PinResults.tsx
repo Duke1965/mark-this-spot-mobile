@@ -328,46 +328,9 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
             maxWidth: "600px",
             margin: "0 auto",
           }}>
-            {/* Instagram Story */}
+            {/* Instagram */}
             <button
-              onClick={() => handlePlatformSelect("instagram-story")}
-              style={{
-                padding: "1.5rem 1rem",
-                borderRadius: "1rem",
-                border: "2px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.05)",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.75rem",
-                transition: "all 0.2s ease",
-                position: "relative",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>📱</div>
-              <div style={{ textAlign: "center" }}>
-                <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Instagram Story
-                </h3>
-                <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
-                  9:16
-                </p>
-              </div>
-              <div style={{
-                width: "100%",
-                height: "3px",
-                borderRadius: "1.5px",
-                background: "#E4405F",
-                opacity: 0.6,
-              }} />
-            </button>
-
-            {/* Instagram Post */}
-            <button
-              onClick={() => handlePlatformSelect("instagram-post")}
+              onClick={() => handlePlatformSelect("instagram")}
               style={{
                 padding: "1.5rem 1rem",
                 borderRadius: "1rem",
@@ -387,7 +350,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>📸</div>
               <div style={{ textAlign: "center" }}>
                 <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Instagram Post
+                  Instagram
                 </h3>
                 <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
                   1:1
@@ -402,9 +365,46 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               }} />
             </button>
 
-            {/* Facebook Post */}
+            {/* X (Twitter) */}
             <button
-              onClick={() => handlePlatformSelect("facebook-post")}
+              onClick={() => handlePlatformSelect("twitter")}
+              style={{
+                padding: "1.5rem 1rem",
+                borderRadius: "1rem",
+                border: "2px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.05)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                transition: "all 0.2s ease",
+                position: "relative",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>𝕏</div>
+              <div style={{ textAlign: "center" }}>
+                <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
+                  X (Twitter)
+                </h3>
+                <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                  16:9
+                </p>
+              </div>
+              <div style={{
+                width: "100%",
+                height: "3px",
+                borderRadius: "1.5px",
+                background: "#1DA1F2",
+                opacity: 0.6,
+              }} />
+            </button>
+
+            {/* Facebook */}
+            <button
+              onClick={() => handlePlatformSelect("facebook")}
               style={{
                 padding: "1.5rem 1rem",
                 borderRadius: "1rem",
@@ -424,7 +424,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>👥</div>
               <div style={{ textAlign: "center" }}>
                 <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Facebook Post
+                  Facebook
                 </h3>
                 <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
                   1.91:1
@@ -439,9 +439,9 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               }} />
             </button>
 
-            {/* X Post */}
+            {/* LinkedIn */}
             <button
-              onClick={() => handlePlatformSelect("x-post")}
+              onClick={() => handlePlatformSelect("linkedin")}
               style={{
                 padding: "1.5rem 1rem",
                 borderRadius: "1rem",
@@ -458,10 +458,47 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
                 backdropFilter: "blur(10px)",
               }}
             >
-              <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>🐦</div>
+              <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>💼</div>
               <div style={{ textAlign: "center" }}>
                 <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  X Post
+                  LinkedIn
+                </h3>
+                <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
+                  1.91:1
+                </p>
+              </div>
+              <div style={{
+                width: "100%",
+                height: "3px",
+                borderRadius: "1.5px",
+                background: "#0A66C2",
+                opacity: 0.6,
+              }} />
+            </button>
+
+            {/* WhatsApp */}
+            <button
+              onClick={() => handlePlatformSelect("whatsapp")}
+              style={{
+                padding: "1.5rem 1rem",
+                borderRadius: "1rem",
+                border: "2px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.05)",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                transition: "all 0.2s ease",
+                position: "relative",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.25rem" }}>💬</div>
+              <div style={{ textAlign: "center" }}>
+                <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>
+                  WhatsApp
                 </h3>
                 <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.7 }}>
                   16:9
@@ -471,7 +508,7 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
                 width: "100%",
                 height: "3px",
                 borderRadius: "1.5px",
-                background: "#1DA1F2",
+                background: "#25D366",
                 opacity: 0.6,
               }} />
             </button>
