@@ -280,6 +280,8 @@ export default function PINITApp() {
           const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
           const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
           
+          console.log("🔍 Welcome check - hasSeenWelcome:", hasSeenWelcome, "hasCompletedSetup:", hasCompletedSetup)
+          
           if (!hasSeenWelcome) {
             console.log(" No authenticated user and haven't seen welcome, forcing settings screen")
             setCurrentScreen("settings")
