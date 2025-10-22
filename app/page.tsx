@@ -278,8 +278,13 @@ export default function PINITApp() {
         if (!user) {
           // Check if user has completed initial setup
           const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
-          if (!hasCompletedSetup) {
-            console.log(" No authenticated user and no setup completed, forcing settings screen")
+          const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
+          
+          if (!hasSeenWelcome) {
+            console.log(" No authenticated user and haven't seen welcome, forcing settings screen")
+            setCurrentScreen("settings")
+          } else if (!hasCompletedSetup) {
+            console.log(" No authenticated user, seen welcome but setup not completed, forcing settings screen")
             setCurrentScreen("settings")
           } else {
             console.log(" No authenticated user but setup completed, going to map")
@@ -328,7 +333,9 @@ export default function PINITApp() {
         // Check auth state before setting screen
         if (!authLoading && !user) {
           const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
-          if (!hasCompletedSetup) {
+          const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
+          
+          if (!hasSeenWelcome || !hasCompletedSetup) {
             setCurrentScreen("settings")
           } else {
             setCurrentScreen("map")
@@ -349,7 +356,9 @@ export default function PINITApp() {
       // Check auth state before setting screen
       if (!authLoading && !user) {
         const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
-        if (!hasCompletedSetup) {
+        const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
+        
+        if (!hasSeenWelcome || !hasCompletedSetup) {
           setCurrentScreen("settings")
         } else {
           setCurrentScreen("map")
