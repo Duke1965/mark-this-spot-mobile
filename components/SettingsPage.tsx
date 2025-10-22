@@ -41,13 +41,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   })
 
-  // Mark welcome as seen when component mounts for first-time users
-  useEffect(() => {
-    if (!isReturningUser && !user) {
-      localStorage.setItem('pinit-welcome-seen', 'true')
-    }
-  }, [isReturningUser, user])
-
   // Load existing profile for returning users
   useEffect(() => {
     if (isReturningUser) {
@@ -73,6 +66,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const handleNext = () => {
     switch (currentStep) {
       case "welcome":
+        // Mark welcome as seen immediately when user clicks "Get Started"
+        localStorage.setItem('pinit-welcome-seen', 'true')
         setCurrentStep("login")
         break
       case "login":
