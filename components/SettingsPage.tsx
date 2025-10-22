@@ -15,8 +15,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   
   // FIX: Check if user is already authenticated and skip to complete step
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete">(
-    isReturningUser ? "social" : (user ? "complete" : "welcome") // Returning users go to social, authenticated users to complete, new users to welcome
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
+    isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
     name: "",
@@ -40,6 +40,13 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       publicProfile: false
     }
   })
+
+  // Mark welcome as seen when component mounts for first-time users
+  useEffect(() => {
+    if (!isReturningUser && !user) {
+      localStorage.setItem('pinit-welcome-seen', 'true')
+    }
+  }, [isReturningUser, user])
 
   // Load existing profile for returning users
   useEffect(() => {
@@ -74,7 +81,12 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         }
         break
       case "profile":
-        setCurrentStep("social")
+        if (isReturningUser) {
+          // Returning users go back to settings menu
+          setCurrentStep("settings-menu")
+        } else {
+          setCurrentStep("social")
+        }
         break
       case "social":
         if (isReturningUser) {
@@ -101,6 +113,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         localStorage.setItem('pinit-setup-completed', 'true')
         onComplete()
         break
+      case "settings-menu":
+        // This shouldn't happen - settings menu doesn't have a next button
+        break
     }
   }
 
@@ -110,15 +125,23 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         setCurrentStep("welcome")
         break
       case "profile":
-        setCurrentStep("login")
+        if (isReturningUser) {
+          setCurrentStep("settings-menu")
+        } else {
+          setCurrentStep("login")
+        }
         break
       case "social":
         if (isReturningUser) {
-          // Returning users go back to main app
-          onBack()
+          // Returning users go back to settings menu
+          setCurrentStep("settings-menu")
         } else {
           setCurrentStep("profile")
         }
+        break
+      case "settings-menu":
+        // Settings menu goes back to main app
+        onBack()
         break
       case "location":
         setCurrentStep("social")
@@ -211,7 +234,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <Settings size={20} />
-          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>PINIT Setup</span>
+          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>
+            {currentStep === "settings-menu" ? "Settings" : "PINIT Setup"}
+          </span>
         </div>
 
         <div style={{ width: "40px" }}></div>
@@ -219,6 +244,163 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+        {/* Settings Menu Step - for returning users */}
+        {currentStep === "settings-menu" && (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Settings</h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
+              Manage your PINIT account and preferences.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
+              {/* Profile Settings */}
+              <button
+                onClick={() => setCurrentStep("profile")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <User size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>Profile & Account</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Name, email, avatar</div>
+                </div>
+              </button>
+
+              {/* Social Media Settings */}
+              <button
+                onClick={() => setCurrentStep("social")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <Share2 size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>Social Media</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Instagram, Facebook, LinkedIn, etc.</div>
+                </div>
+              </button>
+
+              {/* Location Settings */}
+              <button
+                onClick={() => setCurrentStep("location")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <MapPin size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>Location</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Home location preferences</div>
+                </div>
+              </button>
+
+              {/* Theme Settings */}
+              <button
+                onClick={() => setCurrentStep("theme")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <Palette size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>Appearance</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Light/dark theme</div>
+                </div>
+              </button>
+
+              {/* Privacy & Data Settings */}
+              <button
+                onClick={() => setCurrentStep("data")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <Lock size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>Privacy & Data</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Data management, privacy settings</div>
+                </div>
+              </button>
+
+              {/* Debug Settings */}
+              <button
+                onClick={() => setCurrentStep("debug")}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <Bug size={24} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "600" }}>System & Debug</div>
+                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>System health, debugging tools</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Welcome Step */}
         {currentStep === "welcome" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
@@ -459,7 +641,13 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               </div>
 
               <button
-                onClick={handleNext}
+                onClick={() => {
+                  // Save profile for returning users
+                  if (isReturningUser) {
+                    localStorage.setItem('userProfile', JSON.stringify(userProfile))
+                  }
+                  handleNext()
+                }}
                 style={{
                   background: "rgba(255,255,255,0.2)",
                   color: "white",
@@ -472,7 +660,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   marginTop: "1rem"
                 }}
               >
-                Continue to Social Setup
+                {isReturningUser ? "Save Changes" : "Continue to Social Setup"}
               </button>
             </div>
           </div>
