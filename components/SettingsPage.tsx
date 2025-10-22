@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -8,14 +8,15 @@ import SystemHealthCheck from "./SystemHealthCheck"
 interface SettingsPageProps {
   onBack: () => void
   onComplete: () => void
+  isReturningUser?: boolean
 }
 
-export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
+export function SettingsPage({ onBack, onComplete, isReturningUser = false }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   
   // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete">(
-    user ? "complete" : "welcome" // If user exists, go directly to complete
+    isReturningUser ? "social" : (user ? "complete" : "welcome") // Returning users go to social, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
     name: "",
@@ -40,6 +41,28 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
     }
   })
 
+  // Load existing profile for returning users
+  useEffect(() => {
+    if (isReturningUser) {
+      try {
+        const savedProfile = localStorage.getItem('userProfile')
+        if (savedProfile) {
+          const profile = JSON.parse(savedProfile)
+          setUserProfile(prev => ({
+            ...prev,
+            ...profile,
+            socialAccounts: {
+              ...prev.socialAccounts,
+              ...profile.socialAccounts
+            }
+          }))
+        }
+      } catch (error) {
+        console.log("Could not load existing profile")
+      }
+    }
+  }, [isReturningUser])
+
   const handleNext = () => {
     switch (currentStep) {
       case "welcome":
@@ -54,7 +77,12 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("social")
         break
       case "social":
-        setCurrentStep("location")
+        if (isReturningUser) {
+          // Returning users go back to main app after saving social accounts
+          onComplete()
+        } else {
+          setCurrentStep("location")
+        }
         break
       case "location":
         setCurrentStep("theme")
@@ -69,6 +97,8 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("complete")
         break
       case "complete":
+        // Mark setup as completed
+        localStorage.setItem('pinit-setup-completed', 'true')
         onComplete()
         break
     }
@@ -83,7 +113,12 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
         setCurrentStep("login")
         break
       case "social":
-        setCurrentStep("profile")
+        if (isReturningUser) {
+          // Returning users go back to main app
+          onBack()
+        } else {
+          setCurrentStep("profile")
+        }
         break
       case "location":
         setCurrentStep("social")
@@ -584,7 +619,13 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
               </div>
 
               <button
-                onClick={handleNext}
+                onClick={() => {
+                  // Save social accounts for returning users
+                  if (isReturningUser) {
+                    localStorage.setItem('userProfile', JSON.stringify(userProfile))
+                  }
+                  handleNext()
+                }}
                 style={{
                   background: "rgba(255,255,255,0.2)",
                   color: "white",
@@ -597,7 +638,7 @@ export function SettingsPage({ onBack, onComplete }: SettingsPageProps) {
                   marginTop: "1rem"
                 }}
               >
-                Continue to Location
+                {isReturningUser ? "Save Changes" : "Continue to Location"}
               </button>
             </div>
           </div>
