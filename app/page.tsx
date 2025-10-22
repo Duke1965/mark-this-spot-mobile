@@ -276,9 +276,15 @@ export default function PINITApp() {
         }
         
         if (!user) {
-          // No user, force settings screen
-          console.log(" No authenticated user, forcing settings screen")
-          setCurrentScreen("settings")
+          // Check if user has completed initial setup
+          const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
+          if (!hasCompletedSetup) {
+            console.log(" No authenticated user and no setup completed, forcing settings screen")
+            setCurrentScreen("settings")
+          } else {
+            console.log(" No authenticated user but setup completed, going to map")
+            setCurrentScreen("map")
+          }
           return
         }
         
@@ -321,7 +327,12 @@ export default function PINITApp() {
         console.log("dY+ No saved state found, starting fresh")
         // Check auth state before setting screen
         if (!authLoading && !user) {
-          setCurrentScreen("settings")
+          const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
+          if (!hasCompletedSetup) {
+            setCurrentScreen("settings")
+          } else {
+            setCurrentScreen("map")
+          }
         } else if (!authLoading && user) {
           setCurrentScreen("map")
         }
@@ -337,7 +348,12 @@ export default function PINITApp() {
       }
       // Check auth state before setting screen
       if (!authLoading && !user) {
-        setCurrentScreen("settings")
+        const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
+        if (!hasCompletedSetup) {
+          setCurrentScreen("settings")
+        } else {
+          setCurrentScreen("map")
+        }
       } else if (!authLoading && user) {
         setCurrentScreen("map")
       }
@@ -1377,6 +1393,7 @@ export default function PINITApp() {
       <SettingsPage
         onBack={() => setCurrentScreen("map")}
         onComplete={() => setCurrentScreen("map")}
+        isReturningUser={!!localStorage.getItem('pinit-setup-completed')}
       />
     )
   }
