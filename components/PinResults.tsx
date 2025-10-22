@@ -627,33 +627,24 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
           style={{
             background: "rgba(255,255,255,0.15)",
             color: "white",
-            padding: "0.75rem",
-            borderRadius: "0.75rem",
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
             border: "1px solid rgba(255,255,255,0.2)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
+            gap: "0.25rem",
             transition: "all 0.2s ease",
             backdropFilter: "blur(10px)",
+            fontSize: "0.875rem"
           }}
         >
-          <ArrowLeft size={20} />
-          Return Now
+          <ArrowLeft size={16} />
+          Back
         </button>
         
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>Pin Results</span>
-          <span style={{ 
-            fontSize: "0.875rem", 
-            background: isUserMoving ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", 
-            padding: "0.25rem 0.5rem", 
-            borderRadius: "0.5rem",
-            border: "1px solid rgba(255,255,255,0.3)",
-            opacity: isUserMoving ? 1 : 0.6
-          }}>
-            {isUserMoving ? `Auto-return in ${autoReturnTimer}s` : "Timer paused (stationary)"}
-          </span>
         </div>
 
         <div style={{ width: "40px" }}></div> {/* Spacer for centering */}
