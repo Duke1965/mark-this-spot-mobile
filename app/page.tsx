@@ -710,12 +710,9 @@ export default function PINITApp() {
     setCurrentScreen("content-editor")
   }, [])
 
-  // Handle quick pin with speed-based location calculation - UPDATED TO USE NEW GATEWAY
+  // Handle quick pin with speed-based location calculation
   const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) {
-      console.log("⏳ Already pinning, please wait...")
-      return
-    }
+    if (isQuickPinning) return
 
     setIsQuickPinning(true)
     setLastActivity("quick-pin")
@@ -723,7 +720,7 @@ export default function PINITApp() {
     try {
       const currentLocation = await getCurrentLocation()
       
-      // Calculate precise location based on speed and movement
+      // NEW: Calculate precise location based on speed and movement
       let pinLatitude = currentLocation.latitude
       let pinLongitude = currentLocation.longitude
       let locationDescription = "Quick Pin Location"
@@ -760,96 +757,50 @@ export default function PINITApp() {
         console.log("📍 Stationary pinning - using current location")
       }
       
-      // NEW: Use pin-intel gateway for one-shot location enrichment
-      console.log("📡 Fetching location intelligence from gateway...")
-      const pinIntel = await postPinIntel(pinLatitude, pinLongitude, 5, user?.uid)
+      // NEW: Fetch location photos before creating the pin
+      console.log("📸 Fetching location photos for speed-based pin...")
+      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
-      console.log("✅ Pin intel received:", pinIntel)
-      console.log("📍 Location:", pinIntel.geocode.formatted)
-      console.log("🏪 Nearby places:", pinIntel.places.length)
-      
-      // Use gateway data for location name
-      const locationName = pinIntel.geocode.formatted || locationDescription
-      
-      // Generate AI content based on location and context with real gateway data
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, pinIntel)
-      
-      // Use imagery from gateway if available, otherwise use PINIT placeholder
-      const imageryData = pinIntel.imagery
-      let mediaUrl = "/pinit-placeholder.jpg"
-      let additionalPhotos: Array<{ url: string; placeName: string }> = [
-        { url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder" }
-      ]
-      
-      if (imageryData && Array.isArray(imageryData) && imageryData.length > 0) {
-        console.log("📸 Found", imageryData.length, "images from gateway")
-        const imageSource = imageryData[0].source || 'unknown'
-        console.log(`📸 Image source: ${imageSource}`)
-        
-        mediaUrl = imageryData[0].image_url // Use first image as main
-        additionalPhotos = imageryData.map((img, index) => ({
-          url: img.image_url,
-          placeName: `${locationName} - Photo ${index + 1}`
-        }))
-      } else {
-        // No imagery available - use PINIT placeholder
-        console.log("📸 No imagery from gateway, using PINIT placeholder")
-      }
+      // NEW: Generate intelligent AI content based on location and context
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
       
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
-        locationName: locationName,
-        mediaUrl: mediaUrl,
+        locationName: aiGeneratedContent.locationName || locationDescription,
+        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: aiGeneratedContent.title,
         description: aiGeneratedContent.description,
         tags: aiGeneratedContent.tags,
-        additionalPhotos: additionalPhotos,
-        // Pass imagery data directly for carousel
-        imagery: imageryData
-      } as PinData & { imagery?: any }
+        // NEW: Store all photos for the carousel
+        additionalPhotos: locationPhotos
+      }
 
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("✅ Quick pin created with gateway data:", newPin)
+      console.log("📍 Quick pin created with photo:", newPin)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
-      
-      // Show user-friendly error feedback
-      if (error instanceof Error) {
-        if (error.message === 'Already captured - please wait' || error.message === 'Request already in flight') {
-          console.log("⏳ Please wait - processing previous pin...")
-          // Show brief visual feedback
-          setSuccessMessage("⏳ Processing... please wait")
-          setShowSuccessPopup(true)
-          setTimeout(() => setShowSuccessPopup(false), 1500)
-        } else {
-          console.log("❌ Error:", error.message)
-          setSuccessMessage("❌ Unable to pin - try again")
-          setShowSuccessPopup(true)
-          setTimeout(() => setShowSuccessPopup(false), 2000)
-        }
-      }
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, user])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
   // NEW: Generate intelligent AI content based on location and context
-  const generateAIContent = (lat: number, lng: number, motionData: any, pinIntel: any) => {
-    console.log("dY Generating AI content for location:", { lat, lng, speed: motionData.speed, places: pinIntel?.places?.length || 0 })
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
     
     // Determine location type and context
     let locationType = "general"
     let context = ""
     
     // Analyze location based on coordinates
-    if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
       locationType = "small-town"
       context = "Riebeek West - charming rural community"
     } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
@@ -861,7 +812,7 @@ export default function PINITApp() {
     } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
       locationType = "suburban"
       context = "Cape Town Northern Suburbs - growing community"
-    } else if (lat > -34.2 && lat < -34.0 && lng > 18.3 && lng < 18.5) {
+    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
       locationType = "coastal"
       context = "Cape Town - beautiful coastal city"
     } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
@@ -874,86 +825,45 @@ export default function PINITApp() {
     if (motionData.isMoving && motionData.speed > 5) {
       // Speed-based pinning titles
       if (locationType === "small-town") {
-        title = "📍 Charming Rural Discovery"
+        title = "🏘️ Charming Rural Discovery"
       } else if (locationType === "urban-cbd") {
         title = "🏙️ Urban Gem Spotted"
       } else if (locationType === "suburban") {
-        title = "🏘️ Suburban Treasure"
+        title = "🏡 Suburban Treasure"
       } else if (locationType === "coastal") {
         title = "🌊 Coastal Beauty"
       } else if (locationType === "provincial") {
-        title = "🗺️ Provincial Wonder"
+        title = "🏔️ Provincial Wonder"
       } else {
-        title = "🚗 Travel Discovery"
+        title = "📍 Travel Discovery"
       }
     } else {
       // Stationary pinning titles
       if (locationType === "small-town") {
-        title = "📍 Local Community Spot"
+        title = "🏘️ Local Community Spot"
       } else if (locationType === "urban-cbd") {
         title = "🏙️ City Center Location"
       } else if (locationType === "suburban") {
-        title = "🏘️ Neighborhood Place"
+        title = "🏡 Neighborhood Place"
       } else if (locationType === "coastal") {
         title = "🌊 Seaside Location"
       } else if (locationType === "provincial") {
-        title = "🗺️ Regional Spot"
+        title = "🏔️ Regional Spot"
       } else {
         title = "📍 Local Discovery"
       }
     }
     
-    // Generate intelligent description using real gateway data
+    // Generate intelligent description
     let description = ""
-    
-    // Get location details from gateway
-    const locationDetails = pinIntel?.geocode?.formatted || context
-    const nearbyPlaces = pinIntel?.places || []
-    const geocodeComponents = pinIntel?.geocode?.components || {}
-    
-    // Extract meaningful location info
-    const city = geocodeComponents.city || geocodeComponents.town || geocodeComponents.village || ""
-    const suburb = geocodeComponents.suburb || geocodeComponents.neighbourhood || ""
-    const region = geocodeComponents.state || geocodeComponents.county || ""
-    
-    // Build description based on nearby places
-    if (nearbyPlaces.length > 0) {
-      // Group places by category
-      const placesByCategory: Record<string, string[]> = {}
-      nearbyPlaces.slice(0, 5).forEach((place: any) => {
-        const category = place.categories?.[0] || "place"
-        if (!placesByCategory[category]) {
-          placesByCategory[category] = []
-        }
-        placesByCategory[category].push(place.name || "location")
-      })
-      
-      const categories = Object.keys(placesByCategory)
-      const categoryText = categories.map(cat => {
-        const places = placesByCategory[cat]
-        if (places.length === 1) {
-          return places[0]
-        } else {
-          return `${places.length} ${cat}s`
-        }
-      }).join(", ")
-      
-      if (motionData.isMoving && motionData.speed > 5) {
-        description = `Discovered while traveling at ${motionData.speed.toFixed(1)} km/h in ${city || region}. Nearby: ${categoryText}. ${locationType === "small-town" ? "A charming rural area" : locationType === "coastal" ? "Beautiful coastal region" : "Great spot"} perfect for exploring and sharing memories!`
-      } else {
-        description = `Located in ${suburb ? suburb + ", " : ""}${city || region}. You'll find ${categoryText} nearby. ${locationType === "small-town" ? "This quiet community" : locationType === "urban-cbd" ? "This vibrant area" : "This location"} is worth remembering and sharing with friends!`
-      }
+    if (motionData.isMoving && motionData.speed > 5) {
+      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
     } else {
-      // Fallback when no nearby places
-      if (motionData.isMoving && motionData.speed > 5) {
-        description = `Discovered this ${locationType === "small-town" ? "charming rural" : locationType === "coastal" ? "beautiful coastal" : "interesting"} spot while traveling at ${motionData.speed.toFixed(1)} km/h through ${city || region}. Perfect for capturing memories!`
-      } else {
-        description = `A ${locationType === "small-town" ? "peaceful" : locationType === "urban-cbd" ? "vibrant" : "special"} location in ${city || region}. ${locationType === "small-town" ? "This quiet area" : "This spot"} is perfect for remembering and sharing.`
-      }
+      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
     }
     
     // Generate smart tags based on context
-    const tags: string[] = []
+    const tags = []
     if (motionData.isMoving && motionData.speed > 5) {
       tags.push("travel-discovery", "speed-pinning")
     }
@@ -970,28 +880,116 @@ export default function PINITApp() {
     }
     tags.push("ai-generated", "pinit")
     
-    // Add tags from nearby places
-    if (nearbyPlaces.length > 0) {
-      nearbyPlaces.slice(0, 3).forEach((place: any) => {
-        if (place.categories && place.categories.length > 0) {
-          const category = place.categories[0].split('.').pop() || place.categories[0]
-          if (!tags.includes(category)) {
-            tags.push(category)
-          }
-        }
-      })
+    // Use real location name if available from photos
+    let locationName = context
+    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
+      locationName = locationPhotos[0].placeName
     }
     
-    console.log("dY AI Generated Content:", { title, description, tags, nearbyPlacesCount: nearbyPlaces.length })
+    console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
     
     return {
       title,
       description,
+      locationName,
       tags
     }
   }
 
-  // REMOVED: Old fetchLocationPhotos function - now using pin-intel gateway
+  // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
+  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
+    try {
+      console.log("📸 Fetching location photo with aggressive filtering...")
+      
+      // Use our API route instead of calling Google Maps directly
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
+      
+      if (!photoResponse.ok) {
+        throw new Error("Failed to fetch location data")
+      }
+
+      const data = await photoResponse.json()
+      const photos: {url: string, placeName: string}[] = []
+
+      if (data.results && data.results.length > 0) {
+        // Get the closest place
+        const closestPlace = data.results[0]
+        if (closestPlace.photos && closestPlace.photos.length > 0) {
+          // More aggressive filtering to exclude logos, clipart, and non-location photos
+          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
+            // Skip photos that are likely logos, clipart, or non-location photos
+            if (photo.width && photo.height) {
+              const aspectRatio = photo.width / photo.height
+              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
+              const isTooSmall = photo.width < 300 || photo.height < 300
+              const isTooLarge = photo.width > 2000 || photo.height > 2000
+              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
+              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
+              
+              // Log what we're filtering out
+              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
+                console.log("📸 Filtering out photo:", {
+                  dimensions: `${photo.width}x${photo.height}`,
+                  aspectRatio: aspectRatio.toFixed(2),
+                  reason: isSquareish ? "squareish (likely logo)" : 
+                          isTooSmall ? "too small" :
+                          isTooLarge ? "too large" :
+                          isPortrait ? "too tall (likely sign)" :
+                          isLandscape ? "too wide (likely banner)" : "unknown"
+                })
+                return false
+              }
+            }
+            return true
+          })
+          
+          if (filteredPhotos.length > 0) {
+            // Get the best filtered photo (prefer landscape photos for location views)
+            const bestPhoto = filteredPhotos.reduce((best: any, current: any) => {
+              if (current.width && current.height && best.width && best.height) {
+                const currentRatio = current.width / current.height
+                const bestRatio = best.width / best.height
+                
+                // Prefer photos closer to 16:9 ratio (typical landscape)
+                const currentScore = Math.abs(currentRatio - 1.78)
+                const bestScore = Math.abs(bestRatio - 1.78)
+                
+                return currentScore < bestScore ? current : best
+              }
+              return best
+            })
+            
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            
+            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
+            return photos
+          } else {
+            // If all photos were filtered out, try to get any photo but log it
+            console.log("⚠️ All photos filtered out, using fallback photo")
+            const fallbackPhoto = closestPlace.photos[0]
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            
+            photos.push({
+              url: photoUrl,
+              placeName: closestPlace.name || "Unknown Place"
+            })
+            return photos
+          }
+        }
+      }
+      
+      console.log("📸 No location photos found, will use PINIT placeholder")
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    } catch (error) {
+      console.error("❌ Error fetching location photos:", error)
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    }
+  }
 
   // Handle place navigation from recommendations
   const handlePlaceNavigation = (place: any) => {
