@@ -8,10 +8,10 @@ import SystemHealthCheck from "./SystemHealthCheck"
 interface SettingsPageProps {
   onBack: () => void
   onComplete: () => void
-  isReturningUser?: boolean
+  isReturningUser: boolean
 }
 
-export function SettingsPage({ onBack, onComplete, isReturningUser = false }: SettingsPageProps) {
+export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   
   // FIX: Check if user is already authenticated and skip to complete step
