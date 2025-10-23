@@ -7,10 +7,10 @@ export const metadata: Metadata = {
   description: "Location-based discovery and sharing app",
   generator: 'v0.dev',
   // manifest: '/manifest.json', // Removed to eliminate PWA splash screen
-  icons: {
-    icon: '/pinit-logo.png',
-    apple: '/pinit-logo.png',
-  },
+  // icons: {
+  //   icon: '/pinit-logo.png',
+  //   apple: '/pinit-logo.png',
+  // }, // Removed to eliminate splash screen
 }
 
 
