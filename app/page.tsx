@@ -1223,6 +1223,32 @@ export default function PINITApp() {
     [addPin],
   )
 
+  // Show loading screen while auth is loading
+  if (authLoading) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📌</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: "600", marginBottom: "0.5rem" }}>PINIT</div>
+          <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Loading...</div>
+        </div>
+      </div>
+    )
+  }
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
