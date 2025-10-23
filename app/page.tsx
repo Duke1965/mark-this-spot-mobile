@@ -282,15 +282,28 @@ export default function PINITApp() {
           
           console.log("🔍 Welcome check - hasSeenWelcome:", hasSeenWelcome, "hasCompletedSetup:", hasCompletedSetup)
           
-          if (!hasSeenWelcome) {
-            console.log(" No authenticated user and haven't seen welcome, forcing settings screen")
-            setCurrentScreen("settings")
-          } else if (!hasCompletedSetup) {
-            console.log(" No authenticated user, seen welcome but setup not completed, forcing settings screen")
+          // If user has seen welcome OR completed setup, they're a returning user
+          const isReturningUser = !!(hasSeenWelcome || hasCompletedSetup)
+          
+          if (!isReturningUser) {
+            console.log("🆕 New user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            console.log(" No authenticated user but setup completed, going to map")
-            setCurrentScreen("map")
+            // Returning user - restore their last screen or go to map
+            if (parsedState.currentScreen && 
+                ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(parsedState.currentScreen)) {
+              // Restore their last screen (but not camera or settings)
+              if (parsedState.currentScreen !== "camera") {
+                setCurrentScreen(parsedState.currentScreen)
+                console.log("🔄 Returning user - restored screen:", parsedState.currentScreen)
+              } else {
+                setCurrentScreen("map")
+                console.log("🔄 Returning user - prevented camera, going to map")
+              }
+            } else {
+              setCurrentScreen("map")
+              console.log("🔄 Returning user - no valid saved screen, going to map")
+            }
           }
           return
         }
@@ -337,9 +350,14 @@ export default function PINITApp() {
           const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
           const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
           
-          if (!hasSeenWelcome || !hasCompletedSetup) {
+          // If user has seen welcome OR completed setup, they're a returning user
+          const isReturningUser = !!(hasSeenWelcome || hasCompletedSetup)
+          
+          if (!isReturningUser) {
+            console.log("🆕 No saved state - new user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
+            console.log("🔄 No saved state - returning user, going to map")
             setCurrentScreen("map")
           }
         } else if (!authLoading && user) {
@@ -360,9 +378,14 @@ export default function PINITApp() {
         const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
         const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
         
-        if (!hasSeenWelcome || !hasCompletedSetup) {
+        // If user has seen welcome OR completed setup, they're a returning user
+        const isReturningUser = !!(hasSeenWelcome || hasCompletedSetup)
+        
+        if (!isReturningUser) {
+          console.log("🆕 Error case - new user, showing welcome screen")
           setCurrentScreen("settings")
         } else {
+          console.log("🔄 Error case - returning user, going to map")
           setCurrentScreen("map")
         }
       } else if (!authLoading && user) {
