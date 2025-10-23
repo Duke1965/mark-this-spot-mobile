@@ -289,10 +289,10 @@ export default function PINITApp() {
             console.log("🆕 New user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            // Returning user - restore their last screen or go to map
+            // Returning user - ALWAYS try to restore their last screen first
             if (parsedState.currentScreen && 
                 ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(parsedState.currentScreen)) {
-              // Restore their last screen (but not camera or settings)
+              // Restore their last screen (but not camera)
               if (parsedState.currentScreen !== "camera") {
                 setCurrentScreen(parsedState.currentScreen)
                 console.log("🔄 Returning user - restored screen:", parsedState.currentScreen)
@@ -301,8 +301,16 @@ export default function PINITApp() {
                 console.log("🔄 Returning user - prevented camera, going to map")
               }
             } else {
-              setCurrentScreen("map")
-              console.log("🔄 Returning user - no valid saved screen, going to map")
+              // No saved screen - check if we have a current screen in memory
+              const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
+              if (currentScreenFromMemory && 
+                  ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
+                setCurrentScreen(currentScreenFromMemory as any)
+                console.log("🔄 Returning user - restored from memory:", currentScreenFromMemory)
+              } else {
+                setCurrentScreen("map")
+                console.log("🔄 Returning user - no saved screen, going to map")
+              }
             }
           }
           return
@@ -357,8 +365,16 @@ export default function PINITApp() {
             console.log("🆕 No saved state - new user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            console.log("🔄 No saved state - returning user, going to map")
-            setCurrentScreen("map")
+            // Returning user - check if we have a current screen in memory
+            const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
+            if (currentScreenFromMemory && 
+                ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
+              setCurrentScreen(currentScreenFromMemory as any)
+              console.log("🔄 No saved state - returning user restored from memory:", currentScreenFromMemory)
+            } else {
+              console.log("🔄 No saved state - returning user, going to map")
+              setCurrentScreen("map")
+            }
           }
         } else if (!authLoading && user) {
           setCurrentScreen("map")
@@ -385,8 +401,16 @@ export default function PINITApp() {
           console.log("🆕 Error case - new user, showing welcome screen")
           setCurrentScreen("settings")
         } else {
-          console.log("🔄 Error case - returning user, going to map")
-          setCurrentScreen("map")
+          // Returning user - check if we have a current screen in memory
+          const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
+          if (currentScreenFromMemory && 
+              ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
+            setCurrentScreen(currentScreenFromMemory as any)
+            console.log("🔄 Error case - returning user restored from memory:", currentScreenFromMemory)
+          } else {
+            console.log("🔄 Error case - returning user, going to map")
+            setCurrentScreen("map")
+          }
         }
       } else if (!authLoading && user) {
         setCurrentScreen("map")
@@ -407,6 +431,8 @@ export default function PINITApp() {
     
     try {
       localStorage.setItem("pinit-app-state", JSON.stringify(appState))
+      // Also save current screen separately for pull-to-refresh restoration
+      localStorage.setItem("pinit-current-screen", currentScreen)
       console.log("dY' App state saved to localStorage:", appState)
     } catch (error) {
       console.error("O Failed to save app state:", error)
