@@ -4,5 +4,5 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#1e3a8a',
+  // themeColor: '#1e3a8a', // Removed to eliminate splash screen
 };
