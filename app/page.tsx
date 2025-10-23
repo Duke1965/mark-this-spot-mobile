@@ -1426,11 +1426,22 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "settings") {
+    const hasSeenWelcome = localStorage.getItem('pinit-welcome-seen')
+    const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
+    const isReturningUser = !!(hasSeenWelcome || hasCompletedSetup)
+    
+    console.log("🔧 Settings Screen Debug:", {
+      hasSeenWelcome,
+      hasCompletedSetup,
+      isReturningUser,
+      currentScreen
+    })
+    
     return (
       <SettingsPage
         onBack={() => setCurrentScreen("map")}
         onComplete={() => setCurrentScreen("map")}
-        isReturningUser={!!localStorage.getItem('pinit-setup-completed')}
+        isReturningUser={isReturningUser}
       />
     )
   }
