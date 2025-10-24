@@ -1359,6 +1359,7 @@ export default function PINITApp() {
               id: Date.now().toString(),
               latitude: location.latitude,
               longitude: location.longitude,
+              locationName: locationName || "Camera Photo Location",
               mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
               mediaType: capturedMedia.type,
               title: locationDetails?.name || "Camera Photo",
@@ -1379,9 +1380,9 @@ export default function PINITApp() {
             setTimeout(() => setCurrentScreen("map"), 100)
           } else {
             console.error("Missing capturedMedia or location for saving pin")
-            setErrorMessage("Unable to save photo - missing location data")
-            setShowErrorPopup(true)
-            setTimeout(() => setShowErrorPopup(false), 2000)
+            setSuccessMessage("Unable to save photo - missing location data")
+            setShowSuccessPopup(true)
+            setTimeout(() => setShowSuccessPopup(false), 2000)
           }
         }}
       />
