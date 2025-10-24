@@ -77,6 +77,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   
   // NEW: Add ref to track the user location marker
   const userLocationMarkerRef = useRef<any>(null)
@@ -94,6 +95,14 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   
   // Use passed userLocation if available, otherwise fall back to hook location
   const location = userLocation || hookLocation
+  
+  // Initialize component when location becomes available
+  useEffect(() => {
+    if (location && location.latitude && location.longitude && !isInitialized) {
+      console.log('🧠 AIRecommendationsHub: Initializing with location:', location)
+      setIsInitialized(true)
+    }
+  }, [location, isInitialized])
   
   // Map states - use useRef for stable references
   const mapRef = useRef<HTMLDivElement>(null)
@@ -156,7 +165,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // NEW: Throttled location updates with dynamic icon
   useEffect(() => {
-    if (!location || !location.latitude || !location.longitude) return
+    if (!location || !location.latitude || !location.longitude || !isInitialized) return
     
     const now = Date.now()
     const timeSinceLastUpdate = now - lastLocationUpdate
@@ -182,11 +191,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         console.log('🗺️ Smooth location update:', newPosition, isUserMoving ? '🚗 Moving' : ' Stationary')
       }
     }
-  }, [location, lastLocationUpdate, isUserMoving, getMarkerIcon])
+  }, [location, lastLocationUpdate, isUserMoving, getMarkerIcon, isInitialized])
 
   // NEW: Motion detection with reduced frequency
   useEffect(() => {
-    if (!location || !location.latitude || !location.longitude) return
+    if (!location || !location.latitude || !location.longitude || !isInitialized) return
     
     const checkMotion = () => {
       const now = Date.now()
@@ -210,11 +219,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     
     const motionInterval = setInterval(checkMotion, 2000)
     return () => clearInterval(motionInterval)
-  }, [location, lastMotionCheck])
+  }, [location, lastMotionCheck, isInitialized])
 
   // NEW: Real-time map centering during movement
   useEffect(() => {
-    if (!mapInstanceRef.current || !location || !location.latitude || !location.longitude) return
+    if (!mapInstanceRef.current || !location || !location.latitude || !location.longitude || !isInitialized) return
     
     // Only auto-center if user is moving and hasn't manually interacted with map
     if (isUserMoving && !userHasInteracted) {
@@ -226,7 +235,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       
       console.log('🗺️ Auto-centering map during movement to:', newCenter)
     }
-  }, [location.latitude, location.longitude, isUserMoving, userHasInteracted])
+  }, [location, isUserMoving, userHasInteracted, isInitialized])
 
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
@@ -467,7 +476,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
-    if (location && location.latitude && location.longitude && insights && recommendations.length < 5) { // Limit total recommendations
+    if (location && location.latitude && location.longitude && insights && recommendations.length < 5 && isInitialized) { // Limit total recommendations
       try {
         // ENHANCED: Use the dedicated motion detection state
         if (isUserMoving) {
@@ -623,7 +632,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         console.log('🧠 Error generating recommendations:', error)
       }
     }
-  }, [location, insights, recommendations.length]) // Added recommendations.length to dependency
+  }, [location, insights, recommendations.length, isInitialized]) // Added recommendations.length to dependency
 
   // Refresh map when returning to map view
   useEffect(() => {
@@ -739,7 +748,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // Center map on user location when it becomes available (only if user hasn't interacted)
   useEffect(() => {
-    if (location && location.latitude && location.longitude && mapInstanceRef.current) {
+    if (location && location.latitude && location.longitude && mapInstanceRef.current && isInitialized) {
       console.log('🗺️ Location updated, current user interaction state:', userHasInteracted)
       
       // NEW: Only center map if user hasn't interacted with it yet
@@ -800,11 +809,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         }
       }, 100)
     }
-  }, [location])
+  }, [location, isInitialized])
 
   // Initialize Google Maps when map ref is ready AND location is available
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current && !mapError) {
+    if (mapRef.current && !mapInstanceRef.current && !mapError && isInitialized) {
       if (location && location.latitude && location.longitude) {
         console.log('🗺️ Map ref ready and location available, starting initialization...')
         console.log('🗺️ Location data:', { lat: location.latitude, lng: location.longitude })
@@ -814,7 +823,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         // Don't create map without location - wait for it to be passed
       }
     }
-  }, [mapError, location]) // Only depend on mapError and location
+  }, [mapError, location, isInitialized]) // Only depend on mapError and location
 
   const initializeMap = useCallback(async () => {
     try {
@@ -1136,7 +1145,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   }
 
   // Don't render if location is not properly initialized
-  if (!location || !location.latitude || !location.longitude) {
+  if (!location || !location.latitude || !location.longitude || !isInitialized) {
     return (
       <div style={{
         position: 'fixed',
@@ -1154,9 +1163,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         textAlign: 'center'
       }}>
         <div style={{ fontSize: '48px', marginBottom: '20px' }}>📍</div>
-        <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Waiting for Location</h2>
+        <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Initializing AI Recommendations</h2>
         <p style={{ margin: 0, opacity: 0.8, fontSize: '14px' }}>
-          Please enable location services to use AI recommendations
+          {!location ? 'Waiting for location services...' : 'Preparing personalized recommendations...'}
         </p>
         <button
           onClick={onBack}
