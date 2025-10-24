@@ -1950,6 +1950,33 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       >
                         🗺️ View on Map
                       </button>
+                      
+                      <button 
+                        onClick={() => {
+                          console.log('📍 Opening View Place for:', rec.title)
+                          // TODO: Open View Place card component
+                          // This will show the user's photo, rating, and comment
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          color: 'white',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          marginLeft: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                        }}
+                      >
+                        📍 View Place
+                      </button>
                     </div>
                   </div>
                 ))}
