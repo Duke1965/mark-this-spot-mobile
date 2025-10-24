@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
 import { useLocationServices } from '../hooks/useLocationServices'
+import { ViewPlaceCard } from './ViewPlaceCard'
 
 // Google Maps global declaration
 declare global {
@@ -77,6 +78,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const [learningProgress, setLearningProgress] = useState<any>(null)
+  const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
+  const [showViewPlaceCard, setShowViewPlaceCard] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   
   // NEW: Add ref to track the user location marker
@@ -1954,8 +1957,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       <button 
                         onClick={() => {
                           console.log('📍 Opening View Place for:', rec.title)
-                          // TODO: Open View Place card component
-                          // This will show the user's photo, rating, and comment
+                          setSelectedRecommendation(rec)
+                          setShowViewPlaceCard(true)
                         }}
                         style={{
                           background: 'rgba(255,255,255,0.1)',
@@ -2157,6 +2160,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
           </div>
         )}
       </div>
+
+      {/* View Place Card Modal */}
+      {showViewPlaceCard && selectedRecommendation && (
+        <ViewPlaceCard
+          recommendation={selectedRecommendation}
+          onClose={() => {
+            setShowViewPlaceCard(false)
+            setSelectedRecommendation(null)
+          }}
+          onShare={(rec) => {
+            console.log('📤 Sharing recommendation:', rec.title)
+            // TODO: Implement share functionality
+          }}
+          onSaveToFavorites={(rec) => {
+            console.log('💾 Saving to favorites:', rec.title)
+            // TODO: Implement save to favorites functionality
+          }}
+        />
+      )}
     </div>
   )
 } 
