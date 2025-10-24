@@ -20,6 +20,7 @@ import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
 import { useAuth } from "@/hooks/useAuth"
+import { PinData } from "@/lib/types"
 
 import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
@@ -1345,7 +1346,7 @@ export default function PINITApp() {
               timestamp: new Date().toISOString(),
               stickers: contentData.stickers || [],
               platform: contentData.platform || "camera"
-            }
+            } as PinData as PinData
             
             // Add the pin to the collection
             addPin(newPin)
@@ -1399,7 +1400,7 @@ export default function PINITApp() {
               timestamp: new Date().toISOString(),
               stickers: contentData.stickers || [],
               platform: contentData.platform || "camera"
-            }
+            } as PinData
             
             // Add the pin to the collection
             addPin(newPin)
