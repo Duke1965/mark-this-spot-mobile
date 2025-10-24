@@ -399,6 +399,76 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     return categoryMap[category] || categoryMap['general']
   }, [])
 
+  // Helper function to categorize places based on their types
+  const getCategoryFromTypes = useCallback((types: string[]): string => {
+    if (types.includes('restaurant') || types.includes('cafe') || types.includes('food')) {
+      return 'Food & Dining'
+    } else if (types.includes('park') || types.includes('natural_feature')) {
+      return 'Nature & Parks'
+    } else if (types.includes('museum') || types.includes('art_gallery') || types.includes('tourist_attraction')) {
+      return 'Culture & Arts'
+    } else if (types.includes('shopping_mall') || types.includes('store')) {
+      return 'Shopping'
+    } else {
+      return 'Location Discovery'
+    }
+  }, [])
+
+  // Generate mock recommendations for new users when API is unavailable
+  const generateMockNewUserRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
+    const mockPlaces = [
+      {
+        name: "Local Café",
+        category: "Food & Dining",
+        lat: lat + 0.01,
+        lng: lng + 0.01,
+        rating: 4.2,
+        description: "Cozy local café perfect for coffee and light meals"
+      },
+      {
+        name: "Community Park",
+        category: "Nature & Parks", 
+        lat: lat - 0.015,
+        lng: lng + 0.008,
+        rating: 4.5,
+        description: "Beautiful park with walking trails and green spaces"
+      },
+      {
+        name: "Art Gallery",
+        category: "Culture & Arts",
+        lat: lat + 0.008,
+        lng: lng - 0.012,
+        rating: 4.0,
+        description: "Local art gallery featuring regional artists"
+      },
+      {
+        name: "Shopping Center",
+        category: "Shopping",
+        lat: lat - 0.01,
+        lng: lng - 0.01,
+        rating: 3.8,
+        description: "Convenient shopping center with various stores"
+      }
+    ]
+
+    return mockPlaces.map((place, index) => ({
+      id: `mock-new-user-${index}`,
+      title: place.name,
+      description: place.description,
+      category: place.category,
+      location: {
+        lat: place.lat,
+        lng: place.lng,
+      },
+      rating: place.rating,
+      isAISuggestion: true,
+      confidence: 20, // Low confidence for mock data
+      reason: "Local area discovery - exploring your neighborhood",
+      timestamp: new Date(),
+      fallbackImage: getFallbackImage(place.category.toLowerCase().split(' ')[0])
+    }))
+  }, [getFallbackImage])
+
   // Get learning status when component mounts
   useEffect(() => {
     try {
@@ -574,6 +644,81 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               } catch (error) {
                 console.log(`🧠 Error fetching ${category} recommendations:`, error)
               }
+            }
+          } else {
+            // NEW USER FALLBACK: Generate local area recommendations when AI hasn't learned enough yet
+            console.log('🧠 New user detected - generating local area recommendations')
+            
+            // API SAFEGUARD: Check if we've already made requests recently
+            const lastRequestTime = localStorage.getItem('last-new-user-request')
+            const now = Date.now()
+            const timeSinceLastRequest = lastRequestTime ? now - parseInt(lastRequestTime) : Infinity
+            
+            // Only make API request if it's been at least 5 minutes since last request
+            if (timeSinceLastRequest > 5 * 60 * 1000) {
+              try {
+                console.log('🧠 Fetching local places for new user...')
+                
+                // Use the existing places API with safeguards
+                const response = await fetch('/api/places', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    lat: location.latitude,
+                    lng: location.longitude,
+                    radius: "5000" // 5km radius for local area
+                  })
+                })
+                
+                if (response.ok) {
+                  const data = await response.json()
+                  const places = data.results || []
+                  
+                  // Generate 3-4 recommendations from local places
+                  const numRecommendations = Math.min(3 + Math.floor(Math.random() * 2), places.length)
+                  const selectedPlaces = places.sort(() => 0.5 - Math.random()).slice(0, numRecommendations)
+                  
+                  for (const place of selectedPlaces) {
+                    const category = getCategoryFromTypes(place.types || [])
+                    
+                    aiRecs.push({
+                      id: `new-user-${place.place_id}`,
+                      title: place.name || 'Local Spot',
+                      description: `Great ${category.toLowerCase()} spot in your area`,
+                      category: category,
+                      location: {
+                        lat: place.geometry?.location?.lat || location.latitude,
+                        lng: place.geometry?.location?.lng || location.longitude,
+                      },
+                      rating: place.rating || 4.0,
+                      isAISuggestion: true,
+                      confidence: 25, // Low confidence for new users
+                      reason: "Local area discovery - exploring your neighborhood",
+                      timestamp: new Date(),
+                      fallbackImage: getFallbackImage(category)
+                    })
+                  }
+                  
+                  // Update last request time to prevent API loops
+                  localStorage.setItem('last-new-user-request', now.toString())
+                  console.log(`🧠 Generated ${aiRecs.length} local area recommendations for new user`)
+                }
+              } catch (error) {
+                console.log('🧠 Error fetching local places for new user:', error)
+                
+                // Fallback to mock recommendations if API fails
+                const mockRecommendations = generateMockNewUserRecommendations(location.latitude, location.longitude)
+                aiRecs.push(...mockRecommendations)
+                console.log('🧠 Using mock recommendations as fallback')
+              }
+            } else {
+              console.log('🧠 Skipping API request - too soon since last request (rate limiting)')
+              
+              // Use cached/mock recommendations to avoid API loops
+              const mockRecommendations = generateMockNewUserRecommendations(location.latitude, location.longitude)
+              aiRecs.push(...mockRecommendations)
             }
           }
           
