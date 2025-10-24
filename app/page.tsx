@@ -29,38 +29,6 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel } from "@/lib/pinIntelApi"
 
 
-export interface PinData {
-  id: string
-  latitude: number
-  longitude: number
-  locationName: string
-  mediaUrl: string | null
-  mediaType: "photo" | "video" | null
-  audioUrl: string | null
-  timestamp: string
-  title: string
-  description?: string
-  tags?: string[]
-  isRecommended?: boolean
-  googlePlaceId?: string
-  rating?: number
-  priceLevel?: number
-  types?: string[]
-  isAISuggestion?: boolean
-  additionalPhotos?: Array<{url: string, placeName: string}> // Store location photos
-  personalThoughts?: string // NEW: User's personal thoughts about the place
-  originalPinId?: string // NEW: Reference to original PINIT pin
-  
-  // NEW: Pin Management System Fields
-  placeId?: string // Reference to aggregated Place
-  totalEndorsements?: number // All-time unique user recommendations
-  recentEndorsements?: number // Endorsements within RECENT_WINDOW_DAYS
-  lastEndorsedAt?: string // ISO timestamp of last endorsement/renewal
-  score?: number // Trending score for sorting
-  downvotes?: number // Community downvotes
-  isHidden?: boolean // Soft hide if downvotes exceed threshold
-  category?: string // Place category (e.g., 'coffee', 'museum', etc.)
-}
 
 interface GooglePlace {
   place_id: string
@@ -1346,7 +1314,7 @@ export default function PINITApp() {
               timestamp: new Date().toISOString(),
               stickers: contentData.stickers || [],
               platform: contentData.platform || "camera"
-            } as PinData as PinData
+            } as PinData
             
             // Add the pin to the collection
             addPin(newPin)
