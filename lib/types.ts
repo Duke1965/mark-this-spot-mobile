@@ -30,6 +30,15 @@ export interface PinData {
   downvotes?: number
   isHidden?: boolean
   category?: string
+  stickers?: Array<{
+    id: string
+    name: string
+    x: number
+    y: number
+    scale: number
+    rotation: number
+  }>
+  platform?: string
 }
 
 export interface GooglePlace {
