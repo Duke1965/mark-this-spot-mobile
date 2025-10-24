@@ -1907,79 +1907,82 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       {rec.description}
                     </p>
                     
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
                           📍 {rec.rating.toFixed(1)}/5
                         </span>
                         {rec.isAISuggestion && (
-                          <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                          <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
                             🎯 {rec.confidence}%
                           </span>
                         )}
-                        <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                        <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
                           📍 {rec.title.includes('Current Location') ? 'Current Location' : 'Nearby Area'}
                         </span>
                       </div>
                       
-                      <button 
-                        onClick={() => {
-                          console.log('🗺️ Navigating to location:', rec.location)
-                          // Switch to map view and center on this location
-                          setViewMode('map')
-                          if (mapInstanceRef.current) {
-                            mapInstanceRef.current.setCenter({ lat: rec.location.lat, lng: rec.location.lng })
-                            mapInstanceRef.current.setZoom(18) // Close zoom for precise location
-                            setUserHasInteracted(true) // Mark as user interaction
-                            console.log('🗺️ Map centered on recommendation location')
-                          }
-                        }}
-                        style={{
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          padding: '6px 12px',
-                          color: 'white',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
-                        }}
-                      >
-                        🗺️ View on Map
-                      </button>
-                      
-                      <button 
-                        onClick={() => {
-                          console.log('📍 Opening View Place for:', rec.title)
-                          setSelectedRecommendation(rec)
-                          setShowViewPlaceCard(true)
-                        }}
-                        style={{
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          padding: '6px 12px',
-                          color: 'white',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          marginLeft: '8px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
-                        }}
-                      >
-                        📍 View Place
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button 
+                          onClick={() => {
+                            console.log('🗺️ Navigating to location:', rec.location)
+                            // Switch to map view and center on this location
+                            setViewMode('map')
+                            if (mapInstanceRef.current) {
+                              mapInstanceRef.current.setCenter({ lat: rec.location.lat, lng: rec.location.lng })
+                              mapInstanceRef.current.setZoom(18) // Close zoom for precise location
+                              setUserHasInteracted(true) // Mark as user interaction
+                              console.log('🗺️ Map centered on recommendation location')
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            color: 'white',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                          }}
+                        >
+                          🗺️ Map
+                        </button>
+                        
+                        <button 
+                          onClick={() => {
+                            console.log('📍 Opening View Place for:', rec.title)
+                            setSelectedRecommendation(rec)
+                            setShowViewPlaceCard(true)
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            color: 'white',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                          }}
+                        >
+                          📍 Place
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
