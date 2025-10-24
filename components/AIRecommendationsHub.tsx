@@ -1049,8 +1049,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                    <button id="view-recommendations-${cluster.id}" style="
                      width: 100%; 
                      padding: 12px 16px; 
-                     background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-                     border: 2px solid rgba(16, 185, 129, 0.8); 
+                     background: rgba(255,255,255,0.15); 
+                     border: 1px solid rgba(255,255,255,0.2); 
                      border-radius: 12px; 
                      color: white; 
                      font-size: 14px; 
@@ -1059,7 +1059,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                      transition: all 0.2s ease; 
                      margin-top: 8px; 
                      backdrop-filter: blur(10px);
-                     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                      font-family: inherit; 
                      outline: none; 
                      display: block;
