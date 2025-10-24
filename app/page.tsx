@@ -1329,7 +1329,28 @@ export default function PINITApp() {
           // Store the final image data for the recommendation popup
           setFinalImageData(contentData)
           
-          // Handle posting with content data
+          // Handle posting with content data - save the pin first
+          if (capturedMedia && location) {
+            // Create a new pin with the captured photo and content
+            const newPin: PinData = {
+              id: Date.now().toString(),
+              latitude: location.latitude,
+              longitude: location.longitude,
+              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+              mediaType: capturedMedia.type,
+              title: locationDetails?.name || "Camera Photo",
+              description: contentData.comments || "Photo taken with PINIT camera",
+              tags: ["camera", "photo", "personal"],
+              personalThoughts: contentData.comments || "",
+              timestamp: new Date().toISOString(),
+              stickers: contentData.stickers || [],
+              platform: contentData.platform || "camera"
+            }
+            
+            // Add the pin to the collection
+            addPin(newPin)
+          }
+          
           setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
           setShowRecommendationPopup(true) // Show recommendation popup instead of success popup
           
@@ -1362,11 +1383,37 @@ export default function PINITApp() {
           }
         }}
         onSave={(contentData) => {
-          // Handle saving with content data
-          setSuccessMessage("Saved to library successfully!")
-          setShowSuccessPopup(true)
-          setTimeout(() => setShowSuccessPopup(false), 2000)
-          setTimeout(() => setCurrentScreen("map"), 100)
+          // Handle saving with content data - actually save the pin
+          if (capturedMedia && location) {
+            // Create a new pin with the captured photo and content
+            const newPin: PinData = {
+              id: Date.now().toString(),
+              latitude: location.latitude,
+              longitude: location.longitude,
+              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+              mediaType: capturedMedia.type,
+              title: locationDetails?.name || "Camera Photo",
+              description: contentData.comments || "Photo taken with PINIT camera",
+              tags: ["camera", "photo", "personal"],
+              personalThoughts: contentData.comments || "",
+              timestamp: new Date().toISOString(),
+              stickers: contentData.stickers || [],
+              platform: contentData.platform || "camera"
+            }
+            
+            // Add the pin to the collection
+            addPin(newPin)
+            
+            setSuccessMessage("Saved to library successfully!")
+            setShowSuccessPopup(true)
+            setTimeout(() => setShowSuccessPopup(false), 2000)
+            setTimeout(() => setCurrentScreen("map"), 100)
+          } else {
+            console.error("Missing capturedMedia or location for saving pin")
+            setErrorMessage("Unable to save photo - missing location data")
+            setShowErrorPopup(true)
+            setTimeout(() => setShowErrorPopup(false), 2000)
+          }
         }}
       />
     )
