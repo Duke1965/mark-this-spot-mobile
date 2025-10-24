@@ -156,7 +156,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // NEW: Throttled location updates with dynamic icon
   useEffect(() => {
-    if (!location) return
+    if (!location || !location.latitude || !location.longitude) return
     
     const now = Date.now()
     const timeSinceLastUpdate = now - lastLocationUpdate
@@ -186,7 +186,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // NEW: Motion detection with reduced frequency
   useEffect(() => {
-    if (!location) return
+    if (!location || !location.latitude || !location.longitude) return
     
     const checkMotion = () => {
       const now = Date.now()
@@ -467,7 +467,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
 
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
-    if (location && insights && recommendations.length < 5) { // Limit total recommendations
+    if (location && location.latitude && location.longitude && insights && recommendations.length < 5) { // Limit total recommendations
       try {
         // ENHANCED: Use the dedicated motion detection state
         if (isUserMoving) {
@@ -1135,6 +1135,50 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     `
   }
 
+  // Don't render if location is not properly initialized
+  if (!location || !location.latitude || !location.longitude) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        color: 'white',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: '48px', marginBottom: '20px' }}>📍</div>
+        <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Waiting for Location</h2>
+        <p style={{ margin: 0, opacity: 0.8, fontSize: '14px' }}>
+          Please enable location services to use AI recommendations
+        </p>
+        <button
+          onClick={onBack}
+          style={{
+            marginTop: '20px',
+            background: 'rgba(255,255,255,0.15)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '12px',
+            padding: '12px 24px',
+            color: 'white',
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          ← Go Back
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div style={{
       position: 'fixed',
@@ -1346,7 +1390,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             </div>
 
             {/* NEW: Simple Motion Indicator - Only shows when moving */}
-            {mapInstanceRef.current && location && location.speed && location.speed > 2 && (
+            {mapInstanceRef.current && location && location.latitude && location.longitude && location.speed && location.speed > 2 && (
               <div style={{
                 position: 'absolute',
                 top: '60px',
@@ -1368,7 +1412,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             )}
 
             {/* NEW: Google Maps Style Location Button */}
-            {mapInstanceRef.current && location && (
+            {mapInstanceRef.current && location && location.latitude && location.longitude && (
               <button
                 onClick={() => {
                   if (mapInstanceRef.current && location) {
@@ -1410,7 +1454,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             )}
 
             {/* NEW: Manual Refresh Recommendations Button */}
-            {mapInstanceRef.current && location && (
+            {mapInstanceRef.current && location && location.latitude && location.longitude && (
               <button
                 onClick={async () => {
                   // ENHANCED: Prevent manual refresh while moving
