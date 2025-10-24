@@ -1914,7 +1914,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                         </span>
                         {rec.isAISuggestion && (
                           <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
-                            🎯 {rec.confidence}%
+                            🎯 {Math.round(rec.confidence)}%
                           </span>
                         )}
                         <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
@@ -2055,7 +2055,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     }} />
                   </div>
                   <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.8 }}>
-                    {learningProgress.pinsAnalyzed} pins analyzed • {learningProgress.confidence}% confidence
+                    {learningProgress.pinsAnalyzed} pins analyzed • {Math.round(learningProgress.confidence)}% confidence
                   </p>
                 </div>
 
