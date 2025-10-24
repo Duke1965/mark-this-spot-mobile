@@ -1688,47 +1688,71 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       e.currentTarget.style.boxShadow = 'none'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                        {/* NEW: Show fallback image or placeholder */}
-                        <div style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '12px',
-                          background: 'rgba(255,255,255,0.1)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '24px',
-                          border: '1px solid rgba(255,255,255,0.2)'
-                        }}>
-                          {rec.fallbackImage || '📍'}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: '600' }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
+                      {/* Thumbnail image - fills top to bottom */}
+                      <div style={{
+                        width: '60px',
+                        height: '100%',
+                        borderRadius: '12px',
+                        background: 'rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '24px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        overflow: 'hidden',
+                        flexShrink: 0
+                      }}>
+                        {rec.fallbackImage ? (
+                          <span style={{ fontSize: '32px' }}>{rec.fallbackImage}</span>
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '20px'
+                          }}>
+                            📍
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Content area */}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        {/* Top section - Title and AI badge */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', flex: 1 }}>
                             {rec.title}
                           </h4>
                           <span style={{
-                            background: 'rgba(255,255,255,0.1)',
+                            background: rec.isAISuggestion ? 'rgba(59, 130, 246, 0.8)' : 'rgba(16, 185, 129, 0.8)',
                             padding: '4px 8px',
                             borderRadius: '8px',
-                            fontSize: '11px',
-                            color: 'rgba(255,255,255,0.8)'
+                            fontSize: '10px',
+                            fontWeight: '500',
+                            whiteSpace: 'nowrap',
+                            marginLeft: '8px'
                           }}>
-                            {rec.category}
+                            {rec.isAISuggestion ? '🤖 AI' : '👥 Community'}
                           </span>
                         </div>
+                        
+                        {/* Category */}
+                        <span style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          color: 'rgba(255,255,255,0.8)',
+                          alignSelf: 'flex-start',
+                          marginBottom: '8px'
+                        }}>
+                          {rec.category}
+                        </span>
                       </div>
-                      <span style={{
-                        background: rec.isAISuggestion ? 'rgba(59, 130, 246, 0.8)' : 'rgba(16, 185, 129, 0.8)',
-                        padding: '6px 10px',
-                        borderRadius: '10px',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {rec.isAISuggestion ? '🤖 AI' : '👥 Community'}
-                      </span>
                     </div>
                     
                     <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
@@ -1738,31 +1762,47 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                          ⭐ {rec.rating.toFixed(1)}/5
+                          📍 {rec.rating.toFixed(1)}/5
                         </span>
                         {rec.isAISuggestion && (
                           <span style={{ fontSize: '12px', opacity: 0.8 }}>
                             🎯 {rec.confidence}%
                           </span>
                         )}
+                        <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                          📍 {rec.title.includes('Current Location') ? 'Current Location' : 'Nearby Area'}
+                        </span>
                       </div>
                       
-                      <button style={{
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        borderRadius: '8px',
-                        padding: '6px 12px',
-                        color: 'white',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
-                      }}>
+                      <button 
+                        onClick={() => {
+                          console.log('🗺️ Navigating to location:', rec.location)
+                          // Switch to map view and center on this location
+                          setViewMode('map')
+                          if (mapInstanceRef.current) {
+                            mapInstanceRef.current.setCenter({ lat: rec.location.lat, lng: rec.location.lng })
+                            mapInstanceRef.current.setZoom(18) // Close zoom for precise location
+                            setUserHasInteracted(true) // Mark as user interaction
+                            console.log('🗺️ Map centered on recommendation location')
+                          }
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          color: 'white',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                        }}
+                      >
                         🗺️ View on Map
                       </button>
                     </div>
