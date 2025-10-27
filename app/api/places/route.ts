@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { isMapLifecycleEnabled } from "@/lib/mapLifecycle"
 import { MAP_LIFECYCLE } from "@/lib/mapLifecycle"
 import { daysAgo } from "@/lib/trending"
-import { FoursquareClient } from "@/lib/foursquare"
+import { FoursquareAPI } from "@/lib/foursquare"
 
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
@@ -414,8 +414,13 @@ export async function POST(request: NextRequest) {
     if (process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
       console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
       try {
-        const foursquareClient = new FoursquareClient()
-        const foursquareResults = await foursquareClient.searchNearby(lat, lng, radius)
+        const foursquareClient = new FoursquareAPI()
+        const foursquareResults = await foursquareClient.searchNearby({
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          radius: parseInt(radius),
+          limit: 5
+        })
         
         if (foursquareResults && foursquareResults.length > 0) {
           console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults.length} places`)
