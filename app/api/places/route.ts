@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       
       console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
       
-      // Return Foursquare results even if empty (or use fallback for photos)
+      // Only use Foursquare if we found results
       if (foursquareResults && foursquareResults.length > 0) {
         // Convert Foursquare results to Google Places API format
         const googleFormatResults = foursquareResults.map((place: any) => ({
@@ -188,6 +188,8 @@ export async function GET(request: NextRequest) {
           status: "OK",
           source: "foursquare"
         })
+      } else {
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare returned 0 results, falling back to Google`)
       }
     } catch (foursquareError) {
       console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
