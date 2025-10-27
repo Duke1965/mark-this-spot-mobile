@@ -3,6 +3,15 @@
  * Reliable, enterprise-grade location data provider
  */
 
+interface FoursquarePhoto {
+  id: string
+  created_at: string
+  prefix: string
+  suffix: string
+  width: number
+  height: number
+}
+
 interface FoursquarePlace {
   fsq_id: string
   name: string
@@ -18,14 +27,7 @@ interface FoursquarePlace {
   geocodes: {
     main: { latitude: number; longitude: number }
   }
-  photos?: Array<{
-    id: string
-    created_at: string
-    prefix: string
-    suffix: string
-    width: number
-    height: number
-  }>
+  photos?: FoursquarePhoto[]
   categories?: Array<{
     id: number
     name: string
@@ -149,8 +151,8 @@ export class FoursquareAPI {
   /**
    * Get photo URL from Foursquare photo object
    */
-  static getPhotoUrl(photo: FoursquarePlace['photos'] extends Array<infer T> ? T : never, size: 'original' | 'medium' | 'small' = 'medium'): string {
-    if (!photo) return ''
+  static getPhotoUrl(photo: FoursquarePhoto | undefined, size: 'original' | 'medium' | 'small' = 'medium'): string {
+    if (!photo || !photo.prefix || !photo.suffix) return ''
     
     // Foursquare photo format: {prefix}{size}{suffix}
     const sizeMap = {
@@ -174,7 +176,7 @@ export class FoursquareAPI {
       latitude: place.location.latitude,
       longitude: place.location.longitude,
       locationName: place.name,
-      mediaUrl: primaryPhoto ? FoursquareAPI.getPhotoUrl(primaryPhoto as any) : null,
+      mediaUrl: primaryPhoto ? FoursquareAPI.getPhotoUrl(primaryPhoto) : null,
       mediaType: primaryPhoto ? 'photo' : null,
       title: place.name,
       description: FoursquareAPI.generateDescription(place, primaryCategory),
@@ -187,7 +189,7 @@ export class FoursquareAPI {
       googlePlaceId: place.fsq_id, // Using Foursquare ID
       category: primaryCategory?.name || 'General',
       photos: place.photos?.map(photo => ({
-        url: FoursquareAPI.getPhotoUrl(photo as any),
+        url: FoursquareAPI.getPhotoUrl(photo),
         placeName: place.name,
         width: photo.width,
         height: photo.height
