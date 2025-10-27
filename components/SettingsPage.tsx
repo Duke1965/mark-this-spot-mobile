@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug } from "lucide-react"
+import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import SystemHealthCheck from "./SystemHealthCheck"
 
@@ -9,6 +9,268 @@ interface SettingsPageProps {
   onBack: () => void
   onComplete: () => void
   isReturningUser: boolean
+}
+
+// Factory Reset Dialog Component
+function FactoryResetDialog() {
+  const { user } = useAuth()
+  const [showDialog, setShowDialog] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmed, setConfirmed] = useState(false)
+  const [resetConfirmed, setResetConfirmed] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [showPasswordError, setShowPasswordError] = useState(false)
+
+  const handleResetClick = () => {
+    setShowDialog(true)
+  }
+
+  const handleCancel = () => {
+    setShowDialog(false)
+    setPassword("")
+    setConfirmed(false)
+    setResetConfirmed(false)
+    setShowPasswordError(false)
+  }
+
+  const performFactoryReset = async () => {
+    if (!confirmed || !resetConfirmed) return
+    
+    setIsResetting(true)
+    
+    // Simulate delay for security
+    setTimeout(() => {
+      try {
+        // Clear all localStorage data
+        localStorage.removeItem('pinit-app-state')
+        localStorage.removeItem('pinit-pins')
+        localStorage.removeItem('last-ai-recommendation-time')
+        localStorage.removeItem('last-new-user-request')
+        localStorage.removeItem('userProfile')
+        localStorage.removeItem('pinit-setup-completed')
+        localStorage.removeItem('pinit-welcome-seen')
+        
+        console.log("⚠️ Factory reset completed")
+        
+        // Reload the app
+        window.location.reload()
+      } catch (error) {
+        console.error("❌ Error during factory reset:", error)
+        setIsResetting(false)
+      }
+    }, 2000)
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleResetClick}
+        disabled={isResetting}
+        style={{
+          background: "#EF4444",
+          color: "white",
+          padding: "1rem",
+          borderRadius: "0.5rem",
+          border: "none",
+          cursor: isResetting ? "not-allowed" : "pointer",
+          fontSize: "1rem",
+          fontWeight: "bold",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.5rem",
+          transition: "all 0.2s ease"
+        }}
+      >
+        <Trash2 size={20} />
+        {isResetting ? "Resetting..." : "Reset to Factory Defaults"}
+      </button>
+
+      {showDialog && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.8)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2000,
+          padding: "1rem"
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%)",
+            borderRadius: "20px",
+            maxWidth: "400px",
+            width: "100%",
+            padding: "2rem",
+            color: "white",
+            border: "2px solid rgba(239, 68, 68, 0.5)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+              <AlertTriangle size={32} color="#EF4444" />
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: 0 }}>⚠️ Factory Reset</h2>
+            </div>
+            
+            <div style={{
+              background: "rgba(239, 68, 68, 0.2)",
+              padding: "1rem",
+              borderRadius: "12px",
+              marginBottom: "1.5rem"
+            }}>
+              <p style={{ fontSize: "0.95rem", lineHeight: "1.5", margin: 0 }}>
+                This will permanently delete <strong>ALL</strong> your data:
+              </p>
+              <ul style={{ margin: "0.75rem 0 0 1.5rem", fontSize: "0.9rem", lineHeight: "1.8" }}>
+                <li>📌 All your pins</li>
+                <li>💡 All your recommendations</li>
+                <li>📸 All your photos</li>
+                <li>⚙️ All your settings</li>
+              </ul>
+              <p style={{ fontSize: "0.9rem", margin: "0.75rem 0 0 0", fontWeight: "bold", color: "#FCA5A5" }}>
+                ⚠️ This action cannot be undone!
+              </p>
+            </div>
+
+            {/* Confirmation Checkbox 1 */}
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.75rem",
+                fontSize: "0.95rem",
+                cursor: "pointer"
+              }}>
+                <input 
+                  type="checkbox" 
+                  checked={confirmed}
+                  onChange={(e) => {
+                    setConfirmed(e.target.checked)
+                    setShowPasswordError(false)
+                  }}
+                  style={{ 
+                    width: "20px", 
+                    height: "20px",
+                    cursor: "pointer"
+                  }}
+                />
+                <span>I understand this will delete all my data</span>
+              </label>
+            </div>
+
+            {/* Confirmation Checkbox 2 */}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.75rem",
+                fontSize: "0.95rem",
+                cursor: "pointer"
+              }}>
+                <input 
+                  type="checkbox" 
+                  checked={resetConfirmed}
+                  onChange={(e) => {
+                    setResetConfirmed(e.target.checked)
+                    setShowPasswordError(false)
+                  }}
+                  style={{ 
+                    width: "20px", 
+                    height: "20px",
+                    cursor: "pointer"
+                  }}
+                />
+                <span>Yes, I want to reset to factory defaults</span>
+              </label>
+            </div>
+
+            {/* Password Confirmation */}
+            {confirmed && resetConfirmed && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "0.5rem",
+                  fontSize: "0.9rem",
+                  opacity: 0.9
+                }}>
+                  Enter your password to confirm:
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter password..."
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setShowPasswordError(false)
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontSize: "1rem"
+                  }}
+                />
+                {showPasswordError && (
+                  <p style={{ 
+                    color: "#FCA5A5", 
+                    fontSize: "0.875rem", 
+                    margin: "0.5rem 0 0 0" 
+                  }}>
+                    Password is required to continue
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <button
+                onClick={handleCancel}
+                disabled={isResetting}
+                style={{
+                  flex: 1,
+                  background: "rgba(255,255,255,0.15)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: isResetting ? "not-allowed" : "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "600"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={performFactoryReset}
+                disabled={!confirmed || !resetConfirmed || !password || isResetting}
+                style={{
+                  flex: 1,
+                  background: confirmed && resetConfirmed && password ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "none",
+                  cursor: (confirmed && resetConfirmed && password && !isResetting) ? "pointer" : "not-allowed",
+                  fontSize: "1rem",
+                  fontWeight: "bold",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {isResetting ? "Resetting..." : "Reset Everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPageProps) {
@@ -1019,6 +1281,24 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   </div>
                 </div>
               </button>
+
+              {/* Factory Reset - DANGEROUS SECTION */}
+              <div style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                padding: "1rem",
+                borderRadius: "0.75rem",
+                border: "2px solid rgba(239, 68, 68, 0.5)",
+                marginTop: "1rem"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+                  <div style={{ fontWeight: "600", color: "#EF4444" }}>Factory Reset</div>
+                </div>
+                <p style={{ fontSize: "0.875rem", opacity: 0.9, marginBottom: "1rem" }}>
+                  This will permanently delete all your pins, recommendations, and settings. This cannot be undone.
+                </p>
+                <FactoryResetDialog />
+              </div>
 
               {/* Privacy Settings */}
               <div style={{
