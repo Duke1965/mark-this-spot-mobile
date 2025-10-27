@@ -1119,7 +1119,6 @@ export default function PINITApp() {
     let uploadedMediaUrl = recommendationData?.mediaUrl || null
     if (recommendationData?.mediaUrl && recommendationData.mediaUrl.startsWith('data:image')) {
       try {
-        const user = auth.currentUser
         const userId = user?.uid || 'anonymous'
         const filename = generateImageFilename(userId)
         uploadedMediaUrl = await uploadImageToFirebase(recommendationData.mediaUrl, filename)
