@@ -943,7 +943,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             map: mapInstanceRef.current,
             title: 'Your Location',
             icon: getMarkerIcon(isUserMoving),
-            optimized: false // Disable optimization for smoother updates
+            optimized: false, // Disable optimization for smoother updates
+            zIndex: 0 // Put user location marker at the bottom so recommendations appear on top
           })
           
           // Store reference to marker
@@ -1167,7 +1168,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 </svg>
               `),
               scaledSize: new window.google.maps.Size(32, 32)
-            }
+            },
+            zIndex: 10 // Put recommendation markers above user location marker
           })
 
           // Create InfoWindow with PINIT blue theme
