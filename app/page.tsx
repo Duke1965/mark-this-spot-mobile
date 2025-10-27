@@ -1473,7 +1473,7 @@ export default function PINITApp() {
   if (currentScreen === "library") {
     return (
       <PinLibrary
-        pins={pins}
+        pins={storedPins}
         onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
           // Handle pin selection
