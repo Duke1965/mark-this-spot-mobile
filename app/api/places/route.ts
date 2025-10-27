@@ -140,6 +140,7 @@ export async function GET(request: NextRequest) {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || deviceType === "mobile"
   
   console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Places API GET request:`, { lat, lng, radius, deviceType })
+  console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Environment check - Foursquare API key present: ${!!process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY}`)
 
   if (!lat || !lng) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
