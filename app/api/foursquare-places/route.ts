@@ -67,10 +67,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
-  // Call the POST handler logic
-  return POST(new Request(request.url, {
-    method: 'POST',
-    body: JSON.stringify({ lat, lng, radius, limit }),
-    headers: request.headers
-  }))
+  try {
+    console.log('🔍 Foursquare Places API GET request:', { lat, lng, radius, limit })
+
+    // Search nearby places using Foursquare
+    const places = await foursquareAPI.searchNearby({
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      radius: parseInt(radius),
+      limit: parseInt(limit)
+    })
+
+    if (!places || places.length === 0) {
+      console.log('⚠️ No places found from Foursquare')
+      return NextResponse.json({
+        results: [],
+        status: "ZERO_RESULTS",
+        source: "foursquare"
+      })
+    }
+
+    // Transform Foursquare places to our format
+    const transformedPlaces = places.map(place => FoursquareAPI.transformToPinData(place))
+
+    console.log(`✅ Foursquare API: Returning ${transformedPlaces.length} places`)
+
+    return NextResponse.json({
+      results: transformedPlaces,
+      status: "OK",
+      source: "foursquare"
+    })
+  } catch (error) {
+    console.error('❌ Foursquare Places API error:', error)
+    
+    return NextResponse.json({
+      results: [],
+      status: "ERROR",
+      source: "foursquare",
+      error: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
+  }
 }
