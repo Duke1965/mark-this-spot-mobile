@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       
       console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
       
-      // Only use Foursquare if we found results
+      // Use Foursquare if we found results, otherwise fall through to Google
       if (foursquareResults && foursquareResults.length > 0) {
         console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
         // Convert Foursquare results to Google Places API format
