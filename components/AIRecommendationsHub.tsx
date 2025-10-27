@@ -662,8 +662,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               try {
                 console.log('🧠 Fetching local places for new user...')
                 
-                // Use the existing places API with safeguards
-                const response = await fetch('/api/places', {
+                // Use Foursquare Places API with safeguards
+                const response = await fetch('/api/foursquare-places', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -671,7 +671,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   body: JSON.stringify({
                     lat: location.latitude,
                     lng: location.longitude,
-                    radius: "5000" // 5km radius for local area
+                    radius: 5000, // 5km radius for local area
+                    limit: 5 // Get 5 places
                   })
                 })
                 
