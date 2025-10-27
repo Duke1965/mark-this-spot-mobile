@@ -27,6 +27,7 @@ import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel } from "@/lib/pinIntelApi"
+import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 
 
 
@@ -1109,10 +1110,25 @@ export default function PINITApp() {
   }
 
   // Recommendation form handlers
-  const handleRecommendationSubmit = (rating: number, review: string) => {
+  const handleRecommendationSubmit = async (rating: number, review: string) => {
     console.log("-? Recommendation submitted:", { rating, review })
     console.log("dY? Current recommendationData:", recommendationData)
     console.log("dY? Current userLocation:", userLocation)
+    
+    // Upload image to Firebase if mediaUrl is a base64 data URL
+    let uploadedMediaUrl = recommendationData?.mediaUrl || null
+    if (recommendationData?.mediaUrl && recommendationData.mediaUrl.startsWith('data:image')) {
+      try {
+        const user = auth.currentUser
+        const userId = user?.uid || 'anonymous'
+        const filename = generateImageFilename(userId)
+        uploadedMediaUrl = await uploadImageToFirebase(recommendationData.mediaUrl, filename)
+        console.log("✅ Image uploaded to Firebase:", uploadedMediaUrl)
+      } catch (error) {
+        console.error("❌ Failed to upload image to Firebase:", error)
+        // Continue with base64 URL as fallback
+      }
+    }
     
     // Check if this is a PINIT pin recommendation (has personalThoughts)
     if (recommendationData?.personalThoughts) {
@@ -1125,7 +1141,7 @@ export default function PINITApp() {
         latitude: recommendationData?.latitude || userLocation?.latitude || 0,
         longitude: recommendationData?.longitude || userLocation?.longitude || 0,
         locationName: recommendationData?.locationName || "Unknown Location",
-        mediaUrl: recommendationData?.mediaUrl || null,
+        mediaUrl: uploadedMediaUrl,
         mediaType: recommendationData?.mediaUrl ? "photo" : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
@@ -1167,7 +1183,7 @@ export default function PINITApp() {
       latitude: userLocation?.latitude || 0,
       longitude: userLocation?.longitude || 0,
       locationName: recommendationData?.locationName || "Unknown Location",
-      mediaUrl: recommendationData?.mediaUrl || null,
+      mediaUrl: uploadedMediaUrl,
       mediaType: recommendationData?.mediaUrl ? "photo" : null,
       audioUrl: null,
       timestamp: new Date().toISOString(),
