@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { isMapLifecycleEnabled } from "@/lib/mapLifecycle"
 import { MAP_LIFECYCLE } from "@/lib/mapLifecycle"
 import { daysAgo } from "@/lib/trending"
+import { FoursquareClient } from "@/lib/foursquare"
 
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
@@ -409,9 +410,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
     }
 
-    // REMOVED: Early API key check that was forcing mock data
-    // Now we always try Google API first
+    // NEW: Try Foursquare API first
+    if (process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
+      console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
+      try {
+        const foursquareClient = new FoursquareClient()
+        const foursquareResults = await foursquareClient.searchNearby(lat, lng, radius)
+        
+        if (foursquareResults && foursquareResults.length > 0) {
+          console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults.length} places`)
+          
+          // Convert Foursquare results to Google Places API format
+          const googleFormatResults = foursquareResults.map((place: any) => ({
+            place_id: place.fsq_id || place.id,
+            name: place.name,
+            geometry: {
+              location: {
+                lat: place.location.latitude,
+                lng: place.location.longitude
+              }
+            },
+            rating: place.rating,
+            price_level: place.price_level,
+            types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
+            vicinity: place.location.address || place.location.locality || "",
+            photos: place.photoUrl ? [{
+              photo_reference: place.photoUrl,
+              width: 400,
+              height: 300
+            }] : []
+          }))
+          
+          return NextResponse.json({
+            results: googleFormatResults,
+            status: "OK",
+            source: "foursquare"
+          })
+        }
+      } catch (foursquareError) {
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
+      }
+    }
 
+    // Fall back to Google Places API
     const types = [
       "tourist_attraction",
       "restaurant",
