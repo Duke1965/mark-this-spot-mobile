@@ -422,9 +422,10 @@ export async function POST(request: NextRequest) {
           limit: 5
         })
         
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
+        
+        // Return Foursquare results even if empty (or use fallback for photos)
         if (foursquareResults && foursquareResults.length > 0) {
-          console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults.length} places`)
-          
           // Convert Foursquare results to Google Places API format
           const googleFormatResults = foursquareResults.map((place: any) => ({
             place_id: place.fsq_id || place.id,
