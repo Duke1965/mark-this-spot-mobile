@@ -949,12 +949,15 @@ export default function PINITApp() {
       
       // Use our API route instead of calling Google Maps directly
       const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
+      console.log(`📸 API response status: ${photoResponse.status}`)
       
       if (!photoResponse.ok) {
+        console.error(`❌ API failed with status: ${photoResponse.status}`)
         throw new Error("Failed to fetch location data")
       }
 
       const data = await photoResponse.json()
+      console.log(`📸 API returned ${data.results?.length || 0} results, source: ${data.source}`)
       const photos: {url: string, placeName: string}[] = []
 
       if (data.results && data.results.length > 0) {
