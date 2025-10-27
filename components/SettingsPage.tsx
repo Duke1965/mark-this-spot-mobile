@@ -279,15 +279,15 @@ function FactoryResetDialog() {
               </button>
               <button
                 onClick={performFactoryReset}
-                disabled={!confirmed || !resetConfirmed || (user && !password) || isResetting}
+                disabled={!confirmed || !resetConfirmed || isResetting}
                 style={{
                   flex: 1,
-                  background: confirmed && resetConfirmed && (!user || password) ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
+                  background: confirmed && resetConfirmed ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
                   color: "white",
                   padding: "1rem",
                   borderRadius: "12px",
                   border: "none",
-                  cursor: (confirmed && resetConfirmed && (!user || password) && !isResetting) ? "pointer" : "not-allowed",
+                  cursor: (confirmed && resetConfirmed && !isResetting) ? "pointer" : "not-allowed",
                   fontSize: "1rem",
                   fontWeight: "bold",
                   transition: "all 0.2s ease"
