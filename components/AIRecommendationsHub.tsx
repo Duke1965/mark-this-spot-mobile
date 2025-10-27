@@ -56,6 +56,7 @@ interface Recommendation {
   reason: string
   timestamp: Date
   fallbackImage?: string // NEW: Fallback emoji when no Google photo available
+  mediaUrl?: string // NEW: Image URL from Foursquare
 }
 
 interface ClusteredPin {
@@ -701,7 +702,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       confidence: 25, // Low confidence for new users
                       reason: "Local area discovery - exploring your neighborhood",
                       timestamp: new Date(),
-                      fallbackImage: getFallbackImage(category)
+                      fallbackImage: getFallbackImage(category),
+                      mediaUrl: place.mediaUrl || undefined // NEW: Include image from Foursquare
                     })
                   }
                   
@@ -1852,7 +1854,22 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                         overflow: 'hidden',
                         flexShrink: 0
                       }}>
-                        {rec.fallbackImage ? (
+                        {rec.mediaUrl ? (
+                          <img 
+                            src={rec.mediaUrl} 
+                            alt={rec.title}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        ) : rec.fallbackImage ? (
                           <span style={{ fontSize: '32px' }}>{rec.fallbackImage}</span>
                         ) : (
                           <div style={{
