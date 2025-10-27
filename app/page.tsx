@@ -1005,7 +1005,15 @@ export default function PINITApp() {
               return best
             })
             
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            // Handle both Foursquare URLs and Google photo references
+            let photoUrl: string
+            if (bestPhoto.photo_reference.startsWith('http')) {
+              // It's a Foursquare URL
+              photoUrl = bestPhoto.photo_reference
+            } else {
+              // It's a Google photo reference
+              photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            }
             
             photos.push({
               url: photoUrl,
@@ -1018,7 +1026,15 @@ export default function PINITApp() {
             // If all photos were filtered out, try to get any photo but log it
             console.log("⚠️ All photos filtered out, using fallback photo")
             const fallbackPhoto = closestPlace.photos[0]
-            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            // Handle both Foursquare URLs and Google photo references
+            let photoUrl: string
+            if (fallbackPhoto.photo_reference.startsWith('http')) {
+              // It's a Foursquare URL
+              photoUrl = fallbackPhoto.photo_reference
+            } else {
+              // It's a Google photo reference
+              photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+            }
             
             photos.push({
               url: photoUrl,
