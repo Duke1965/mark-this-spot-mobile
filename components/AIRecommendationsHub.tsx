@@ -1107,21 +1107,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
               map.setZoom(16)
               
-              // Add a user location marker
-              new window.google.maps.Marker({
-                position: { lat: mapLocation.latitude, lng: mapLocation.longitude },
-                map: map,
-                title: 'Your Location',
-                icon: {
-                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
-                      <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-                    </svg>
-                  `),
-                  scaledSize: new window.google.maps.Size(24, 24)
-                }
-              })
+              // NOTE: User location marker is created in the useEffect above, not here
+              // This prevents duplicate markers
             } else {
               console.log('🗺️ Map not rendered, triggering another resize')
               setTimeout(() => {
