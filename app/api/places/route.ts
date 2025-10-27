@@ -162,6 +162,7 @@ export async function GET(request: NextRequest) {
       
       // Only use Foursquare if we found results
       if (foursquareResults && foursquareResults.length > 0) {
+        console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
         // Convert Foursquare results to Google Places API format
         const googleFormatResults = foursquareResults.map((place: any) => ({
           place_id: place.fsq_id || place.id,
