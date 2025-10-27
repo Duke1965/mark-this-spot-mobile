@@ -47,6 +47,7 @@ interface FoursquarePlace {
   hours?: {
     display: string
   }
+  description?: string // NEW: Venue description from Foursquare
 }
 
 interface FoursquareNearbySearchParams {
@@ -118,7 +119,7 @@ export class FoursquareAPI {
         `?ll=${params.lat},${params.lng}` +
         `&radius=${Math.min(radius, 100000)}` +
         `&limit=${Math.min(limit, 50)}` +
-        '&fields=fsq_id,name,location,geocodes,photos,categories,rating,price,hours'
+        '&fields=fsq_id,name,location,geocodes,photos,categories,rating,price,hours,description'
 
       console.log('🔍 Fetching from Foursquare Places API...')
       
@@ -171,6 +172,9 @@ export class FoursquareAPI {
     const primaryCategory = place.categories?.[0]
     const primaryPhoto = place.photos?.[0]
     
+    // Use Foursquare description if available, otherwise generate one
+    const description = place.description || FoursquareAPI.generateDescription(place, primaryCategory)
+    
     return {
       id: place.fsq_id,
       latitude: place.location.latitude,
@@ -179,7 +183,7 @@ export class FoursquareAPI {
       mediaUrl: primaryPhoto ? FoursquareAPI.getPhotoUrl(primaryPhoto) : null,
       mediaType: primaryPhoto ? 'photo' : null,
       title: place.name,
-      description: FoursquareAPI.generateDescription(place, primaryCategory),
+      description: description,
       tags: place.categories?.map(cat => cat.name.toLowerCase().replace(/\s+/g, '-')) || [],
       timestamp: new Date().toISOString(),
       rating: place.rating,
