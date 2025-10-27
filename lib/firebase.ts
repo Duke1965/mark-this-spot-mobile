@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
+import { getStorage } from 'firebase/storage'
+import { getFirestore } from 'firebase/firestore'
 import { getItem, setItem, removeItem } from '@/lib/serverStore'
 import { logger } from '@/lib/logger'
 
@@ -32,16 +34,20 @@ if (typeof window !== "undefined") {
 // Initialize Firebase only if properly configured
 let app: any = null
 let auth: any = null
+let storage: any = null
+let firestore: any = null
 
 try {
   if (isFirebaseConfigured()) {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
+    storage = getStorage(app)
+    firestore = getFirestore(app)
     
     // Enable persistence
     setPersistence(auth, browserLocalPersistence)
   } else {
-    // Create mock auth object for demo mode
+    // Create mock objects for demo mode
     auth = {
       currentUser: null,
       onAuthStateChanged: (callback: (user: any) => void) => {
@@ -50,10 +56,18 @@ try {
         return () => {} // Return unsubscribe function
       },
     }
+    
+    storage = {
+      ref: () => ({
+        put: async () => ({ ref: { getDownloadURL: () => Promise.resolve('mock-url') } })
+      })
+    }
+    
+    firestore = {}
   }
 } catch (error) {
   logger.error("🔥 Firebase initialization failed", error, 'Firebase')
-  // Fallback mock auth
+  // Fallback mock objects
   auth = {
     currentUser: null,
     onAuthStateChanged: (callback: (user: any) => void) => {
@@ -61,9 +75,17 @@ try {
       return () => {}
     },
   }
+  
+  storage = {
+    ref: () => ({
+      put: async () => ({ ref: { getDownloadURL: () => Promise.resolve('mock-url') } })
+    })
+  }
+  
+  firestore = {}
 }
 
-export { auth }
+export { auth, storage, firestore }
 
 // Auth providers (only initialize if Firebase is configured)
 export const googleProvider = isFirebaseConfigured() ? new GoogleAuthProvider() : null
