@@ -34,43 +34,16 @@ function FactoryResetDialog() {
   }
 
   const performFactoryReset = async () => {
-    if (!confirmed || !resetConfirmed) return
+    if (!confirmed || !resetConfirmed || !password) {
+      setShowPasswordError(true)
+      return
+    }
     
     setIsResetting(true)
     
     // Simulate delay for security
     setTimeout(() => {
       try {
-        // Check if user is logged in
-        const isLoggedIn = user !== null
-        
-        // If not logged in (demo mode), skip password requirement
-        if (!isLoggedIn) {
-          console.log("⚠️ Demo mode factory reset - no password required")
-          
-          // Clear all localStorage data
-          localStorage.removeItem('pinit-app-state')
-          localStorage.removeItem('pinit-pins')
-          localStorage.removeItem('last-ai-recommendation-time')
-          localStorage.removeItem('last-new-user-request')
-          localStorage.removeItem('userProfile')
-          localStorage.removeItem('pinit-setup-completed')
-          localStorage.removeItem('pinit-welcome-seen')
-          
-          console.log("⚠️ Factory reset completed (demo mode)")
-          
-          // Reload the app
-          window.location.reload()
-          return
-        }
-        
-        // For logged-in users, require password
-        if (!password) {
-          setShowPasswordError(true)
-          setIsResetting(false)
-          return
-        }
-        
         // Clear all localStorage data
         localStorage.removeItem('pinit-app-state')
         localStorage.removeItem('pinit-pins')
@@ -217,8 +190,8 @@ function FactoryResetDialog() {
               </label>
             </div>
 
-            {/* Password Confirmation - Only for logged-in users */}
-            {confirmed && resetConfirmed && user && (
+            {/* Password Confirmation */}
+            {confirmed && resetConfirmed && (
               <div style={{ marginBottom: "1.5rem" }}>
                 <label style={{ 
                   display: "block", 
@@ -279,15 +252,15 @@ function FactoryResetDialog() {
               </button>
               <button
                 onClick={performFactoryReset}
-                disabled={!confirmed || !resetConfirmed || isResetting}
+                disabled={!confirmed || !resetConfirmed || !password || isResetting}
                 style={{
                   flex: 1,
-                  background: confirmed && resetConfirmed ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
+                  background: confirmed && resetConfirmed && password ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
                   color: "white",
                   padding: "1rem",
                   borderRadius: "12px",
                   border: "none",
-                  cursor: (confirmed && resetConfirmed && !isResetting) ? "pointer" : "not-allowed",
+                  cursor: (confirmed && resetConfirmed && password && !isResetting) ? "pointer" : "not-allowed",
                   fontSize: "1rem",
                   fontWeight: "bold",
                   transition: "all 0.2s ease"
