@@ -948,7 +948,8 @@ export default function PINITApp() {
       console.log("📸 Fetching location photo with aggressive filtering...")
       
       // Use our API route instead of calling Google Maps directly
-      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=50`)
+      // Use larger radius (5000m = 5km) for rural areas with fewer places
+      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
       console.log(`📸 API response status: ${photoResponse.status}`)
       
       if (!photoResponse.ok) {
