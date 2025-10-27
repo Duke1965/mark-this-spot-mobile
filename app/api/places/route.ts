@@ -145,8 +145,53 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
-  // REMOVED: Early API key check that was forcing mock data
-  // Now we always try Google API first
+  // NEW: Try Foursquare API first for GET requests too
+  if (process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
+    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
+    try {
+      const foursquareClient = new FoursquareAPI()
+      const foursquareResults = await foursquareClient.searchNearby({
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        radius: parseInt(radius),
+        limit: 5
+      })
+      
+      console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
+      
+      // Return Foursquare results even if empty (or use fallback for photos)
+      if (foursquareResults && foursquareResults.length > 0) {
+        // Convert Foursquare results to Google Places API format
+        const googleFormatResults = foursquareResults.map((place: any) => ({
+          place_id: place.fsq_id || place.id,
+          name: place.name,
+          geometry: {
+            location: {
+              lat: place.location.latitude,
+              lng: place.location.longitude
+            }
+          },
+          rating: place.rating,
+          price_level: place.price_level,
+          types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
+          vicinity: place.location.address || place.location.locality || "",
+          photos: place.photoUrl ? [{
+            photo_reference: place.photoUrl,
+            width: 400,
+            height: 300
+          }] : []
+        }))
+        
+        return NextResponse.json({
+          results: googleFormatResults,
+          status: "OK",
+          source: "foursquare"
+        })
+      }
+    } catch (foursquareError) {
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
+    }
+  }
 
   // Check if API key is available
   if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
