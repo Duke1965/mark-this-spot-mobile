@@ -498,8 +498,14 @@ export async function POST(request: NextRequest) {
         
         console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
         
+        // Debug: Log first result details
+        if (foursquareResults && foursquareResults.length > 0) {
+          console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
+        }
+        
         // Return Foursquare results even if empty (or use fallback for photos)
         if (foursquareResults && foursquareResults.length > 0) {
+          console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
           // Convert Foursquare results to Google Places API format
           const { assembleFsqPhotoUrl } = require('@/lib/fsq')
           const googleFormatResults = foursquareResults.map((place: any) => {
@@ -508,6 +514,9 @@ export async function POST(request: NextRequest) {
             let photoUrl = null
             if (firstPhoto?.prefix && firstPhoto?.suffix) {
               photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+              console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
+            } else {
+              console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No photo data for ${place.name}. Prefix: ${firstPhoto?.prefix}, Suffix: ${firstPhoto?.suffix}`)
             }
             
             return {
@@ -523,6 +532,7 @@ export async function POST(request: NextRequest) {
               price_level: place.price_level,
               types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
               vicinity: place.location.address || place.location.locality || "",
+              description: place.description || "", // Add Foursquare description
               photos: photoUrl ? [{
                 photo_reference: photoUrl, // This is actually a full URL, not a reference
                 width: firstPhoto?.width || 400,
