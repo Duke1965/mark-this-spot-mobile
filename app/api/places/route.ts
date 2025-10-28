@@ -164,25 +164,36 @@ export async function GET(request: NextRequest) {
       if (foursquareResults && foursquareResults.length > 0) {
         console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
         // Convert Foursquare results to Google Places API format
-        const googleFormatResults = foursquareResults.map((place: any) => ({
-          place_id: place.fsq_id || place.id,
-          name: place.name,
-          geometry: {
-            location: {
-              lat: place.location.latitude,
-              lng: place.location.longitude
-            }
-          },
-          rating: place.rating,
-          price_level: place.price_level,
-          types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
-          vicinity: place.location.address || place.location.locality || "",
-          photos: place.photoUrl ? [{
-            photo_reference: place.photoUrl,
-            width: 400,
-            height: 300
-          }] : []
-        }))
+        const googleFormatResults = foursquareResults.map((place: any) => {
+          // Extract and assemble Foursquare photo URL
+          const firstPhoto = place.photos?.[0]
+          let photoUrl = null
+          if (firstPhoto?.prefix && firstPhoto?.suffix) {
+            // Import the helper
+            const { assembleFsqPhotoUrl } = require('@/lib/fsq')
+            photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+          }
+          
+          return {
+            place_id: place.fsq_id || place.id,
+            name: place.name,
+            geometry: {
+              location: {
+                lat: place.location.latitude,
+                lng: place.location.longitude
+              }
+            },
+            rating: place.rating,
+            price_level: place.price_level,
+            types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
+            vicinity: place.location.address || place.location.locality || "",
+            photos: photoUrl ? [{
+              photo_reference: photoUrl, // This is actually a full URL, not a reference
+              width: firstPhoto?.width || 400,
+              height: firstPhoto?.height || 300
+            }] : []
+          }
+        })
         
         return NextResponse.json({
           results: googleFormatResults,
@@ -481,25 +492,35 @@ export async function POST(request: NextRequest) {
         // Return Foursquare results even if empty (or use fallback for photos)
         if (foursquareResults && foursquareResults.length > 0) {
           // Convert Foursquare results to Google Places API format
-          const googleFormatResults = foursquareResults.map((place: any) => ({
-            place_id: place.fsq_id || place.id,
-            name: place.name,
-            geometry: {
-              location: {
-                lat: place.location.latitude,
-                lng: place.location.longitude
-              }
-            },
-            rating: place.rating,
-            price_level: place.price_level,
-            types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
-            vicinity: place.location.address || place.location.locality || "",
-            photos: place.photoUrl ? [{
-              photo_reference: place.photoUrl,
-              width: 400,
-              height: 300
-            }] : []
-          }))
+          const { assembleFsqPhotoUrl } = require('@/lib/fsq')
+          const googleFormatResults = foursquareResults.map((place: any) => {
+            // Extract and assemble Foursquare photo URL
+            const firstPhoto = place.photos?.[0]
+            let photoUrl = null
+            if (firstPhoto?.prefix && firstPhoto?.suffix) {
+              photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+            }
+            
+            return {
+              place_id: place.fsq_id || place.id,
+              name: place.name,
+              geometry: {
+                location: {
+                  lat: place.location.latitude,
+                  lng: place.location.longitude
+                }
+              },
+              rating: place.rating,
+              price_level: place.price_level,
+              types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
+              vicinity: place.location.address || place.location.locality || "",
+              photos: photoUrl ? [{
+                photo_reference: photoUrl, // This is actually a full URL, not a reference
+                width: firstPhoto?.width || 400,
+                height: firstPhoto?.height || 300
+              }] : []
+            }
+          })
           
           return NextResponse.json({
             results: googleFormatResults,
