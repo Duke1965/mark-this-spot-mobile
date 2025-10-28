@@ -1038,19 +1038,20 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
                     setUserReview("")
                   }}
                   style={{
-                    background: "linear-gradient(135deg, #10B981, #059669)",
+                    background: "rgba(255,255,255,0.15)",
                     color: "white",
-                    border: "none",
+                    border: "1px solid rgba(255,255,255,0.2)",
                     borderRadius: "0.75rem",
                     padding: "0.75rem 1rem",
                     fontSize: "0.875rem",
                     fontWeight: "600",
                     cursor: "pointer",
                     width: "100%",
-                    transition: "all 0.2s ease"
+                    transition: "all 0.2s ease",
+                    backdropFilter: "blur(10px)",
                   }}
                 >
-                  Submit Review ⭐
+                  Submit Review 📍
                 </button>
               )}
             </div>
