@@ -3,6 +3,8 @@
  * Reliable, enterprise-grade location data provider
  */
 
+import { assembleFsqPhotoUrl } from './fsq'
+
 interface FoursquarePhoto {
   id: string
   created_at: string
@@ -155,14 +157,15 @@ export class FoursquareAPI {
   static getPhotoUrl(photo: FoursquarePhoto | undefined, size: 'original' | 'medium' | 'small' = 'medium'): string {
     if (!photo || !photo.prefix || !photo.suffix) return ''
     
-    // Foursquare photo format: {prefix}{size}{suffix}
-    const sizeMap = {
+    // Use the new helper function from lib/fsq.ts
+    const sizeMap: Record<string, 'original' | '500x500' | '300x300'> = {
       original: 'original',
       medium: '500x500',
       small: '300x300'
     }
     
-    return `${photo.prefix}${sizeMap[size]}${photo.suffix}`
+    const assembledUrl = assembleFsqPhotoUrl(photo.prefix, photo.suffix, sizeMap[size])
+    return assembledUrl || ''
   }
 
   /**
