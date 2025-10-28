@@ -158,42 +158,51 @@ export async function GET(request: NextRequest) {
         limit: 5
       })
       
-      console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
-      
-      // Use Foursquare if we found results, otherwise fall through to Google
-      if (foursquareResults && foursquareResults.length > 0) {
-        console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
-        // Convert Foursquare results to Google Places API format
-        const googleFormatResults = foursquareResults.map((place: any) => {
-          // Extract and assemble Foursquare photo URL
-          const firstPhoto = place.photos?.[0]
-          let photoUrl = null
-          if (firstPhoto?.prefix && firstPhoto?.suffix) {
-            // Import the helper
-            const { assembleFsqPhotoUrl } = require('@/lib/fsq')
-            photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
-          }
-          
-          return {
-            place_id: place.fsq_id || place.id,
-            name: place.name,
-            geometry: {
-              location: {
-                lat: place.location.latitude,
-                lng: place.location.longitude
-              }
-            },
-            rating: place.rating,
-            price_level: place.price_level,
-            types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
-            vicinity: place.location.address || place.location.locality || "",
-            photos: photoUrl ? [{
-              photo_reference: photoUrl, // This is actually a full URL, not a reference
-              width: firstPhoto?.width || 400,
-              height: firstPhoto?.height || 300
-            }] : []
-          }
-        })
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
+        
+        // Debug: Log first result details
+        if (foursquareResults && foursquareResults.length > 0) {
+          console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
+        }
+        
+        // Use Foursquare if we found results, otherwise fall through to Google
+        if (foursquareResults && foursquareResults.length > 0) {
+          console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
+          // Convert Foursquare results to Google Places API format
+          const googleFormatResults = foursquareResults.map((place: any) => {
+            // Extract and assemble Foursquare photo URL
+            const firstPhoto = place.photos?.[0]
+            let photoUrl = null
+            if (firstPhoto?.prefix && firstPhoto?.suffix) {
+              // Import the helper
+              const { assembleFsqPhotoUrl } = require('@/lib/fsq')
+              photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+              console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
+            } else {
+              console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No photo data for ${place.name}. Prefix: ${firstPhoto?.prefix}, Suffix: ${firstPhoto?.suffix}`)
+            }
+            
+            return {
+              place_id: place.fsq_id || place.id,
+              name: place.name,
+              geometry: {
+                location: {
+                  lat: place.location.latitude,
+                  lng: place.location.longitude
+                }
+              },
+              rating: place.rating,
+              price_level: place.price_level,
+              types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
+              vicinity: place.location.address || place.location.locality || "",
+              description: place.description || "", // Add Foursquare description
+              photos: photoUrl ? [{
+                photo_reference: photoUrl, // This is actually a full URL, not a reference
+                width: firstPhoto?.width || 400,
+                height: firstPhoto?.height || 300
+              }] : []
+            }
+          })
         
         return NextResponse.json({
           results: googleFormatResults,
