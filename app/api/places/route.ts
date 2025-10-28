@@ -195,6 +195,8 @@ export async function GET(request: NextRequest) {
     } catch (foursquareError) {
       console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
     }
+  } else {
+    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API key not found, trying Google`)
   }
 
   // Check if API key is available
@@ -352,7 +354,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      source: "google"
+    })
   } catch (error) {
     console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API error:`, error)
 
@@ -651,7 +656,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      source: "google"
+    })
   } catch (error) {
     console.error(`❌ Google Places API POST error:`, error)
 
