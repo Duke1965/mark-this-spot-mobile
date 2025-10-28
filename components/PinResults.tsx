@@ -973,24 +973,23 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
                 <label style={{ color: "white", fontSize: "0.875rem", display: "block", marginBottom: "0.5rem" }}>
                   Rate this place:
                 </label>
-                <div style={{ display: "flex", gap: "0.25rem" }}>
-                  {[1, 2, 3, 4, 5].map(star => (
+                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
+                  {[1, 2, 3, 4, 5].map(pinNumber => (
                     <button
-                      key={star}
-                      onClick={() => setUserRating(star)}
+                      key={pinNumber}
+                      onClick={() => setUserRating(pinNumber)}
                       style={{
                         background: "none",
                         border: "none",
-                        padding: "0.125rem",
+                        padding: "0.25rem",
                         cursor: "pointer",
-                        borderRadius: "0.25rem"
+                        fontSize: "2rem",
+                        color: pinNumber <= userRating ? "#FBBF24" : "rgba(255,255,255,0.3)",
+                        transition: "color 0.2s ease",
+                        transform: `rotate(${pinNumber % 2 === 0 ? '15deg' : '-15deg'})`,
                       }}
                     >
-                      <Star
-                        size={20}
-                        fill={star <= userRating ? "#FFD700" : "none"}
-                        color={star <= userRating ? "#FFD700" : "rgba(255,255,255,0.5)"}
-                      />
+                      📍
                     </button>
                   ))}
                 </div>
