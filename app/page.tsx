@@ -859,8 +859,8 @@ export default function PINITApp() {
       locationType = "suburban"
       context = "Cape Town Northern Suburbs - growing community"
     } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-      locationType = "coastal"
-      context = "Cape Town - beautiful coastal city"
+      locationType = "rural"
+      context = "Riebeek West area"
     } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
       locationType = "provincial"
       context = "Western Cape - diverse landscapes"
@@ -893,6 +893,8 @@ export default function PINITApp() {
         title = "🏡 Neighborhood Place"
       } else if (locationType === "coastal") {
         title = "🌊 Seaside Location"
+      } else if (locationType === "rural") {
+        title = "🏘️ Rural Location"
       } else if (locationType === "provincial") {
         title = "🏔️ Regional Spot"
       } else {
