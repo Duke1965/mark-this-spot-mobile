@@ -1,8 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
-import RegisterSW from "./_components/RegisterSW"
-import InstallPrompt from "./_components/InstallPrompt"
+import RegisterSW from "@/components/RegisterSW"
+import InstallPrompt from "@/components/InstallPrompt"
 
 export const metadata: Metadata = {
   title: "PINIT",
