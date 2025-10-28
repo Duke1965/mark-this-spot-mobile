@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react"
 import { MapPin, Calendar, Share2, Save, ArrowLeft, MessageCircle, Instagram, Facebook, Twitter, Star } from "lucide-react"
 import type { PinData } from "@/lib/types"
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore"
+import { firestore as firestoreDb } from "@/lib/firebase"
+import { useAuth } from "@/hooks/useAuth"
 
 interface PinResultsProps {
   pin: PinData
@@ -25,6 +28,7 @@ interface SocialAccount {
 }
 
 export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
+  const { user } = useAuth()
   const [photos, setPhotos] = useState<GooglePhoto[]>([])
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -48,6 +52,37 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
     count: Math.floor(Math.random() * 50) + 10,
     distribution: [2, 3, 5, 15, 25] // 1-5 star distribution
   })
+
+  // Load reviews from Firebase when component mounts
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        const reviewsQuery = query(
+          collection(firestoreDb, 'reviews'),
+          where('pinId', '==', pin.id)
+        )
+        const reviewsSnapshot = await getDocs(reviewsQuery)
+        
+        if (!reviewsSnapshot.empty) {
+          const reviews = reviewsSnapshot.docs.map(doc => doc.data())
+          const totalRatings = reviews.reduce((sum, r) => sum + (r.rating || 0), 0)
+          const avgRating = totalRatings / reviews.length
+          
+          setCommunityRatings(prev => ({
+            ...prev,
+            count: reviews.length,
+            average: avgRating
+          }))
+          
+          console.log(`✅ Loaded ${reviews.length} reviews for pin ${pin.id}`)
+        }
+      } catch (error) {
+        console.error("❌ Failed to load reviews:", error)
+      }
+    }
+    
+    loadReviews()
+  }, [pin.id])
 
   // Load user's social media accounts from localStorage
   useEffect(() => {
@@ -1020,22 +1055,52 @@ export function PinResults({ pin, onBack, onSave, onShare }: PinResultsProps) {
               
               {(userRating > 0 || userReview.trim()) && (
                 <button
-                  onClick={() => {
-                    console.log("📝 Submitting community review:", { 
-                      pinId: pin.id, 
-                      rating: userRating, 
-                      review: userReview.trim(),
-                      location: pin.locationName
-                    })
-                    // Update community ratings optimistically
-                    setCommunityRatings(prev => ({
-                      ...prev,
-                      count: prev.count + 1,
-                      average: ((prev.average * prev.count) + userRating) / (prev.count + 1)
-                    }))
-                    setShowCommunityFeatures(false)
-                    setUserRating(0)
-                    setUserReview("")
+                  onClick={async () => {
+                    try {
+                      console.log("📝 Submitting community review:", { 
+                        pinId: pin.id, 
+                        rating: userRating, 
+                        review: userReview.trim(),
+                        location: pin.locationName
+                      })
+                      
+                      // Save review to Firebase
+                      if (userReview.trim()) {
+                        const reviewData = {
+                          pinId: pin.id,
+                          userId: user?.uid || 'anonymous',
+                          rating: userRating,
+                          review: userReview.trim(),
+                          locationName: pin.locationName,
+                          timestamp: new Date().toISOString(),
+                          userName: user?.displayName || 'Anonymous'
+                        }
+                        
+                        await addDoc(collection(firestoreDb, 'reviews'), reviewData)
+                        console.log("✅ Review saved to Firebase")
+                      }
+                      
+                      // Update community ratings optimistically
+                      setCommunityRatings(prev => ({
+                        ...prev,
+                        count: prev.count + 1,
+                        average: ((prev.average * prev.count) + userRating) / (prev.count + 1)
+                      }))
+                      setShowCommunityFeatures(false)
+                      setUserRating(0)
+                      setUserReview("")
+                    } catch (error) {
+                      console.error("❌ Failed to save review:", error)
+                      // Still update UI even if save fails
+                      setCommunityRatings(prev => ({
+                        ...prev,
+                        count: prev.count + 1,
+                        average: ((prev.average * prev.count) + userRating) / (prev.count + 1)
+                      }))
+                      setShowCommunityFeatures(false)
+                      setUserRating(0)
+                      setUserReview("")
+                    }
                   }}
                   style={{
                     background: "rgba(255,255,255,0.15)",
