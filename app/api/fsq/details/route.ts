@@ -11,9 +11,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing fsq_id' }, { status: 400 });
   }
 
-  const apiKey = process.env.FOURSQUARE_API_KEY;
+  // Try FOURSQUARE_API_KEY first (server-side only), fallback to NEXT_PUBLIC version
+  let apiKey = process.env.FOURSQUARE_API_KEY;
+  if (!apiKey) {
+    console.warn('⚠️ FOURSQUARE_API_KEY not found, trying NEXT_PUBLIC_FOURSQUARE_API_KEY');
+    apiKey = process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY;
+    if (apiKey) {
+      console.warn('⚠️ Using NEXT_PUBLIC_FOURSQUARE_API_KEY - consider using FOURSQUARE_API_KEY for better security');
+    }
+  }
+  
   if (!apiKey) {
     console.error('❌ Missing FOURSQUARE_API_KEY env var');
+    console.error('❌ Available env vars with FOURSQUARE:', Object.keys(process.env).filter(k => k.includes('FOURSQUARE')));
     return NextResponse.json({ error: 'Missing FOURSQUARE_API_KEY env var' }, { status: 500 });
   }
 
