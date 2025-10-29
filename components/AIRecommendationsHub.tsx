@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
 import { useLocationServices } from '../hooks/useLocationServices'
 import { ViewPlaceCard } from './ViewPlaceCard'
+import { FsqImage } from './FsqImage'
 
 // Google Maps global declaration
 declare global {
@@ -57,6 +58,8 @@ interface Recommendation {
   timestamp: Date
   fallbackImage?: string // NEW: Fallback emoji when no Google photo available
   mediaUrl?: string // NEW: Image URL from Foursquare
+  photoUrl?: string // Foursquare direct photo URL
+  fsq_id?: string // Foursquare place ID
 }
 
 interface ClusteredPin {
@@ -679,23 +682,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 
                 if (response.ok) {
                   const data = await response.json()
-                  const places = data.results || []
+                  // Handle both new format (items) and old format (results) for compatibility
+                  const places = data.items || data.results || []
                   
                   // Generate 3-4 recommendations from local places
                   const numRecommendations = Math.min(3 + Math.floor(Math.random() * 2), places.length)
                   const selectedPlaces = places.sort(() => 0.5 - Math.random()).slice(0, numRecommendations)
                   
                   for (const place of selectedPlaces) {
-                    const category = getCategoryFromTypes(place.types || [])
+                    // Handle both new format (category) and old format (types)
+                    const category = place.category || getCategoryFromTypes(place.types || [])
                     
                     aiRecs.push({
-                      id: `new-user-${place.place_id}`,
-                      title: place.name || 'Local Spot',
-                      description: `Great ${category.toLowerCase()} spot in your area`,
+                      id: `new-user-${place.fsq_id || place.id || place.place_id}`,
+                      title: place.title || place.name || 'Local Spot',
+                      description: place.description || `Great ${category.toLowerCase()} spot in your area`,
                       category: category,
                       location: {
-                        lat: place.geometry?.location?.lat || location.latitude,
-                        lng: place.geometry?.location?.lng || location.longitude,
+                        lat: place.location?.lat || place.geometry?.location?.lat || location.latitude,
+                        lng: place.location?.lng || place.geometry?.location?.lng || location.longitude,
                       },
                       rating: place.rating || 4.0,
                       isAISuggestion: true,
@@ -703,8 +708,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       reason: "Local area discovery - exploring your neighborhood",
                       timestamp: new Date(),
                       fallbackImage: getFallbackImage(category),
-                      mediaUrl: place.mediaUrl || undefined // NEW: Include image from Foursquare
-                    })
+                      photoUrl: place.photoUrl || place.mediaUrl || undefined,
+                      fsq_id: place.fsq_id || place.id || undefined
+                    } as Recommendation)
                   }
                   
                   // Update last request time to prevent API loops
@@ -1841,9 +1847,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                         fontSize: '24px',
                         border: '1px solid rgba(255,255,255,0.2)',
                         overflow: 'hidden',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        position: 'relative'
                       }}>
-                        {rec.mediaUrl ? (
+                        {rec.photoUrl ? (
+                          <img 
+                            src={rec.photoUrl} 
+                            alt={rec.title}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        ) : rec.mediaUrl ? (
                           <img 
                             src={rec.mediaUrl} 
                             alt={rec.title}
@@ -1856,6 +1878,15 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                               // Fallback if image fails to load
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
+                            }}
+                          />
+                        ) : rec.fsq_id ? (
+                          <FsqImage 
+                            fsqId={rec.fsq_id}
+                            alt={rec.title}
+                            fill
+                            style={{
+                              objectFit: 'cover'
                             }}
                           />
                         ) : rec.fallbackImage ? (
