@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { X, Share2, Heart, MapPin } from "lucide-react"
+import { FsqImage } from "./FsqImage"
 
 interface ViewPlaceCardProps {
   recommendation: {
@@ -24,6 +25,9 @@ interface ViewPlaceCardProps {
     userComment?: string
     userRating?: number
     userName?: string
+    // Foursquare fields
+    photoUrl?: string
+    fsq_id?: string
   }
   onClose: () => void
   onShare?: (recommendation: any) => void
@@ -140,7 +144,7 @@ export function ViewPlaceCard({
           </button>
         </div>
 
-        {/* Camera Capture Section */}
+        {/* Image Section */}
         <div style={{
           marginBottom: '20px'
         }}>
@@ -166,28 +170,26 @@ export function ViewPlaceCard({
                   objectFit: 'cover'
                 }}
               />
+            ) : recommendation.photoUrl ? (
+              <img 
+                src={recommendation.photoUrl} 
+                alt={recommendation.title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+              />
             ) : (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                color: 'rgba(255,255,255,0.7)'
-              }}>
-                <span style={{ fontSize: '48px', marginBottom: '8px' }}>
-                  {recommendation.fallbackImage || '📷'}
-                </span>
-                <span style={{ fontSize: '14px' }}>User's Photo</span>
-              </div>
+              <FsqImage 
+                fsqId={recommendation.fsq_id}
+                alt={recommendation.title}
+                fill
+                style={{
+                  objectFit: 'cover'
+                }}
+              />
             )}
-          </div>
-          <div style={{
-            textAlign: 'center',
-            color: 'white',
-            fontSize: '14px',
-            marginTop: '8px',
-            opacity: 0.8
-          }}>
-            Camera Capture
           </div>
         </div>
 
