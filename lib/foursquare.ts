@@ -68,10 +68,15 @@ export class FoursquareAPI {
   private minRequestInterval = 1000 // 1 second minimum between requests
 
   constructor() {
-    this.apiKey = process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY || ''
+    // Prefer server-side key (FOURSQUARE_API_KEY), fallback to client key (NEXT_PUBLIC_FOURSQUARE_API_KEY)
+    this.apiKey = process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY || ''
     
     if (!this.apiKey) {
       console.warn('⚠️ Foursquare API key not configured')
+    } else if (process.env.FOURSQUARE_API_KEY) {
+      console.log('✅ Using server-side FOURSQUARE_API_KEY')
+    } else {
+      console.log('✅ Using client-side NEXT_PUBLIC_FOURSQUARE_API_KEY')
     }
   }
 
