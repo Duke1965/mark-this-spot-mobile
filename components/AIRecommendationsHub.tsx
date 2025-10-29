@@ -249,7 +249,19 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     const clusters: ClusteredPin[] = []
     const clusterRadius = 0.0005 // About 50 meters - smaller radius for tighter clustering
     
-    pins.forEach((pin) => {
+    // Filter out pins without valid locations
+    const validPins = pins.filter((pin) => {
+      if (!pin.location || !pin.location.lat || !pin.location.lng || 
+          !isFinite(pin.location.lat) || !isFinite(pin.location.lng)) {
+        console.warn('🧠 Skipping pin without valid location:', pin.title || pin.id)
+        return false
+      }
+      return true
+    })
+    
+    console.log(`🧠 Clustering ${validPins.length} valid pins (filtered ${pins.length - validPins.length} invalid)`)
+    
+    validPins.forEach((pin) => {
       let addedToCluster = false
       
       // Try to add to existing cluster
@@ -630,14 +642,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   if (categoryPlaces.length > 0) {
                     const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
                     
+                    // CRITICAL: Validate coordinates before adding recommendation
+                    const placeLat = selectedPlace.lat
+                    const placeLng = selectedPlace.lng
+                    
+                    // Skip places without valid coordinates
+                    if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
+                      console.warn('🧠 Skipping place without valid coordinates:', selectedPlace.name)
+                      continue
+                    }
+                    
                     aiRecs.push({
                       id: `ai-${category}-${selectedPlace.id}`,
                       title: selectedPlace.name || 'Interesting Place',
                       description: `AI recommends this ${category} spot based on your preferences`,
                       category: category,
                       location: {
-                        lat: selectedPlace.lat,
-                        lng: selectedPlace.lng,
+                        lat: placeLat,
+                        lng: placeLng,
                       },
                       rating: 4.0, // Default rating since Geoapify doesn't provide ratings
                       isAISuggestion: true,
@@ -693,14 +715,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     // Handle both new format (category) and old format (types)
                     const category = place.category || getCategoryFromTypes(place.types || [])
                     
+                    // CRITICAL: Extract location coordinates - must have valid lat/lng or skip this place
+                    const placeLat = place.location?.lat || place.geometry?.location?.lat
+                    const placeLng = place.location?.lng || place.geometry?.location?.lng
+                    
+                    // Skip places without valid coordinates - don't fall back to user location!
+                    if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
+                      console.warn('🧠 Skipping place without valid coordinates:', place.title || place.name, place)
+                      continue
+                    }
+                    
                     aiRecs.push({
                       id: `new-user-${place.fsq_id || place.id || place.place_id}`,
                       title: place.title || place.name || 'Local Spot',
                       description: place.description || `Great ${category.toLowerCase()} spot in your area`,
                       category: category,
                       location: {
-                        lat: place.location?.lat || place.geometry?.location?.lat || location.latitude,
-                        lng: place.location?.lng || place.geometry?.location?.lng || location.longitude,
+                        lat: placeLat,
+                        lng: placeLng,
                       },
                       rating: place.rating || 4.0,
                       isAISuggestion: true,
@@ -1159,6 +1191,15 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
       if (window.google && window.google.maps) {
         // Add markers for each cluster
         clusteredPins.forEach((cluster) => {
+          // CRITICAL: Verify cluster has valid coordinates
+          if (!cluster.location || !cluster.location.lat || !cluster.location.lng || 
+              !isFinite(cluster.location.lat) || !isFinite(cluster.location.lng)) {
+            console.error('🗺️ Skipping cluster with invalid coordinates:', cluster)
+            return
+          }
+          
+          console.log('🗺️ Creating marker for:', cluster.recommendations[0]?.title, 'at:', cluster.location)
+          
           const marker = new window.google.maps.Marker({
             position: { lat: cluster.location.lat, lng: cluster.location.lng },
             map: mapInstanceRef.current,
