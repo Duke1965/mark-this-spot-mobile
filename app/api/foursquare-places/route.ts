@@ -5,6 +5,7 @@ const FSQ_BASE = 'https://api.foursquare.com/v3/places';
 /**
  * Foursquare Places API Route
  * Server-side proxy to avoid exposing API key
+ * Updated: Enhanced error logging and fallback support
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -17,16 +18,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
-  const apiKey = process.env.FOURSQUARE_API_KEY;
+  // Try FOURSQUARE_API_KEY first (server-side only), fallback to NEXT_PUBLIC version
+  let apiKey = process.env.FOURSQUARE_API_KEY;
+  if (!apiKey) {
+    console.warn('⚠️ FOURSQUARE_API_KEY not found, trying NEXT_PUBLIC_FOURSQUARE_API_KEY');
+    apiKey = process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY;
+    if (apiKey) {
+      console.warn('⚠️ Using NEXT_PUBLIC_FOURSQUARE_API_KEY - consider using FOURSQUARE_API_KEY for better security');
+    }
+  }
+  
   if (!apiKey) {
     console.error('❌ Missing FOURSQUARE_API_KEY env var');
+    console.error('❌ Available env vars with FOURSQUARE:', Object.keys(process.env).filter(k => k.includes('FOURSQUARE')));
     return NextResponse.json({ error: 'Missing FOURSQUARE_API_KEY env var' }, { status: 500 });
   }
 
   try {
     console.log('🔍 Foursquare Places API GET request:', { lat, lng, radius, limit })
+    console.log('🔑 API Key present:', !!apiKey, 'Length:', apiKey.length);
 
     const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos`
+    console.log('🔗 Foursquare URL:', url);
     
     const r = await fetch(url, {
       headers: {
@@ -36,13 +49,18 @@ export async function GET(request: NextRequest) {
       next: { revalidate: 0 },
     })
 
+    console.log('📡 Foursquare response status:', r.status, r.statusText);
+
     if (!r.ok) {
-      console.error(`❌ FSQ search error: ${r.status}`);
       const text = await r.text();
+      console.error(`❌ FSQ search error: ${r.status}`);
+      console.error(`❌ FSQ error body:`, text.substring(0, 500));
       return NextResponse.json({ error: 'FSQ error', status: r.status, body: text }, { status: r.status });
     }
 
     const data = await r.json();
+    console.log('📦 Foursquare response data keys:', Object.keys(data));
+    console.log('📦 Results count:', data?.results?.length || 0);
     const results = Array.isArray(data?.results) ? data.results : [];
 
     const items = results.map((p: any) => ({
@@ -67,7 +85,13 @@ export async function GET(request: NextRequest) {
       source: "foursquare"
     })
   } catch (error) {
-    console.error('❌ Foursquare Places API error:', error)
+    console.error('❌ Foursquare Places API GET error:', error)
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      apiKeyPresent: !!process.env.FOURSQUARE_API_KEY,
+      apiKeyLength: process.env.FOURSQUARE_API_KEY?.length || 0
+    })
     
     return NextResponse.json({
       items: [],
@@ -92,10 +116,13 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.FOURSQUARE_API_KEY;
     if (!apiKey) {
       console.error('❌ Missing FOURSQUARE_API_KEY env var');
+      console.error('❌ Available env vars with FOURSQUARE:', Object.keys(process.env).filter(k => k.includes('FOURSQUARE')));
       return NextResponse.json({ error: 'Missing FOURSQUARE_API_KEY env var' }, { status: 500 });
     }
 
     const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos`
+    console.log('🔗 Foursquare URL:', url);
+    console.log('🔑 API Key present:', !!apiKey, 'Length:', apiKey.length);
     
     const r = await fetch(url, {
       headers: {
@@ -105,13 +132,18 @@ export async function POST(request: NextRequest) {
       next: { revalidate: 0 },
     })
 
+    console.log('📡 Foursquare response status:', r.status, r.statusText);
+
     if (!r.ok) {
-      console.error(`❌ FSQ search error: ${r.status}`);
       const text = await r.text();
+      console.error(`❌ FSQ search error: ${r.status}`);
+      console.error(`❌ FSQ error body:`, text.substring(0, 500));
       return NextResponse.json({ error: 'FSQ error', status: r.status, body: text }, { status: r.status });
     }
 
     const data = await r.json();
+    console.log('📦 Foursquare response data keys:', Object.keys(data));
+    console.log('📦 Results count:', data?.results?.length || 0);
     const results = Array.isArray(data?.results) ? data.results : [];
 
     const items = results.map((p: any) => ({
@@ -136,7 +168,13 @@ export async function POST(request: NextRequest) {
       source: "foursquare"
     })
   } catch (error) {
-    console.error('❌ Foursquare Places API error:', error)
+    console.error('❌ Foursquare Places API POST error:', error)
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      apiKeyPresent: !!process.env.FOURSQUARE_API_KEY,
+      apiKeyLength: process.env.FOURSQUARE_API_KEY?.length || 0
+    })
     
     return NextResponse.json({
       items: [],
