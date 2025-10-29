@@ -803,12 +803,14 @@ export default function PINITApp() {
         console.log("📍 Stationary pinning - using current location")
       }
       
-      // NEW: Fetch location photos before creating the pin
+      // NEW: Fetch location photos before creating the pin (includes Foursquare place data)
       console.log("📸 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
       // NEW: Generate intelligent AI content based on location and context
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos)
+      // Pass Foursquare description if available
+      const placeDescription = locationPhotos[0]?.description
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeDescription)
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -838,8 +840,8 @@ export default function PINITApp() {
   }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
 
   // NEW: Generate intelligent AI content based on location and context
-  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[]) => {
-    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length })
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[], placeDescription?: string) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length, hasDescription: !!placeDescription })
     
     // Determine location type and context
     let locationType = "general"
@@ -902,12 +904,19 @@ export default function PINITApp() {
       }
     }
     
-    // Generate intelligent description
+    // Generate intelligent description - use Foursquare description if available
     let description = ""
-    if (motionData.isMoving && motionData.speed > 5) {
-      description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+    if (placeDescription && placeDescription.trim()) {
+      // Use Foursquare description if available
+      description = placeDescription
+      console.log("🧠 Using Foursquare description:", description)
     } else {
-      description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+      // Fall back to AI-generated description
+      if (motionData.isMoving && motionData.speed > 5) {
+        description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+      } else {
+        description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+      }
     }
     
     // Generate smart tags based on context
@@ -928,10 +937,11 @@ export default function PINITApp() {
     }
     tags.push("ai-generated", "pinit")
     
-    // Use real location name if available from photos
+    // Use real location name if available from photos (Foursquare or Google)
     let locationName = context
-    if (locationPhotos.length > 0 && locationPhotos[0].placeName !== "PINIT Placeholder") {
+    if (locationPhotos.length > 0 && locationPhotos[0].placeName && locationPhotos[0].placeName !== "PINIT Placeholder") {
       locationName = locationPhotos[0].placeName
+      console.log("🧠 Using place name from API:", locationName)
     }
     
     console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
@@ -945,27 +955,109 @@ export default function PINITApp() {
   }
 
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
-  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string}[]> => {
+  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string, description?: string}[]> => {
     try {
       console.log("📸 Fetching location photo with aggressive filtering...")
       
-      // Use our API route instead of calling Google Maps directly
-      // Use larger radius (5000m = 5km) for rural areas with fewer places
-      const photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
-      console.log(`📸 API response status: ${photoResponse.status}`)
+      // NEW: Try Foursquare API first for better photos and place data
+      let photoResponse: Response | null = null
+      let data: any = null
       
-      if (!photoResponse.ok) {
-        console.error(`❌ API failed with status: ${photoResponse.status}`)
-        throw new Error("Failed to fetch location data")
+      try {
+        console.log("📸 Trying Foursquare API for place data and photos...")
+        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=5000&limit=5`)
+        console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
+        
+        if (photoResponse.ok) {
+          data = await photoResponse.json()
+          console.log(`📸 Foursquare API returned ${data.items?.length || 0} places`)
+          
+          // Convert Foursquare format to expected format
+          if (data.items && data.items.length > 0) {
+            const photos: {url: string, placeName: string, description?: string}[] = []
+            
+            // Find closest place (first one should be closest)
+            const closestPlace = data.items[0]
+            
+            if (closestPlace.photoUrl) {
+              photos.push({
+                url: closestPlace.photoUrl,
+                placeName: closestPlace.title || closestPlace.name || "Unknown Place",
+                description: closestPlace.description
+              })
+              
+              console.log(`✅ Found Foursquare photo for: ${closestPlace.title}`, closestPlace.photoUrl)
+              
+              // Return early with Foursquare data
+              return photos
+            }
+            
+            // If no photo URL, try to fetch photos using fsq_id
+            if (closestPlace.fsq_id) {
+              console.log(`📸 No photoUrl, trying to fetch photos for fsq_id: ${closestPlace.fsq_id}`)
+              try {
+                const photosResponse = await fetch(`/api/fsq/photos?fsq_id=${closestPlace.fsq_id}`)
+                if (photosResponse.ok) {
+                  const photosData = await photosResponse.json()
+                  if (photosData.urls && photosData.urls.length > 0) {
+                    return [{
+                      url: photosData.urls[0],
+                      placeName: closestPlace.title || closestPlace.name || "Unknown Place",
+                      description: closestPlace.description
+                    }]
+                  }
+                }
+              } catch (photosError) {
+                console.warn("⚠️ Failed to fetch photos via fsq/photos endpoint:", photosError)
+              }
+            }
+            
+            // If we have place data but no photos, return the place name at least
+            if (closestPlace.title || closestPlace.name) {
+              console.log(`⚠️ Foursquare place found but no photos: ${closestPlace.title}`)
+            }
+          }
+        }
+      } catch (fsqError) {
+        console.warn("⚠️ Foursquare API failed, falling back to /api/places:", fsqError)
       }
+      
+      // Fallback to /api/places if Foursquare didn't work or returned no results
+      if (!data || !data.items || data.items.length === 0) {
+        console.log("📸 Falling back to /api/places endpoint...")
+        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
+        console.log(`📸 API response status: ${photoResponse.status}`)
+        
+        if (!photoResponse.ok) {
+          console.error(`❌ API failed with status: ${photoResponse.status}`)
+          throw new Error("Failed to fetch location data")
+        }
 
-      const data = await photoResponse.json()
-      console.log(`📸 API returned ${data.results?.length || 0} results, source: ${data.source}`)
-      const photos: {url: string, placeName: string}[] = []
+        data = await photoResponse.json()
+        console.log(`📸 API returned ${data.results?.length || 0} results, source: ${data.source}`)
+      }
+      
+      const photos: {url: string, placeName: string, description?: string}[] = []
 
-      if (data.results && data.results.length > 0) {
+      // Handle both Foursquare format (data.items) and Google format (data.results)
+      const results = data.items || data.results || []
+      
+      if (results.length > 0) {
         // Get the closest place
-        const closestPlace = data.results[0]
+        const closestPlace = results[0]
+        
+        // Handle Foursquare format
+        if (closestPlace.photoUrl) {
+          photos.push({
+            url: closestPlace.photoUrl,
+            placeName: closestPlace.title || closestPlace.name || "Unknown Place",
+            description: closestPlace.description
+          })
+          console.log(`✅ Found Foursquare photo: ${closestPlace.title}`)
+          return photos
+        }
+        
+        // Handle Google format (existing code)
         if (closestPlace.photos && closestPlace.photos.length > 0) {
           // More aggressive filtering to exclude logos, clipart, and non-location photos
           const filteredPhotos = closestPlace.photos.filter((photo: any) => {
@@ -1023,7 +1115,8 @@ export default function PINITApp() {
             
             photos.push({
               url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place"
+              placeName: closestPlace.name || "Unknown Place",
+              description: closestPlace.description // Include description if available (from Foursquare converted format)
             })
             
             console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
@@ -1044,7 +1137,8 @@ export default function PINITApp() {
             
             photos.push({
               url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place"
+              placeName: closestPlace.name || "Unknown Place",
+              description: closestPlace.description // Include description if available
             })
             return photos
           }
