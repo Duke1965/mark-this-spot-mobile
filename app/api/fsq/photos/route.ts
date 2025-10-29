@@ -11,11 +11,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing fsq_id' }, { status: 400 });
   }
 
+  const apiKey = process.env.FOURSQUARE_API_KEY;
+  if (!apiKey) {
+    console.error('❌ Missing FOURSQUARE_API_KEY env var');
+    return NextResponse.json({ error: 'Missing FOURSQUARE_API_KEY env var' }, { status: 500 });
+  }
+
   try {
     const r = await fetch(`${FSQ_BASE}/${fsq_id}/photos`, {
       headers: {
         'Accept': 'application/json',
-        'Authorization': process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY || '',
+        'Authorization': apiKey,
       },
       next: { revalidate: 0 },
     });
@@ -31,6 +37,7 @@ export async function GET(req: NextRequest) {
     };
 
     if (!r.ok) {
+      console.error(`❌ FSQ photos error: ${r.status}`, photos);
       return NextResponse.json({ error: 'FSQ error', status: r.status, body: photos, limits }, { status: r.status });
     }
 
@@ -40,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ urls, raw: photos, limits }, { status: 200 });
   } catch (e: any) {
+    console.error('❌ Server error in fsq/photos:', e?.message);
     return NextResponse.json({ error: 'Server error', message: e?.message }, { status: 500 });
   }
 }
-
