@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const r = await fetch(`${FSQ_BASE}/${fsq_id}?fields=photos,website,description,categories,location,rating`, {
+    // Request full place details including description
+    const r = await fetch(`${FSQ_BASE}/${fsq_id}?fields=photos,website,description,categories,location,rating,name,geocodes`, {
       headers: {
         'Accept': 'application/json',
         'Authorization': apiKey,
@@ -41,12 +42,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'FSQ error', status: r.status, body: data, limits }, { status: r.status });
     }
 
+    // Extract photos and assemble URLs
     const photos = Array.isArray(data?.photos) ? data.photos : [];
     const urls = photos
       .map((p: any) => assembleFsqPhotoUrl(p?.prefix, p?.suffix, 'original'))
       .filter(Boolean);
 
-    return NextResponse.json({ urls, raw: photos, limits }, { status: 200 });
+    // Return full place details including description, not just photos
+    return NextResponse.json({ 
+      name: data.name,
+      description: data.description,
+      rating: data.rating,
+      category: data.categories?.[0]?.name,
+      address: data.location?.address || data.location?.formatted_address,
+      location: {
+        lat: data.geocodes?.main?.latitude,
+        lng: data.geocodes?.main?.longitude
+      },
+      photoUrls: urls,
+      photos: photos,
+      limits 
+    }, { status: 200 });
   } catch (e: any) {
     console.error('❌ Server error in fsq/details:', e?.message);
     return NextResponse.json({ error: 'Server error', message: e?.message }, { status: 500 });
