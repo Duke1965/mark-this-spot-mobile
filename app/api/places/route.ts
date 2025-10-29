@@ -147,15 +147,21 @@ export async function GET(request: NextRequest) {
   }
 
   // NEW: Try Foursquare API first for GET requests too
-  if (process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
+  // Use server-side key first (FOURSQUARE_API_KEY), fallback to client key (NEXT_PUBLIC_FOURSQUARE_API_KEY)
+  const foursquareApiKey = process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+  
+  if (foursquareApiKey) {
     console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
     try {
+      // Use larger radius for rural areas (convert radius string to number, default to 5000m)
+      const searchRadius = Math.max(parseInt(radius) || 5000, 5000) // At least 5km for better coverage
+      
       const foursquareClient = new FoursquareAPI()
       const foursquareResults = await foursquareClient.searchNearby({
         lat: parseFloat(lat),
         lng: parseFloat(lng),
-        radius: parseInt(radius),
-        limit: 5
+        radius: searchRadius, // Use larger radius for better results
+        limit: 10 // Increased limit to find more places
       })
       
         console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
@@ -168,14 +174,14 @@ export async function GET(request: NextRequest) {
         // Use Foursquare if we found results, otherwise fall through to Google
         if (foursquareResults && foursquareResults.length > 0) {
           console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
+          // Import the helper once
+          const { assembleFsqPhotoUrl } = await import('@/lib/fsq')
           // Convert Foursquare results to Google Places API format
           const googleFormatResults = foursquareResults.map((place: any) => {
             // Extract and assemble Foursquare photo URL
             const firstPhoto = place.photos?.[0]
             let photoUrl = null
             if (firstPhoto?.prefix && firstPhoto?.suffix) {
-              // Import the helper
-              const { assembleFsqPhotoUrl } = require('@/lib/fsq')
               photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
               console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
             } else {
@@ -507,13 +513,13 @@ export async function POST(request: NextRequest) {
         if (foursquareResults && foursquareResults.length > 0) {
           console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
           // Convert Foursquare results to Google Places API format
-          const { assembleFsqPhotoUrl } = require('@/lib/fsq')
+          const fsq = await import('@/lib/fsq')
           const googleFormatResults = foursquareResults.map((place: any) => {
             // Extract and assemble Foursquare photo URL
             const firstPhoto = place.photos?.[0]
             let photoUrl = null
             if (firstPhoto?.prefix && firstPhoto?.suffix) {
-              photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+              photoUrl = fsq.assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
               console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
             } else {
               console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No photo data for ${place.name}. Prefix: ${firstPhoto?.prefix}, Suffix: ${firstPhoto?.suffix}`)
