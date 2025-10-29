@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { assembleFsqPhotoUrl } from '@/lib/fsq'
 
 const FSQ_BASE = 'https://api.foursquare.com/v3/places';
 
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Foursquare Places API GET request:', { lat, lng, radius, limit })
     console.log('🔑 API Key present:', !!apiKey, 'Length:', apiKey.length);
 
-    const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos`
+    // Request comprehensive fields including location for address
+    const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos,location`
     console.log('🔗 Foursquare URL:', url);
     
     const r = await fetch(url, {
@@ -63,19 +65,41 @@ export async function GET(request: NextRequest) {
     console.log('📦 Results count:', data?.results?.length || 0);
     const results = Array.isArray(data?.results) ? data.results : [];
 
-    const items = results.map((p: any) => ({
-      id: p.fsq_id,
-      fsq_id: p.fsq_id,
-      title: p.name,
-      description: p.description || undefined,
-      category: p.categories?.[0]?.name || undefined,
-      rating: p.rating || undefined,
-      location: {
-        lat: p.geocodes?.main?.latitude,
-        lng: p.geocodes?.main?.longitude
-      },
-      photoUrl: Array.isArray(p.photos) && p.photos[0] ? `${p.photos[0].prefix}original${p.photos[0].suffix}` : undefined
-    }))
+    // Properly assemble photo URLs and extract place data
+    const items = results.map((p: any) => {
+      let photoUrl: string | undefined = undefined
+      
+      // Properly assemble photo URL using helper function
+      if (Array.isArray(p.photos) && p.photos.length > 0) {
+        const firstPhoto = p.photos[0]
+        if (firstPhoto?.prefix && firstPhoto?.suffix) {
+          const assembled = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+          if (assembled) {
+            photoUrl = assembled
+            console.log(`📸 Assembled photo URL for ${p.name}:`, photoUrl.substring(0, 50) + '...')
+          } else {
+            console.log(`⚠️ Failed to assemble photo URL for ${p.name}`)
+          }
+        } else {
+          console.log(`⚠️ Photo data incomplete for ${p.name}`)
+        }
+      }
+
+      return {
+        id: p.fsq_id,
+        fsq_id: p.fsq_id,
+        title: p.name,
+        description: p.description || undefined,
+        category: p.categories?.[0]?.name || undefined,
+        rating: p.rating || undefined,
+        location: {
+          lat: p.geocodes?.main?.latitude,
+          lng: p.geocodes?.main?.longitude
+        },
+        photoUrl: photoUrl,
+        address: p.location?.address || p.location?.formatted_address || p.location?.cross_street || undefined
+      }
+    })
 
     console.log(`✅ Foursquare API: Returning ${items.length} places`)
 
@@ -113,14 +137,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
     }
 
-    const apiKey = process.env.FOURSQUARE_API_KEY;
+    // Try FOURSQUARE_API_KEY first (server-side only), fallback to NEXT_PUBLIC version
+    let apiKey = process.env.FOURSQUARE_API_KEY;
+    if (!apiKey) {
+      console.warn('⚠️ FOURSQUARE_API_KEY not found, trying NEXT_PUBLIC_FOURSQUARE_API_KEY');
+      apiKey = process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY;
+      if (apiKey) {
+        console.warn('⚠️ Using NEXT_PUBLIC_FOURSQUARE_API_KEY - consider using FOURSQUARE_API_KEY for better security');
+      }
+    }
+    
     if (!apiKey) {
       console.error('❌ Missing FOURSQUARE_API_KEY env var');
       console.error('❌ Available env vars with FOURSQUARE:', Object.keys(process.env).filter(k => k.includes('FOURSQUARE')));
       return NextResponse.json({ error: 'Missing FOURSQUARE_API_KEY env var' }, { status: 500 });
     }
 
-    const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos`
+    // Request comprehensive fields including location for address
+    const url = `${FSQ_BASE}/search?ll=${lat},${lng}&radius=${radius}&limit=${limit}&fields=fsq_id,name,geocodes,categories,description,rating,photos,location`
     console.log('🔗 Foursquare URL:', url);
     console.log('🔑 API Key present:', !!apiKey, 'Length:', apiKey.length);
     
@@ -146,19 +180,41 @@ export async function POST(request: NextRequest) {
     console.log('📦 Results count:', data?.results?.length || 0);
     const results = Array.isArray(data?.results) ? data.results : [];
 
-    const items = results.map((p: any) => ({
-      id: p.fsq_id,
-      fsq_id: p.fsq_id,
-      title: p.name,
-      description: p.description || undefined,
-      category: p.categories?.[0]?.name || undefined,
-      rating: p.rating || undefined,
-      location: {
-        lat: p.geocodes?.main?.latitude,
-        lng: p.geocodes?.main?.longitude
-      },
-      photoUrl: Array.isArray(p.photos) && p.photos[0] ? `${p.photos[0].prefix}original${p.photos[0].suffix}` : undefined
-    }))
+    // Properly assemble photo URLs and extract place data
+    const items = results.map((p: any) => {
+      let photoUrl: string | undefined = undefined
+      
+      // Properly assemble photo URL using helper function
+      if (Array.isArray(p.photos) && p.photos.length > 0) {
+        const firstPhoto = p.photos[0]
+        if (firstPhoto?.prefix && firstPhoto?.suffix) {
+          const assembled = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
+          if (assembled) {
+            photoUrl = assembled
+            console.log(`📸 Assembled photo URL for ${p.name}:`, photoUrl.substring(0, 50) + '...')
+          } else {
+            console.log(`⚠️ Failed to assemble photo URL for ${p.name}`)
+          }
+        } else {
+          console.log(`⚠️ Photo data incomplete for ${p.name}`)
+        }
+      }
+
+      return {
+        id: p.fsq_id,
+        fsq_id: p.fsq_id,
+        title: p.name,
+        description: p.description || undefined,
+        category: p.categories?.[0]?.name || undefined,
+        rating: p.rating || undefined,
+        location: {
+          lat: p.geocodes?.main?.latitude,
+          lng: p.geocodes?.main?.longitude
+        },
+        photoUrl: photoUrl,
+        address: p.location?.address || p.location?.formatted_address || p.location?.cross_street || undefined
+      }
+    })
 
     console.log(`✅ Foursquare API: Returning ${items.length} places`)
 
