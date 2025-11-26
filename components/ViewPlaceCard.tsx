@@ -183,6 +183,8 @@ export function ViewPlaceCard({
             ) : (
               <FsqImage 
                 fsqId={recommendation.fsq_id}
+                lat={recommendation.location?.lat}
+                lng={recommendation.location?.lng}
                 alt={recommendation.title}
                 fill
                 style={{
