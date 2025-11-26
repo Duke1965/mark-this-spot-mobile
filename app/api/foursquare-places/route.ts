@@ -124,13 +124,17 @@ export async function GET(request: NextRequest) {
         if (firstPhoto?.url) {
           // New format: direct URL
           photoUrl = firstPhoto.url
-          console.log(`📸 Using direct photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          if (photoUrl) {
+            console.log(`📸 Using direct photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
         } else if (firstPhoto?.prefix && firstPhoto?.suffix) {
           // Legacy format: assemble from prefix/suffix
           const assembled = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
           if (assembled) {
             photoUrl = assembled
-            console.log(`📸 Assembled photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+            if (photoUrl) {
+              console.log(`📸 Assembled photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+            }
           } else {
             console.log(`⚠️ Failed to assemble photo URL for ${p.name || p.title}`)
           }
@@ -300,13 +304,17 @@ export async function POST(request: NextRequest) {
         if (firstPhoto?.url) {
           // New format: direct URL
           photoUrl = firstPhoto.url
-          console.log(`📸 Using direct photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          if (photoUrl) {
+            console.log(`📸 Using direct photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
         } else if (firstPhoto?.prefix && firstPhoto?.suffix) {
           // Legacy format: assemble from prefix/suffix
           const assembled = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
           if (assembled) {
             photoUrl = assembled
-            console.log(`📸 Assembled photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+            if (photoUrl) {
+              console.log(`📸 Assembled photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+            }
           } else {
             console.log(`⚠️ Failed to assemble photo URL for ${p.name || p.title}`)
           }
