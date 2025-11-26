@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { isMapLifecycleEnabled } from "@/lib/mapLifecycle"
 import { MAP_LIFECYCLE } from "@/lib/mapLifecycle"
 import { daysAgo } from "@/lib/trending"
-import { FoursquareAPI } from "@/lib/foursquare"
 
 // Mock place data generator based on coordinates
 const generateMockPlaces = (lat: number, lng: number) => {
@@ -146,66 +145,64 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
   }
 
-  // NEW: Try Foursquare API first for GET requests too
-  // Use server-side key first (FOURSQUARE_API_KEY), fallback to client key (NEXT_PUBLIC_FOURSQUARE_API_KEY)
-  const foursquareApiKey = process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+  // NEW: Try Foursquare Places API first for GET requests
+  // Use the new /api/foursquare-places endpoint which uses the new Places API
+  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
   
-  if (foursquareApiKey) {
-    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
+  if (foursquareServiceKey) {
+    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare Places API first...`)
     try {
       // Use larger radius for rural areas (convert radius string to number, default to 5000m)
       const searchRadius = Math.max(parseInt(radius) || 5000, 5000) // At least 5km for better coverage
       
-      const foursquareClient = new FoursquareAPI()
-      const foursquareResults = await foursquareClient.searchNearby({
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
-        radius: searchRadius, // Use larger radius for better results
-        limit: 10 // Increased limit to find more places
+      // Call the new /api/foursquare-places endpoint
+      // Use internal fetch - construct absolute URL for server-side fetch
+      const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+        : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000'
+      
+      const foursquareResponse = await fetch(`${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=${searchRadius}&limit=10`, {
+        headers: {
+          'Accept': 'application/json',
+        },
       })
       
-        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
+      if (foursquareResponse.ok) {
+        const foursquareData = await foursquareResponse.json()
+        const foursquareResults = foursquareData.items || []
+        
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
         
         // Debug: Log first result details
-        if (foursquareResults && foursquareResults.length > 0) {
+        if (foursquareResults.length > 0) {
           console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
         }
         
         // Use Foursquare if we found results, otherwise fall through to Google
-        if (foursquareResults && foursquareResults.length > 0) {
+        if (foursquareResults.length > 0) {
           console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
-          // Import the helper once
-          const { assembleFsqPhotoUrl } = await import('@/lib/fsq')
           // Convert Foursquare results to Google Places API format
           const googleFormatResults = foursquareResults.map((place: any) => {
-            // Extract and assemble Foursquare photo URL
-            const firstPhoto = place.photos?.[0]
-            let photoUrl = null
-            if (firstPhoto?.prefix && firstPhoto?.suffix) {
-              photoUrl = assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
-              console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
-            } else {
-              console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No photo data for ${place.name}. Prefix: ${firstPhoto?.prefix}, Suffix: ${firstPhoto?.suffix}`)
-            }
-            
             return {
               place_id: place.fsq_id || place.id,
-              name: place.name,
+              name: place.title || place.name,
               geometry: {
                 location: {
-                  lat: place.location.latitude,
-                  lng: place.location.longitude
+                  lat: place.location?.lat || place.latitude,
+                  lng: place.location?.lng || place.longitude
                 }
               },
               rating: place.rating,
-              price_level: place.price_level,
-              types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
-              vicinity: place.location.address || place.location.locality || "",
-              description: place.description || "", // Add Foursquare description
-              photos: photoUrl ? [{
-                photo_reference: photoUrl, // This is actually a full URL, not a reference
-                width: firstPhoto?.width || 400,
-                height: firstPhoto?.height || 300
+              price_level: place.priceLevel,
+              types: place.types || place.categories?.map((cat: any) => typeof cat === 'string' ? cat.toLowerCase().replace(/\s+/g, '_') : cat.name?.toLowerCase().replace(/\s+/g, '_')) || [],
+              vicinity: place.address || place.location?.address || "",
+              description: place.description || "",
+              photos: place.photoUrl ? [{
+                photo_reference: place.photoUrl, // This is actually a full URL, not a reference
+                width: 400,
+                height: 300
               }] : []
             }
           })
@@ -216,13 +213,13 @@ export async function GET(request: NextRequest) {
           source: "foursquare"
         })
       } else {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare returned 0 results, falling back to Google`)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results, falling back to Google`)
       }
     } catch (foursquareError) {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed, falling back to Google:`, foursquareError)
     }
   } else {
-    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API key not found, trying Google`)
+    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found, trying Google`)
   }
 
   // Check if API key is available
@@ -490,71 +487,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
     }
 
-    // NEW: Try Foursquare API first
-    if (process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
-      console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare API first...`)
+    // NEW: Try Foursquare Places API first
+    const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+    
+    if (foursquareServiceKey) {
+      console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare Places API first...`)
       try {
-        const foursquareClient = new FoursquareAPI()
-        const foursquareResults = await foursquareClient.searchNearby({
-          lat: parseFloat(lat),
-          lng: parseFloat(lng),
-          radius: parseInt(radius),
-          limit: 5
+        // Call the new /api/foursquare-places endpoint
+        const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+          : process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}`
+          : 'http://localhost:3000'
+        
+        const foursquareResponse = await fetch(`${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=${parseInt(radius)}&limit=5`, {
+          headers: {
+            'Accept': 'application/json',
+          },
         })
         
-        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API: Found ${foursquareResults?.length || 0} places`)
-        
-        // Debug: Log first result details
-        if (foursquareResults && foursquareResults.length > 0) {
-          console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
-        }
-        
-        // Return Foursquare results even if empty (or use fallback for photos)
-        if (foursquareResults && foursquareResults.length > 0) {
-          console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
-          // Convert Foursquare results to Google Places API format
-          const fsq = await import('@/lib/fsq')
-          const googleFormatResults = foursquareResults.map((place: any) => {
-            // Extract and assemble Foursquare photo URL
-            const firstPhoto = place.photos?.[0]
-            let photoUrl = null
-            if (firstPhoto?.prefix && firstPhoto?.suffix) {
-              photoUrl = fsq.assembleFsqPhotoUrl(firstPhoto.prefix, firstPhoto.suffix, 'original')
-              console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Assembled photo URL for ${place.name}:`, photoUrl)
-            } else {
-              console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No photo data for ${place.name}. Prefix: ${firstPhoto?.prefix}, Suffix: ${firstPhoto?.suffix}`)
-            }
-            
-            return {
-              place_id: place.fsq_id || place.id,
-              name: place.name,
-              geometry: {
-                location: {
-                  lat: place.location.latitude,
-                  lng: place.location.longitude
-                }
-              },
-              rating: place.rating,
-              price_level: place.price_level,
-              types: place.categories?.map((cat: any) => cat.name.toLowerCase().replace(/\s+/g, '_')) || [],
-              vicinity: place.location.address || place.location.locality || "",
-              description: place.description || "", // Add Foursquare description
-              photos: photoUrl ? [{
-                photo_reference: photoUrl, // This is actually a full URL, not a reference
-                width: firstPhoto?.width || 400,
-                height: firstPhoto?.height || 300
-              }] : []
-            }
-          })
+        if (foursquareResponse.ok) {
+          const foursquareData = await foursquareResponse.json()
+          const foursquareResults = foursquareData.items || []
           
-          return NextResponse.json({
-            results: googleFormatResults,
-            status: "OK",
-            source: "foursquare"
-          })
+          console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
+          
+          // Debug: Log first result details
+          if (foursquareResults.length > 0) {
+            console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
+          }
+          
+          // Return Foursquare results even if empty (or use fallback for photos)
+          if (foursquareResults.length > 0) {
+            console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
+            // Convert Foursquare results to Google Places API format
+            const googleFormatResults = foursquareResults.map((place: any) => {
+              return {
+                place_id: place.fsq_id || place.id,
+                name: place.title || place.name,
+                geometry: {
+                  location: {
+                    lat: place.location?.lat || place.latitude,
+                    lng: place.location?.lng || place.longitude
+                  }
+                },
+                rating: place.rating,
+                price_level: place.priceLevel,
+                types: place.types || place.categories?.map((cat: any) => typeof cat === 'string' ? cat.toLowerCase().replace(/\s+/g, '_') : cat.name?.toLowerCase().replace(/\s+/g, '_')) || [],
+                vicinity: place.address || place.location?.address || "",
+                description: place.description || "",
+                photos: place.photoUrl ? [{
+                  photo_reference: place.photoUrl, // This is actually a full URL, not a reference
+                  width: 400,
+                  height: 300
+                }] : []
+              }
+            })
+            
+            return NextResponse.json({
+              results: googleFormatResults,
+              status: "OK",
+              source: "foursquare"
+            })
+          }
         }
       } catch (foursquareError) {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare API failed, falling back to Google:`, foursquareError)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed, falling back to Google:`, foursquareError)
       }
     }
 
