@@ -26,7 +26,7 @@ import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHe
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
-import { postPinIntel, cancelPinIntel } from "@/lib/pinIntelApi"
+import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 
 
@@ -572,16 +572,21 @@ export default function PINITApp() {
     try {
       console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Getting location name via gateway...`)
       
-      // Use the new pin-intel gateway (one-shot call)
-      const pinIntel = await postPinIntel(lat, lng, 5)
+      // Use the throttled pin-intel gateway wrapper
+      const pinIntel = await maybeCallPinIntel({ lat, lng }, 5)
       
+      // If throttled (returns null), fall through to coordinate fallback
       if (pinIntel && pinIntel.geocode && pinIntel.geocode.formatted) {
         console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location name from gateway:`, pinIntel.geocode.formatted)
         return pinIntel.geocode.formatted
       }
       
-      // Fallback to coordinate-based detection
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway returned no location, using coordinate fallback`)
+      // Fallback to coordinate-based detection (also used when throttled)
+      if (!pinIntel) {
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Pin-intel call throttled, using coordinate fallback`)
+      } else {
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway returned no location, using coordinate fallback`)
+      }
     } catch (error) {
       console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway error, using coordinate fallback:`, error)
     }
@@ -615,8 +620,17 @@ export default function PINITApp() {
     console.log("🏪 Discovering nearby places via gateway...")
     
     try {
-      // Use the new pin-intel gateway (one-shot call)
-      const pinIntel = await postPinIntel(location.latitude, location.longitude, 5)
+      // Use the throttled pin-intel gateway wrapper
+      const pinIntel = await maybeCallPinIntel(
+        { lat: location.latitude, lng: location.longitude },
+        5
+      )
+      
+      // If throttled (returns null), skip updating nearby pins
+      if (!pinIntel) {
+        console.log("📍 Nearby places lookup throttled, skipping update")
+        return
+      }
       
       console.log("✅ Found", pinIntel.places.length, "places via gateway")
       
