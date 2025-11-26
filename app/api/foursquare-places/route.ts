@@ -17,8 +17,25 @@ export async function GET(request: NextRequest) {
   const radius = searchParams.get("radius") || "5000"
   const limit = searchParams.get("limit") || "10"
 
+  console.log('🔍 Foursquare Places API GET - Raw params:', { lat, lng, radius, limit })
+
   if (!lat || !lng) {
+    console.error('❌ Missing lat/lng parameters:', { lat, lng })
     return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
+  }
+
+  // Validate coordinates are valid numbers
+  const latNum = parseFloat(lat)
+  const lngNum = parseFloat(lng)
+  
+  if (isNaN(latNum) || isNaN(lngNum)) {
+    console.error('❌ Invalid coordinate values:', { lat, lng, latNum, lngNum })
+    return NextResponse.json({ error: "Invalid lat/lng values - must be valid numbers" }, { status: 400 })
+  }
+
+  if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+    console.error('❌ Coordinates out of valid range:', { latNum, lngNum })
+    return NextResponse.json({ error: "Coordinates out of valid range" }, { status: 400 })
   }
 
   // Use new Places API service key (required for new API)
@@ -80,9 +97,10 @@ export async function GET(request: NextRequest) {
       } catch {
         errorBody = text;
       }
-      console.error(`❌ Foursquare Places API error: ${r.status}`);
+      console.error(`❌ Foursquare Places API error: ${r.status} ${r.statusText}`);
       console.error(`❌ Error body:`, errorBody);
       console.error(`❌ Full error text:`, text.substring(0, 1000));
+      console.error(`❌ Request URL:`, url.toString());
       
       // Provide more helpful error messages
       if (r.status === 401) {
@@ -94,11 +112,26 @@ export async function GET(request: NextRequest) {
         console.error(`   Current key preview: ${serviceKey ? `${serviceKey.substring(0, 10)}...${serviceKey.substring(serviceKey.length - 5)}` : 'MISSING'}`);
       }
       
-      // Don't expose the service key in error response
+      if (r.status === 400) {
+        console.error('❌ 400 Bad Request - Possible issues:');
+        console.error('   1. Invalid coordinate format or values');
+        console.error('   2. Invalid radius or limit parameters');
+        console.error('   3. Invalid fields parameter');
+        console.error('   4. Missing required parameters');
+        console.error(`   Request params: lat=${lat}, lng=${lng}, radius=${radius}, limit=${limit}`);
+        console.error(`   Parsed coords: latNum=${latNum}, lngNum=${lngNum}`);
+      }
+      
+      // Return error with more details (but don't expose the service key)
       return NextResponse.json({ 
         error: 'Foursquare Places API error', 
         status: r.status,
-        message: r.status === 401 ? 'Foursquare Places API authentication failed. Check service key and account status.' : 'Foursquare Places API error'
+        message: r.status === 401 
+          ? 'Foursquare Places API authentication failed. Check service key and account status.' 
+          : r.status === 400
+          ? `Foursquare Places API bad request: ${errorBody?.message || errorBody?.error || 'Invalid request parameters'}`
+          : 'Foursquare Places API error',
+        details: errorBody?.message || errorBody?.error || (typeof errorBody === 'string' ? errorBody.substring(0, 200) : 'Unknown error')
       }, { status: r.status });
     }
 
