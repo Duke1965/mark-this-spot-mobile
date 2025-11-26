@@ -1006,25 +1006,8 @@ export default function PINITApp() {
               return photos
             }
             
-            // If no photo URL, try to fetch photos using fsq_id
-            if (closestPlace.fsq_id) {
-              console.log(`📸 No photoUrl, trying to fetch photos for fsq_id: ${closestPlace.fsq_id}`)
-              try {
-                const photosResponse = await fetch(`/api/fsq/photos?fsq_id=${closestPlace.fsq_id}`)
-                if (photosResponse.ok) {
-                  const photosData = await photosResponse.json()
-                  if (photosData.urls && photosData.urls.length > 0) {
-                    return [{
-                      url: photosData.urls[0],
-                      placeName: closestPlace.title || closestPlace.name || "Unknown Place",
-                      description: closestPlace.description
-                    }]
-                  }
-                }
-              } catch (photosError) {
-                console.warn("⚠️ Failed to fetch photos via fsq/photos endpoint:", photosError)
-              }
-            }
+            // Note: If no photoUrl, we skip trying legacy /api/fsq/photos endpoint
+            // The new Places API should return photos in the initial response
             
             // If we have place data but no photos, return the place name at least
             if (closestPlace.title || closestPlace.name) {
