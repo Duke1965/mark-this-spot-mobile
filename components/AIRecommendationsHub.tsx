@@ -1924,6 +1924,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                         ) : rec.fsq_id ? (
                           <FsqImage 
                             fsqId={rec.fsq_id}
+                            lat={rec.location?.lat}
+                            lng={rec.location?.lng}
                             alt={rec.title}
                             fill
                             style={{
