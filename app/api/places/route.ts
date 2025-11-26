@@ -207,13 +207,16 @@ export async function GET(request: NextRequest) {
             }
           })
         
-        return NextResponse.json({
-          results: googleFormatResults,
-          status: "OK",
-          source: "foursquare"
-        })
+          return NextResponse.json({
+            results: googleFormatResults,
+            status: "OK",
+            source: "foursquare"
+          })
+        } else {
+          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results, falling back to Google`)
+        }
       } else {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results, falling back to Google`)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK, falling back to Google`)
       }
     } catch (foursquareError) {
       console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed, falling back to Google:`, foursquareError)
