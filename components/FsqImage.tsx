@@ -5,6 +5,8 @@ import Image from 'next/image'
 
 interface FsqImageProps {
   fsqId?: string
+  lat?: number
+  lng?: number
   alt?: string
   className?: string
   width?: number
@@ -13,8 +15,8 @@ interface FsqImageProps {
   style?: React.CSSProperties
 }
 
-export function FsqImage({ fsqId, alt = "Place image", className, width, height, fill, style }: FsqImageProps) {
-  const { urls, isLoading } = useFsqPhotos(fsqId)
+export function FsqImage({ fsqId, lat, lng, alt = "Place image", className, width, height, fill, style }: FsqImageProps) {
+  const { urls, isLoading } = useFsqPhotos(fsqId, lat, lng)
 
   if (!fsqId) {
     return (
