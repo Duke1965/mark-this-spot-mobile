@@ -8,6 +8,13 @@ let inFlight = false
 let lastKey: string | null = null
 let lastAt = 0
 
+// Throttling state for maybeCallPinIntel
+let lastPinIntelCallTime = 0
+let lastPinIntelCoords: { lat: number; lng: number } | null = null
+
+const MIN_PIN_INTEL_INTERVAL_MS = 60_000 // 60 seconds
+const MIN_PIN_INTEL_DISTANCE_M = 75 // 75 meters
+
 /**
  * Response from pin-intel gateway
  */
@@ -107,6 +114,15 @@ export async function postPinIntel(
     })
     
     if (!response.ok) {
+      // Handle 429 rate limit errors specially
+      if (response.status === 429) {
+        const error = await response.json().catch(() => ({ error: 'Rate limit exceeded' }))
+        console.warn('⚠️ Pin intel rate limited (429):', error)
+        const rateLimitError = new Error('Rate limit exceeded')
+        ;(rateLimitError as any).status = 429
+        throw rateLimitError
+      }
+      
       const error = await response.json()
       console.error('❌ Pin intel request failed:', response.status, error)
       throw new Error(error.error || `Request failed with status ${response.status}`)
@@ -157,5 +173,88 @@ export function resetGuards(): void {
   lastKey = null
   lastAt = 0
   console.log('🔄 Pin intel guards reset')
+}
+
+/**
+ * Calculate haversine distance between two coordinates in meters
+ */
+function haversineDistanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000 // Earth radius in meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+
+  const sinDLat = Math.sin(dLat / 2)
+  const sinDLng = Math.sin(dLng / 2)
+
+  const h =
+    sinDLat * sinDLat +
+    Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng
+
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+/**
+ * Throttled wrapper for postPinIntel that enforces:
+ * - Minimum 60 seconds between calls
+ * - Minimum 75 meters distance moved
+ * - Graceful 429 handling
+ * 
+ * Returns null if the call is throttled or fails with 429.
+ * Use this instead of postPinIntel for location-based calls.
+ */
+export async function maybeCallPinIntel(
+  currentCoords: { lat: number; lng: number },
+  precision: number = 5,
+  userId?: string
+): Promise<PinIntelResponse | null> {
+  const now = Date.now()
+
+  // 1) Enforce minimum time gap
+  if (now - lastPinIntelCallTime < MIN_PIN_INTEL_INTERVAL_MS) {
+    const timeSinceLastCall = Math.round((now - lastPinIntelCallTime) / 1000)
+    console.log(`⏱ Skipping pin-intel: called too recently (${timeSinceLastCall}s ago, need ${MIN_PIN_INTEL_INTERVAL_MS / 1000}s)`)
+    return null
+  }
+
+  // 2) Enforce minimum distance moved (if we have a previous point)
+  if (lastPinIntelCoords) {
+    const distance = haversineDistanceMeters(lastPinIntelCoords, currentCoords)
+    if (distance < MIN_PIN_INTEL_DISTANCE_M) {
+      console.log(
+        `📍 Skipping pin-intel: user moved only ${distance.toFixed(1)}m (need ${MIN_PIN_INTEL_DISTANCE_M}m)`
+      )
+      return null
+    }
+  }
+
+  // 3) OK, allowed to call pin-intel
+  lastPinIntelCallTime = now
+  lastPinIntelCoords = currentCoords
+
+  try {
+    const result = await postPinIntel(currentCoords.lat, currentCoords.lng, precision, userId)
+    return result
+  } catch (error) {
+    // Handle 429 errors gracefully
+    if (
+      error instanceof Error &&
+      ((error as any).status === 429 || 
+       error.message.includes('429') || 
+       error.message.includes('Rate limit exceeded'))
+    ) {
+      console.warn('⚠️ Pin-intel rate limited (429), backing off')
+      // Note: we still leave lastPinIntelCallTime set so we don't hammer again instantly
+      return null
+    }
+    
+    // Re-throw other errors so callers can handle them
+    throw error
+  }
 }
 
