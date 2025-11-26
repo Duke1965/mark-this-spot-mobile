@@ -51,10 +51,13 @@ export async function GET(request: NextRequest) {
     });
 
     // Build URL for new Places API
+    // Note: New Places API may require explicit fields parameter to include photos
     const url = new URL(`${FSQ_PLACES_BASE}/places/search`);
     url.searchParams.set('ll', `${lat},${lng}`); // Latitude, longitude
     url.searchParams.set('radius', String(radius)); // Radius in meters
     url.searchParams.set('limit', String(limit)); // Limit results
+    // Request photos explicitly - new API may require this
+    url.searchParams.set('fields', 'fsq_id,name,geocodes,categories,description,rating,photos,location');
     
     console.log('🔗 Foursquare Places API URL:', url.toString());
     
@@ -112,15 +115,31 @@ export async function GET(request: NextRequest) {
 
     // Map new Places API response format to existing internal format
     // New API structure may differ slightly, so we adapt fields as needed
-    const items = results.map((p: any) => {
+    const items = results.map((p: any, index: number) => {
       let photoUrl: string | undefined = undefined
       
+      // Debug: Log the first place structure to understand photo format
+      if (index === 0) {
+        console.log('📸 DEBUG: First place structure keys:', Object.keys(p));
+        console.log('📸 DEBUG: First place has photos field:', !!p.photos);
+        console.log('📸 DEBUG: First place has photo field:', !!p.photo);
+        if (p.photos) {
+          console.log('📸 DEBUG: First place photos:', JSON.stringify(p.photos, null, 2).substring(0, 500));
+        }
+      }
+      
       // New Places API may have photos in different structure
-      // Try both new format and legacy format for compatibility
-      const photos = p.photos || p.photo || [];
+      // Try multiple possible locations for photos
+      const photos = p.photos || p.photo || p.images || [];
+      
       if (Array.isArray(photos) && photos.length > 0) {
         const firstPhoto = photos[0]
-        // New API might return full URLs or still use prefix/suffix
+        if (index === 0) {
+          console.log(`📸 DEBUG: First photo structure keys:`, Object.keys(firstPhoto || {}));
+          console.log(`📸 DEBUG: First photo:`, JSON.stringify(firstPhoto, null, 2).substring(0, 400));
+        }
+        
+        // Try multiple possible photo URL formats
         if (firstPhoto?.url) {
           // New format: direct URL
           photoUrl = firstPhoto.url
@@ -138,8 +157,25 @@ export async function GET(request: NextRequest) {
           } else {
             console.log(`⚠️ Failed to assemble photo URL for ${p.name || p.title}`)
           }
+        } else if (firstPhoto?.href || firstPhoto?.link) {
+          // Alternative format: href or link field
+          photoUrl = firstPhoto.href || firstPhoto.link
+          if (photoUrl) {
+            console.log(`📸 Using href/link photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
         } else {
-          console.log(`⚠️ Photo data incomplete for ${p.name || p.title}`)
+          console.log(`⚠️ Photo data incomplete for ${p.name || p.title} - photo keys:`, Object.keys(firstPhoto || {}))
+        }
+      } else {
+        // No photos array found - check if photos might be at top level
+        if (p.photo_url || p.image_url || p.thumbnail_url) {
+          photoUrl = p.photo_url || p.image_url || p.thumbnail_url
+          if (photoUrl) {
+            console.log(`📸 Using top-level photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
+        } else {
+          const fsqId = p.fsq_id || p.id || p.place_id;
+          console.log(`⚠️ No photos found for ${p.name || p.title} - fsq_id: ${fsqId} - photos array empty or missing`)
         }
       }
 
@@ -222,10 +258,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Build URL for new Places API
+    // Note: New Places API may require explicit fields parameter to include photos
     const url = new URL(`${FSQ_PLACES_BASE}/places/search`);
     url.searchParams.set('ll', `${lat},${lng}`); // Latitude, longitude
     url.searchParams.set('radius', String(radius)); // Radius in meters
     url.searchParams.set('limit', String(limit)); // Limit results
+    // Request photos explicitly - new API may require this
+    url.searchParams.set('fields', 'fsq_id,name,geocodes,categories,description,rating,photos,location');
     
     console.log('🔗 Foursquare Places API URL:', url.toString());
     console.log('🔑 Service Key present:', !!serviceKey, 'Length:', serviceKey?.length || 0);
@@ -292,15 +331,31 @@ export async function POST(request: NextRequest) {
 
     // Map new Places API response format to existing internal format
     // New API structure may differ slightly, so we adapt fields as needed
-    const items = results.map((p: any) => {
+    const items = results.map((p: any, index: number) => {
       let photoUrl: string | undefined = undefined
       
+      // Debug: Log the first place structure to understand photo format
+      if (index === 0) {
+        console.log('📸 DEBUG: First place structure keys:', Object.keys(p));
+        console.log('📸 DEBUG: First place has photos field:', !!p.photos);
+        console.log('📸 DEBUG: First place has photo field:', !!p.photo);
+        if (p.photos) {
+          console.log('📸 DEBUG: First place photos:', JSON.stringify(p.photos, null, 2).substring(0, 500));
+        }
+      }
+      
       // New Places API may have photos in different structure
-      // Try both new format and legacy format for compatibility
-      const photos = p.photos || p.photo || [];
+      // Try multiple possible locations for photos
+      const photos = p.photos || p.photo || p.images || [];
+      
       if (Array.isArray(photos) && photos.length > 0) {
         const firstPhoto = photos[0]
-        // New API might return full URLs or still use prefix/suffix
+        if (index === 0) {
+          console.log(`📸 DEBUG: First photo structure keys:`, Object.keys(firstPhoto || {}));
+          console.log(`📸 DEBUG: First photo:`, JSON.stringify(firstPhoto, null, 2).substring(0, 400));
+        }
+        
+        // Try multiple possible photo URL formats
         if (firstPhoto?.url) {
           // New format: direct URL
           photoUrl = firstPhoto.url
@@ -318,8 +373,25 @@ export async function POST(request: NextRequest) {
           } else {
             console.log(`⚠️ Failed to assemble photo URL for ${p.name || p.title}`)
           }
+        } else if (firstPhoto?.href || firstPhoto?.link) {
+          // Alternative format: href or link field
+          photoUrl = firstPhoto.href || firstPhoto.link
+          if (photoUrl) {
+            console.log(`📸 Using href/link photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
         } else {
-          console.log(`⚠️ Photo data incomplete for ${p.name || p.title}`)
+          console.log(`⚠️ Photo data incomplete for ${p.name || p.title} - photo keys:`, Object.keys(firstPhoto || {}))
+        }
+      } else {
+        // No photos array found - check if photos might be at top level
+        if (p.photo_url || p.image_url || p.thumbnail_url) {
+          photoUrl = p.photo_url || p.image_url || p.thumbnail_url
+          if (photoUrl) {
+            console.log(`📸 Using top-level photo URL for ${p.name || p.title}:`, photoUrl.substring(0, 50) + '...')
+          }
+        } else {
+          const fsqId = p.fsq_id || p.id || p.place_id;
+          console.log(`⚠️ No photos found for ${p.name || p.title} - fsq_id: ${fsqId} - photos array empty or missing`)
         }
       }
 
