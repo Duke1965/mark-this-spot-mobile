@@ -1616,8 +1616,10 @@ export default function PINITApp() {
         pins={storedPins}
         onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
-          // Handle pin selection
-          console.log("Pin selected:", pin)
+          // Open pin in results view to see photos and save/share
+          console.log("📌 Pin selected from library:", pin)
+          setCurrentResultPin(pin)
+          setCurrentScreen("results")
         }}
         onPinUpdate={(pinId: string, updates: any) => {
           // Handle pin updates
