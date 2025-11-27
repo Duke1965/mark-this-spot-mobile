@@ -5,8 +5,8 @@ import { ArrowLeft, Share2, Save } from "lucide-react"
 
 interface PinResultsProps {
   pin: PinData
-  onSave: () => void
-  onShare: () => void
+  onSave: (pin: PinData) => void
+  onShare: (pin: PinData) => void
   onBack: () => void
 }
 
@@ -63,14 +63,14 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
         {/* Action Buttons */}
         <div className="flex gap-3">
           <button
-            onClick={onSave}
+            onClick={() => onSave(pin)}
             className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
           >
             <Save size={20} />
             Save
           </button>
           <button
-            onClick={onShare}
+            onClick={() => onShare(pin)}
             className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
           >
             <Share2 size={20} />
