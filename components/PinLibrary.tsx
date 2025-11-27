@@ -54,60 +54,91 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     const isPhoto = type === 'photo'
     const isVideo = type === 'video'
 
+    // Get first photo from additionalPhotos if available
+    const firstPhoto = item.additionalPhotos && item.additionalPhotos.length > 0 
+      ? item.additionalPhotos[0] 
+      : null
+
     return (
       <div 
         key={item.id} 
         onClick={() => onPinSelect(item)}
         style={{
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: "0.75rem",
-          padding: "1rem",
-          cursor: "pointer",
-          border: "1px solid rgba(255,255,255,0.1)",
-          transition: "all 0.2s ease",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+          background: 'rgba(255,255,255,0.1)',
+          padding: '18px',
+          borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.2)',
+          backdropFilter: 'blur(15px)',
+          transition: 'all 0.2s ease',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          cursor: 'pointer'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.15)"
-          e.currentTarget.style.transform = "translateY(-2px)"
+          e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+          e.currentTarget.style.transform = 'translateY(-2px)'
+          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-          e.currentTarget.style.transform = "translateY(0)"
+          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
         }}
       >
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          {/* Media Thumbnail */}
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
+          {/* Thumbnail image - matches AI Recommendations style */}
           <div style={{
-            width: "60px",
-            height: "60px",
-            borderRadius: "0.5rem",
-            overflow: "hidden",
-            background: "rgba(255,255,255,0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative"
+            width: '60px',
+            height: '100%',
+            borderRadius: '12px',
+            background: 'rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '24px',
+            border: '1px solid rgba(255,255,255,0.2)',
+            overflow: 'hidden',
+            flexShrink: 0,
+            position: 'relative'
           }}>
             {item.mediaUrl ? (
               <img
                 src={item.mediaUrl}
                 alt={item.title}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
                   if (target) {
-                    target.src = "/placeholder.jpg"
+                    target.style.display = 'none'
+                  }
+                }}
+              />
+            ) : firstPhoto?.url ? (
+              <img
+                src={firstPhoto.url}
+                alt={item.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  if (target) {
+                    target.style.display = 'none'
                   }
                 }}
               />
             ) : (
-              <span style={{ fontSize: "1.5rem" }}>
-                {isPin && <MapPin />}
-                {isPhoto && <Camera />}
-                {isVideo && <Video />}
-                {type === 'recommended' && <Star />}
-              </span>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                {isPin && '📍'}
+                {isPhoto && '📸'}
+                {isVideo && '🎥'}
+                {type === 'recommended' && '⭐'}
+              </div>
             )}
             
             {/* Type Badge */}
@@ -126,74 +157,95 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
               </div>
             )}
           </div>
-
-          {/* Content */}
-          <div style={{ flex: 1 }}>
-            <h3 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem", fontWeight: "bold" }}>
-              {item.title}
-            </h3>
-            <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", opacity: 0.8 }}>
+          
+          {/* Content area - matches AI Recommendations style */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            {/* Top section - Title */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', flex: 1 }}>
+                {item.title}
+              </h4>
+            </div>
+            
+            {/* Location */}
+            <span style={{
+              background: 'rgba(255,255,255,0.1)',
+              padding: '4px 8px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              color: 'rgba(255,255,255,0.8)',
+              alignSelf: 'flex-start',
+              marginBottom: '8px'
+            }}>
               📍 {item.locationName}
-            </p>
-            {item.personalThoughts && (
-              <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.75rem", opacity: 0.7, fontStyle: "italic" }}>
-                💭 "{item.personalThoughts}"
-              </p>
-            )}
-            <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.6 }}>
+            </span>
+          </div>
+        </div>
+        
+        {/* Description */}
+        {item.description && (
+          <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+            {item.description}
+          </p>
+        )}
+        
+        {/* Personal Thoughts */}
+        {item.personalThoughts && (
+          <p style={{ margin: '0 0 12px 0', fontSize: '13px', opacity: 0.8, fontStyle: 'italic', lineHeight: '1.5' }}>
+            💭 "{item.personalThoughts}"
+          </p>
+        )}
+        
+        {/* Bottom section - Date and Actions */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
               <Calendar size={12} style={{ display: "inline", marginRight: "4px" }} />
               {new Date(item.timestamp).toLocaleDateString()}
-            </p>
+            </span>
           </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: "0.25rem" }}>
-            <button
+          
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <button 
               onClick={(e) => {
                 e.stopPropagation()
                 onPinSelect(item)
               }}
               style={{
-                padding: "0.25rem",
-                background: "rgba(255,255,255,0.2)",
-                border: "none",
-                borderRadius: "0.25rem",
-                color: "white",
-                cursor: "pointer"
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                color: 'white',
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
               }}
             >
-              <Share2 size={14} />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onPinUpdate(item.id, {})
-              }}
-              style={{
-                padding: "0.25rem",
-                background: "rgba(255,255,255,0.2)",
-                border: "none",
-                borderRadius: "0.25rem",
-                color: "white",
-                cursor: "pointer"
-              }}
-            >
-              <Edit3 size={14} />
+              📍 View
             </button>
           </div>
         </div>
-
+        
         {/* Tags */}
         {item.tags && item.tags.length > 0 && (
-          <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+          <div style={{ display: 'flex', gap: '0.25rem', marginTop: '8px', flexWrap: 'wrap' }}>
             {item.tags.slice(0, 3).map((tag: string, index: number) => (
               <span
                 key={index}
                 style={{
-                  fontSize: "0.75rem",
-                  background: "rgba(255,255,255,0.2)",
-                  padding: "0.125rem 0.5rem",
-                  borderRadius: "9999px"
+                  fontSize: '11px',
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  color: 'rgba(255,255,255,0.8)'
                 }}
               >
                 #{tag}
@@ -325,12 +377,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             <p>Create your first {currentTab.slice(0, -1)} to get started!</p>
           </div>
         ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-            gap: "1rem",
-            padding: "0.5rem"
-          }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {filteredData.map((item) => renderPinCard(item, 
               currentTab === "pins" ? "pin" : 
               currentTab === "photos" ? "photo" : 
