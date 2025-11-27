@@ -171,6 +171,11 @@ export default function PINITApp() {
   const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
   const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
+  
+  // Request deduplication for fetchLocationPhotos
+  const photoFetchControllerRef = useRef<AbortController | null>(null)
+  const photoFetchCacheRef = useRef<Map<string, { data: {url: string, placeName: string, description?: string}[], timestamp: number }>>(new Map())
+  const isFetchingPhotosRef = useRef(false)
 
   // Add state to remember the last good location name
   const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
@@ -869,6 +874,31 @@ export default function PINITApp() {
   const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[], placeName?: string, placeDescription?: string) => {
     console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length, hasPlaceName: !!placeName, hasDescription: !!placeDescription })
     
+    // Determine location type and context (needed for both title generation and tags)
+    let locationType = "general"
+    let context = ""
+    
+    // Analyze location based on coordinates
+    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+      locationType = "small-town"
+      context = "Riebeek West - charming rural community"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "urban-cbd"
+      context = "Cape Town CBD - vibrant city center"
+    } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Southern Suburbs - residential area"
+    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      locationType = "suburban"
+      context = "Cape Town Northern Suburbs - growing community"
+    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+      locationType = "rural"
+      context = "Riebeek West area"
+    } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+      locationType = "provincial"
+      context = "Western Cape - diverse landscapes"
+    }
+    
     // PRIORITY 1: Use Foursquare title/name if available
     let title = ""
     if (placeName && placeName.trim() && placeName !== "PINIT Placeholder" && placeName !== "Unknown Place") {
@@ -876,31 +906,6 @@ export default function PINITApp() {
       console.log("🧠 Using Foursquare title:", title)
     } else {
       // Fall back to AI-generated title only if no Foursquare data
-      // Determine location type and context
-      let locationType = "general"
-      let context = ""
-      
-      // Analyze location based on coordinates
-      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-        locationType = "small-town"
-        context = "Riebeek West - charming rural community"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        locationType = "urban-cbd"
-        context = "Cape Town CBD - vibrant city center"
-      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        locationType = "suburban"
-        context = "Cape Town Southern Suburbs - residential area"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        locationType = "suburban"
-        context = "Cape Town Northern Suburbs - growing community"
-      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        locationType = "rural"
-        context = "Riebeek West area"
-      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        locationType = "provincial"
-        context = "Western Cape - diverse landscapes"
-      }
-      
       // Generate title based on location type and context
       if (motionData.isMoving && motionData.speed > 5) {
         // Speed-based pinning titles
@@ -945,21 +950,6 @@ export default function PINITApp() {
       console.log("🧠 Using Foursquare description:", description)
     } else {
       // Fall back to AI-generated description only if no Foursquare data
-      let context = ""
-      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-        context = "Riebeek West - charming rural community"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        context = "Cape Town CBD - vibrant city center"
-      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-        context = "Cape Town Southern Suburbs - residential area"
-      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-        context = "Cape Town Northern Suburbs - growing community"
-      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-        context = "Riebeek West area"
-      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-        context = "Western Cape - diverse landscapes"
-      }
-      
       if (motionData.isMoving && motionData.speed > 5) {
         description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
       } else {
