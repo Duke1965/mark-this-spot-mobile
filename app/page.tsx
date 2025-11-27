@@ -1396,16 +1396,16 @@ export default function PINITApp() {
       
       console.log("✅ Pin updated with new location and data:", updatedPin)
       
-      // Clear editing state first
-      setEditingPin(null)
-      setEditingPinLocation(null)
-      setOriginalPinLocation(null)
-      setIsDraggingPin(false)
+      // Show results page with updated pin FIRST
+      setCurrentResultPin(updatedPin)
+      setCurrentScreen("results")
       
-      // Show results page with updated pin (use setTimeout to ensure state clears first)
+      // Clear editing state after navigation (use setTimeout to ensure screen transition happens first)
       setTimeout(() => {
-        setCurrentResultPin(updatedPin)
-        setCurrentScreen("results")
+        setEditingPin(null)
+        setEditingPinLocation(null)
+        setOriginalPinLocation(null)
+        setIsDraggingPin(false)
       }, 100)
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -2192,7 +2192,7 @@ export default function PINITApp() {
               opacity: 1,
               display: "block"
             }}
-            key={`map-base-${originalPinLocation?.lat.toFixed(4) || editingPinLocation.lat.toFixed(4)}-${originalPinLocation?.lng.toFixed(4) || editingPinLocation.lng.toFixed(4)}`} // Stable key based on original location
+            key={`map-edit-${editingPin?.id || 'new'}`} // Stable key - doesn't change during dragging
           />
           
           {/* Interactive overlay - allows dragging and shows nearby places link */}
