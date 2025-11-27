@@ -842,16 +842,26 @@ export default function PINITApp() {
         additionalPhotos: locationPhotos
       }
 
+      // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
+      addPin(newPin)
+      console.log("📍 Quick pin created with photo:", newPin)
+      console.log("💾 Pin saved to pins array - accessible in pins section")
+
+      // Show results page briefly, then auto-return to main screen
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      console.log("📍 Quick pin created with photo:", newPin)
+      // Auto-return to main screen after 2 seconds so user can continue pinning
+      setTimeout(() => {
+        setCurrentScreen("main")
+        console.log("🔄 Auto-returned to main screen - ready for next pin")
+      }, 2000)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData])
+  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, addPin])
 
   // NEW: Generate intelligent AI content based on location and context
   const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[], placeDescription?: string) => {
@@ -979,7 +989,9 @@ export default function PINITApp() {
       
       try {
         console.log("📸 Trying Foursquare API for place data and photos...")
-        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=5000&limit=5`)
+        // Use small radius (500m) for speed-based pinning - pin location is calculated precisely
+        // This finds the exact place the user passed, not places far away
+        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=500&limit=5`)
         console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
         
         if (photoResponse.ok) {
