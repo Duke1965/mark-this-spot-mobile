@@ -856,7 +856,9 @@ export default function PINITApp() {
         description: aiGeneratedContent.description,
         tags: aiGeneratedContent.tags,
         // NEW: Store all photos for the carousel
-        additionalPhotos: locationPhotos
+        additionalPhotos: locationPhotos,
+        // NEW: Mark as pending - needs location confirmation via edit mode
+        isPending: true
       }
 
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
@@ -1356,7 +1358,9 @@ export default function PINITApp() {
         description: aiGeneratedContent.description,
         mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
         additionalPhotos: locationPhotos,
-        tags: aiGeneratedContent.tags
+        tags: aiGeneratedContent.tags,
+        // Mark as completed (no longer pending)
+        isPending: false
       }
       
       // Update pin in storage
@@ -1402,10 +1406,11 @@ export default function PINITApp() {
 
   // Results page handlers
   const handleSaveFromResults = (pin: PinData) => {
-    // Include personal thoughts in the saved pin
+    // Include personal thoughts in the saved pin and mark as completed
     const pinToSave = {
       ...pin,
-      personalThoughts: pin.personalThoughts || undefined
+      personalThoughts: pin.personalThoughts || undefined,
+      isPending: false // Mark as completed when saved from results
     }
     addPin(pinToSave)
     setCurrentResultPin(null)
