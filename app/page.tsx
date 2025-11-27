@@ -864,21 +864,21 @@ export default function PINITApp() {
       console.log("📍 Quick pin created with photo:", newPin)
       console.log("💾 Pin saved to pins array - accessible in pins section")
 
-      // Show results page briefly, then auto-return to main screen
-      setCurrentResultPin(newPin)
-      setCurrentScreen("results")
-
-      // Auto-return to map screen after 2 seconds so user can continue pinning
+      // Show simple "Pinned Successfully" popup instead of results page
+      setSuccessMessage("Pinned Successfully!")
+      setShowSuccessPopup(true)
+      
+      // Auto-hide popup and stay on map screen after 1.5 seconds
       setTimeout(() => {
-        setCurrentScreen("map")
-        console.log("🔄 Auto-returned to map screen - ready for next pin")
-      }, 2000)
+        setShowSuccessPopup(false)
+        console.log("🔄 Pin created - ready for next pin")
+      }, 1500)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
     } finally {
       setIsQuickPinning(false)
     }
-  }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, addPin])
+  }, [getCurrentLocation, isQuickPinning, motionData, addPin])
 
   // NEW: Generate intelligent AI content based on location and context
   // Prioritizes Foursquare data (title/name, description) over AI-generated content
@@ -2138,7 +2138,7 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
-      {/* Success Popup */}
+      {/* Success Popup - Simple "Pinned Successfully" message */}
       {showSuccessPopup && (
         <div
           style={{
@@ -2146,31 +2146,33 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "rgba(30, 58, 138, 0.95)",
-            padding: "1.5rem",
-            borderRadius: "1rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            zIndex: 1000,
+            background: "rgba(30, 58, 138, 0.98)",
+            padding: "2rem 3rem",
+            borderRadius: "1.5rem",
+            border: "2px solid rgba(34, 197, 94, 0.5)",
+            zIndex: 10000,
             textAlign: "center",
-            minWidth: "250px",
-            backdropFilter: "blur(15px)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            minWidth: "280px",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.4)",
+            animation: "fadeInScale 0.3s ease-out"
           }}
         >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>o.</div>
           <div style={{ 
-            fontSize: "1.125rem", 
-            fontWeight: "600", 
-            color: "#10B981",
-            marginBottom: "0.5rem"
+            fontSize: "4rem", 
+            marginBottom: "1rem",
+            animation: "bounceIn 0.5s ease-out"
           }}>
-            {successMessage}
+            ✅
           </div>
           <div style={{ 
-            fontSize: "0.875rem", 
-            opacity: 0.8 
+            fontSize: "1.5rem", 
+            fontWeight: "700", 
+            color: "#22C55E",
+            marginBottom: "0.5rem",
+            letterSpacing: "0.5px"
           }}>
-            Your content has been processed successfully
+            {successMessage || "Pinned Successfully!"}
           </div>
         </div>
       )}
@@ -2966,6 +2968,31 @@ export default function PINITApp() {
 
 
       <style jsx>{`
+        @keyframes fadeInScale {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+          }
+        }
+        
+        @keyframes bounceIn {
+          0% {
+            transform: scale(0);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.2);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
