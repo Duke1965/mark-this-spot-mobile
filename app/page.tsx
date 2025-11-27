@@ -1911,7 +1911,7 @@ export default function PINITApp() {
   }
 
   // Draggable Pin Marker Component (for edit mode)
-  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate, onDragStart, onDragEnd }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void, onDragStart?: () => void, onDragEnd?: () => void }) => {
+  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate, onDragStart, onDragEnd, pinId }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void, onDragStart?: () => void, onDragEnd?: () => void, pinId?: string }) => {
     const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position (centered)
     const isDraggingRef = useRef(false)
     const startOffsetRef = useRef({ x: 0, y: 0 })
@@ -1921,15 +1921,30 @@ export default function PINITApp() {
     const mapContainerRef = useRef<HTMLElement | null>(null)
     const baseLatRef = useRef(initialLat)
     const baseLngRef = useRef(initialLng)
+    const isUpdatingFromDragRef = useRef(false)
     
-    // Update refs when initial position changes
+    // Update refs when initial position changes (only on mount or when pin changes)
+    const pinIdRef = useRef(pinId)
     useEffect(() => {
-      baseLatRef.current = initialLat
-      baseLngRef.current = initialLng
-      currentLatRef.current = initialLat
-      currentLngRef.current = initialLng
-      setPosition({ x: 50, y: 50 }) // Reset to center
-    }, [initialLat, initialLng])
+      // Only reset position if this is a new pin (different ID) AND not updating from drag
+      if (pinIdRef.current !== pinId && !isUpdatingFromDragRef.current) {
+        pinIdRef.current = pinId
+        baseLatRef.current = initialLat
+        baseLngRef.current = initialLng
+        currentLatRef.current = initialLat
+        currentLngRef.current = initialLng
+        setPosition({ x: 50, y: 50 }) // Reset to center only for new pin
+      } else if (!isUpdatingFromDragRef.current) {
+        // Update base position but keep current position (don't reset)
+        baseLatRef.current = initialLat
+        baseLngRef.current = initialLng
+        // Update current position refs but don't reset visual position
+        currentLatRef.current = initialLat
+        currentLngRef.current = initialLng
+      }
+      // Reset the flag after processing
+      isUpdatingFromDragRef.current = false
+    }, [initialLat, initialLng, pinId])
     
     // Find the map container once and cache it
     const getMapContainer = () => {
@@ -2000,6 +2015,11 @@ export default function PINITApp() {
     
     const handleEnd = () => {
       if (isDraggingRef.current) {
+        // Mark that we're updating from drag to prevent position reset
+        isUpdatingFromDragRef.current = true
+        // Update base position to new location so pin stays where dragged
+        baseLatRef.current = currentLatRef.current
+        baseLngRef.current = currentLngRef.current
         // Update location when dragging ends
         onLocationUpdate(currentLatRef.current, currentLngRef.current)
       }
@@ -2091,7 +2111,8 @@ export default function PINITApp() {
             fontSize: "0.875rem",
             whiteSpace: "nowrap",
             backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.2)"
+            border: "1px solid rgba(255,255,255,0.2)",
+            pointerEvents: "none" // Allow clicks to pass through to parent
           }}
         >
           {isDraggingRef.current ? "Moving..." : "Drag to move"}
@@ -2219,6 +2240,7 @@ export default function PINITApp() {
             onLocationUpdate={handlePinLocationUpdate}
             onDragStart={() => setIsDraggingPin(true)}
             onDragEnd={() => setIsDraggingPin(false)}
+            pinId={editingPin?.id}
           />
           
           {/* Info overlay - tap to view in Google Maps */}
