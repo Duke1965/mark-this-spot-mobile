@@ -571,69 +571,68 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
     if (location && location.latitude && location.longitude && insights && recommendations.length < 5 && isInitialized) { // Limit total recommendations
-      try {
-        // ENHANCED: Use the dedicated motion detection state
-        if (isUserMoving) {
-          console.log('🧠 Skipping recommendation generation - user is moving (motion state: true)')
-          console.log('🧠 Use the 🔄 button to manually generate recommendations while moving')
-          return
-        }
+      // ENHANCED: Use the dedicated motion detection state
+      if (isUserMoving) {
+        console.log('🧠 Skipping recommendation generation - user is moving (motion state: true)')
+        console.log('🧠 Use the 🔄 button to manually generate recommendations while moving')
+        return
+      }
+      
+      // ADDITIONAL SAFEGUARD: Double-check speed directly
+      const currentSpeed = location.speed || 0
+      if (currentSpeed > 1.5) {
+        console.log('🧠 Additional safeguard: Speed check failed - user moving at', currentSpeed.toFixed(2), 'm/s')
+        return
+      }
+      
+      // Only generate new recommendations if we don't have many already
+      // and if enough time has passed since last generation
+      const now = Date.now()
+      const lastGeneration = localStorage.getItem('last-ai-recommendation-time')
+      const timeSinceLastGeneration = lastGeneration ? now - parseInt(lastGeneration) : 60000
+      
+      // Only generate new recommendations every 30 seconds minimum
+      if (timeSinceLastGeneration < 30000) {
+        console.log('🧠 Skipping recommendation generation - too soon since last batch')
+        return
+      }
+      
+      console.log('🧠 Generating new AI recommendations...')
+      
+      // Prevent duplicate requests - check if already generating
+      if (isGeneratingRecommendations) {
+        console.log('🧠 Recommendation generation already in progress, skipping...')
+        return
+      }
+      
+      // Check if we're making the same request (same location within 100m and within 5 seconds)
+      const currentParams = {
+        lat: Math.round(location.latitude * 1000) / 1000, // Round to ~100m precision
+        lng: Math.round(location.longitude * 1000) / 1000,
+        timestamp: now
+      }
+      if (lastRequestParamsRef.current && 
+          lastRequestParamsRef.current.lat === currentParams.lat &&
+          lastRequestParamsRef.current.lng === currentParams.lng &&
+          (now - lastRequestParamsRef.current.timestamp) < 5000) {
+        console.log('🧠 Duplicate request detected (same location, too soon), skipping...')
+        return
+      }
+      
+      setIsGeneratingRecommendations(true)
+      lastRequestParamsRef.current = currentParams
+      
+      // Cancel any previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+      
+      const generateRecommendations = async () => {
+        const aiRecs: Recommendation[] = []
         
-        // ADDITIONAL SAFEGUARD: Double-check speed directly
-        const currentSpeed = location.speed || 0
-        if (currentSpeed > 1.5) {
-          console.log('🧠 Additional safeguard: Speed check failed - user moving at', currentSpeed.toFixed(2), 'm/s')
-          return
-        }
-        
-        // Only generate new recommendations if we don't have many already
-        // and if enough time has passed since last generation
-        const now = Date.now()
-        const lastGeneration = localStorage.getItem('last-ai-recommendation-time')
-        const timeSinceLastGeneration = lastGeneration ? now - parseInt(lastGeneration) : 60000
-        
-        // Only generate new recommendations every 30 seconds minimum
-        if (timeSinceLastGeneration < 30000) {
-          console.log('🧠 Skipping recommendation generation - too soon since last batch')
-          return
-        }
-        
-        console.log('🧠 Generating new AI recommendations...')
-        
-        // Prevent duplicate requests - check if already generating
-        if (isGeneratingRecommendations) {
-          console.log('🧠 Recommendation generation already in progress, skipping...')
-          return
-        }
-        
-        // Check if we're making the same request (same location within 100m and within 5 seconds)
-        const currentParams = {
-          lat: Math.round(location.latitude * 1000) / 1000, // Round to ~100m precision
-          lng: Math.round(location.longitude * 1000) / 1000,
-          timestamp: now
-        }
-        if (lastRequestParamsRef.current && 
-            lastRequestParamsRef.current.lat === currentParams.lat &&
-            lastRequestParamsRef.current.lng === currentParams.lng &&
-            (now - lastRequestParamsRef.current.timestamp) < 5000) {
-          console.log('🧠 Duplicate request detected (same location, too soon), skipping...')
-          return
-        }
-        
-        setIsGeneratingRecommendations(true)
-        lastRequestParamsRef.current = currentParams
-        
-        // Cancel any previous request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-        }
-        abortControllerRef.current = new AbortController()
-        const signal = abortControllerRef.current.signal
-        
-        const generateRecommendations = async () => {
-          const aiRecs: Recommendation[] = []
-          
-          try {
+        try {
             // Generate AI recommendations based on user preferences
             if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
               const categories = Object.entries(insights.userPersonality)
@@ -1069,16 +1068,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 }
               }
             }
-          } catch (error: any) {
-            if (error.name === 'AbortError') {
-              console.log('🧠 Request was aborted')
-              return
-            }
-            console.log('🧠 Error in recommendation generation:', error)
-          } finally {
-            setIsGeneratingRecommendations(false)
-          }
-          
+            
             // Store the timestamp of this generation
             localStorage.setItem('last-ai-recommendation-time', now.toString())
             
@@ -1097,22 +1087,26 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             })
             
             console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
-          } catch (error: any) {
-            if (error.name === 'AbortError') {
-              console.log('🧠 Recommendation generation aborted')
-              return
-            }
-            console.log('🧠 Error generating recommendations:', error)
-          } finally {
-            setIsGeneratingRecommendations(false)
+        } catch (error: any) {
+          if (error.name === 'AbortError') {
+            console.log('🧠 Request was aborted')
+            return
           }
+          console.log('🧠 Error in recommendation generation:', error)
+          if (error.name === 'AbortError') {
+            console.log('🧠 Recommendation generation aborted')
+            return
+          }
+          console.log('🧠 Error generating recommendations:', error)
+        } finally {
+          setIsGeneratingRecommendations(false)
         }
-        
-        generateRecommendations()
-      } catch (error) {
+      }
+      
+      generateRecommendations().catch((error) => {
         console.log('🧠 Error in recommendation generation effect:', error)
         setIsGeneratingRecommendations(false)
-      }
+      })
     }
   }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations]) // Added recommendations.length to dependency
 
@@ -2176,48 +2170,18 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                           fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
                         })
                       }
-                    } catch (error) {
-                      console.log('🧠 Error fetching discovery recommendations in manual refresh:', error)
-                      // Fallback to geocoding
-                      for (let i = 0; i < discoveryCount; i++) {
-                        const offsetLat = (Math.random() - 0.5) * 0.02
-                        const offsetLng = (Math.random() - 0.5) * 0.02
-                        const recLat = location.latitude + offsetLat
-                        const recLng = location.longitude + offsetLng
-                        const placeInfo = await fetchPlaceName(recLat, recLng)
-                        
-                        aiRecs.push({
-                          id: `discovery-${Date.now()}-${i}`,
-                          title: placeInfo?.name || `Hidden Gem #${i + 1}`,
-                          description: placeInfo?.name ? 
-                            "A cool spot I think you'll love!" :
-                            "A cool spot I think you'll love!",
-                          category: 'adventure',
-                          location: {
-                            lat: recLat,
-                            lng: recLng
-                          },
-                          rating: 3.5 + Math.random() * 1.5,
-                          isAISuggestion: true,
-                          confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
-                          reason: "Discovery mode - expanding your horizons",
-                          timestamp: new Date(),
-                          fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
-                        })
-                      }
-                    }
                     
-                      // Add new recommendations
-                      setRecommendations(prev => {
-                        const combined = [...prev, ...aiRecs]
-                        const updated = combined.slice(-8) // Keep only most recent 8
-                        // Update clusters
-                        const updatedClusters = clusterPins(updated)
-                        setClusteredPins(updatedClusters)
-                        return updated
-                      })
-                      
-                      console.log(`🧠 Manually generated ${aiRecs.length} new AI recommendations`)
+                    // Add new recommendations
+                    setRecommendations(prev => {
+                      const combined = [...prev, ...aiRecs]
+                      const updated = combined.slice(-8) // Keep only most recent 8
+                      // Update clusters
+                      const updatedClusters = clusterPins(updated)
+                      setClusteredPins(updatedClusters)
+                      return updated
+                    })
+                    
+                    console.log(`🧠 Manually generated ${aiRecs.length} new AI recommendations`)
                     }
                   } catch (error: any) {
                     if (error.name === 'AbortError') {
