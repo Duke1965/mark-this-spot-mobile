@@ -152,7 +152,6 @@ export default function PINITApp() {
   const [editingPin, setEditingPin] = useState<PinData | null>(null)
   const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
-  const [showMovePinMessage, setShowMovePinMessage] = useState(false)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
 
   // Add this new state for user location
@@ -1319,17 +1318,10 @@ export default function PINITApp() {
       return
     }
     
-    // Check if pin was moved
+    // Check if pin was moved (for determining if we need to fetch new data)
     const latDiff = Math.abs(editingPinLocation.lat - originalPinLocation.lat)
     const lngDiff = Math.abs(editingPinLocation.lng - originalPinLocation.lng)
     const moved = latDiff > 0.0001 || lngDiff > 0.0001 // ~11 meters
-    
-    if (!moved) {
-      // Show message to move pin
-      setShowMovePinMessage(true)
-      setTimeout(() => setShowMovePinMessage(false), 3000)
-      return
-    }
     
     // Set flags to prevent duplicate requests
     setIsUpdatingPinLocation(true)
@@ -1343,30 +1335,45 @@ export default function PINITApp() {
     const signal = pinEditControllerRef.current.signal
     
     try {
-      // Fetch new location data (images, title, description)
-      // Pass abort signal to ensure cancellation propagates
-      console.log("📸 Fetching new location data for updated pin location...")
-      const locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
-      
-      // Check if request was aborted
-      if (signal.aborted) {
-        console.log("📸 Pin update request was aborted")
-        return
+      let locationPhotos = editingPin.additionalPhotos || []
+      let placeName = editingPin.locationName
+      let placeDescription = editingPin.description
+      let aiGeneratedContent = {
+        title: editingPin.title,
+        description: editingPin.description,
+        locationName: editingPin.locationName,
+        tags: editingPin.tags || []
       }
       
-      // Get place name and description from photos
-      const placeName = locationPhotos[0]?.placeName
-      const placeDescription = locationPhotos[0]?.description
-      
-      // Generate AI content with new location
-      const aiGeneratedContent = generateAIContent(
-        editingPinLocation.lat, 
-        editingPinLocation.lng, 
-        motionData, 
-        locationPhotos, 
-        placeName, 
-        placeDescription
-      )
+      // Only fetch new data if pin was moved
+      if (moved) {
+        // Fetch new location data (images, title, description)
+        // Pass abort signal to ensure cancellation propagates
+        console.log("📸 Pin was moved - fetching new location data for updated pin location...")
+        locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
+        
+        // Check if request was aborted
+        if (signal.aborted) {
+          console.log("📸 Pin update request was aborted")
+          return
+        }
+        
+        // Get place name and description from photos
+        placeName = locationPhotos[0]?.placeName || editingPin.locationName
+        placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
+        
+        // Generate AI content with new location
+        aiGeneratedContent = generateAIContent(
+          editingPinLocation.lat, 
+          editingPinLocation.lng, 
+          motionData, 
+          locationPhotos, 
+          placeName, 
+          placeDescription
+        )
+      } else {
+        console.log("📸 Pin location unchanged - using existing data")
+      }
       
       // Update the pin with new location and data
       const updatedPin: PinData = {
@@ -1377,9 +1384,9 @@ export default function PINITApp() {
         title: aiGeneratedContent.title,
         description: aiGeneratedContent.description,
         mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
-        additionalPhotos: locationPhotos,
+        additionalPhotos: locationPhotos.length > 0 ? locationPhotos : editingPin.additionalPhotos,
         tags: aiGeneratedContent.tags,
-        // Mark as completed (no longer pending)
+        // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false
       }
       
@@ -1901,32 +1908,62 @@ export default function PINITApp() {
 
   // Draggable Pin Marker Component (for edit mode)
   const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void }) => {
-    const [isDragging, setIsDragging] = useState(false)
-    const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position
+    const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position (centered)
+    const isDraggingRef = useRef(false)
+    const startOffsetRef = useRef({ x: 0, y: 0 })
+    const markerRef = useRef<HTMLDivElement>(null)
+    
+    // Find the map container
+    const getMapContainer = () => {
+      return document.querySelector('div[style*="flex: 1"][style*="position: relative"]') as HTMLElement ||
+             document.querySelector('div[style*="position: relative"][style*="overflow: hidden"]') as HTMLElement
+    }
     
     const handleStart = (clientX: number, clientY: number) => {
-      setIsDragging(true)
+      isDraggingRef.current = true
+      const mapContainer = getMapContainer()
+      if (mapContainer && markerRef.current) {
+        const mapRect = mapContainer.getBoundingClientRect()
+        const markerRect = markerRef.current.getBoundingClientRect()
+        
+        // Calculate offset from marker center to touch point
+        startOffsetRef.current = {
+          x: clientX - (markerRect.left + markerRect.width / 2),
+          y: clientY - (markerRect.top + markerRect.height / 2)
+        }
+      }
     }
     
     const handleMove = (clientX: number, clientY: number) => {
-      if (!isDragging) return
+      if (!isDraggingRef.current) return
       
-      const mapContainer = document.querySelector('div[style*="position: relative"]') as HTMLElement
-      if (mapContainer) {
-        const rect = mapContainer.getBoundingClientRect()
-        const x = ((clientX - rect.left) / rect.width) * 100
-        const y = ((clientY - rect.top) / rect.height) * 100
+      const mapContainer = getMapContainer()
+      if (mapContainer && markerRef.current) {
+        const mapRect = mapContainer.getBoundingClientRect()
+        const markerRect = markerRef.current.getBoundingClientRect()
         
-        // Clamp to map bounds
-        const clampedX = Math.max(0, Math.min(100, x))
-        const clampedY = Math.max(0, Math.min(100, y))
+        // Calculate new position relative to map container
+        const newX = clientX - mapRect.left - startOffsetRef.current.x
+        const newY = clientY - mapRect.top - startOffsetRef.current.y
+        
+        // Convert to percentage
+        const xPercent = (newX / mapRect.width) * 100
+        const yPercent = (newY / mapRect.height) * 100
+        
+        // Clamp to map bounds (accounting for marker size)
+        const clampedX = Math.max(0, Math.min(100, xPercent))
+        const clampedY = Math.max(0, Math.min(100, yPercent))
         
         setPosition({ x: clampedX, y: clampedY })
         
-        // Convert percentage to lat/lng offset (approximate)
-        // Center is 50%, so offset from center
-        const latOffset = ((50 - clampedY) / 50) * 0.01 // ~0.01 degrees per 50% movement
-        const lngOffset = ((clampedX - 50) / 50) * 0.01
+        // Convert percentage to lat/lng offset (approximate for zoom level 17)
+        // At zoom 17, ~0.01 degrees ≈ 1km, so 50% of screen ≈ 0.005 degrees
+        const latRange = 0.01 // Approximate range for zoom 17
+        const lngRange = 0.01
+        
+        // Center is 50%, so calculate offset from center
+        const latOffset = ((50 - clampedY) / 50) * (latRange / 2)
+        const lngOffset = ((clampedX - 50) / 50) * (lngRange / 2)
         
         const newLat = initialLat + latOffset
         const newLng = initialLng + lngOffset
@@ -1936,57 +1973,73 @@ export default function PINITApp() {
     }
     
     const handleEnd = () => {
-      setIsDragging(false)
+      isDraggingRef.current = false
+    }
+    
+    // Set up event listeners when dragging starts
+    const setupDragListeners = () => {
+      const onMouseMove = (e: MouseEvent) => {
+        if (isDraggingRef.current) {
+          handleMove(e.clientX, e.clientY)
+        }
+      }
+      const onMouseUp = () => {
+        handleEnd()
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+      }
+      const onTouchMove = (e: TouchEvent) => {
+        e.preventDefault()
+        if (isDraggingRef.current && e.touches[0]) {
+          handleMove(e.touches[0].clientX, e.touches[0].clientY)
+        }
+      }
+      const onTouchEnd = () => {
+        handleEnd()
+        window.removeEventListener('touchmove', onTouchMove)
+        window.removeEventListener('touchend', onTouchEnd)
+      }
+      
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+      window.addEventListener('touchmove', onTouchMove, { passive: false })
+      window.addEventListener('touchend', onTouchEnd)
     }
     
     return (
       <div
+        ref={markerRef}
         style={{
           position: "absolute",
           top: `${position.y}%`,
           left: `${position.x}%`,
           transform: "translate(-50%, -100%)",
-          cursor: isDragging ? "grabbing" : "grab",
+          cursor: isDraggingRef.current ? "grabbing" : "grab",
           zIndex: 1000,
           userSelect: "none",
-          touchAction: "none"
+          touchAction: "none",
+          transition: isDraggingRef.current ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out'
         }}
         onMouseDown={(e) => {
           e.preventDefault()
+          e.stopPropagation()
           handleStart(e.clientX, e.clientY)
-          const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
-          const handleMouseUp = () => {
-            handleEnd()
-            document.removeEventListener('mousemove', handleMouseMove)
-            document.removeEventListener('mouseup', handleMouseUp)
-          }
-          document.addEventListener('mousemove', handleMouseMove)
-          document.addEventListener('mouseup', handleMouseUp)
+          setupDragListeners()
         }}
         onTouchStart={(e) => {
           e.preventDefault()
+          e.stopPropagation()
           const touch = e.touches[0]
           handleStart(touch.clientX, touch.clientY)
-          const handleTouchMove = (e: TouchEvent) => {
-            if (e.touches[0]) {
-              handleMove(e.touches[0].clientX, e.touches[0].clientY)
-            }
-          }
-          const handleTouchEnd = () => {
-            handleEnd()
-            document.removeEventListener('touchmove', handleTouchMove)
-            document.removeEventListener('touchend', handleTouchEnd)
-          }
-          document.addEventListener('touchmove', handleTouchMove, { passive: false })
-          document.addEventListener('touchend', handleTouchEnd)
+          setupDragListeners()
         }}
       >
         <div
           style={{
             fontSize: "48px",
             filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
-            animation: isDragging ? "none" : "bounce 1s infinite",
-            transform: isDragging ? "scale(1.2)" : "scale(1)"
+            animation: isDraggingRef.current ? "none" : "bounce 1s infinite",
+            transform: isDraggingRef.current ? "scale(1.2)" : "scale(1)"
           }}
         >
           📍
@@ -2007,7 +2060,7 @@ export default function PINITApp() {
             border: "1px solid rgba(255,255,255,0.2)"
           }}
         >
-          {isDragging ? "Moving..." : "Drag to move"}
+          {isDraggingRef.current ? "Moving..." : "Drag to move"}
         </div>
       </div>
     )
@@ -2086,22 +2139,6 @@ export default function PINITApp() {
             {isUpdatingPinLocation ? "⏳ Updating..." : "✅ Done"}
           </button>
         </div>
-        
-        {/* Instruction Message */}
-        {showMovePinMessage && (
-          <div
-            style={{
-              padding: "1rem",
-              background: "rgba(255, 165, 0, 0.9)",
-              color: "white",
-              textAlign: "center",
-              fontWeight: "600",
-              animation: "slideDown 0.3s ease-out"
-            }}
-          >
-            📍 Please move the pin to the exact location on the map
-          </div>
-        )}
         
         {/* Full Map View */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
