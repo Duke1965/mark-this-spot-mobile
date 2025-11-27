@@ -132,6 +132,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
+  // NEW: Request management to prevent duplicate API calls
+  const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const lastRequestParamsRef = useRef<{lat: number, lng: number, timestamp: number} | null>(null)
+  
   // NEW: Enhanced motion detection state with throttling
   const [isUserMoving, setIsUserMoving] = useState(false)
   const [lastMotionCheck, setLastMotionCheck] = useState(Date.now())
@@ -595,100 +600,53 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         
         console.log('🧠 Generating new AI recommendations...')
         
+        // Prevent duplicate requests - check if already generating
+        if (isGeneratingRecommendations) {
+          console.log('🧠 Recommendation generation already in progress, skipping...')
+          return
+        }
+        
+        // Check if we're making the same request (same location within 100m and within 5 seconds)
+        const currentParams = {
+          lat: Math.round(location.latitude * 1000) / 1000, // Round to ~100m precision
+          lng: Math.round(location.longitude * 1000) / 1000,
+          timestamp: now
+        }
+        if (lastRequestParamsRef.current && 
+            lastRequestParamsRef.current.lat === currentParams.lat &&
+            lastRequestParamsRef.current.lng === currentParams.lng &&
+            (now - lastRequestParamsRef.current.timestamp) < 5000) {
+          console.log('🧠 Duplicate request detected (same location, too soon), skipping...')
+          return
+        }
+        
+        setIsGeneratingRecommendations(true)
+        lastRequestParamsRef.current = currentParams
+        
+        // Cancel any previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+        const signal = abortControllerRef.current.signal
+        
         const generateRecommendations = async () => {
           const aiRecs: Recommendation[] = []
           
-          // Generate AI recommendations based on user preferences
-          if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
-            const categories = Object.entries(insights.userPersonality)
-              .filter(([key, value]) => key !== 'confidence' && value === true)
-              .map(([key]) => key.replace('is', '').toLowerCase())
-            
-            // Only generate 2-3 recommendations at a time, not continuously
-            const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
-            const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
-            
-            // Fetch real places from pin-intel gateway for each category
-            for (const category of shuffledCategories) {
+          try {
+            // Generate AI recommendations based on user preferences
+            if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
+              const categories = Object.entries(insights.userPersonality)
+                .filter(([key, value]) => key !== 'confidence' && value === true)
+                .map(([key]) => key.replace('is', '').toLowerCase())
+              
+              // Only generate 2-3 recommendations at a time, not continuously
+              const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
+              const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
+              
+              // OPTIMIZED: Make a SINGLE API call for all categories instead of one per category
               try {
-                // Get real places for this category from pin-intel gateway
-                const response = await fetch('/api/pinit/pin-intel', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    lat: location.latitude,
-                    lng: location.longitude,
-                    precision: 5
-                  })
-                })
-                
-                if (response.ok) {
-                  const data = await response.json()
-                  const places = data.places || []
-                  
-                  // Filter places by category preference
-                  const categoryPlaces = places.filter((place: any) => 
-                    place.categories?.some((cat: string) => 
-                      cat.includes(category) || 
-                      (category === 'food' && ['catering', 'restaurant', 'cafe'].some(c => cat.includes(c))) ||
-                      (category === 'adventure' && ['activity', 'leisure', 'tourism'].some(c => cat.includes(c))) ||
-                      (category === 'culture' && ['entertainment', 'art'].some(c => cat.includes(c))) ||
-                      (category === 'nature' && ['natural'].some(c => cat.includes(c)))
-                    )
-                  )
-                  
-                  if (categoryPlaces.length > 0) {
-                    const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
-                    
-                    // CRITICAL: Validate coordinates before adding recommendation
-                    const placeLat = selectedPlace.lat
-                    const placeLng = selectedPlace.lng
-                    
-                    // Skip places without valid coordinates
-                    if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
-                      console.warn('🧠 Skipping place without valid coordinates:', selectedPlace.name)
-                      continue
-                    }
-                    
-                    aiRecs.push({
-                      id: `ai-${category}-${selectedPlace.id}`,
-                      title: selectedPlace.name || 'Interesting Place',
-                      description: `AI recommends this ${category} spot based on your preferences`,
-                      category: category,
-                      location: {
-                        lat: placeLat,
-                        lng: placeLng,
-                      },
-                      rating: 4.0, // Default rating since Geoapify doesn't provide ratings
-                      isAISuggestion: true,
-                      confidence: Math.round(insights.userPersonality.confidence * 100),
-                      reason: `Learned from your ${category} preferences`,
-                      timestamp: new Date(),
-                      fallbackImage: data.imagery ? undefined : getFallbackImage(category)
-                    })
-                  }
-                }
-              } catch (error) {
-                console.log(`🧠 Error fetching ${category} recommendations:`, error)
-              }
-            }
-          } else {
-            // NEW USER FALLBACK: Generate local area recommendations when AI hasn't learned enough yet
-            console.log('🧠 New user detected - generating local area recommendations')
-            
-            // API SAFEGUARD: Check if we've already made requests recently
-            const lastRequestTime = localStorage.getItem('last-new-user-request')
-            const now = Date.now()
-            const timeSinceLastRequest = lastRequestTime ? now - parseInt(lastRequestTime) : Infinity
-            
-            // Only make API request if it's been at least 5 minutes since last request
-            if (timeSinceLastRequest > 5 * 60 * 1000) {
-              try {
-                console.log('🧠 Fetching local places for new user...')
-                
-                // Use Foursquare Places API with safeguards
+                console.log('🧠 Fetching places from Foursquare for all categories in one request...')
                 const response = await fetch('/api/foursquare-places', {
                   method: 'POST',
                   headers: {
@@ -697,10 +655,134 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   body: JSON.stringify({
                     lat: location.latitude,
                     lng: location.longitude,
-                    radius: 5000, // 5km radius for local area
-                    limit: 5 // Get 5 places
-                  })
+                    radius: 5000, // 5km radius for recommendations
+                    limit: 30 // Get enough places to filter by multiple categories
+                  }),
+                  signal // Add abort signal
                 })
+                
+                if (signal.aborted) {
+                  console.log('🧠 Request aborted')
+                  return
+                }
+                
+                if (response.ok) {
+                  const data = await response.json()
+                  const allPlaces = data.items || data.results || []
+                  console.log(`🧠 Fetched ${allPlaces.length} places from Foursquare`)
+                  
+                  // Process each category from the same API response
+                  for (const category of shuffledCategories) {
+                    if (signal.aborted) break
+                    
+                    // Filter places by category preference - match category names from Foursquare
+                    const categoryPlaces = allPlaces.filter((place: any) => {
+                      const placeCategory = place.category?.toLowerCase() || ''
+                      const categoryLower = category.toLowerCase()
+                      
+                      return (
+                        placeCategory.includes(categoryLower) ||
+                        (categoryLower === 'food' && ['restaurant', 'cafe', 'food', 'dining', 'catering'].some(c => placeCategory.includes(c))) ||
+                        (categoryLower === 'adventure' && ['activity', 'leisure', 'tourism', 'outdoor', 'sport'].some(c => placeCategory.includes(c))) ||
+                        (categoryLower === 'culture' && ['entertainment', 'art', 'museum', 'theater', 'gallery', 'cultural'].some(c => placeCategory.includes(c))) ||
+                        (categoryLower === 'nature' && ['park', 'natural', 'outdoor', 'garden', 'beach', 'hiking'].some(c => placeCategory.includes(c)))
+                      )
+                    })
+                    
+                    if (categoryPlaces.length > 0) {
+                      const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
+                      
+                      // CRITICAL: Validate coordinates before adding recommendation
+                      const placeLat = selectedPlace.location?.lat || selectedPlace.geometry?.location?.lat
+                      const placeLng = selectedPlace.location?.lng || selectedPlace.geometry?.location?.lng
+                      
+                      // Skip places without valid coordinates
+                      if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
+                        console.warn('🧠 Skipping place without valid coordinates:', selectedPlace.title || selectedPlace.name)
+                        continue
+                      }
+                      
+                      // Extract photo URL from Foursquare response
+                      let photoUrl = selectedPlace.photoUrl || selectedPlace.mediaUrl
+                      if (!photoUrl && selectedPlace.photos && Array.isArray(selectedPlace.photos) && selectedPlace.photos.length > 0) {
+                        const firstPhoto = selectedPlace.photos[0]
+                        photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+                      }
+                      
+                      // Use Foursquare's real title and description
+                      const placeTitle = selectedPlace.title || selectedPlace.name || 'Interesting Place'
+                      const placeDescription = selectedPlace.description || 
+                        (selectedPlace.category ? `A great ${selectedPlace.category.toLowerCase()} spot` : 
+                         `A recommended ${category} location`)
+                      
+                      console.log(`🧠 AI Recommendation using Foursquare data for ${placeTitle}:`, {
+                        hasDescription: !!selectedPlace.description,
+                        description: selectedPlace.description?.substring(0, 50) + '...',
+                        category: selectedPlace.category,
+                        hasPhoto: !!photoUrl
+                      })
+                      
+                      aiRecs.push({
+                        id: `ai-${category}-${selectedPlace.fsq_id || selectedPlace.id || Date.now()}`,
+                        title: placeTitle,
+                        description: placeDescription, // Use real Foursquare description
+                        category: selectedPlace.category || category,
+                        location: {
+                          lat: placeLat,
+                          lng: placeLng,
+                        },
+                        rating: selectedPlace.rating || 4.0,
+                        isAISuggestion: true,
+                        confidence: Math.round(insights.userPersonality.confidence * 100),
+                        reason: `Learned from your ${category} preferences`,
+                        timestamp: new Date(),
+                        fallbackImage: photoUrl ? undefined : getFallbackImage(selectedPlace.category || category),
+                        photoUrl: photoUrl || undefined,
+                        mediaUrl: photoUrl || undefined,
+                        fsq_id: selectedPlace.fsq_id || selectedPlace.id || undefined
+                      } as Recommendation)
+                    }
+                  }
+                }
+              } catch (error: any) {
+                if (error.name === 'AbortError') {
+                  console.log('🧠 Request was aborted')
+                  return
+                }
+                console.log(`🧠 Error fetching recommendations:`, error)
+              }
+            } else {
+              // NEW USER FALLBACK: Generate local area recommendations when AI hasn't learned enough yet
+              console.log('🧠 New user detected - generating local area recommendations')
+              
+              // API SAFEGUARD: Check if we've already made requests recently
+              const lastRequestTime = localStorage.getItem('last-new-user-request')
+              const timeSinceLastRequest = lastRequestTime ? now - parseInt(lastRequestTime) : Infinity
+              
+              // Only make API request if it's been at least 5 minutes since last request
+              if (timeSinceLastRequest > 5 * 60 * 1000) {
+                try {
+                  console.log('🧠 Fetching local places for new user...')
+                  
+                  // Use Foursquare Places API with safeguards
+                  const response = await fetch('/api/foursquare-places', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      lat: location.latitude,
+                      lng: location.longitude,
+                      radius: 5000, // 5km radius for local area
+                      limit: 5 // Get 5 places
+                    }),
+                    signal // Add abort signal
+                  })
+                  
+                  if (signal.aborted) {
+                    console.log('🧠 Request aborted')
+                    return
+                  }
                 
                 if (response.ok) {
                   const data = await response.json()
@@ -740,11 +822,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       fsq_id: place.fsq_id || place.id
                     })
                     
+                    // Use Foursquare's real title and description - prioritize actual data over generic text
+                    const placeTitle = place.title || place.name || 'Local Spot'
+                    const placeDescription = place.description || 
+                      (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
+                       `A recommended ${category.toLowerCase()} location nearby`)
+                    
+                    console.log(`🧠 New User Recommendation using Foursquare data for ${placeTitle}:`, {
+                      hasDescription: !!place.description,
+                      description: place.description?.substring(0, 50) + '...',
+                      category: place.category || category,
+                      hasPhoto: !!photoUrl
+                    })
+                    
                     aiRecs.push({
                       id: `new-user-${place.fsq_id || place.id || place.place_id}`,
-                      title: place.title || place.name || 'Local Spot',
-                      description: place.description || `Great ${category.toLowerCase()} spot in your area`,
-                      category: category,
+                      title: placeTitle,
+                      description: placeDescription, // Use real Foursquare description
+                      category: place.category || category,
                       location: {
                         lat: placeLat,
                         lng: placeLng,
@@ -754,7 +849,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       confidence: 25, // Low confidence for new users
                       reason: "Local area discovery - exploring your neighborhood",
                       timestamp: new Date(),
-                      fallbackImage: getFallbackImage(category),
+                      fallbackImage: photoUrl ? undefined : getFallbackImage(place.category || category),
                       photoUrl: photoUrl || undefined,
                       mediaUrl: photoUrl || undefined, // Also set mediaUrl for compatibility
                       fsq_id: place.fsq_id || place.id || undefined
@@ -782,62 +877,244 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             }
           }
           
-          // Add only 1-2 discovery recommendations (40% as specified, but limited)
-          const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
-          for (let i = 0; i < discoveryCount; i++) {
-            // Generate random offset for location
-            const offsetLat = (Math.random() - 0.5) * 0.02
-            const offsetLng = (Math.random() - 0.5) * 0.02
-            const recLat = location.latitude + offsetLat
-            const recLng = location.longitude + offsetLng
+            // Add only 1-2 discovery recommendations (40% as specified, but limited)
+            // OPTIMIZED: Reuse the same API response if we already fetched places above
+            const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
             
-            // Try to get real place name
-            const placeInfo = await fetchPlaceName(recLat, recLng)
+            let discoveryPlaces: any[] = []
             
-            aiRecs.push({
-              id: `discovery-${Date.now()}-${i}`,
-              title: placeInfo?.name || `Hidden Gem #${i + 1}`,
-              description: placeInfo?.name ? 
-                "A cool spot I think you'll love!" :
-                "A cool spot I think you'll love!",
-              category: 'adventure',
-              location: {
-                lat: recLat,
-                lng: recLng
-              },
-              rating: 3.5 + Math.random() * 1.5,
-              isAISuggestion: true,
-              confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
-              reason: "Discovery mode - expanding your horizons",
-              timestamp: new Date(),
-              // NEW: Add fallback image if no Google photo
-              fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
-            })
+            // If we already fetched places for categories, reuse them for discovery
+            if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
+              // We already have places from the category fetch above - reuse them
+              try {
+                const response = await fetch('/api/foursquare-places', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    lat: location.latitude,
+                    lng: location.longitude,
+                    radius: 5000,
+                    limit: 30
+                  }),
+                  signal
+                })
+                
+                if (!signal.aborted && response.ok) {
+                  const data = await response.json()
+                  discoveryPlaces = data.items || data.results || []
+                  console.log(`🧠 Reusing Foursquare places for discovery: ${discoveryPlaces.length} places`)
+                }
+              } catch (error: any) {
+                if (error.name !== 'AbortError') {
+                  console.log('🧠 Error fetching discovery places:', error)
+                }
+              }
+            } else {
+              // For new users, fetch discovery places separately
+              try {
+                const discoveryResponse = await fetch('/api/foursquare-places', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    lat: location.latitude,
+                    lng: location.longitude,
+                    radius: 3000, // 3km radius for discovery
+                    limit: 10 // Get multiple places to choose from
+                  }),
+                  signal
+                })
+                
+                if (signal.aborted) {
+                  console.log('🧠 Discovery request aborted')
+                  return
+                }
+                
+                if (discoveryResponse.ok) {
+                  const discoveryData = await discoveryResponse.json()
+                  discoveryPlaces = discoveryData.items || discoveryData.results || []
+                }
+              } catch (error: any) {
+                if (error.name === 'AbortError') {
+                  console.log('🧠 Discovery request was aborted')
+                  return
+                }
+                console.log('🧠 Error fetching discovery recommendations:', error)
+              }
+            }
+            
+            if (!signal.aborted) {
+            
+              // Select random places from Foursquare results, or generate random locations
+            for (let i = 0; i < discoveryCount; i++) {
+              let placeTitle: string
+              let placeDescription: string
+              let recLat: number
+              let recLng: number
+              let photoUrl: string | undefined
+              let fsqId: string | undefined
+              let rating: number
+              let category: string
+              
+              if (discoveryPlaces.length > 0 && i < discoveryPlaces.length) {
+                // Use real Foursquare place
+                const place = discoveryPlaces[i]
+                recLat = place.location?.lat || place.geometry?.location?.lat
+                recLng = place.location?.lng || place.geometry?.location?.lng
+                
+                if (recLat && recLng && isFinite(recLat) && isFinite(recLng)) {
+                  placeTitle = place.title || place.name || `Hidden Gem #${i + 1}`
+                  placeDescription = place.description || 
+                    (place.category ? `Discover this ${place.category.toLowerCase()} spot` : 
+                     "A cool spot I think you'll love!")
+                  category = place.category || 'adventure'
+                  rating = place.rating || (3.5 + Math.random() * 1.5)
+                  fsqId = place.fsq_id || place.id
+                  
+                  // Extract photo URL
+                  photoUrl = place.photoUrl || place.mediaUrl
+                  if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+                    const firstPhoto = place.photos[0]
+                    photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+                  }
+                  
+                  console.log(`🧠 Discovery Recommendation using Foursquare data for ${placeTitle}:`, {
+                    hasDescription: !!place.description,
+                    description: place.description?.substring(0, 50) + '...',
+                    category: category,
+                    hasPhoto: !!photoUrl
+                  })
+                } else {
+                  // Fallback to random location if coordinates invalid
+                  const offsetLat = (Math.random() - 0.5) * 0.02
+                  const offsetLng = (Math.random() - 0.5) * 0.02
+                  recLat = location.latitude + offsetLat
+                  recLng = location.longitude + offsetLng
+                  const placeInfo = await fetchPlaceName(recLat, recLng)
+                  placeTitle = placeInfo?.name || `Hidden Gem #${i + 1}`
+                  placeDescription = placeInfo?.name ? 
+                    "A cool spot I think you'll love!" :
+                    "A cool spot I think you'll love!"
+                  category = 'adventure'
+                  rating = 3.5 + Math.random() * 1.5
+                  photoUrl = placeInfo?.photoUrl
+                }
+              } else {
+                // Fallback to random location with geocoding
+                const offsetLat = (Math.random() - 0.5) * 0.02
+                const offsetLng = (Math.random() - 0.5) * 0.02
+                recLat = location.latitude + offsetLat
+                recLng = location.longitude + offsetLng
+                const placeInfo = await fetchPlaceName(recLat, recLng)
+                placeTitle = placeInfo?.name || `Hidden Gem #${i + 1}`
+                placeDescription = placeInfo?.name ? 
+                  "A cool spot I think you'll love!" :
+                  "A cool spot I think you'll love!"
+                category = 'adventure'
+                rating = 3.5 + Math.random() * 1.5
+                photoUrl = placeInfo?.photoUrl
+              }
+              
+              aiRecs.push({
+                id: `discovery-${Date.now()}-${i}`,
+                title: placeTitle,
+                description: placeDescription,
+                category: category,
+                location: {
+                  lat: recLat,
+                  lng: recLng
+                },
+                rating: rating,
+                isAISuggestion: true,
+                confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                reason: "Discovery mode - expanding your horizons",
+                timestamp: new Date(),
+                fallbackImage: photoUrl ? undefined : getFallbackImage(category),
+                photoUrl: photoUrl || undefined,
+                mediaUrl: photoUrl || undefined,
+                fsq_id: fsqId
+              } as Recommendation)
+            }
+              // Fallback to geocoding if no Foursquare places available
+              if (discoveryPlaces.length === 0) {
+                for (let i = 0; i < discoveryCount; i++) {
+                  if (signal.aborted) break
+                  const offsetLat = (Math.random() - 0.5) * 0.02
+                  const offsetLng = (Math.random() - 0.5) * 0.02
+                  const recLat = location.latitude + offsetLat
+                  const recLng = location.longitude + offsetLng
+                  const placeInfo = await fetchPlaceName(recLat, recLng)
+                  
+                  aiRecs.push({
+                    id: `discovery-${Date.now()}-${i}`,
+                    title: placeInfo?.name || `Hidden Gem #${i + 1}`,
+                    description: placeInfo?.name ? 
+                      "A cool spot I think you'll love!" :
+                      "A cool spot I think you'll love!",
+                    category: 'adventure',
+                    location: {
+                      lat: recLat,
+                      lng: recLng
+                    },
+                    rating: 3.5 + Math.random() * 1.5,
+                    isAISuggestion: true,
+                    confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                    reason: "Discovery mode - expanding your horizons",
+                    timestamp: new Date(),
+                    fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
+                  })
+                }
+              }
+            }
+          } catch (error: any) {
+            if (error.name === 'AbortError') {
+              console.log('🧠 Request was aborted')
+              return
+            }
+            console.log('🧠 Error in recommendation generation:', error)
+          } finally {
+            setIsGeneratingRecommendations(false)
           }
           
-          // Store the timestamp of this generation
-          localStorage.setItem('last-ai-recommendation-time', now.toString())
-          
-          // Add new recommendations to existing ones (don't replace)
-          setRecommendations(prev => {
-            const combined = [...prev, ...aiRecs]
-            // Keep only the most recent 8 recommendations to prevent spam
-            return combined.slice(-8)
-          })
-          
-          // NEW: Update clustered pins whenever recommendations change
-          const updatedClusters = clusterPins([...recommendations, ...aiRecs])
-          setClusteredPins(updatedClusters)
-          
-          console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
+            // Store the timestamp of this generation
+            localStorage.setItem('last-ai-recommendation-time', now.toString())
+            
+            // Add new recommendations to existing ones (don't replace)
+            setRecommendations(prev => {
+              const combined = [...prev, ...aiRecs]
+              // Keep only the most recent 8 recommendations to prevent spam
+              return combined.slice(-8)
+            })
+            
+            // NEW: Update clustered pins whenever recommendations change
+            setRecommendations(prev => {
+              const updatedClusters = clusterPins(prev)
+              setClusteredPins(updatedClusters)
+              return prev
+            })
+            
+            console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
+          } catch (error: any) {
+            if (error.name === 'AbortError') {
+              console.log('🧠 Recommendation generation aborted')
+              return
+            }
+            console.log('🧠 Error generating recommendations:', error)
+          } finally {
+            setIsGeneratingRecommendations(false)
+          }
         }
         
         generateRecommendations()
       } catch (error) {
-        console.log('🧠 Error generating recommendations:', error)
+        console.log('🧠 Error in recommendation generation effect:', error)
+        setIsGeneratingRecommendations(false)
       }
     }
-  }, [location, insights, recommendations.length, isInitialized]) // Added recommendations.length to dependency
+  }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations]) // Added recommendations.length to dependency
 
   // Refresh map when returning to map view
   useEffect(() => {
@@ -1675,14 +1952,30 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     return
                   }
                   
+                  // Prevent duplicate manual refresh requests
+                  if (isGeneratingRecommendations) {
+                    console.log('🧠 Manual refresh already in progress, skipping...')
+                    return
+                  }
+                  
                   console.log('🧠 User manually requested new recommendations')
+                  setIsGeneratingRecommendations(true)
+                  
+                  // Cancel any previous request
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort()
+                  }
+                  abortControllerRef.current = new AbortController()
+                  const signal = abortControllerRef.current.signal
+                  
                   // Force generate new recommendations regardless of motion state
                   const now = Date.now()
                   localStorage.setItem('last-ai-recommendation-time', '0') // Reset timer
                   
-                  // Trigger recommendation generation
-                  if (insights) {
-                    const aiRecs: Recommendation[] = []
+                  try {
+                    // Trigger recommendation generation
+                    if (insights) {
+                      const aiRecs: Recommendation[] = []
                     
                     // Generate AI recommendations based on user preferences
                     if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
@@ -1694,82 +1987,246 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       const numToGenerate = Math.min(2 + Math.floor(Math.random() * 2), categories.length)
                       const shuffledCategories = categories.sort(() => 0.5 - Math.random()).slice(0, numToGenerate)
                       
-                      for (const category of shuffledCategories) {
-                        // Generate random offset for location
-                        const offsetLat = (Math.random() - 0.5) * 0.01
-                        const offsetLng = (Math.random() - 0.5) * 0.01
+                      // OPTIMIZED: Make a SINGLE API call for all categories
+                      try {
+                        console.log('🧠 Manual refresh: Fetching places from Foursquare for all categories in one request...')
+                        const response = await fetch('/api/foursquare-places', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            lat: location.latitude,
+                            lng: location.longitude,
+                            radius: 5000,
+                            limit: 30
+                          }),
+                          signal
+                        })
+                        
+                        if (signal.aborted) {
+                          console.log('🧠 Manual refresh request aborted')
+                          return
+                        }
+                        
+                        if (response.ok) {
+                          const data = await response.json()
+                          const allPlaces = data.items || data.results || []
+                          console.log(`🧠 Manual refresh: Fetched ${allPlaces.length} places from Foursquare`)
+                          
+                          // Process each category from the same API response
+                          for (const category of shuffledCategories) {
+                            if (signal.aborted) break
+                            
+                            // Filter by category
+                            const categoryPlaces = allPlaces.filter((place: any) => {
+                              const placeCategory = place.category?.toLowerCase() || ''
+                              const categoryLower = category.toLowerCase()
+                              return (
+                                placeCategory.includes(categoryLower) ||
+                                (categoryLower === 'food' && ['restaurant', 'cafe', 'food', 'dining'].some(c => placeCategory.includes(c))) ||
+                                (categoryLower === 'adventure' && ['activity', 'leisure', 'tourism'].some(c => placeCategory.includes(c))) ||
+                                (categoryLower === 'culture' && ['entertainment', 'art', 'museum'].some(c => placeCategory.includes(c))) ||
+                                (categoryLower === 'nature' && ['park', 'natural', 'outdoor'].some(c => placeCategory.includes(c)))
+                              )
+                            })
+                            
+                            if (categoryPlaces.length > 0) {
+                              const place = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
+                              const placeLat = place.location?.lat || place.geometry?.location?.lat
+                              const placeLng = place.location?.lng || place.geometry?.location?.lng
+                              
+                              if (placeLat && placeLng && isFinite(placeLat) && isFinite(placeLng)) {
+                                let photoUrl = place.photoUrl || place.mediaUrl
+                                if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+                                  const firstPhoto = place.photos[0]
+                                  photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+                                }
+                                
+                                aiRecs.push({
+                                  id: `ai-${category}-${Date.now()}-${category}`,
+                                  title: place.title || place.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Spot`,
+                                  description: place.description || 
+                                    (place.category ? `A great ${place.category.toLowerCase()} spot` : 
+                                     `Found this ${category} place that looks perfect for you!`),
+                                  category: place.category || category,
+                                  location: {
+                                    lat: placeLat,
+                                    lng: placeLng
+                                  },
+                                  rating: place.rating || (4 + Math.random()),
+                                  isAISuggestion: true,
+                                  confidence: Math.round(insights.userPersonality.confidence * 100),
+                                  reason: `Learned from your ${category} preferences`,
+                                  timestamp: new Date(),
+                                  fallbackImage: photoUrl ? undefined : getFallbackImage(place.category || category),
+                                  photoUrl: photoUrl || undefined,
+                                  mediaUrl: photoUrl || undefined,
+                                  fsq_id: place.fsq_id || place.id
+                                } as Recommendation)
+                              }
+                            }
+                          }
+                        }
+                      } catch (error: any) {
+                        if (error.name === 'AbortError') {
+                          console.log('🧠 Manual refresh request was aborted')
+                          return
+                        }
+                        console.log(`🧠 Error fetching recommendations in manual refresh:`, error)
+                      }
+                    }
+                    
+                    // OPTIMIZED: Reuse the same API response for discovery (already fetched above)
+                    const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
+                    let discoveryPlaces: any[] = []
+                    
+                    // Reuse places from the category fetch if available, otherwise fetch separately
+                    try {
+                      const discoveryResponse = await fetch('/api/foursquare-places', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          lat: location.latitude,
+                          lng: location.longitude,
+                          radius: 5000,
+                          limit: 30
+                        }),
+                        signal
+                      })
+                      
+                      if (signal.aborted) {
+                        console.log('🧠 Discovery request aborted')
+                        return
+                      }
+                      
+                      if (discoveryResponse.ok) {
+                        const discoveryData = await discoveryResponse.json()
+                        discoveryPlaces = discoveryData.items || discoveryData.results || []
+                      }
+                    } catch (error: any) {
+                      if (error.name !== 'AbortError') {
+                        console.log('🧠 Error fetching discovery places in manual refresh:', error)
+                      }
+                    }
+                      
+                      for (let i = 0; i < discoveryCount; i++) {
+                        if (discoveryPlaces.length > 0 && i < discoveryPlaces.length) {
+                          const place = discoveryPlaces[i]
+                          const recLat = place.location?.lat || place.geometry?.location?.lat
+                          const recLng = place.location?.lng || place.geometry?.location?.lng
+                          
+                          if (recLat && recLng && isFinite(recLat) && isFinite(recLng)) {
+                            let photoUrl = place.photoUrl || place.mediaUrl
+                            if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+                              const firstPhoto = place.photos[0]
+                              photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+                            }
+                            
+                            aiRecs.push({
+                              id: `discovery-${Date.now()}-${i}`,
+                              title: place.title || place.name || `Hidden Gem #${i + 1}`,
+                              description: place.description || 
+                                (place.category ? `Discover this ${place.category.toLowerCase()} spot` : 
+                                 "A cool spot I think you'll love!"),
+                              category: place.category || 'adventure',
+                              location: {
+                                lat: recLat,
+                                lng: recLng
+                              },
+                              rating: place.rating || (3.5 + Math.random() * 1.5),
+                              isAISuggestion: true,
+                              confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                              reason: "Discovery mode - expanding your horizons",
+                              timestamp: new Date(),
+                              fallbackImage: photoUrl ? undefined : getFallbackImage(place.category || 'adventure'),
+                              photoUrl: photoUrl || undefined,
+                              mediaUrl: photoUrl || undefined,
+                              fsq_id: place.fsq_id || place.id
+                            } as Recommendation)
+                            continue
+                          }
+                        }
+                        
+                        // Fallback to geocoding
+                        const offsetLat = (Math.random() - 0.5) * 0.02
+                        const offsetLng = (Math.random() - 0.5) * 0.02
                         const recLat = location.latitude + offsetLat
                         const recLng = location.longitude + offsetLng
-                        
-                        // Try to get real place name
                         const placeInfo = await fetchPlaceName(recLat, recLng)
                         
                         aiRecs.push({
-                          id: `ai-${category}-${Date.now()}-${category}`,
-                          title: placeInfo?.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Spot`,
+                          id: `discovery-${Date.now()}-${i}`,
+                          title: placeInfo?.name || `Hidden Gem #${i + 1}`,
                           description: placeInfo?.name ? 
-                            `Found this ${category} place that looks perfect for you!` :
-                            `Found this ${category} place that looks perfect for you!`,
-                          category: category,
+                            "A cool spot I think you'll love!" :
+                            "A cool spot I think you'll love!",
+                          category: 'adventure',
                           location: {
                             lat: recLat,
                             lng: recLng
                           },
-                          rating: 4 + Math.random(),
+                          rating: 3.5 + Math.random() * 1.5,
                           isAISuggestion: true,
-                          confidence: Math.round(insights.userPersonality.confidence * 100),
-                          reason: `Learned from your ${category} preferences`,
+                          confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                          reason: "Discovery mode - expanding your horizons",
                           timestamp: new Date(),
-                          // NEW: Add fallback image if no Google photo
-                          fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage(category)
+                          fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
+                        })
+                      }
+                    } catch (error) {
+                      console.log('🧠 Error fetching discovery recommendations in manual refresh:', error)
+                      // Fallback to geocoding
+                      for (let i = 0; i < discoveryCount; i++) {
+                        const offsetLat = (Math.random() - 0.5) * 0.02
+                        const offsetLng = (Math.random() - 0.5) * 0.02
+                        const recLat = location.latitude + offsetLat
+                        const recLng = location.longitude + offsetLng
+                        const placeInfo = await fetchPlaceName(recLat, recLng)
+                        
+                        aiRecs.push({
+                          id: `discovery-${Date.now()}-${i}`,
+                          title: placeInfo?.name || `Hidden Gem #${i + 1}`,
+                          description: placeInfo?.name ? 
+                            "A cool spot I think you'll love!" :
+                            "A cool spot I think you'll love!",
+                          category: 'adventure',
+                          location: {
+                            lat: recLat,
+                            lng: recLng
+                          },
+                          rating: 3.5 + Math.random() * 1.5,
+                          isAISuggestion: true,
+                          confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
+                          reason: "Discovery mode - expanding your horizons",
+                          timestamp: new Date(),
+                          fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
                         })
                       }
                     }
                     
-                    // Add discovery recommendations
-                    const discoveryCount = Math.min(1 + Math.floor(Math.random() * 2), 2)
-                    for (let i = 0; i < discoveryCount; i++) {
-                      // Generate random offset for location
-                      const offsetLat = (Math.random() - 0.5) * 0.02
-                      const offsetLng = (Math.random() - 0.5) * 0.02
-                      const recLat = location.latitude + offsetLat
-                      const recLng = location.longitude + offsetLng
-                      
-                      // Try to get real place name
-                      const placeInfo = await fetchPlaceName(recLat, recLng)
-                      
-                      aiRecs.push({
-                        id: `discovery-${Date.now()}-${i}`,
-                        title: placeInfo?.name || `Hidden Gem #${i + 1}`,
-                        description: placeInfo?.name ? 
-                          "A cool spot I think you'll love!" :
-                          "A cool spot I think you'll love!",
-                        category: 'adventure',
-                        location: {
-                          lat: recLat,
-                          lng: recLng
-                        },
-                        rating: 3.5 + Math.random() * 1.5,
-                        isAISuggestion: true,
-                        confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
-                        reason: "Discovery mode - expanding your horizons",
-                        timestamp: new Date(),
-                        // NEW: Add fallback image if no Google photo
-                        fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
+                      // Add new recommendations
+                      setRecommendations(prev => {
+                        const combined = [...prev, ...aiRecs]
+                        const updated = combined.slice(-8) // Keep only most recent 8
+                        // Update clusters
+                        const updatedClusters = clusterPins(updated)
+                        setClusteredPins(updatedClusters)
+                        return updated
                       })
+                      
+                      console.log(`🧠 Manually generated ${aiRecs.length} new AI recommendations`)
                     }
-                    
-                    // Add new recommendations
-                    setRecommendations(prev => {
-                      const combined = [...prev, ...aiRecs]
-                      return combined.slice(-8) // Keep only most recent 8
-                    })
-                    
-                    // Update clusters
-                    const updatedClusters = clusterPins([...recommendations, ...aiRecs])
-                    setClusteredPins(updatedClusters)
-                    
-                    console.log(`🧠 Manually generated ${aiRecs.length} new AI recommendations`)
+                  } catch (error: any) {
+                    if (error.name === 'AbortError') {
+                      console.log('🧠 Manual refresh aborted')
+                      return
+                    }
+                    console.log('🧠 Error in manual refresh:', error)
+                  } finally {
+                    setIsGeneratingRecommendations(false)
                   }
                 }}
                 style={{
