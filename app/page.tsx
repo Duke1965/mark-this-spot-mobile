@@ -183,6 +183,10 @@ export default function PINITApp() {
   const photoFetchControllerRef = useRef<AbortController | null>(null)
   const photoFetchCacheRef = useRef<Map<string, { data: {url: string, placeName: string, description?: string}[], timestamp: number }>>(new Map())
   const isFetchingPhotosRef = useRef(false)
+  
+  // Request deduplication for pin editing
+  const pinEditControllerRef = useRef<AbortController | null>(null)
+  const isUpdatingPinRef = useRef(false)
 
   // Add state to remember the last good location name
   const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
@@ -1288,6 +1292,12 @@ export default function PINITApp() {
   const handlePinEditDone = useCallback(async () => {
     if (!editingPin || !editingPinLocation || !originalPinLocation) return
     
+    // Request deduplication: Prevent multiple simultaneous calls
+    if (isUpdatingPinRef.current || isUpdatingPinLocation) {
+      console.log("⏸️ Pin update already in progress, skipping duplicate request")
+      return
+    }
+    
     // Check if pin was moved
     const latDiff = Math.abs(editingPinLocation.lat - originalPinLocation.lat)
     const lngDiff = Math.abs(editingPinLocation.lng - originalPinLocation.lng)
@@ -1300,12 +1310,27 @@ export default function PINITApp() {
       return
     }
     
+    // Set flags to prevent duplicate requests
     setIsUpdatingPinLocation(true)
+    isUpdatingPinRef.current = true
+    
+    // Cancel any previous request
+    if (pinEditControllerRef.current) {
+      pinEditControllerRef.current.abort()
+    }
+    pinEditControllerRef.current = new AbortController()
+    const signal = pinEditControllerRef.current.signal
     
     try {
       // Fetch new location data (images, title, description)
       console.log("📸 Fetching new location data for updated pin location...")
       const locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng)
+      
+      // Check if request was aborted
+      if (signal.aborted) {
+        console.log("📸 Pin update request was aborted")
+        return
+      }
       
       // Get place name and description from photos
       const placeName = locationPhotos[0]?.placeName
@@ -1347,12 +1372,18 @@ export default function PINITApp() {
       setEditingPin(null)
       setEditingPinLocation(null)
       setOriginalPinLocation(null)
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log("📸 Pin update was aborted")
+        return
+      }
       console.error("❌ Error updating pin location:", error)
     } finally {
       setIsUpdatingPinLocation(false)
+      isUpdatingPinRef.current = false
+      pinEditControllerRef.current = null
     }
-  }, [editingPin, editingPinLocation, originalPinLocation, motionData, fetchLocationPhotos, generateAIContent, addPinFromStorage, setCurrentResultPin, setCurrentScreen])
+  }, [editingPin, editingPinLocation, originalPinLocation, motionData, fetchLocationPhotos, generateAIContent, addPinFromStorage, setCurrentResultPin, setCurrentScreen, isUpdatingPinLocation])
   
   // Handler for Cancel button
   const handlePinEditCancel = useCallback(() => {
