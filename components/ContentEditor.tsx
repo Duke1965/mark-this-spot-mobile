@@ -813,7 +813,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                   cursor: 'pointer'
                 }}
               >
-                News
+                New
               </button>
               <button
                 onClick={() => setStickerCategory("fun")}
