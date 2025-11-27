@@ -851,10 +851,10 @@ export default function PINITApp() {
       setCurrentResultPin(newPin)
       setCurrentScreen("results")
 
-      // Auto-return to main screen after 2 seconds so user can continue pinning
+      // Auto-return to map screen after 2 seconds so user can continue pinning
       setTimeout(() => {
-        setCurrentScreen("main")
-        console.log("🔄 Auto-returned to main screen - ready for next pin")
+        setCurrentScreen("map")
+        console.log("🔄 Auto-returned to map screen - ready for next pin")
       }, 2000)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
