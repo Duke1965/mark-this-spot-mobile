@@ -1396,14 +1396,17 @@ export default function PINITApp() {
       
       console.log("✅ Pin updated with new location and data:", updatedPin)
       
-      // Show results page with updated pin
-      setCurrentResultPin(updatedPin)
-      setCurrentScreen("results")
-      
-      // Clear editing state
+      // Clear editing state first
       setEditingPin(null)
       setEditingPinLocation(null)
       setOriginalPinLocation(null)
+      setIsDraggingPin(false)
+      
+      // Show results page with updated pin (use setTimeout to ensure state clears first)
+      setTimeout(() => {
+        setCurrentResultPin(updatedPin)
+        setCurrentScreen("results")
+      }, 100)
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log("📸 Pin update was aborted")
@@ -1916,9 +1919,13 @@ export default function PINITApp() {
     const currentLatRef = useRef(initialLat)
     const currentLngRef = useRef(initialLng)
     const mapContainerRef = useRef<HTMLElement | null>(null)
+    const baseLatRef = useRef(initialLat)
+    const baseLngRef = useRef(initialLng)
     
     // Update refs when initial position changes
     useEffect(() => {
+      baseLatRef.current = initialLat
+      baseLngRef.current = initialLng
       currentLatRef.current = initialLat
       currentLngRef.current = initialLng
       setPosition({ x: 50, y: 50 }) // Reset to center
@@ -1977,20 +1984,17 @@ export default function PINITApp() {
         const latRange = 0.01 // Approximate range for zoom 17
         const lngRange = 0.01
         
-        // Center is 50%, so calculate offset from center
+        // Center is 50%, so calculate offset from base position
         const latOffset = ((50 - clampedY) / 50) * (latRange / 2)
         const lngOffset = ((clampedX - 50) / 50) * (lngRange / 2)
         
-        // Use current position as base, not initial
-        const newLat = currentLatRef.current + latOffset
-        const newLng = currentLngRef.current + lngOffset
+        // Use base position as reference point (where pin started)
+        const newLat = baseLatRef.current + latOffset
+        const newLng = baseLngRef.current + lngOffset
         
         // Update refs for next calculation
         currentLatRef.current = newLat
         currentLngRef.current = newLng
-        
-        // Only update location when dragging ends to prevent map flicker
-        // onLocationUpdate(newLat, newLng)
       }
     }
     
@@ -1998,9 +2002,12 @@ export default function PINITApp() {
       if (isDraggingRef.current) {
         // Update location when dragging ends
         onLocationUpdate(currentLatRef.current, currentLngRef.current)
-        if (onDragEnd) onDragEnd()
       }
       isDraggingRef.current = false
+      if (onDragEnd) {
+        // Delay to ensure state updates complete
+        setTimeout(() => onDragEnd(), 100)
+      }
     }
     
     // Set up event listeners when dragging starts
@@ -2169,9 +2176,9 @@ export default function PINITApp() {
         
         {/* Full Map View */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {/* Use Google Maps Static API as background - only updates when not dragging */}
+          {/* Use Google Maps Static API as background - uses original location to prevent flicker during drag */}
           <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+            src={`https://maps.googleapis.com/maps/api/staticmap?center=${originalPinLocation?.lat || editingPinLocation.lat},${originalPinLocation?.lng || editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
             alt="Map"
             style={{
               position: "absolute",
@@ -2182,10 +2189,10 @@ export default function PINITApp() {
               objectFit: "cover",
               pointerEvents: "none",
               userSelect: "none",
-              opacity: isDraggingPin ? 0.9 : 1,
-              transition: isDraggingPin ? 'none' : 'opacity 0.2s'
+              opacity: 1,
+              display: "block"
             }}
-            key={isDraggingPin ? 'dragging' : `map-${editingPinLocation.lat.toFixed(4)}-${editingPinLocation.lng.toFixed(4)}`} // Prevent re-render during dragging
+            key={`map-base-${originalPinLocation?.lat.toFixed(4) || editingPinLocation.lat.toFixed(4)}-${originalPinLocation?.lng.toFixed(4) || editingPinLocation.lng.toFixed(4)}`} // Stable key based on original location
           />
           
           {/* Interactive overlay - allows dragging and shows nearby places link */}
