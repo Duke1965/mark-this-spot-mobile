@@ -147,6 +147,13 @@ export default function PINITApp() {
   const [currentTheme, setCurrentTheme] = useState<any>(null)
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
   const [lastActivity, setLastActivity] = useState<string>("app-start")
+  
+  // Pin editing state
+  const [editingPin, setEditingPin] = useState<PinData | null>(null)
+  const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [showMovePinMessage, setShowMovePinMessage] = useState(false)
+  const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -1269,6 +1276,93 @@ export default function PINITApp() {
     setCurrentScreen("recommendations")
   }
 
+  // Handler for when pin location is updated (dragged)
+  const handlePinLocationUpdate = useCallback((lat: number, lng: number) => {
+    if (editingPin) {
+      setEditingPinLocation({ lat, lng })
+      console.log("📍 Pin location updated:", { lat, lng })
+    }
+  }, [editingPin])
+  
+  // Handler for Done button - fetch new data and update pin
+  const handlePinEditDone = useCallback(async () => {
+    if (!editingPin || !editingPinLocation || !originalPinLocation) return
+    
+    // Check if pin was moved
+    const latDiff = Math.abs(editingPinLocation.lat - originalPinLocation.lat)
+    const lngDiff = Math.abs(editingPinLocation.lng - originalPinLocation.lng)
+    const moved = latDiff > 0.0001 || lngDiff > 0.0001 // ~11 meters
+    
+    if (!moved) {
+      // Show message to move pin
+      setShowMovePinMessage(true)
+      setTimeout(() => setShowMovePinMessage(false), 3000)
+      return
+    }
+    
+    setIsUpdatingPinLocation(true)
+    
+    try {
+      // Fetch new location data (images, title, description)
+      console.log("📸 Fetching new location data for updated pin location...")
+      const locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng)
+      
+      // Get place name and description from photos
+      const placeName = locationPhotos[0]?.placeName
+      const placeDescription = locationPhotos[0]?.description
+      
+      // Generate AI content with new location
+      const aiGeneratedContent = generateAIContent(
+        editingPinLocation.lat, 
+        editingPinLocation.lng, 
+        motionData, 
+        locationPhotos, 
+        placeName, 
+        placeDescription
+      )
+      
+      // Update the pin with new location and data
+      const updatedPin: PinData = {
+        ...editingPin,
+        latitude: editingPinLocation.lat,
+        longitude: editingPinLocation.lng,
+        locationName: aiGeneratedContent.locationName || editingPin.locationName,
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description,
+        mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
+        additionalPhotos: locationPhotos,
+        tags: aiGeneratedContent.tags
+      }
+      
+      // Update pin in storage
+      addPinFromStorage(updatedPin)
+      
+      console.log("✅ Pin updated with new location and data:", updatedPin)
+      
+      // Show results page with updated pin
+      setCurrentResultPin(updatedPin)
+      setCurrentScreen("results")
+      
+      // Clear editing state
+      setEditingPin(null)
+      setEditingPinLocation(null)
+      setOriginalPinLocation(null)
+    } catch (error) {
+      console.error("❌ Error updating pin location:", error)
+    } finally {
+      setIsUpdatingPinLocation(false)
+    }
+  }, [editingPin, editingPinLocation, originalPinLocation, motionData, fetchLocationPhotos, generateAIContent, addPinFromStorage, setCurrentResultPin, setCurrentScreen])
+  
+  // Handler for Cancel button
+  const handlePinEditCancel = useCallback(() => {
+    console.log("❌ Pin editing cancelled")
+    setEditingPin(null)
+    setEditingPinLocation(null)
+    setOriginalPinLocation(null)
+    setCurrentScreen("library")
+  }, [setCurrentScreen])
+
   // Handle navigation start
   const handleStartNavigation = (place: any) => {
     console.log("dY- Starting navigation to:", place.title)
@@ -1709,10 +1803,12 @@ export default function PINITApp() {
         pins={storedPins}
         onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
-          // Open pin in results view to see photos and save/share
-          console.log("📌 Pin selected from library:", pin)
-          setCurrentResultPin(pin)
-          setCurrentScreen("results")
+          // Navigate to map with pin editing mode
+          console.log("📌 Pin selected from library - entering edit mode:", pin)
+          setEditingPin(pin)
+          setEditingPinLocation({ lat: pin.latitude, lng: pin.longitude })
+          setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
+          setCurrentScreen("map")
         }}
         onPinUpdate={(pinId: string, updates: any) => {
           // Handle pin updates
@@ -1747,7 +1843,254 @@ export default function PINITApp() {
     )
   }
 
+  // Draggable Pin Marker Component (for edit mode)
+  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void }) => {
+    const [isDragging, setIsDragging] = useState(false)
+    const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position
+    
+    const handleStart = (clientX: number, clientY: number) => {
+      setIsDragging(true)
+    }
+    
+    const handleMove = (clientX: number, clientY: number) => {
+      if (!isDragging) return
+      
+      const mapContainer = document.querySelector('div[style*="position: relative"]') as HTMLElement
+      if (mapContainer) {
+        const rect = mapContainer.getBoundingClientRect()
+        const x = ((clientX - rect.left) / rect.width) * 100
+        const y = ((clientY - rect.top) / rect.height) * 100
+        
+        // Clamp to map bounds
+        const clampedX = Math.max(0, Math.min(100, x))
+        const clampedY = Math.max(0, Math.min(100, y))
+        
+        setPosition({ x: clampedX, y: clampedY })
+        
+        // Convert percentage to lat/lng offset (approximate)
+        // Center is 50%, so offset from center
+        const latOffset = ((50 - clampedY) / 50) * 0.01 // ~0.01 degrees per 50% movement
+        const lngOffset = ((clampedX - 50) / 50) * 0.01
+        
+        const newLat = initialLat + latOffset
+        const newLng = initialLng + lngOffset
+        
+        onLocationUpdate(newLat, newLng)
+      }
+    }
+    
+    const handleEnd = () => {
+      setIsDragging(false)
+    }
+    
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: `${position.y}%`,
+          left: `${position.x}%`,
+          transform: "translate(-50%, -100%)",
+          cursor: isDragging ? "grabbing" : "grab",
+          zIndex: 1000,
+          userSelect: "none",
+          touchAction: "none"
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          handleStart(e.clientX, e.clientY)
+          const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
+          const handleMouseUp = () => {
+            handleEnd()
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+          }
+          document.addEventListener('mousemove', handleMouseMove)
+          document.addEventListener('mouseup', handleMouseUp)
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault()
+          const touch = e.touches[0]
+          handleStart(touch.clientX, touch.clientY)
+          const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches[0]) {
+              handleMove(e.touches[0].clientX, e.touches[0].clientY)
+            }
+          }
+          const handleTouchEnd = () => {
+            handleEnd()
+            document.removeEventListener('touchmove', handleTouchMove)
+            document.removeEventListener('touchend', handleTouchEnd)
+          }
+          document.addEventListener('touchmove', handleTouchMove, { passive: false })
+          document.addEventListener('touchend', handleTouchEnd)
+        }}
+      >
+        <div
+          style={{
+            fontSize: "48px",
+            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
+            animation: isDragging ? "none" : "bounce 1s infinite",
+            transform: isDragging ? "scale(1.2)" : "scale(1)"
+          }}
+        >
+          📍
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            marginTop: "4px",
+            background: "rgba(30, 58, 138, 0.95)",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            fontSize: "0.875rem",
+            whiteSpace: "nowrap",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.2)"
+          }}
+        >
+          {isDragging ? "Moving..." : "Drag to move"}
+        </div>
+      </div>
+    )
+  }
+
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
+  
+  // If in pin editing mode, show full map with draggable marker
+  if (editingPin && editingPinLocation) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+          display: "flex",
+          flexDirection: "column",
+          color: "white",
+          zIndex: 1000
+        }}
+      >
+        {/* Edit Mode Header */}
+        <div
+          style={{
+            padding: "1rem",
+            background: "rgba(30, 58, 138, 0.95)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backdropFilter: "blur(15px)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
+          <button
+            onClick={handlePinEditCancel}
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              color: "white",
+              padding: "0.75rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <ArrowLeft size={20} />
+            Cancel
+          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>📍 Adjust Pin Location</span>
+          </div>
+          
+          <button
+            onClick={handlePinEditDone}
+            disabled={isUpdatingPinLocation}
+            style={{
+              background: isUpdatingPinLocation ? "rgba(255,255,255,0.1)" : "rgba(34, 197, 94, 0.9)",
+              color: "white",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              cursor: isUpdatingPinLocation ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontWeight: "600",
+              opacity: isUpdatingPinLocation ? 0.6 : 1
+            }}
+          >
+            {isUpdatingPinLocation ? "⏳ Updating..." : "✅ Done"}
+          </button>
+        </div>
+        
+        {/* Instruction Message */}
+        {showMovePinMessage && (
+          <div
+            style={{
+              padding: "1rem",
+              background: "rgba(255, 165, 0, 0.9)",
+              color: "white",
+              textAlign: "center",
+              fontWeight: "600",
+              animation: "slideDown 0.3s ease-out"
+            }}
+          >
+            📍 Please move the pin to the exact location on the map
+          </div>
+        )}
+        
+        {/* Full Map View */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <iframe
+            src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&q=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17`}
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          
+          {/* Draggable Pin Marker Overlay */}
+          <DraggablePinMarker
+            initialLat={editingPinLocation.lat}
+            initialLng={editingPinLocation.lng}
+            onLocationUpdate={handlePinLocationUpdate}
+          />
+        </div>
+        
+        {/* Edit Mode Indicator */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(30, 58, 138, 0.95)",
+            padding: "0.75rem 1.5rem",
+            borderRadius: "1rem",
+            backdropFilter: "blur(15px)",
+            border: "2px solid rgba(255,255,255,0.3)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            zIndex: 1001
+          }}
+        >
+          <span style={{ fontSize: "1.5rem" }}>✏️</span>
+          <span style={{ fontWeight: "600" }}>Edit Mode - Move pin to exact location</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
