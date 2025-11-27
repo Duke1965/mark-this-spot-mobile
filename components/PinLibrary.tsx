@@ -53,7 +53,85 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     const isPin = type === 'pin' || type === 'recommended'
     const isPhoto = type === 'photo'
     const isVideo = type === 'video'
+    const isPending = item.isPending === true
 
+    // PENDING PIN CARD - Simple design with no photos
+    if (isPending) {
+      return (
+        <div 
+          key={item.id} 
+          onClick={() => onPinSelect(item)}
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            padding: '18px',
+            borderRadius: '16px',
+            border: '2px dashed rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(15px)',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            cursor: 'pointer',
+            opacity: 0.9
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Empty placeholder - no photo */}
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '12px',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+              border: '2px dashed rgba(255,255,255,0.3)',
+              flexShrink: 0
+            }}>
+              📍
+            </div>
+            
+            {/* Content area */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
+                  PINNED
+                </h4>
+                <span style={{
+                  background: 'rgba(255, 165, 0, 0.3)',
+                  color: '#FFA500',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(255, 165, 0, 0.5)'
+                }}>
+                  Pending
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={14} style={{ opacity: 0.7 }} />
+                <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                  {new Date(item.timestamp).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // COMPLETED PIN CARD - Full design with photos, title, description
     // Get first photo from additionalPhotos if available
     const firstPhoto = item.additionalPhotos && item.additionalPhotos.length > 0 
       ? item.additionalPhotos[0] 
