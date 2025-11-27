@@ -1007,7 +1007,8 @@ export default function PINITApp() {
 
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   // Includes request deduplication to prevent multiple API calls for the same location
-  const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string, description?: string}[]> => {
+  // Accepts optional AbortSignal for cancellation from parent requests
+  const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal): Promise<{url: string, placeName: string, description?: string}[]> => {
     // Request deduplication: Check cache first
     const cacheKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}` // Round to ~100m precision
     const cached = photoFetchCacheRef.current.get(cacheKey)
@@ -1019,13 +1020,21 @@ export default function PINITApp() {
       return cached.data
     }
     
-    // Cancel any previous request
-    if (photoFetchControllerRef.current) {
+    // Check if external signal is already aborted
+    if (externalSignal?.aborted) {
+      console.log("📸 External signal already aborted, returning cached or placeholder")
+      const cached = photoFetchCacheRef.current.get(cacheKey)
+      if (cached) return cached.data
+      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+    }
+    
+    // Cancel any previous request (only if no external signal provided)
+    if (!externalSignal && photoFetchControllerRef.current) {
       photoFetchControllerRef.current.abort()
     }
     
-    // Prevent concurrent requests
-    if (isFetchingPhotosRef.current) {
+    // Prevent concurrent requests (only if no external signal provided)
+    if (!externalSignal && isFetchingPhotosRef.current) {
       console.log("📸 Photo fetch already in progress, waiting...")
       // Wait for current request to complete
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -1036,9 +1045,16 @@ export default function PINITApp() {
       }
     }
     
-    isFetchingPhotosRef.current = true
-    photoFetchControllerRef.current = new AbortController()
-    const signal = photoFetchControllerRef.current.signal
+    // Use external signal if provided, otherwise create new one
+    let signal: AbortSignal
+    if (externalSignal) {
+      signal = externalSignal
+      // Don't set isFetchingPhotosRef when using external signal (parent manages it)
+    } else {
+      isFetchingPhotosRef.current = true
+      photoFetchControllerRef.current = new AbortController()
+      signal = photoFetchControllerRef.current.signal
+    }
     
     try {
       console.log("📸 Fetching location photo with aggressive filtering...")
@@ -1263,8 +1279,11 @@ export default function PINITApp() {
       photoFetchCacheRef.current.set(cacheKey, { data: errorResult, timestamp: Date.now() })
       return errorResult
     } finally {
-      isFetchingPhotosRef.current = false
-      photoFetchControllerRef.current = null
+      // Only reset flags if we created our own controller (not using external signal)
+      if (!externalSignal) {
+        isFetchingPhotosRef.current = false
+        photoFetchControllerRef.current = null
+      }
     }
   }
 
@@ -1325,8 +1344,9 @@ export default function PINITApp() {
     
     try {
       // Fetch new location data (images, title, description)
+      // Pass abort signal to ensure cancellation propagates
       console.log("📸 Fetching new location data for updated pin location...")
-      const locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng)
+      const locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
       
       // Check if request was aborted
       if (signal.aborted) {
@@ -2084,15 +2104,38 @@ export default function PINITApp() {
         )}
         
         {/* Full Map View */}
-        <div style={{ flex: 1, position: "relative" }}>
-          <iframe
-            src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&q=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17`}
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          {/* Use Google Maps Static API as background - updates when pin is dragged */}
+          <img
+            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&markers=color:blue%7C${editingPinLocation.lat},${editingPinLocation.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+            alt="Map"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              pointerEvents: "none"
+            }}
+            key={`${editingPinLocation.lat}-${editingPinLocation.lng}`} // Force re-render when location changes
+          />
+          
+          {/* Interactive overlay - allows dragging and shows nearby places link */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              cursor: "grab"
+            }}
+            onClick={(e) => {
+              // Open Google Maps in new tab for full interactivity
+              const mapUrl = `https://www.google.com/maps?q=${editingPinLocation.lat},${editingPinLocation.lng}&z=17`
+              window.open(mapUrl, '_blank')
+            }}
           />
           
           {/* Draggable Pin Marker Overlay */}
@@ -2101,6 +2144,25 @@ export default function PINITApp() {
             initialLng={editingPinLocation.lng}
             onLocationUpdate={handlePinLocationUpdate}
           />
+          
+          {/* Info overlay - tap to view in Google Maps */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "80px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(30, 58, 138, 0.95)",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.75rem",
+              fontSize: "0.875rem",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              pointerEvents: "none"
+            }}
+          >
+            💡 Tap map to view in Google Maps
+          </div>
         </div>
         
         {/* Edit Mode Indicator */}
