@@ -153,6 +153,7 @@ export default function PINITApp() {
   const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
+  const [isDraggingPin, setIsDraggingPin] = useState(false)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -1907,20 +1908,36 @@ export default function PINITApp() {
   }
 
   // Draggable Pin Marker Component (for edit mode)
-  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void }) => {
+  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate, onDragStart, onDragEnd }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void, onDragStart?: () => void, onDragEnd?: () => void }) => {
     const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position (centered)
     const isDraggingRef = useRef(false)
     const startOffsetRef = useRef({ x: 0, y: 0 })
     const markerRef = useRef<HTMLDivElement>(null)
+    const currentLatRef = useRef(initialLat)
+    const currentLngRef = useRef(initialLng)
+    const mapContainerRef = useRef<HTMLElement | null>(null)
     
-    // Find the map container
+    // Update refs when initial position changes
+    useEffect(() => {
+      currentLatRef.current = initialLat
+      currentLngRef.current = initialLng
+      setPosition({ x: 50, y: 50 }) // Reset to center
+    }, [initialLat, initialLng])
+    
+    // Find the map container once and cache it
     const getMapContainer = () => {
-      return document.querySelector('div[style*="flex: 1"][style*="position: relative"]') as HTMLElement ||
-             document.querySelector('div[style*="position: relative"][style*="overflow: hidden"]') as HTMLElement
+      if (mapContainerRef.current) return mapContainerRef.current
+      const container = document.querySelector('div[style*="flex: 1"][style*="position: relative"][style*="overflow: hidden"]') as HTMLElement ||
+                       document.querySelector('div[style*="flex: 1"][style*="position: relative"]') as HTMLElement
+      if (container) {
+        mapContainerRef.current = container
+      }
+      return container
     }
     
     const handleStart = (clientX: number, clientY: number) => {
       isDraggingRef.current = true
+      if (onDragStart) onDragStart()
       const mapContainer = getMapContainer()
       if (mapContainer && markerRef.current) {
         const mapRect = mapContainer.getBoundingClientRect()
@@ -1940,7 +1957,6 @@ export default function PINITApp() {
       const mapContainer = getMapContainer()
       if (mapContainer && markerRef.current) {
         const mapRect = mapContainer.getBoundingClientRect()
-        const markerRect = markerRef.current.getBoundingClientRect()
         
         // Calculate new position relative to map container
         const newX = clientX - mapRect.left - startOffsetRef.current.x
@@ -1951,8 +1967,8 @@ export default function PINITApp() {
         const yPercent = (newY / mapRect.height) * 100
         
         // Clamp to map bounds (accounting for marker size)
-        const clampedX = Math.max(0, Math.min(100, xPercent))
-        const clampedY = Math.max(0, Math.min(100, yPercent))
+        const clampedX = Math.max(5, Math.min(95, xPercent)) // Leave some margin
+        const clampedY = Math.max(5, Math.min(95, yPercent))
         
         setPosition({ x: clampedX, y: clampedY })
         
@@ -1965,14 +1981,25 @@ export default function PINITApp() {
         const latOffset = ((50 - clampedY) / 50) * (latRange / 2)
         const lngOffset = ((clampedX - 50) / 50) * (lngRange / 2)
         
-        const newLat = initialLat + latOffset
-        const newLng = initialLng + lngOffset
+        // Use current position as base, not initial
+        const newLat = currentLatRef.current + latOffset
+        const newLng = currentLngRef.current + lngOffset
         
-        onLocationUpdate(newLat, newLng)
+        // Update refs for next calculation
+        currentLatRef.current = newLat
+        currentLngRef.current = newLng
+        
+        // Only update location when dragging ends to prevent map flicker
+        // onLocationUpdate(newLat, newLng)
       }
     }
     
     const handleEnd = () => {
+      if (isDraggingRef.current) {
+        // Update location when dragging ends
+        onLocationUpdate(currentLatRef.current, currentLngRef.current)
+        if (onDragEnd) onDragEnd()
+      }
       isDraggingRef.current = false
     }
     
@@ -2142,9 +2169,9 @@ export default function PINITApp() {
         
         {/* Full Map View */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {/* Use Google Maps Static API as background - updates when pin is dragged */}
+          {/* Use Google Maps Static API as background - only updates when not dragging */}
           <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&markers=color:blue%7C${editingPinLocation.lat},${editingPinLocation.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
             alt="Map"
             style={{
               position: "absolute",
@@ -2153,9 +2180,12 @@ export default function PINITApp() {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              pointerEvents: "none"
+              pointerEvents: "none",
+              userSelect: "none",
+              opacity: isDraggingPin ? 0.9 : 1,
+              transition: isDraggingPin ? 'none' : 'opacity 0.2s'
             }}
-            key={`${editingPinLocation.lat}-${editingPinLocation.lng}`} // Force re-render when location changes
+            key={isDraggingPin ? 'dragging' : `map-${editingPinLocation.lat.toFixed(4)}-${editingPinLocation.lng.toFixed(4)}`} // Prevent re-render during dragging
           />
           
           {/* Interactive overlay - allows dragging and shows nearby places link */}
@@ -2180,6 +2210,8 @@ export default function PINITApp() {
             initialLat={editingPinLocation.lat}
             initialLng={editingPinLocation.lng}
             onLocationUpdate={handlePinLocationUpdate}
+            onDragStart={() => setIsDraggingPin(true)}
+            onDragEnd={() => setIsDraggingPin(false)}
           />
           
           {/* Info overlay - tap to view in Google Maps */}
