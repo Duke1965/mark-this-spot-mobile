@@ -39,6 +39,7 @@ export interface PinData {
     rotation: number
   }>
   platform?: string
+  isPending?: boolean // NEW: True if pin needs location confirmation (created while traveling)
 }
 
 export interface GooglePlace {
