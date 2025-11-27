@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Camera, Video, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
@@ -822,9 +822,10 @@ export default function PINITApp() {
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
       // NEW: Generate intelligent AI content based on location and context
-      // Pass Foursquare description if available
+      // Pass Foursquare data if available (title/name, description)
+      const placeName = locationPhotos[0]?.placeName
       const placeDescription = locationPhotos[0]?.description
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeDescription)
+      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -864,78 +865,101 @@ export default function PINITApp() {
   }, [getCurrentLocation, isQuickPinning, setCurrentResultPin, setCurrentScreen, motionData, addPin])
 
   // NEW: Generate intelligent AI content based on location and context
-  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[], placeDescription?: string) => {
-    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length, hasDescription: !!placeDescription })
+  // Prioritizes Foursquare data (title/name, description) over AI-generated content
+  const generateAIContent = (lat: number, lng: number, motionData: any, locationPhotos: any[], placeName?: string, placeDescription?: string) => {
+    console.log("🧠 Generating AI content for location:", { lat, lng, speed: motionData.speed, photoCount: locationPhotos.length, hasPlaceName: !!placeName, hasDescription: !!placeDescription })
     
-    // Determine location type and context
-    let locationType = "general"
-    let context = ""
-    
-    // Analyze location based on coordinates
-    if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
-      locationType = "small-town"
-      context = "Riebeek West - charming rural community"
-    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-      locationType = "urban-cbd"
-      context = "Cape Town CBD - vibrant city center"
-    } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
-      locationType = "suburban"
-      context = "Cape Town Southern Suburbs - residential area"
-    } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-      locationType = "suburban"
-      context = "Cape Town Northern Suburbs - growing community"
-    } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-      locationType = "rural"
-      context = "Riebeek West area"
-    } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
-      locationType = "provincial"
-      context = "Western Cape - diverse landscapes"
-    }
-    
-    // Generate title based on location type and context
+    // PRIORITY 1: Use Foursquare title/name if available
     let title = ""
-    if (motionData.isMoving && motionData.speed > 5) {
-      // Speed-based pinning titles
-      if (locationType === "small-town") {
-        title = "🏘️ Charming Rural Discovery"
-      } else if (locationType === "urban-cbd") {
-        title = "🏙️ Urban Gem Spotted"
-      } else if (locationType === "suburban") {
-        title = "🏡 Suburban Treasure"
-      } else if (locationType === "coastal") {
-        title = "🌊 Coastal Beauty"
-      } else if (locationType === "provincial") {
-        title = "🏔️ Provincial Wonder"
-      } else {
-        title = "📍 Travel Discovery"
-      }
+    if (placeName && placeName.trim() && placeName !== "PINIT Placeholder" && placeName !== "Unknown Place") {
+      title = placeName
+      console.log("🧠 Using Foursquare title:", title)
     } else {
-      // Stationary pinning titles
-      if (locationType === "small-town") {
-        title = "🏘️ Local Community Spot"
-      } else if (locationType === "urban-cbd") {
-        title = "🏙️ City Center Location"
-      } else if (locationType === "suburban") {
-        title = "🏡 Neighborhood Place"
-      } else if (locationType === "coastal") {
-        title = "🌊 Seaside Location"
-      } else if (locationType === "rural") {
-        title = "🏘️ Rural Location"
-      } else if (locationType === "provincial") {
-        title = "🏔️ Regional Spot"
+      // Fall back to AI-generated title only if no Foursquare data
+      // Determine location type and context
+      let locationType = "general"
+      let context = ""
+      
+      // Analyze location based on coordinates
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+        locationType = "small-town"
+        context = "Riebeek West - charming rural community"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        locationType = "urban-cbd"
+        context = "Cape Town CBD - vibrant city center"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        locationType = "suburban"
+        context = "Cape Town Southern Suburbs - residential area"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        locationType = "suburban"
+        context = "Cape Town Northern Suburbs - growing community"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        locationType = "rural"
+        context = "Riebeek West area"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+        locationType = "provincial"
+        context = "Western Cape - diverse landscapes"
+      }
+      
+      // Generate title based on location type and context
+      if (motionData.isMoving && motionData.speed > 5) {
+        // Speed-based pinning titles
+        if (locationType === "small-town") {
+          title = "🏘️ Charming Rural Discovery"
+        } else if (locationType === "urban-cbd") {
+          title = "🏙️ Urban Gem Spotted"
+        } else if (locationType === "suburban") {
+          title = "🏡 Suburban Treasure"
+        } else if (locationType === "coastal") {
+          title = "🌊 Coastal Beauty"
+        } else if (locationType === "provincial") {
+          title = "🏔️ Provincial Wonder"
+        } else {
+          title = "📍 Travel Discovery"
+        }
       } else {
-        title = "📍 Local Discovery"
+        // Stationary pinning titles
+        if (locationType === "small-town") {
+          title = "🏘️ Local Community Spot"
+        } else if (locationType === "urban-cbd") {
+          title = "🏙️ City Center Location"
+        } else if (locationType === "suburban") {
+          title = "🏡 Neighborhood Place"
+        } else if (locationType === "coastal") {
+          title = "🌊 Seaside Location"
+        } else if (locationType === "rural") {
+          title = "🏘️ Rural Location"
+        } else if (locationType === "provincial") {
+          title = "🏔️ Regional Spot"
+        } else {
+          title = "📍 Local Discovery"
+        }
       }
     }
     
-    // Generate intelligent description - use Foursquare description if available
+    // PRIORITY 1: Use Foursquare description if available
     let description = ""
     if (placeDescription && placeDescription.trim()) {
       // Use Foursquare description if available
       description = placeDescription
       console.log("🧠 Using Foursquare description:", description)
     } else {
-      // Fall back to AI-generated description
+      // Fall back to AI-generated description only if no Foursquare data
+      let context = ""
+      if (lat > -34.1 && lat < -34.0 && lng > 18.8 && lng < 18.9) {
+        context = "Riebeek West - charming rural community"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        context = "Cape Town CBD - vibrant city center"
+      } else if (lat > -34.0 && lat < -33.9 && lng > 18.4 && lng < 18.5) {
+        context = "Cape Town Southern Suburbs - residential area"
+      } else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+        context = "Cape Town Northern Suburbs - growing community"
+      } else if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
+        context = "Riebeek West area"
+      } else if (lat > -34.0 && lat < -33.5 && lng > 18.0 && lng < 19.0) {
+        context = "Western Cape - diverse landscapes"
+      }
+      
       if (motionData.isMoving && motionData.speed > 5) {
         description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
       } else {
@@ -979,7 +1003,40 @@ export default function PINITApp() {
   }
 
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
+  // Includes request deduplication to prevent multiple API calls for the same location
   const fetchLocationPhotos = async (lat: number, lng: number): Promise<{url: string, placeName: string, description?: string}[]> => {
+    // Request deduplication: Check cache first
+    const cacheKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}` // Round to ~100m precision
+    const cached = photoFetchCacheRef.current.get(cacheKey)
+    const now = Date.now()
+    
+    // Return cached result if available and recent (within 5 seconds)
+    if (cached && (now - cached.timestamp) < 5000) {
+      console.log("📸 Using cached photo data for location:", cacheKey)
+      return cached.data
+    }
+    
+    // Cancel any previous request
+    if (photoFetchControllerRef.current) {
+      photoFetchControllerRef.current.abort()
+    }
+    
+    // Prevent concurrent requests
+    if (isFetchingPhotosRef.current) {
+      console.log("📸 Photo fetch already in progress, waiting...")
+      // Wait for current request to complete
+      await new Promise(resolve => setTimeout(resolve, 100))
+      // Check cache again after waiting
+      const cachedAfterWait = photoFetchCacheRef.current.get(cacheKey)
+      if (cachedAfterWait && (now - cachedAfterWait.timestamp) < 5000) {
+        return cachedAfterWait.data
+      }
+    }
+    
+    isFetchingPhotosRef.current = true
+    photoFetchControllerRef.current = new AbortController()
+    const signal = photoFetchControllerRef.current.signal
+    
     try {
       console.log("📸 Fetching location photo with aggressive filtering...")
       
@@ -991,7 +1048,7 @@ export default function PINITApp() {
         console.log("📸 Trying Foursquare API for place data and photos...")
         // Use small radius (500m) for speed-based pinning - pin location is calculated precisely
         // This finds the exact place the user passed, not places far away
-        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=500&limit=5`)
+        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=500&limit=5`, { signal })
         console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
         
         if (photoResponse.ok) {
@@ -1014,6 +1071,9 @@ export default function PINITApp() {
               
               console.log(`✅ Found Foursquare photo for: ${closestPlace.title}`, closestPlace.photoUrl)
               
+              // Cache the result
+              photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
+              
               // Return early with Foursquare data
               return photos
             }
@@ -1021,20 +1081,33 @@ export default function PINITApp() {
             // Note: If no photoUrl, we skip trying legacy /api/fsq/photos endpoint
             // The new Places API should return photos in the initial response
             
-            // If we have place data but no photos, return the place name at least
+            // If we have place data but no photos, return the place name and description at least
             if (closestPlace.title || closestPlace.name) {
               console.log(`⚠️ Foursquare place found but no photos: ${closestPlace.title}`)
+              // Return place data even without photos so title/description can be used
+              const placeData = [{
+                url: "/pinit-placeholder.jpg",
+                placeName: closestPlace.title || closestPlace.name || "Unknown Place",
+                description: closestPlace.description
+              }]
+              // Cache the result
+              photoFetchCacheRef.current.set(cacheKey, { data: placeData, timestamp: Date.now() })
+              return placeData
             }
           }
         }
-      } catch (fsqError) {
+      } catch (fsqError: any) {
+        if (fsqError.name === 'AbortError') {
+          console.log("📸 Foursquare request was aborted")
+          throw fsqError // Re-throw to be handled by outer catch
+        }
         console.warn("⚠️ Foursquare API failed, falling back to /api/places:", fsqError)
       }
       
       // Fallback to /api/places if Foursquare didn't work or returned no results
       if (!data || !data.items || data.items.length === 0) {
         console.log("📸 Falling back to /api/places endpoint...")
-        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`)
+        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, { signal })
         console.log(`📸 API response status: ${photoResponse.status}`)
         
         if (!photoResponse.ok) {
@@ -1063,6 +1136,10 @@ export default function PINITApp() {
             description: closestPlace.description
           })
           console.log(`✅ Found Foursquare photo: ${closestPlace.title}`)
+          
+          // Cache the result
+          photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
+          
           return photos
         }
         
@@ -1129,6 +1206,10 @@ export default function PINITApp() {
             })
             
             console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
+            
+            // Cache the result
+            photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
+            
             return photos
           } else {
             // If all photos were filtered out, try to get any photo but log it
@@ -1149,16 +1230,38 @@ export default function PINITApp() {
               placeName: closestPlace.name || "Unknown Place",
               description: closestPlace.description // Include description if available
             })
+            
+            // Cache the result
+            photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
+            
             return photos
           }
         }
       }
       
       console.log("📸 No location photos found, will use PINIT placeholder")
-      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-    } catch (error) {
+      const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      
+      // Cache the result (even if it's a placeholder)
+      photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+      
+      return placeholderResult
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log("📸 Photo fetch was aborted")
+        // Return cached result if available, otherwise placeholder
+        const cached = photoFetchCacheRef.current.get(cacheKey)
+        if (cached) return cached.data
+        return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      }
       console.error("❌ Error fetching location photos:", error)
-      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      const errorResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      // Cache error result to prevent repeated failures
+      photoFetchCacheRef.current.set(cacheKey, { data: errorResult, timestamp: Date.now() })
+      return errorResult
+    } finally {
+      isFetchingPhotosRef.current = false
+      photoFetchControllerRef.current = null
     }
   }
 
@@ -2610,3 +2713,4 @@ function getPlatformDimensions(platform: string) {
 
   return dimensions[platform as keyof typeof dimensions] || { width: 1080, height: 1080 }
 }
+
