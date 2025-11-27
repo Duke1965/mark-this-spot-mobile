@@ -59,6 +59,17 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
       ? item.additionalPhotos[0] 
       : null
 
+    // Log image sources for debugging
+    if (item.id) {
+      console.log(`📚 Library pin image sources for ${item.title}:`, {
+        hasMediaUrl: !!item.mediaUrl,
+        hasAdditionalPhotos: !!(item.additionalPhotos && item.additionalPhotos.length > 0),
+        additionalPhotosCount: item.additionalPhotos?.length || 0,
+        firstPhotoUrl: firstPhoto?.url ? firstPhoto.url.substring(0, 50) + '...' : 'none',
+        mediaUrlPreview: item.mediaUrl ? item.mediaUrl.substring(0, 50) + '...' : 'none'
+      })
+    }
+
     return (
       <div 
         key={item.id} 
@@ -98,48 +109,86 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             border: '1px solid rgba(255,255,255,0.2)',
             overflow: 'hidden',
             flexShrink: 0,
-            position: 'relative'
+            position: 'relative',
+            minHeight: '60px' // Ensure minimum height for image container
           }}>
+            {/* Priority 1: Direct mediaUrl from pin */}
             {item.mediaUrl ? (
               <img
                 src={item.mediaUrl}
                 alt={item.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
                 onError={(e) => {
+                  console.log('📚 Library image failed to load (mediaUrl):', item.mediaUrl?.substring(0, 50))
                   const target = e.target as HTMLImageElement
                   if (target) {
                     target.style.display = 'none'
+                    // Show fallback
+                    const container = target.parentElement
+                    if (container) {
+                      const fallback = container.querySelector('.image-fallback') as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }
                   }
+                }}
+                onLoad={() => {
+                  console.log('📚 Library image loaded successfully (mediaUrl):', item.title)
                 }}
               />
             ) : firstPhoto?.url ? (
+              /* Priority 2: First photo from additionalPhotos array (carousel) */
               <img
                 src={firstPhoto.url}
                 alt={item.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
                 onError={(e) => {
+                  console.log('📚 Library image failed to load (additionalPhotos):', firstPhoto.url?.substring(0, 50))
                   const target = e.target as HTMLImageElement
                   if (target) {
                     target.style.display = 'none'
+                    const container = target.parentElement
+                    if (container) {
+                      const fallback = container.querySelector('.image-fallback') as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }
                   }
                 }}
+                onLoad={() => {
+                  console.log('📚 Library image loaded successfully (additionalPhotos):', item.title)
+                }}
               />
-            ) : (
-              <div style={{
+            ) : null}
+            
+            {/* Fallback display - shown when no image loads or no image URL available */}
+            <div 
+              className="image-fallback"
+              style={{
+                display: item.mediaUrl || firstPhoto?.url ? 'none' : 'flex',
                 width: '100%',
                 height: '100%',
-                background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '20px'
-              }}>
-                {isPin && '📍'}
-                {isPhoto && '📸'}
-                {isVideo && '🎥'}
-                {type === 'recommended' && '⭐'}
-              </div>
-            )}
+                position: item.mediaUrl || firstPhoto?.url ? 'absolute' : 'relative',
+                top: 0,
+                left: 0,
+                background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
+              }}
+            >
+              {isPin && '📍'}
+              {isPhoto && '📸'}
+              {isVideo && '🎥'}
+              {type === 'recommended' && '⭐'}
+            </div>
             
             {/* Type Badge */}
             {isVideo && (
@@ -151,7 +200,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
                 color: "white",
                 fontSize: "0.75rem",
                 padding: "2px 4px",
-                borderRadius: "4px"
+                borderRadius: "4px",
+                zIndex: 10
               }}>
                 ▶
               </div>
