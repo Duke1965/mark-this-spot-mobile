@@ -257,7 +257,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "old-2", imageUrl: "/stickers/Old-school-Dreamy.png", name: "Dreamy", category: "old-school" },
     { id: "old-3", imageUrl: "/stickers/Old-school-Exploring-2.png", name: "Exploring 2", category: "old-school" },
     { id: "old-4", imageUrl: "/stickers/Old-school-Found-Paradise.png", name: "Found Paradise", category: "old-school" },
-    { id: "old-5", imageUrl: "/stickers/Old-school-Golden-Hour-2.png", name: "Golden Hour 2", category: "old-school" },
+    { id: "old-5", imageUrl: "/stickers/Old-school-Golden-Hour.2.png", name: "Golden Hour 2", category: "old-school" },
     { id: "old-6", imageUrl: "/stickers/Old-school-Good-Times.png", name: "Good Times", category: "old-school" },
     { id: "old-7", imageUrl: "/stickers/Old-school-Jet-Lagged.png", name: "Jet Lagged", category: "old-school" },
     { id: "old-8", imageUrl: "/stickers/Old-school-Just-Us-2.png", name: "Just Us 2", category: "old-school" },
@@ -269,7 +269,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "old-14", imageUrl: "/stickers/Old-school-No-Filter.png", name: "No Filter", category: "old-school" },
     { id: "old-15", imageUrl: "/stickers/Old-school-OMG.png", name: "OMG", category: "old-school" },
     { id: "old-16", imageUrl: "/stickers/Old-school-On-The-Road-Again.png", name: "On The Road Again", category: "old-school" },
-    { id: "old-17", imageUrl: "/stickers/Old-school-PINITI.png", name: "PINITI", category: "old-school" },
+    { id: "old-17", imageUrl: "/stickers/Old-school-PINIT!.png", name: "PINIT!", category: "old-school" },
     { id: "old-18", imageUrl: "/stickers/Old-school-Pure-Joy.png", name: "Pure Joy", category: "old-school" },
     { id: "old-19", imageUrl: "/stickers/Old-school-Road-Trip.png", name: "Road Trip", category: "old-school" },
     { id: "old-20", imageUrl: "/stickers/Old-school-Soul-Mates.png", name: "Soul Mates", category: "old-school" },
@@ -329,9 +329,26 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
     { id: "new-41", imageUrl: "/stickers/new-Wish-You-Were-Here.png", name: "Wish You Were Here", category: "new" },
     { id: "new-42", imageUrl: "/stickers/new-YASS!.png", name: "YASS!", category: "new" },
     { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
+    
+    // Fun stickers
+    { id: "fun-1", imageUrl: "/stickers/fun-Adventure.png", name: "Adventure", category: "fun" },
+    { id: "fun-2", imageUrl: "/stickers/fun-Cool.png", name: "Cool", category: "fun" },
+    { id: "fun-3", imageUrl: "/stickers/fun-Games.png", name: "Games", category: "fun" },
+    { id: "fun-4", imageUrl: "/stickers/fun-Having--a-Ball.png", name: "Having a Ball", category: "fun" },
+    { id: "fun-5", imageUrl: "/stickers/fun-Party-Hat.png", name: "Party Hat", category: "fun" },
+    { id: "fun-6", imageUrl: "/stickers/fun-Party-Time.png", name: "Party Time", category: "fun" },
+    { id: "fun-7", imageUrl: "/stickers/fun-Pool-Party.png", name: "Pool Party", category: "fun" },
+    { id: "fun-8", imageUrl: "/stickers/fun-Sailing-Away.png", name: "Sailing Away", category: "fun" },
+    { id: "fun-9", imageUrl: "/stickers/fun-Sundowner-Time.png", name: "Sundowner Time", category: "fun" },
+    { id: "fun-10", imageUrl: "/stickers/fun-Sweet.png", name: "Sweet", category: "fun" },
+    { id: "fun-11", imageUrl: "/stickers/fun-Travel-Time.png", name: "Travel Time", category: "fun" },
+    { id: "fun-12", imageUrl: "/stickers/fun-Up-And-Away.png", name: "Up And Away", category: "fun" },
+    { id: "fun-13", imageUrl: "/stickers/fun-Vacation.png", name: "Vacation", category: "fun" },
+    { id: "fun-14", imageUrl: "/stickers/fun-Vibes.png", name: "Vibes", category: "fun" },
+    { id: "fun-15", imageUrl: "/stickers/fun-WaterSport.png", name: "WaterSport", category: "fun" },
   ]
 
-  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new">("old-school")
+  const [stickerCategory, setStickerCategory] = useState<"old-school" | "new" | "fun">("old-school")
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("sticker-selection") // Start with sticker selection open
   const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
@@ -781,7 +798,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                   cursor: 'pointer'
                 }}
               >
-                Old School
+                Oldschool
               </button>
               <button
                 onClick={() => setStickerCategory("new")}
@@ -796,7 +813,22 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
                   cursor: 'pointer'
                 }}
               >
-                New
+                News
+              </button>
+              <button
+                onClick={() => setStickerCategory("fun")}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: stickerCategory === "fun" ? '1px solid white' : '1px solid rgba(255,255,255,0.3)',
+                  background: stickerCategory === "fun" ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Fun
               </button>
             </div>
             
