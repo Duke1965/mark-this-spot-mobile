@@ -55,15 +55,27 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
     const isVideo = type === 'video'
 
     return (
-      <div key={item.id} style={{
-        background: "rgba(255,255,255,0.1)",
-        borderRadius: "0.75rem",
-        padding: "1rem",
-        cursor: "pointer",
-        border: "1px solid rgba(255,255,255,0.1)",
-        transition: "all 0.2s ease",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
-      }}>
+      <div 
+        key={item.id} 
+        onClick={() => onPinSelect(item)}
+        style={{
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "0.75rem",
+          padding: "1rem",
+          cursor: "pointer",
+          border: "1px solid rgba(255,255,255,0.1)",
+          transition: "all 0.2s ease",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+          e.currentTarget.style.transform = "translateY(-2px)"
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+          e.currentTarget.style.transform = "translateY(0)"
+        }}
+      >
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
           {/* Media Thumbnail */}
           <div style={{
