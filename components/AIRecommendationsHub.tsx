@@ -725,6 +725,21 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       continue
                     }
                     
+                    // Extract photo URL - prioritize photoUrl, then mediaUrl, then check for photos array
+                    let photoUrl = place.photoUrl || place.mediaUrl
+                    if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+                      const firstPhoto = place.photos[0]
+                      photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+                    }
+                    
+                    console.log(`🧠 Recommendation image for ${place.title || place.name}:`, {
+                      hasPhotoUrl: !!place.photoUrl,
+                      hasMediaUrl: !!place.mediaUrl,
+                      hasPhotosArray: !!(place.photos && place.photos.length > 0),
+                      finalPhotoUrl: photoUrl ? photoUrl.substring(0, 50) + '...' : 'none',
+                      fsq_id: place.fsq_id || place.id
+                    })
+                    
                     aiRecs.push({
                       id: `new-user-${place.fsq_id || place.id || place.place_id}`,
                       title: place.title || place.name || 'Local Spot',
@@ -740,7 +755,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                       reason: "Local area discovery - exploring your neighborhood",
                       timestamp: new Date(),
                       fallbackImage: getFallbackImage(category),
-                      photoUrl: place.photoUrl || place.mediaUrl || undefined,
+                      photoUrl: photoUrl || undefined,
+                      mediaUrl: photoUrl || undefined, // Also set mediaUrl for compatibility
                       fsq_id: place.fsq_id || place.id || undefined
                     } as Recommendation)
                   }
@@ -1889,8 +1905,10 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                         border: '1px solid rgba(255,255,255,0.2)',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        position: 'relative'
+                        position: 'relative',
+                        minHeight: '60px' // Ensure minimum height for image container
                       }}>
+                        {/* Priority 1: Direct photoUrl from Foursquare API */}
                         {rec.photoUrl ? (
                           <img 
                             src={rec.photoUrl} 
@@ -1898,30 +1916,52 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'cover'
+                              objectFit: 'cover',
+                              display: 'block'
                             }}
                             onError={(e) => {
-                              // Fallback if image fails to load
+                              console.log('🧠 Image failed to load (photoUrl):', rec.photoUrl?.substring(0, 50))
+                              // Hide this image and let fallback handle it
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
+                              // Try to show fallback
+                              const container = target.parentElement
+                              if (container) {
+                                const fallback = container.querySelector('.image-fallback') as HTMLElement
+                                if (fallback) fallback.style.display = 'flex'
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log('🧠 Image loaded successfully (photoUrl):', rec.title)
                             }}
                           />
                         ) : rec.mediaUrl ? (
+                          /* Priority 2: mediaUrl as fallback */
                           <img 
                             src={rec.mediaUrl} 
                             alt={rec.title}
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'cover'
+                              objectFit: 'cover',
+                              display: 'block'
                             }}
                             onError={(e) => {
-                              // Fallback if image fails to load
+                              console.log('🧠 Image failed to load (mediaUrl):', rec.mediaUrl?.substring(0, 50))
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
+                              const container = target.parentElement
+                              if (container) {
+                                const fallback = container.querySelector('.image-fallback') as HTMLElement
+                                if (fallback) fallback.style.display = 'flex'
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log('🧠 Image loaded successfully (mediaUrl):', rec.title)
                             }}
                           />
                         ) : rec.fsq_id ? (
+                          /* Priority 3: FsqImage component for places with fsq_id */
                           <FsqImage 
                             fsqId={rec.fsq_id}
                             lat={rec.location?.lat}
@@ -1932,21 +1972,29 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                               objectFit: 'cover'
                             }}
                           />
-                        ) : rec.fallbackImage ? (
-                          <span style={{ fontSize: '32px' }}>{rec.fallbackImage}</span>
-                        ) : (
-                          <div style={{
+                        ) : null}
+                        
+                        {/* Fallback display - shown when no image loads or no image URL available */}
+                        <div 
+                          className="image-fallback"
+                          style={{
+                            display: rec.photoUrl || rec.mediaUrl ? 'none' : 'flex',
                             width: '100%',
                             height: '100%',
-                            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-                            display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '20px'
-                          }}>
-                            📍
-                          </div>
-                        )}
+                            position: rec.photoUrl || rec.mediaUrl ? 'absolute' : 'relative',
+                            top: 0,
+                            left: 0,
+                            background: rec.fallbackImage ? 'transparent' : 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
+                          }}
+                        >
+                          {rec.fallbackImage ? (
+                            <span style={{ fontSize: '32px' }}>{rec.fallbackImage}</span>
+                          ) : (
+                            <span style={{ fontSize: '20px' }}>📍</span>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Content area */}
