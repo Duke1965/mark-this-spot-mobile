@@ -1946,15 +1946,23 @@ export default function PINITApp() {
       isUpdatingFromDragRef.current = false
     }, [initialLat, initialLng, pinId])
     
-    // Find the map container once and cache it
+    // Find the map container using the marker's parent
     const getMapContainer = () => {
       if (mapContainerRef.current) return mapContainerRef.current
-      const container = document.querySelector('div[style*="flex: 1"][style*="position: relative"][style*="overflow: hidden"]') as HTMLElement ||
-                       document.querySelector('div[style*="flex: 1"][style*="position: relative"]') as HTMLElement
-      if (container) {
-        mapContainerRef.current = container
+      // Find parent container by traversing up from marker
+      if (markerRef.current) {
+        let parent = markerRef.current.parentElement
+        while (parent) {
+          // Look for the map container div (has flex: 1 and position: relative)
+          const style = window.getComputedStyle(parent)
+          if (style.position === 'relative' && (style.flex === '1' || style.flexGrow === '1')) {
+            mapContainerRef.current = parent
+            return parent
+          }
+          parent = parent.parentElement
+        }
       }
-      return container
+      return null
     }
     
     const handleStart = (clientX: number, clientY: number) => {
@@ -1970,6 +1978,9 @@ export default function PINITApp() {
           x: clientX - (markerRect.left + markerRect.width / 2),
           y: clientY - (markerRect.top + markerRect.height / 2)
         }
+        console.log("📍 Drag started", { clientX, clientY, mapRect, markerRect, offset: startOffsetRef.current })
+      } else {
+        console.warn("⚠️ Could not find map container or marker", { mapContainer: !!mapContainer, marker: !!markerRef.current })
       }
     }
     
@@ -2010,6 +2021,8 @@ export default function PINITApp() {
         // Update refs for next calculation
         currentLatRef.current = newLat
         currentLngRef.current = newLng
+      } else {
+        console.warn("⚠️ Could not find map container during move", { mapContainer: !!mapContainer, marker: !!markerRef.current })
       }
     }
     
@@ -2069,23 +2082,28 @@ export default function PINITApp() {
           left: `${position.x}%`,
           transform: "translate(-50%, -100%)",
           cursor: isDraggingRef.current ? "grabbing" : "grab",
-          zIndex: 1000,
+          zIndex: 10000,
           userSelect: "none",
           touchAction: "none",
-          transition: isDraggingRef.current ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out'
+          transition: isDraggingRef.current ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out',
+          pointerEvents: "auto"
         }}
         onMouseDown={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          console.log("🖱️ Mouse down on pin marker")
           handleStart(e.clientX, e.clientY)
           setupDragListeners()
         }}
         onTouchStart={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          console.log("👆 Touch start on pin marker", e.touches[0])
           const touch = e.touches[0]
-          handleStart(touch.clientX, touch.clientY)
-          setupDragListeners()
+          if (touch) {
+            handleStart(touch.clientX, touch.clientY)
+            setupDragListeners()
+          }
         }}
       >
         <div
