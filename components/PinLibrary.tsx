@@ -9,9 +9,10 @@ interface PinLibraryProps {
   onBack: () => void
   onPinSelect: (pin: PinData) => void
   onPinUpdate: (pinId: string, updates: any) => void
+  onPinDelete?: (pinId: string) => void
 }
 
-export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibraryProps) {
+export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentTab, setCurrentTab] = useState<"photos" | "videos" | "pins" | "recommended">("pins")
 
@@ -70,7 +71,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
             transition: 'all 0.2s ease',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             cursor: 'pointer',
-            opacity: 0.9
+            opacity: 0.9,
+            position: 'relative' // For absolute positioning of delete button
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
@@ -127,6 +129,46 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate }: PinLibrar
               </div>
             </div>
           </div>
+          
+          {/* Delete Button */}
+          {onPinDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation() // Prevent card click
+                if (confirm('Are you sure you want to delete this pin?')) {
+                  onPinDelete(item.id)
+                }
+              }}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'rgba(239, 68, 68, 0.9)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                color: 'white',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s ease',
+                zIndex: 10
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 1)'
+                e.currentTarget.style.transform = 'scale(1.05)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'
+                e.currentTarget.style.transform = 'scale(1)'
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          )}
         </div>
       )
     }
