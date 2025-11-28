@@ -104,6 +104,86 @@ interface Renewal {
   createdAt: string
 }
 
+// Interactive Map Editor Component with Draggable Marker
+function InteractiveMapEditor({ 
+  initialLat, 
+  initialLng, 
+  onLocationChange 
+}: { 
+  initialLat: number
+  initialLng: number
+  onLocationChange: (lat: number, lng: number) => void
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markerRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (!mapRef.current || !(window as any).google) return
+
+    // Initialize map
+    const map = new (window as any).google.maps.Map(mapRef.current, {
+      center: { lat: initialLat, lng: initialLng },
+      zoom: 17,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      zoomControl: true,
+      gestureHandling: 'greedy'
+    })
+
+    mapInstanceRef.current = map
+
+    // Create draggable marker
+    const marker = new (window as any).google.maps.Marker({
+      position: { lat: initialLat, lng: initialLng },
+      map: map,
+      draggable: true,
+      animation: (window as any).google.maps.Animation.DROP,
+      title: "Drag to move pin"
+    })
+
+    markerRef.current = marker
+
+    // Listen for marker drag events
+    marker.addListener('dragend', (e: any) => {
+      const newLat = e.latLng.lat()
+      const newLng = e.latLng.lng()
+      console.log("📍 Marker dragged to:", { lat: newLat, lng: newLng })
+      onLocationChange(newLat, newLng)
+    })
+
+    // Update marker position when initial location changes
+    return () => {
+      if (marker) {
+        (window as any).google.maps.event.clearInstanceListeners(marker)
+      }
+    }
+  }, []) // Only run once on mount
+
+  // Update marker position when initial location changes (but not during drag)
+  useEffect(() => {
+    if (markerRef.current && mapInstanceRef.current) {
+      const newPosition = { lat: initialLat, lng: initialLng }
+      markerRef.current.setPosition(newPosition)
+      mapInstanceRef.current.setCenter(newPosition)
+    }
+  }, [initialLat, initialLng])
+
+  return (
+    <div
+      ref={mapRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0
+      }}
+    />
+  )
+}
+
 export default function PINITApp() {
 
   // Auth state
@@ -154,9 +234,36 @@ export default function PINITApp() {
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
   const [isDraggingPin, setIsDraggingPin] = useState(false)
+  const [mapsLoaded, setMapsLoaded] = useState(false)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+
+  // Load Google Maps JavaScript API
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !mapsLoaded) {
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&libraries=places`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        setMapsLoaded(true)
+        console.log("🗺️ Google Maps JavaScript API loaded")
+      }
+      script.onerror = () => {
+        console.error("❌ Failed to load Google Maps JavaScript API")
+      }
+      document.head.appendChild(script)
+      
+      return () => {
+        // Cleanup on unmount
+        const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`)
+        if (existingScript) {
+          document.head.removeChild(existingScript)
+        }
+      }
+    }
+  }, [mapsLoaded])
 
   // Media state
   const [capturedMedia, setCapturedMedia] = useState<{
@@ -1985,147 +2092,32 @@ export default function PINITApp() {
           </button>
         </div>
         
-        {/* Full Map View */}
+        {/* Full Map View - Interactive Google Maps */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {/* Use Google Maps Static API as background - updates when location changes */}
-          <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&markers=color:red|${editingPinLocation.lat},${editingPinLocation.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
-            alt="Map"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              pointerEvents: "none",
-              userSelect: "none",
-              opacity: 1,
-              display: "block"
-            }}
-            key={`map-edit-${editingPin?.id || 'new'}-${Math.round(editingPinLocation.lat * 10000)}-${Math.round(editingPinLocation.lng * 10000)}`}
-          />
-          
-          {/* Directional Controls */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "120px",
-              right: "20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              zIndex: 1000
-            }}
-          >
-            {/* Up Button */}
-            <button
-              onClick={() => {
-                const step = 0.0001 // Small step for fine control (~11 meters)
-                const newLat = editingPinLocation.lat + step
-                handlePinLocationUpdate(newLat, editingPinLocation.lng)
-                setOriginalPinLocation({ lat: newLat, lng: editingPinLocation.lng })
+          {mapsLoaded && typeof window !== 'undefined' && (window as any).google ? (
+            <InteractiveMapEditor
+              initialLat={editingPinLocation.lat}
+              initialLng={editingPinLocation.lng}
+              onLocationChange={(lat, lng) => {
+                handlePinLocationUpdate(lat, lng)
+                setOriginalPinLocation({ lat, lng })
               }}
-              style={{
-                width: "50px",
-                height: "50px",
-                borderRadius: "0.5rem",
-                background: "rgba(30, 58, 138, 0.95)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                color: "white",
-                fontSize: "24px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                backdropFilter: "blur(10px)",
-                transition: "all 0.2s ease"
-              }}
-            >
-              ↑
-            </button>
-            
-            {/* Left/Right Row */}
-            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              <button
-                onClick={() => {
-                  const step = 0.0001
-                  const newLng = editingPinLocation.lng - step
-                  handlePinLocationUpdate(editingPinLocation.lat, newLng)
-                  setOriginalPinLocation({ lat: editingPinLocation.lat, lng: newLng })
-                }}
-                style={{
-                  width: "50px",
-                  height: "50px",
-                  borderRadius: "0.5rem",
-                  background: "rgba(30, 58, 138, 0.95)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "white",
-                  fontSize: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  backdropFilter: "blur(10px)",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                ←
-              </button>
-              <button
-                onClick={() => {
-                  const step = 0.0001
-                  const newLng = editingPinLocation.lng + step
-                  handlePinLocationUpdate(editingPinLocation.lat, newLng)
-                  setOriginalPinLocation({ lat: editingPinLocation.lat, lng: newLng })
-                }}
-                style={{
-                  width: "50px",
-                  height: "50px",
-                  borderRadius: "0.5rem",
-                  background: "rgba(30, 58, 138, 0.95)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "white",
-                  fontSize: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  backdropFilter: "blur(10px)",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                →
-              </button>
+            />
+          ) : (
+            <div style={{ 
+              width: "100%", 
+              height: "100%", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center",
+              background: "rgba(30, 58, 138, 0.5)"
+            }}>
+              <div style={{ textAlign: "center", color: "white" }}>
+                <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🗺️</div>
+                <div>Loading map...</div>
+              </div>
             </div>
-            
-            {/* Down Button */}
-            <button
-              onClick={() => {
-                const step = 0.0001
-                const newLat = editingPinLocation.lat - step
-                handlePinLocationUpdate(newLat, editingPinLocation.lng)
-                setOriginalPinLocation({ lat: newLat, lng: editingPinLocation.lng })
-              }}
-              style={{
-                width: "50px",
-                height: "50px",
-                borderRadius: "0.5rem",
-                background: "rgba(30, 58, 138, 0.95)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                color: "white",
-                fontSize: "24px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                backdropFilter: "blur(10px)",
-                transition: "all 0.2s ease"
-              }}
-            >
-              ↓
-            </button>
-          </div>
+          )}
           
           {/* Instruction text */}
           <div
@@ -2142,10 +2134,11 @@ export default function PINITApp() {
               border: "1px solid rgba(255,255,255,0.2)",
               pointerEvents: "none",
               textAlign: "center",
-              maxWidth: "90%"
+              maxWidth: "90%",
+              zIndex: 1000
             }}
           >
-            💡 Use the arrow buttons to move the pin
+            💡 Drag the pin to move it to the exact location
           </div>
         </div>
         
