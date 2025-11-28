@@ -284,7 +284,7 @@ export default function PINITApp() {
 
   // Hooks
   const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
-  const { pins: storedPins, addPin: addPinFromStorage, removePin: removePinFromStorage } = usePinStorage()
+  const { pins: storedPins, addPin: addPinFromStorage, removePin: removePinFromStorage, updatePin: updatePinInStorage } = usePinStorage()
   const motionData = useMotionDetection()
   
   // Request deduplication for fetchLocationPhotos
@@ -1116,16 +1116,20 @@ export default function PINITApp() {
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   // Includes request deduplication to prevent multiple API calls for the same location
   // Accepts optional AbortSignal for cancellation from parent requests
-  const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal): Promise<{url: string, placeName: string, description?: string}[]> => {
-    // Request deduplication: Check cache first
+  const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal, bypassCache: boolean = false): Promise<{url: string, placeName: string, description?: string}[]> => {
+    // Request deduplication: Check cache first (unless bypassing)
     const cacheKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}` // Round to ~100m precision
     const cached = photoFetchCacheRef.current.get(cacheKey)
     const now = Date.now()
     
-    // Return cached result if available and recent (within 5 seconds)
-    if (cached && (now - cached.timestamp) < 5000) {
+    // Return cached result if available and recent (within 5 seconds) - unless bypassing cache
+    if (!bypassCache && cached && (now - cached.timestamp) < 5000) {
       console.log("📸 Using cached photo data for location:", cacheKey)
       return cached.data
+    }
+    
+    if (bypassCache) {
+      console.log("📸 Bypassing cache - fetching fresh data for:", { lat, lng, cacheKey })
     }
     
     // Check if external signal is already aborted
@@ -1466,8 +1470,15 @@ export default function PINITApp() {
       
       // Always fetch new data when Done is clicked (even if not moved much, refresh the data)
       // This ensures we have the latest information for the current location
-      console.log("📸 Fetching location data for pin location...")
-      locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
+      // BYPASS CACHE to ensure we get fresh data for the new location
+      console.log("📸 Fetching FRESH location data for NEW pin location (bypassing cache):", {
+        lat: editingPinLocation.lat,
+        lng: editingPinLocation.lng,
+        originalLat: editingPin.latitude,
+        originalLng: editingPin.longitude
+      })
+      
+      locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal, true) // true = bypass cache
       
       // Check if request was aborted
       if (signal.aborted) {
@@ -1475,9 +1486,16 @@ export default function PINITApp() {
         return
       }
       
+      console.log("📸 Fetched location photos:", {
+        count: locationPhotos.length,
+        photos: locationPhotos.map(p => ({ url: p.url?.substring(0, 50), placeName: p.placeName }))
+      })
+      
       // Get place name and description from photos
       placeName = locationPhotos[0]?.placeName || editingPin.locationName
       placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
+      
+      console.log("📸 Place info from photos:", { placeName, placeDescription })
       
       // Generate AI content with new location
       aiGeneratedContent = generateAIContent(
@@ -1489,10 +1507,10 @@ export default function PINITApp() {
         placeDescription
       )
       
-      console.log("📸 Fetched new location data:", { 
-        photosCount: locationPhotos.length, 
-        placeName, 
-        title: aiGeneratedContent.title 
+      console.log("📸 Generated AI content:", { 
+        title: aiGeneratedContent.title,
+        description: aiGeneratedContent.description?.substring(0, 100),
+        locationName: aiGeneratedContent.locationName
       })
       
       // Update the pin with new location and data
@@ -1500,20 +1518,32 @@ export default function PINITApp() {
         ...editingPin,
         latitude: editingPinLocation.lat,
         longitude: editingPinLocation.lng,
-        locationName: aiGeneratedContent.locationName || editingPin.locationName,
-        title: aiGeneratedContent.title,
-        description: aiGeneratedContent.description,
+        locationName: aiGeneratedContent.locationName || placeName || editingPin.locationName,
+        title: aiGeneratedContent.title || placeName || editingPin.title,
+        description: aiGeneratedContent.description || placeDescription || editingPin.description,
         mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
-        additionalPhotos: locationPhotos.length > 0 ? locationPhotos : editingPin.additionalPhotos,
-        tags: aiGeneratedContent.tags,
+        additionalPhotos: locationPhotos.length > 0 ? locationPhotos : (editingPin.additionalPhotos || []),
+        tags: aiGeneratedContent.tags || editingPin.tags || [],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false
       }
       
-      // Update pin in storage
-      addPinFromStorage(updatedPin)
+      console.log("✅ Pin updated with new location and data:", {
+        id: updatedPin.id,
+        title: updatedPin.title,
+        locationName: updatedPin.locationName,
+        latitude: updatedPin.latitude,
+        longitude: updatedPin.longitude,
+        hasMediaUrl: !!updatedPin.mediaUrl,
+        additionalPhotosCount: updatedPin.additionalPhotos?.length || 0,
+        description: updatedPin.description?.substring(0, 100)
+      })
       
-      console.log("✅ Pin updated with new location and data:", updatedPin)
+      // Remove the old pending pin and add the updated completed pin
+      // This ensures the pending card disappears from the library
+      removePinFromStorage(editingPin.id)
+      addPinFromStorage(updatedPin)
+      console.log("🔄 Removed old pending pin and added completed pin to storage")
       
       // Show results page with updated pin FIRST
       setCurrentResultPin(updatedPin)
@@ -1562,7 +1592,16 @@ export default function PINITApp() {
       personalThoughts: pin.personalThoughts || undefined,
       isPending: false // Mark as completed when saved from results
     }
+    
+    // Remove the old pending pin if it exists (by ID)
+    // This ensures the pending card disappears from the library
+    removePinFromStorage(pin.id)
+    
+    // Add the completed pin
     addPin(pinToSave)
+    
+    console.log("💾 Pin saved from results - old pending pin removed, completed pin added:", pinToSave.id)
+    
     setCurrentResultPin(null)
     setTimeout(() => setCurrentScreen("map"), 100)
     setQuickPinSuccess(true)
