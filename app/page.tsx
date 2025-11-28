@@ -1986,88 +1986,7 @@ export default function PINITApp() {
         </div>
         
         {/* Full Map View */}
-        <div 
-          style={{ flex: 1, position: "relative", overflow: "hidden", cursor: "crosshair" }}
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            const x = e.clientX - rect.left
-            const y = e.clientY - rect.top
-            
-            // Convert to percentage (0-100%)
-            const xPercent = (x / rect.width) * 100
-            const yPercent = (y / rect.height) * 100
-            
-            // Calculate offset from center (50%, 50%)
-            const xOffset = (xPercent - 50) / 50  // -1 to 1
-            const yOffset = (50 - yPercent) / 50  // -1 to 1 (inverted because screen Y increases downward)
-            
-            // At zoom 17, the map shows approximately 0.01 degrees latitude and longitude
-            // Convert percentage offset to lat/lng offset
-            const latRange = 0.01  // Approximate range for zoom 17
-            const lngRange = 0.01
-            
-            const latOffset = yOffset * (latRange / 2)
-            const lngOffset = xOffset * (lngRange / 2)
-            
-            // Get current center coordinates
-            const centerLat = originalPinLocation?.lat || editingPinLocation.lat
-            const centerLng = originalPinLocation?.lng || editingPinLocation.lng
-            
-            // Calculate new coordinates
-            const newLat = centerLat + latOffset
-            const newLng = centerLng + lngOffset
-            
-            console.log("📍 Map tapped - setting pin location:", { newLat, newLng, xPercent, yPercent })
-            
-            // Update pin location
-            handlePinLocationUpdate(newLat, newLng)
-            
-            // Update original location so map centers on new position
-            setOriginalPinLocation({ lat: newLat, lng: newLng })
-          }}
-          onTouchStart={(e) => {
-            // Prevent default to avoid scrolling
-            e.preventDefault()
-            const touch = e.touches[0]
-            if (!touch) return
-            
-            const rect = e.currentTarget.getBoundingClientRect()
-            const x = touch.clientX - rect.left
-            const y = touch.clientY - rect.top
-            
-            // Convert to percentage (0-100%)
-            const xPercent = (x / rect.width) * 100
-            const yPercent = (y / rect.height) * 100
-            
-            // Calculate offset from center (50%, 50%)
-            const xOffset = (xPercent - 50) / 50  // -1 to 1
-            const yOffset = (50 - yPercent) / 50  // -1 to 1 (inverted because screen Y increases downward)
-            
-            // At zoom 17, the map shows approximately 0.01 degrees latitude and longitude
-            // Convert percentage offset to lat/lng offset
-            const latRange = 0.01  // Approximate range for zoom 17
-            const lngRange = 0.01
-            
-            const latOffset = yOffset * (latRange / 2)
-            const lngOffset = xOffset * (lngRange / 2)
-            
-            // Get current center coordinates
-            const centerLat = originalPinLocation?.lat || editingPinLocation.lat
-            const centerLng = originalPinLocation?.lng || editingPinLocation.lng
-            
-            // Calculate new coordinates
-            const newLat = centerLat + latOffset
-            const newLng = centerLng + lngOffset
-            
-            console.log("📍 Map tapped (touch) - setting pin location:", { newLat, newLng, xPercent, yPercent })
-            
-            // Update pin location
-            handlePinLocationUpdate(newLat, newLng)
-            
-            // Update original location so map centers on new position
-            setOriginalPinLocation({ lat: newLat, lng: newLng })
-          }}
-        >
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           {/* Use Google Maps Static API as background - updates when location changes */}
           <img
             src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&markers=color:red|${editingPinLocation.lat},${editingPinLocation.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
@@ -2084,30 +2003,135 @@ export default function PINITApp() {
               opacity: 1,
               display: "block"
             }}
-            key={`map-edit-${editingPin?.id || 'new'}-${editingPinLocation.lat.toFixed(6)}-${editingPinLocation.lng.toFixed(6)}`}
+            key={`map-edit-${editingPin?.id || 'new'}-${Math.round(editingPinLocation.lat * 10000)}-${Math.round(editingPinLocation.lng * 10000)}`}
           />
           
-          {/* Static Pin Marker - shows current pin location */}
+          {/* Directional Controls */}
           <div
             style={{
               position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -100%)",
-              fontSize: "48px",
-              filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
-              pointerEvents: "none",
+              bottom: "120px",
+              right: "20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
               zIndex: 1000
             }}
           >
-            📍
+            {/* Up Button */}
+            <button
+              onClick={() => {
+                const step = 0.0001 // Small step for fine control (~11 meters)
+                const newLat = editingPinLocation.lat + step
+                handlePinLocationUpdate(newLat, editingPinLocation.lng)
+                setOriginalPinLocation({ lat: newLat, lng: editingPinLocation.lng })
+              }}
+              style={{
+                width: "50px",
+                height: "50px",
+                borderRadius: "0.5rem",
+                background: "rgba(30, 58, 138, 0.95)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: "24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                backdropFilter: "blur(10px)",
+                transition: "all 0.2s ease"
+              }}
+            >
+              ↑
+            </button>
+            
+            {/* Left/Right Row */}
+            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+              <button
+                onClick={() => {
+                  const step = 0.0001
+                  const newLng = editingPinLocation.lng - step
+                  handlePinLocationUpdate(editingPinLocation.lat, newLng)
+                  setOriginalPinLocation({ lat: editingPinLocation.lat, lng: newLng })
+                }}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  borderRadius: "0.5rem",
+                  background: "rgba(30, 58, 138, 0.95)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontSize: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                ←
+              </button>
+              <button
+                onClick={() => {
+                  const step = 0.0001
+                  const newLng = editingPinLocation.lng + step
+                  handlePinLocationUpdate(editingPinLocation.lat, newLng)
+                  setOriginalPinLocation({ lat: editingPinLocation.lat, lng: newLng })
+                }}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  borderRadius: "0.5rem",
+                  background: "rgba(30, 58, 138, 0.95)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontSize: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                →
+              </button>
+            </div>
+            
+            {/* Down Button */}
+            <button
+              onClick={() => {
+                const step = 0.0001
+                const newLat = editingPinLocation.lat - step
+                handlePinLocationUpdate(newLat, editingPinLocation.lng)
+                setOriginalPinLocation({ lat: newLat, lng: editingPinLocation.lng })
+              }}
+              style={{
+                width: "50px",
+                height: "50px",
+                borderRadius: "0.5rem",
+                background: "rgba(30, 58, 138, 0.95)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: "24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                backdropFilter: "blur(10px)",
+                transition: "all 0.2s ease"
+              }}
+            >
+              ↓
+            </button>
           </div>
           
           {/* Instruction text */}
           <div
             style={{
               position: "absolute",
-              bottom: "100px",
+              bottom: "80px",
               left: "50%",
               transform: "translateX(-50%)",
               background: "rgba(30, 58, 138, 0.95)",
@@ -2117,10 +2141,11 @@ export default function PINITApp() {
               backdropFilter: "blur(10px)",
               border: "1px solid rgba(255,255,255,0.2)",
               pointerEvents: "none",
-              textAlign: "center"
+              textAlign: "center",
+              maxWidth: "90%"
             }}
           >
-            💡 Tap anywhere on the map to set pin location
+            💡 Use the arrow buttons to move the pin
           </div>
         </div>
         
