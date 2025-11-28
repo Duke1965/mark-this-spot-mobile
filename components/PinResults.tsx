@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PinData } from "@/lib/types"
 import { ArrowLeft, Share2, Save } from "lucide-react"
 
@@ -13,6 +13,12 @@ interface PinResultsProps {
 
 export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
   const [personalThoughts, setPersonalThoughts] = useState(pin.personalThoughts || "")
+  
+  // Update personal thoughts when pin changes
+  useEffect(() => {
+    setPersonalThoughts(pin.personalThoughts || "")
+  }, [pin.id, pin.personalThoughts])
+  
   const photos = pin.additionalPhotos || []
   const primaryPhoto = pin.mediaUrl
 
@@ -32,10 +38,25 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
     onShare(updatedPin)
   }
 
-  // Combine all photos for carousel
-  const allPhotos = primaryPhoto 
-    ? [primaryPhoto, ...photos.map(p => p.url)]
-    : photos.map(p => p.url)
+  // Combine all photos for carousel - filter out invalid URLs
+  const allPhotos = [
+    ...(primaryPhoto ? [primaryPhoto] : []),
+    ...photos.map(p => p.url).filter(url => url && url !== '/pinit-placeholder.jpg' && !url.includes('placeholder'))
+  ].filter(Boolean)
+  
+  // Log for debugging
+  useEffect(() => {
+    console.log("📋 PinResults received pin:", {
+      id: pin.id,
+      title: pin.title,
+      locationName: pin.locationName,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      hasMediaUrl: !!pin.mediaUrl,
+      additionalPhotosCount: photos.length,
+      allPhotosCount: allPhotos.length
+    })
+  }, [pin.id, pin.title, pin.locationName, pin.latitude, pin.longitude])
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white overflow-hidden">
@@ -54,31 +75,60 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto">
         {/* Image Carousel */}
-        {allPhotos.length > 0 && (
-          <div className="h-64 overflow-hidden">
+        {allPhotos.length > 0 ? (
+          <div className="h-64 overflow-hidden bg-blue-900/50">
             <div className="h-full w-full overflow-x-auto snap-x snap-mandatory flex">
               {allPhotos.map((photoUrl, index) => (
-                <div key={index} className="min-w-full h-full snap-center">
+                <div key={`photo-${index}-${photoUrl}`} className="min-w-full h-full snap-center relative">
                   <img
                     src={photoUrl}
                     alt={pin.title || pin.locationName}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error("❌ Failed to load image:", photoUrl)
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      // Show fallback
+                      const fallback = target.nextElementSibling as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                    onLoad={() => {
+                      console.log("✅ Image loaded:", photoUrl.substring(0, 50))
+                    }}
                   />
+                  {/* Fallback if image fails to load */}
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-blue-900/50"
+                    style={{ display: 'none' }}
+                  >
+                    <span className="text-4xl">📍</span>
+                  </div>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : (
+          <div className="h-64 bg-blue-900/50 flex items-center justify-center">
+            <div className="text-center">
+              <span className="text-6xl mb-4 block">📍</span>
+              <p className="text-white/70">No images available</p>
             </div>
           </div>
         )}
 
         {/* Content Card */}
         <div className="p-4 bg-blue-800/50 backdrop-blur-sm">
-          <h2 className="text-2xl font-bold mb-2 text-white">{pin.title || pin.locationName}</h2>
-          {pin.description && (
+          <h2 className="text-2xl font-bold mb-2 text-white">
+            {pin.title || pin.locationName || "Untitled Location"}
+          </h2>
+          {pin.description ? (
             <p className="text-white/90 mb-4 leading-relaxed">{pin.description}</p>
+          ) : (
+            <p className="text-white/70 mb-4 italic">No description available</p>
           )}
           <p className="text-sm text-white/70 mb-4 flex items-center gap-2">
             <span>📍</span>
-            {pin.locationName}
+            {pin.locationName || `${pin.latitude?.toFixed(6)}, ${pin.longitude?.toFixed(6)}`}
           </p>
 
           {/* Comment/Personal Thoughts Input */}
