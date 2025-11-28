@@ -1911,234 +1911,6 @@ export default function PINITApp() {
   }
 
   // Draggable Pin Marker Component (for edit mode)
-  const DraggablePinMarker = ({ initialLat, initialLng, onLocationUpdate, onDragStart, onDragEnd, pinId }: { initialLat: number, initialLng: number, onLocationUpdate: (lat: number, lng: number) => void, onDragStart?: () => void, onDragEnd?: () => void, pinId?: string }) => {
-    const [position, setPosition] = useState({ x: 50, y: 50 }) // Percentage position (centered)
-    const isDraggingRef = useRef(false)
-    const startOffsetRef = useRef({ x: 0, y: 0 })
-    const markerRef = useRef<HTMLDivElement>(null)
-    const currentLatRef = useRef(initialLat)
-    const currentLngRef = useRef(initialLng)
-    const mapContainerRef = useRef<HTMLElement | null>(null)
-    const baseLatRef = useRef(initialLat)
-    const baseLngRef = useRef(initialLng)
-    const isUpdatingFromDragRef = useRef(false)
-    
-    // Update refs when initial position changes (only on mount or when pin changes)
-    const pinIdRef = useRef(pinId)
-    useEffect(() => {
-      // Only reset position if this is a new pin (different ID) AND not updating from drag
-      if (pinIdRef.current !== pinId && !isUpdatingFromDragRef.current) {
-        pinIdRef.current = pinId
-        baseLatRef.current = initialLat
-        baseLngRef.current = initialLng
-        currentLatRef.current = initialLat
-        currentLngRef.current = initialLng
-        setPosition({ x: 50, y: 50 }) // Reset to center only for new pin
-      } else if (!isUpdatingFromDragRef.current) {
-        // Update base position but keep current position (don't reset)
-        baseLatRef.current = initialLat
-        baseLngRef.current = initialLng
-        // Update current position refs but don't reset visual position
-        currentLatRef.current = initialLat
-        currentLngRef.current = initialLng
-      }
-      // Reset the flag after processing
-      isUpdatingFromDragRef.current = false
-    }, [initialLat, initialLng, pinId])
-    
-    // Find the map container using the marker's parent
-    const getMapContainer = () => {
-      if (mapContainerRef.current) return mapContainerRef.current
-      // Find parent container by traversing up from marker
-      if (markerRef.current) {
-        let parent = markerRef.current.parentElement
-        while (parent) {
-          // Look for the map container div (has flex: 1 and position: relative)
-          const style = window.getComputedStyle(parent)
-          if (style.position === 'relative' && (style.flex === '1' || style.flexGrow === '1')) {
-            mapContainerRef.current = parent
-            return parent
-          }
-          parent = parent.parentElement
-        }
-      }
-      return null
-    }
-    
-    const handleStart = (clientX: number, clientY: number) => {
-      isDraggingRef.current = true
-      if (onDragStart) onDragStart()
-      const mapContainer = getMapContainer()
-      if (mapContainer && markerRef.current) {
-        const mapRect = mapContainer.getBoundingClientRect()
-        const markerRect = markerRef.current.getBoundingClientRect()
-        
-        // Calculate offset from marker center to touch point
-        startOffsetRef.current = {
-          x: clientX - (markerRect.left + markerRect.width / 2),
-          y: clientY - (markerRect.top + markerRect.height / 2)
-        }
-        console.log("📍 Drag started", { clientX, clientY, mapRect, markerRect, offset: startOffsetRef.current })
-      } else {
-        console.warn("⚠️ Could not find map container or marker", { mapContainer: !!mapContainer, marker: !!markerRef.current })
-      }
-    }
-    
-    const handleMove = (clientX: number, clientY: number) => {
-      if (!isDraggingRef.current) return
-      
-      const mapContainer = getMapContainer()
-      if (mapContainer && markerRef.current) {
-        const mapRect = mapContainer.getBoundingClientRect()
-        
-        // Calculate new position relative to map container
-        const newX = clientX - mapRect.left - startOffsetRef.current.x
-        const newY = clientY - mapRect.top - startOffsetRef.current.y
-        
-        // Convert to percentage
-        const xPercent = (newX / mapRect.width) * 100
-        const yPercent = (newY / mapRect.height) * 100
-        
-        // Clamp to map bounds (accounting for marker size)
-        const clampedX = Math.max(5, Math.min(95, xPercent)) // Leave some margin
-        const clampedY = Math.max(5, Math.min(95, yPercent))
-        
-        setPosition({ x: clampedX, y: clampedY })
-        
-        // Convert percentage to lat/lng offset (approximate for zoom level 17)
-        // At zoom 17, ~0.01 degrees ≈ 1km, so 50% of screen ≈ 0.005 degrees
-        const latRange = 0.01 // Approximate range for zoom 17
-        const lngRange = 0.01
-        
-        // Center is 50%, so calculate offset from base position
-        const latOffset = ((50 - clampedY) / 50) * (latRange / 2)
-        const lngOffset = ((clampedX - 50) / 50) * (lngRange / 2)
-        
-        // Use base position as reference point (where pin started)
-        const newLat = baseLatRef.current + latOffset
-        const newLng = baseLngRef.current + lngOffset
-        
-        // Update refs for next calculation
-        currentLatRef.current = newLat
-        currentLngRef.current = newLng
-      } else {
-        console.warn("⚠️ Could not find map container during move", { mapContainer: !!mapContainer, marker: !!markerRef.current })
-      }
-    }
-    
-    const handleEnd = () => {
-      if (isDraggingRef.current) {
-        // Mark that we're updating from drag to prevent position reset
-        isUpdatingFromDragRef.current = true
-        // Update base position to new location so pin stays where dragged
-        baseLatRef.current = currentLatRef.current
-        baseLngRef.current = currentLngRef.current
-        // Update location when dragging ends
-        onLocationUpdate(currentLatRef.current, currentLngRef.current)
-      }
-      isDraggingRef.current = false
-      if (onDragEnd) {
-        // Delay to ensure state updates complete
-        setTimeout(() => onDragEnd(), 100)
-      }
-    }
-    
-    // Set up event listeners when dragging starts
-    const setupDragListeners = () => {
-      const onMouseMove = (e: MouseEvent) => {
-        if (isDraggingRef.current) {
-          handleMove(e.clientX, e.clientY)
-        }
-      }
-      const onMouseUp = () => {
-        handleEnd()
-        window.removeEventListener('mousemove', onMouseMove)
-        window.removeEventListener('mouseup', onMouseUp)
-      }
-      const onTouchMove = (e: TouchEvent) => {
-        e.preventDefault()
-        if (isDraggingRef.current && e.touches[0]) {
-          handleMove(e.touches[0].clientX, e.touches[0].clientY)
-        }
-      }
-      const onTouchEnd = () => {
-        handleEnd()
-        window.removeEventListener('touchmove', onTouchMove)
-        window.removeEventListener('touchend', onTouchEnd)
-      }
-      
-      window.addEventListener('mousemove', onMouseMove)
-      window.addEventListener('mouseup', onMouseUp)
-      window.addEventListener('touchmove', onTouchMove, { passive: false })
-      window.addEventListener('touchend', onTouchEnd)
-    }
-    
-    return (
-      <div
-        ref={markerRef}
-        style={{
-          position: "absolute",
-          top: `${position.y}%`,
-          left: `${position.x}%`,
-          transform: "translate(-50%, -100%)",
-          cursor: isDraggingRef.current ? "grabbing" : "grab",
-          zIndex: 10000,
-          userSelect: "none",
-          touchAction: "none",
-          transition: isDraggingRef.current ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out',
-          pointerEvents: "auto"
-        }}
-        onMouseDown={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          console.log("🖱️ Mouse down on pin marker")
-          handleStart(e.clientX, e.clientY)
-          setupDragListeners()
-        }}
-        onTouchStart={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          console.log("👆 Touch start on pin marker", e.touches[0])
-          const touch = e.touches[0]
-          if (touch) {
-            handleStart(touch.clientX, touch.clientY)
-            setupDragListeners()
-          }
-        }}
-      >
-        <div
-          style={{
-            fontSize: "48px",
-            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
-            animation: isDraggingRef.current ? "none" : "bounce 1s infinite",
-            transform: isDraggingRef.current ? "scale(1.2)" : "scale(1)"
-          }}
-        >
-          📍
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            marginTop: "4px",
-            background: "rgba(30, 58, 138, 0.95)",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            fontSize: "0.875rem",
-            whiteSpace: "nowrap",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            pointerEvents: "none" // Allow clicks to pass through to parent
-          }}
-        >
-          {isDraggingRef.current ? "Moving..." : "Drag to move"}
-        </div>
-      </div>
-    )
-  }
-
   // Main map screen (Shazam-like interface) - ENHANCED WITH SUBTLE NOTIFICATIONS
   
   // If in pin editing mode, show full map with draggable marker
@@ -2214,10 +1986,91 @@ export default function PINITApp() {
         </div>
         
         {/* Full Map View */}
-        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {/* Use Google Maps Static API as background - uses original location to prevent flicker during drag */}
+        <div 
+          style={{ flex: 1, position: "relative", overflow: "hidden", cursor: "crosshair" }}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - rect.left
+            const y = e.clientY - rect.top
+            
+            // Convert to percentage (0-100%)
+            const xPercent = (x / rect.width) * 100
+            const yPercent = (y / rect.height) * 100
+            
+            // Calculate offset from center (50%, 50%)
+            const xOffset = (xPercent - 50) / 50  // -1 to 1
+            const yOffset = (50 - yPercent) / 50  // -1 to 1 (inverted because screen Y increases downward)
+            
+            // At zoom 17, the map shows approximately 0.01 degrees latitude and longitude
+            // Convert percentage offset to lat/lng offset
+            const latRange = 0.01  // Approximate range for zoom 17
+            const lngRange = 0.01
+            
+            const latOffset = yOffset * (latRange / 2)
+            const lngOffset = xOffset * (lngRange / 2)
+            
+            // Get current center coordinates
+            const centerLat = originalPinLocation?.lat || editingPinLocation.lat
+            const centerLng = originalPinLocation?.lng || editingPinLocation.lng
+            
+            // Calculate new coordinates
+            const newLat = centerLat + latOffset
+            const newLng = centerLng + lngOffset
+            
+            console.log("📍 Map tapped - setting pin location:", { newLat, newLng, xPercent, yPercent })
+            
+            // Update pin location
+            handlePinLocationUpdate(newLat, newLng)
+            
+            // Update original location so map centers on new position
+            setOriginalPinLocation({ lat: newLat, lng: newLng })
+          }}
+          onTouchStart={(e) => {
+            // Prevent default to avoid scrolling
+            e.preventDefault()
+            const touch = e.touches[0]
+            if (!touch) return
+            
+            const rect = e.currentTarget.getBoundingClientRect()
+            const x = touch.clientX - rect.left
+            const y = touch.clientY - rect.top
+            
+            // Convert to percentage (0-100%)
+            const xPercent = (x / rect.width) * 100
+            const yPercent = (y / rect.height) * 100
+            
+            // Calculate offset from center (50%, 50%)
+            const xOffset = (xPercent - 50) / 50  // -1 to 1
+            const yOffset = (50 - yPercent) / 50  // -1 to 1 (inverted because screen Y increases downward)
+            
+            // At zoom 17, the map shows approximately 0.01 degrees latitude and longitude
+            // Convert percentage offset to lat/lng offset
+            const latRange = 0.01  // Approximate range for zoom 17
+            const lngRange = 0.01
+            
+            const latOffset = yOffset * (latRange / 2)
+            const lngOffset = xOffset * (lngRange / 2)
+            
+            // Get current center coordinates
+            const centerLat = originalPinLocation?.lat || editingPinLocation.lat
+            const centerLng = originalPinLocation?.lng || editingPinLocation.lng
+            
+            // Calculate new coordinates
+            const newLat = centerLat + latOffset
+            const newLng = centerLng + lngOffset
+            
+            console.log("📍 Map tapped (touch) - setting pin location:", { newLat, newLng, xPercent, yPercent })
+            
+            // Update pin location
+            handlePinLocationUpdate(newLat, newLng)
+            
+            // Update original location so map centers on new position
+            setOriginalPinLocation({ lat: newLat, lng: newLng })
+          }}
+        >
+          {/* Use Google Maps Static API as background - updates when location changes */}
           <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${originalPinLocation?.lat || editingPinLocation.lat},${originalPinLocation?.lng || editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+            src={`https://maps.googleapis.com/maps/api/staticmap?center=${editingPinLocation.lat},${editingPinLocation.lng}&zoom=17&size=640x640&scale=2&maptype=roadmap&markers=color:red|${editingPinLocation.lat},${editingPinLocation.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
             alt="Map"
             style={{
               position: "absolute",
@@ -2231,18 +2084,44 @@ export default function PINITApp() {
               opacity: 1,
               display: "block"
             }}
-            key={`map-edit-${editingPin?.id || 'new'}`} // Stable key - doesn't change during dragging
+            key={`map-edit-${editingPin?.id || 'new'}-${editingPinLocation.lat.toFixed(6)}-${editingPinLocation.lng.toFixed(6)}`}
           />
           
-          {/* Draggable Pin Marker Overlay */}
-          <DraggablePinMarker
-            initialLat={editingPinLocation.lat}
-            initialLng={editingPinLocation.lng}
-            onLocationUpdate={handlePinLocationUpdate}
-            onDragStart={() => setIsDraggingPin(true)}
-            onDragEnd={() => setIsDraggingPin(false)}
-            pinId={editingPin?.id}
-          />
+          {/* Static Pin Marker - shows current pin location */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -100%)",
+              fontSize: "48px",
+              filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
+              pointerEvents: "none",
+              zIndex: 1000
+            }}
+          >
+            📍
+          </div>
+          
+          {/* Instruction text */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(30, 58, 138, 0.95)",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "0.75rem",
+              fontSize: "0.875rem",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              pointerEvents: "none",
+              textAlign: "center"
+            }}
+          >
+            💡 Tap anywhere on the map to set pin location
+          </div>
         </div>
         
         {/* Edit Mode Indicator */}
