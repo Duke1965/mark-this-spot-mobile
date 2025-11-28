@@ -150,6 +150,7 @@ function InteractiveMapEditor({
       const newLat = e.latLng.lat()
       const newLng = e.latLng.lng()
       console.log("📍 Marker dragged to:", { lat: newLat, lng: newLng })
+      // Only update the location, don't update originalPinLocation here
       onLocationChange(newLat, newLng)
     })
 
@@ -1413,6 +1414,8 @@ export default function PINITApp() {
     if (editingPin) {
       setEditingPinLocation({ lat, lng })
       console.log("📍 Pin location updated:", { lat, lng })
+      // DON'T update originalPinLocation here - keep it as the original pin's location
+      // so we can detect if the pin was moved when "Done" is clicked
     }
   }, [editingPin])
   
@@ -1426,10 +1429,18 @@ export default function PINITApp() {
       return
     }
     
-    // Check if pin was moved (for determining if we need to fetch new data)
-    const latDiff = Math.abs(editingPinLocation.lat - originalPinLocation.lat)
-    const lngDiff = Math.abs(editingPinLocation.lng - originalPinLocation.lng)
-    const moved = latDiff > 0.0001 || lngDiff > 0.0001 // ~11 meters
+    // Check if pin was moved (compare to the ORIGINAL pin's location, not the state)
+    const originalLat = editingPin.latitude
+    const originalLng = editingPin.longitude
+    const latDiff = Math.abs(editingPinLocation.lat - originalLat)
+    const lngDiff = Math.abs(editingPinLocation.lng - originalLng)
+    const moved = latDiff > 0.00005 || lngDiff > 0.00005 // ~5.5 meters - more sensitive threshold
+    console.log("📍 Pin move check:", { 
+      original: { lat: originalLat, lng: originalLng },
+      current: { lat: editingPinLocation.lat, lng: editingPinLocation.lng },
+      diff: { lat: latDiff, lng: lngDiff },
+      moved 
+    })
     
     // Set flags to prevent duplicate requests
     setIsUpdatingPinLocation(true)
@@ -1453,35 +1464,36 @@ export default function PINITApp() {
         tags: editingPin.tags || []
       }
       
-      // Only fetch new data if pin was moved
-      if (moved) {
-        // Fetch new location data (images, title, description)
-        // Pass abort signal to ensure cancellation propagates
-        console.log("📸 Pin was moved - fetching new location data for updated pin location...")
-        locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
-        
-        // Check if request was aborted
-        if (signal.aborted) {
-          console.log("📸 Pin update request was aborted")
-          return
-        }
-        
-        // Get place name and description from photos
-        placeName = locationPhotos[0]?.placeName || editingPin.locationName
-        placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
-        
-        // Generate AI content with new location
-        aiGeneratedContent = generateAIContent(
-          editingPinLocation.lat, 
-          editingPinLocation.lng, 
-          motionData, 
-          locationPhotos, 
-          placeName, 
-          placeDescription
-        )
-      } else {
-        console.log("📸 Pin location unchanged - using existing data")
+      // Always fetch new data when Done is clicked (even if not moved much, refresh the data)
+      // This ensures we have the latest information for the current location
+      console.log("📸 Fetching location data for pin location...")
+      locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal)
+      
+      // Check if request was aborted
+      if (signal.aborted) {
+        console.log("📸 Pin update request was aborted")
+        return
       }
+      
+      // Get place name and description from photos
+      placeName = locationPhotos[0]?.placeName || editingPin.locationName
+      placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
+      
+      // Generate AI content with new location
+      aiGeneratedContent = generateAIContent(
+        editingPinLocation.lat, 
+        editingPinLocation.lng, 
+        motionData, 
+        locationPhotos, 
+        placeName, 
+        placeDescription
+      )
+      
+      console.log("📸 Fetched new location data:", { 
+        photosCount: locationPhotos.length, 
+        placeName, 
+        title: aiGeneratedContent.title 
+      })
       
       // Update the pin with new location and data
       const updatedPin: PinData = {
@@ -2100,7 +2112,7 @@ export default function PINITApp() {
               initialLng={editingPinLocation.lng}
               onLocationChange={(lat, lng) => {
                 handlePinLocationUpdate(lat, lng)
-                setOriginalPinLocation({ lat, lng })
+                // Don't update originalPinLocation here - keep it as the original pin's location
               }}
             />
           ) : (
