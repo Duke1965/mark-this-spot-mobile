@@ -284,7 +284,7 @@ export default function PINITApp() {
 
   // Hooks
   const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
-  const { pins: storedPins, addPin: addPinFromStorage } = usePinStorage()
+  const { pins: storedPins, addPin: addPinFromStorage, removePin: removePinFromStorage } = usePinStorage()
   const motionData = useMotionDetection()
   
   // Request deduplication for fetchLocationPhotos
@@ -2003,6 +2003,10 @@ export default function PINITApp() {
           )
           // Update pins state here if needed
           console.log("Pin updated:", pinId, updates)
+        }}
+        onPinDelete={(pinId: string) => {
+          removePinFromStorage(pinId)
+          console.log("🗑️ Pin deleted:", pinId)
         }}
       />
     )
