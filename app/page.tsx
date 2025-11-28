@@ -2163,11 +2163,10 @@ export default function PINITApp() {
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem",
+              justifyContent: "center",
             }}
           >
             <ArrowLeft size={20} />
-            Cancel
           </button>
           
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -2178,7 +2177,7 @@ export default function PINITApp() {
             onClick={handlePinEditDone}
             disabled={isUpdatingPinLocation}
             style={{
-              background: isUpdatingPinLocation ? "rgba(255,255,255,0.1)" : "rgba(34, 197, 94, 0.9)",
+              background: isUpdatingPinLocation ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.15)",
               color: "white",
               padding: "0.75rem 1.5rem",
               borderRadius: "0.75rem",
@@ -2188,7 +2187,8 @@ export default function PINITApp() {
               alignItems: "center",
               gap: "0.5rem",
               fontWeight: "600",
-              opacity: isUpdatingPinLocation ? 0.6 : 1
+              opacity: isUpdatingPinLocation ? 0.6 : 1,
+              transition: "all 0.2s ease"
             }}
           >
             {isUpdatingPinLocation ? "⏳ Updating..." : "✅ Done"}
@@ -2216,23 +2216,6 @@ export default function PINITApp() {
             key={`map-edit-${editingPin?.id || 'new'}`} // Stable key - doesn't change during dragging
           />
           
-          {/* Interactive overlay - allows dragging and shows nearby places link */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              cursor: "grab"
-            }}
-            onClick={(e) => {
-              // Open Google Maps in new tab for full interactivity
-              const mapUrl = `https://www.google.com/maps?q=${editingPinLocation.lat},${editingPinLocation.lng}&z=17`
-              window.open(mapUrl, '_blank')
-            }}
-          />
-          
           {/* Draggable Pin Marker Overlay */}
           <DraggablePinMarker
             initialLat={editingPinLocation.lat}
@@ -2242,25 +2225,6 @@ export default function PINITApp() {
             onDragEnd={() => setIsDraggingPin(false)}
             pinId={editingPin?.id}
           />
-          
-          {/* Info overlay - tap to view in Google Maps */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "80px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(30, 58, 138, 0.95)",
-              padding: "0.5rem 1rem",
-              borderRadius: "0.75rem",
-              fontSize: "0.875rem",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              pointerEvents: "none"
-            }}
-          >
-            💡 Tap map to view in Google Maps
-          </div>
         </div>
         
         {/* Edit Mode Indicator */}
