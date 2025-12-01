@@ -8,15 +8,18 @@ interface RecommendationFormProps {
   locationName: string
   onRecommend: (rating: number, review: string) => void
   onSkip: () => void
+  onSave?: () => void // Optional save callback (for recommendations)
+  onShare?: () => void // Optional share callback (for social media)
   foursquareData?: {
     placeName: string | null
     description: string | null
     latitude: number
     longitude: number
   }
+  additionalPhotos?: Array<{ url: string; placeName: string }> // For image carousel
 }
 
-export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip, foursquareData }: RecommendationFormProps) {
+export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip, onSave, onShare, foursquareData, additionalPhotos }: RecommendationFormProps) {
   const [showForm, setShowForm] = useState(false)
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState("")
@@ -102,30 +105,97 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         flexDirection: "column",
         alignItems: "center"
       }}>
-        <div style={{
-          width: "100%",
-          maxWidth: "400px",
-          height: "300px",
-          borderRadius: "1rem",
-          overflow: "hidden",
-          border: "2px solid rgba(255,255,255,0.2)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#000",
-          marginBottom: "1rem"
-        }}>
-          <img
-            src={mediaUrl}
-            alt="Your post with stickers"
-            style={{
+        {/* Image Carousel if multiple photos, otherwise single image */}
+        {additionalPhotos && additionalPhotos.length > 0 ? (
+          <div style={{
+            width: "100%",
+            maxWidth: "400px",
+            height: "300px",
+            borderRadius: "1rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            position: "relative",
+            backgroundColor: "#000",
+            marginBottom: "1rem"
+          }}>
+            <div style={{
+              display: "flex",
+              overflowX: "auto",
+              scrollSnapType: "x mandatory",
               width: "100%",
               height: "100%",
-              objectFit: "contain",
-              objectPosition: "center",
-            }}
-          />
-        </div>
+              scrollbarWidth: "none",
+              msOverflowStyle: "none"
+            }}>
+              {additionalPhotos.map((photo, index) => (
+                <img
+                  key={index}
+                  src={photo.url}
+                  alt={photo.placeName || "Place photo"}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                    scrollSnapAlign: "start"
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = "none"
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : mediaUrl ? (
+          <div style={{
+            width: "100%",
+            maxWidth: "400px",
+            height: "300px",
+            borderRadius: "1rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "#000",
+            marginBottom: "1rem"
+          }}>
+            <img
+              src={mediaUrl}
+              alt="Place photo"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                const parent = target.parentElement
+                if (parent) {
+                  parent.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 3rem;">📍</div>'
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{
+            width: "100%",
+            maxWidth: "400px",
+            height: "300px",
+            borderRadius: "1rem",
+            overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.2)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.3)",
+            marginBottom: "1rem"
+          }}>
+            <div style={{ fontSize: "4rem" }}>📍</div>
+          </div>
+        )}
         <div style={{ 
           fontSize: "1rem", 
           opacity: 0.9, 
@@ -219,59 +289,126 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         </div>
       </div>
 
-      {/* Submit Button - FIXED STYLING */}
-      <button
-        onClick={handleSubmit}
-        disabled={review.trim().length === 0 || isSubmitting}
-        style={{
-          width: "100%",
-          padding: "1rem 1.5rem",
-          border: "1px solid rgba(255,255,255,0.2)",
-          background: review.trim().length > 0 ? "white" : "rgba(255,255,255,0.1)",
-          color: review.trim().length > 0 ? "#1e3a8a" : "rgba(255,255,255,0.5)",
-          borderRadius: "0.75rem",
-          cursor: review.trim().length > 0 ? "pointer" : "not-allowed",
-          fontSize: "1.1rem",
-          fontWeight: "600",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "0.75rem",
-          transition: "all 0.2s ease",
-          boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(255,255,255,0.3)" : "none",
-        }}
-        onMouseEnter={(e) => {
-          if (review.trim().length > 0) {
-            e.currentTarget.style.background = "rgba(255,255,255,0.9)"
-            e.currentTarget.style.boxShadow = "0 6px 16px rgba(255,255,255,0.4)"
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (review.trim().length > 0) {
-            e.currentTarget.style.background = "white"
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,255,255,0.3)"
-          }
-        }}
-      >
-        {isSubmitting ? (
-          <>
-            <div style={{ 
-              width: "20px", 
-              height: "20px", 
-              border: "2px solid transparent", 
-              borderTop: "2px solid #1e3a8a", 
-              borderRadius: "50%", 
-              animation: "spin 1s linear infinite" 
-            }} />
-            Sending...
-          </>
-        ) : (
-          <>
-            <Send size={20} />
-            Send Recommendation
-          </>
+      {/* Action Buttons */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {/* Save and Share buttons (if callbacks provided - for recommendations) */}
+        {(onSave || onShare) && (
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {onSave && (
+              <button
+                onClick={onSave}
+                style={{
+                  flex: 1,
+                  padding: "0.875rem 1.25rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  borderRadius: "0.75rem",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                }}
+              >
+                💾 Save
+              </button>
+            )}
+            {onShare && (
+              <button
+                onClick={onShare}
+                style={{
+                  flex: 1,
+                  padding: "0.875rem 1.25rem",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "white",
+                  borderRadius: "0.75rem",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                }}
+              >
+                📤 Share
+              </button>
+            )}
+          </div>
         )}
-      </button>
+        
+        {/* Recommend Button */}
+        <button
+          onClick={handleSubmit}
+          disabled={review.trim().length === 0 || isSubmitting}
+          style={{
+            width: "100%",
+            padding: "1rem 1.5rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: review.trim().length > 0 ? "white" : "rgba(255,255,255,0.1)",
+            color: review.trim().length > 0 ? "#1e3a8a" : "rgba(255,255,255,0.5)",
+            borderRadius: "0.75rem",
+            cursor: review.trim().length > 0 ? "pointer" : "not-allowed",
+            fontSize: "1.1rem",
+            fontWeight: "600",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.75rem",
+            transition: "all 0.2s ease",
+            boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(255,255,255,0.3)" : "none",
+          }}
+          onMouseEnter={(e) => {
+            if (review.trim().length > 0) {
+              e.currentTarget.style.background = "rgba(255,255,255,0.9)"
+              e.currentTarget.style.boxShadow = "0 6px 16px rgba(255,255,255,0.4)"
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (review.trim().length > 0) {
+              e.currentTarget.style.background = "white"
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,255,255,0.3)"
+            }
+          }}
+        >
+          {isSubmitting ? (
+            <>
+              <div style={{ 
+                width: "20px", 
+                height: "20px", 
+                border: "2px solid transparent", 
+                borderTop: "2px solid #1e3a8a", 
+                borderRadius: "50%", 
+                animation: "spin 1s linear infinite" 
+              }} />
+              Sending...
+            </>
+          ) : (
+            <>
+              <Send size={20} />
+              Recommend
+            </>
+          )}
+        </button>
+      </div>
       
       {/* CSS Animation for spinner */}
       <style jsx>{`
