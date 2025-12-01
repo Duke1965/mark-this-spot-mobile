@@ -75,9 +75,24 @@ interface AIRecommendationsHubProps {
   userLocation?: any
   // NEW: Receive recommendations from parent component
   initialRecommendations?: Recommendation[]
+  // Pin editing props
+  editingPin?: any
+  editingPinLocation?: { lat: number; lng: number } | null
+  onPinLocationUpdate?: (lat: number, lng: number) => void
+  onPinEditDone?: () => void
+  onPinEditCancel?: () => void
 }
 
-export default function AIRecommendationsHub({ onBack, userLocation, initialRecommendations }: AIRecommendationsHubProps) {
+export default function AIRecommendationsHub({ 
+  onBack, 
+  userLocation, 
+  initialRecommendations,
+  editingPin,
+  editingPinLocation,
+  onPinLocationUpdate,
+  onPinEditDone,
+  onPinEditCancel
+}: AIRecommendationsHubProps) {
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
@@ -127,15 +142,31 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
   
+  // NEW: Load cached recommendations - will be defined after getLocationCacheKey and clusterPins
+  
   // NEW: State for filtered recommendations when viewing a specific cluster
   const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
+  // NEW: State for filtering by User vs AI recommendations
+  const [recommendationFilter, setRecommendationFilter] = useState<"all" | "user" | "ai">("all")
+  
   // NEW: Request management to prevent duplicate API calls
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const lastRequestParamsRef = useRef<{lat: number, lng: number, timestamp: number} | null>(null)
+  
+  // NEW: Location-based recommendation cache for consistency
+  const recommendationCacheRef = useRef<Map<string, { recommendations: Recommendation[], timestamp: number }>>(new Map())
+  
+  // Helper to create cache key from location (rounded to ~500m precision for consistency)
+  const getLocationCacheKey = useCallback((lat: number, lng: number): string => {
+    // Round to ~500m precision (0.0045 degrees ≈ 500m)
+    const roundedLat = Math.round(lat / 0.0045) * 0.0045
+    const roundedLng = Math.round(lng / 0.0045) * 0.0045
+    return `${roundedLat.toFixed(4)},${roundedLng.toFixed(4)}`
+  }, [])
   
   // NEW: Enhanced motion detection state with throttling
   const [isUserMoving, setIsUserMoving] = useState(false)
@@ -422,6 +453,42 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     // Try to match the category, fall back to general if no match
     return categoryMap[category] || categoryMap['general']
   }, [])
+  
+  // NEW: Get user recommendations from localStorage pins
+  const getUserRecommendations = useCallback((): Recommendation[] => {
+    try {
+      const pinsJson = localStorage.getItem('pinit-pins') || '[]'
+      const pins: any[] = JSON.parse(pinsJson)
+      
+      // Filter pins that are recommended by users (not AI)
+      const userRecommendedPins = pins.filter(pin => 
+        pin.isRecommended && !pin.isAISuggestion
+      )
+      
+      // Convert pins to Recommendation format
+      return userRecommendedPins.map(pin => ({
+        id: pin.id,
+        title: pin.title || pin.locationName || "User Recommendation",
+        description: pin.description || pin.personalThoughts || "A recommended place",
+        category: pin.category || "general",
+        location: {
+          lat: pin.latitude,
+          lng: pin.longitude
+        },
+        rating: pin.rating || 4.0,
+        isAISuggestion: false, // User recommendations
+        confidence: 0,
+        reason: "Recommended by community",
+        timestamp: new Date(pin.timestamp),
+        photoUrl: pin.mediaUrl || undefined,
+        mediaUrl: pin.mediaUrl || undefined,
+        fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || "general")
+      }))
+    } catch (error) {
+      console.error('Error loading user recommendations:', error)
+      return []
+    }
+  }, [getFallbackImage])
 
   // Helper function to categorize places based on their types
   const getCategoryFromTypes = useCallback((types: string[]): string => {
@@ -585,9 +652,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         return
       }
       
+      // CACHE CHECK: First check if we have cached recommendations for this location
+      const cacheKey = getLocationCacheKey(location.latitude, location.longitude)
+      const cached = recommendationCacheRef.current.get(cacheKey)
+      const now = Date.now()
+      
+      // Use cached recommendations if available and recent (within 1 hour)
+      if (cached && (now - cached.timestamp) < 3600000) {
+        console.log('🧠 Using cached recommendations for location:', cacheKey)
+        if (cached.recommendations.length > 0) {
+          setRecommendations(cached.recommendations)
+          const clusters = clusterPins(cached.recommendations)
+          setClusteredPins(clusters)
+          console.log(`✅ Loaded ${cached.recommendations.length} cached recommendations (${clusters.length} clusters)`)
+        }
+        return // Don't generate new recommendations if cache is valid
+      }
+      
       // Only generate new recommendations if we don't have many already
       // and if enough time has passed since last generation
-      const now = Date.now()
       const lastGeneration = localStorage.getItem('last-ai-recommendation-time')
       const timeSinceLastGeneration = lastGeneration ? now - parseInt(lastGeneration) : 60000
       
@@ -597,7 +680,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         return
       }
       
-      console.log('🧠 Generating new AI recommendations...')
+      console.log('🧠 Generating new AI recommendations for location:', cacheKey)
       
       // Prevent duplicate requests - check if already generating
       if (isGeneratingRecommendations) {
@@ -671,11 +754,18 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   console.log(`🧠 Fetched ${allPlaces.length} places from Foursquare`)
                   
                   // Process each category from the same API response
+                  // DETERMINISTIC: Sort places by ID for consistent selection (same region = same places)
+                  const sortedPlaces = [...allPlaces].sort((a: any, b: any) => {
+                    const idA = a.fsq_id || a.id || a.place_id || ''
+                    const idB = b.fsq_id || b.id || b.place_id || ''
+                    return idA.localeCompare(idB)
+                  })
+                  
                   for (const category of shuffledCategories) {
                     if (signal.aborted) break
                     
                     // Filter places by category preference - match category names from Foursquare
-                    const categoryPlaces = allPlaces.filter((place: any) => {
+                    const categoryPlaces = sortedPlaces.filter((place: any) => {
                       const placeCategory = place.category?.toLowerCase() || ''
                       const categoryLower = category.toLowerCase()
                       
@@ -689,7 +779,9 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     })
                     
                     if (categoryPlaces.length > 0) {
-                      const selectedPlace = categoryPlaces[Math.floor(Math.random() * categoryPlaces.length)]
+                      // DETERMINISTIC: Use first place (sorted by ID) instead of random for consistency
+                      // Same region will always get the same recommendations
+                      const selectedPlace = categoryPlaces[0]
                       
                       // CRITICAL: Validate coordinates before adding recommendation
                       const placeLat = selectedPlace.location?.lat || selectedPlace.geometry?.location?.lat
@@ -788,9 +880,16 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   // Handle both new format (items) and old format (results) for compatibility
                   const places = data.items || data.results || []
                   
-                  // Generate 3-4 recommendations from local places
-                  const numRecommendations = Math.min(3 + Math.floor(Math.random() * 2), places.length)
-                  const selectedPlaces = places.sort(() => 0.5 - Math.random()).slice(0, numRecommendations)
+                  // DETERMINISTIC: Sort places by ID for consistent selection
+                  const sortedPlaces = [...places].sort((a: any, b: any) => {
+                    const idA = a.fsq_id || a.id || a.place_id || ''
+                    const idB = b.fsq_id || b.id || b.place_id || ''
+                    return idA.localeCompare(idB)
+                  })
+                  
+                  // Generate 3-4 recommendations from local places (deterministic - same places each time)
+                  const numRecommendations = Math.min(4, sortedPlaces.length)
+                  const selectedPlaces = sortedPlaces.slice(0, numRecommendations)
                   
                   for (const place of selectedPlaces) {
                     // Handle both new format (category) and old format (types)
@@ -947,7 +1046,14 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             
             if (!signal.aborted) {
             
-              // Select random places from Foursquare results, or generate random locations
+              // DETERMINISTIC: Sort discovery places by ID for consistent selection
+              const sortedDiscoveryPlaces = [...discoveryPlaces].sort((a: any, b: any) => {
+                const idA = a.fsq_id || a.id || a.place_id || ''
+                const idB = b.fsq_id || b.id || b.place_id || ''
+                return idA.localeCompare(idB)
+              })
+              
+              // Select places from Foursquare results deterministically (same region = same places)
             for (let i = 0; i < discoveryCount; i++) {
               let placeTitle: string
               let placeDescription: string
@@ -958,19 +1064,24 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               let rating: number
               let category: string
               
-              if (discoveryPlaces.length > 0 && i < discoveryPlaces.length) {
-                // Use real Foursquare place
-                const place = discoveryPlaces[i]
+              if (sortedDiscoveryPlaces.length > 0 && i < sortedDiscoveryPlaces.length) {
+                // Use real Foursquare place (deterministic - same index = same place)
+                const place = sortedDiscoveryPlaces[i]
+                // CRITICAL: Use EXACT coordinates from Foursquare API
                 recLat = place.location?.lat || place.geometry?.location?.lat
                 recLng = place.location?.lng || place.geometry?.location?.lng
                 
+                // CRITICAL: Validate coordinates are exact and valid
                 if (recLat && recLng && isFinite(recLat) && isFinite(recLng)) {
+                  // Use EXACT coordinates from Foursquare (no rounding or approximation)
                   placeTitle = place.title || place.name || `Hidden Gem #${i + 1}`
                   placeDescription = place.description || 
                     (place.category ? `Discover this ${place.category.toLowerCase()} spot` : 
                      "A cool spot I think you'll love!")
                   category = place.category || 'adventure'
-                  rating = place.rating || (3.5 + Math.random() * 1.5)
+                  // DETERMINISTIC: Use fixed rating based on place ID instead of random
+                  const placeId = place.fsq_id || place.id || place.place_id || ''
+                  rating = place.rating || (3.5 + (placeId.charCodeAt(0) % 10) / 10) // Deterministic rating
                   fsqId = place.fsq_id || place.id
                   
                   // Extract photo URL
@@ -987,44 +1098,25 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                     hasPhoto: !!photoUrl
                   })
                 } else {
-                  // Fallback to random location if coordinates invalid
-                  const offsetLat = (Math.random() - 0.5) * 0.02
-                  const offsetLng = (Math.random() - 0.5) * 0.02
-                  recLat = location.latitude + offsetLat
-                  recLng = location.longitude + offsetLng
-                  const placeInfo = await fetchPlaceName(recLat, recLng)
-                  placeTitle = placeInfo?.name || `Hidden Gem #${i + 1}`
-                  placeDescription = placeInfo?.name ? 
-                    "A cool spot I think you'll love!" :
-                    "A cool spot I think you'll love!"
-                  category = 'adventure'
-                  rating = 3.5 + Math.random() * 1.5
-                  photoUrl = placeInfo?.photoUrl
+                  // Skip places without valid coordinates - don't use fallback random locations
+                  console.warn('🧠 Skipping discovery place without valid coordinates:', place.title || place.name)
+                  continue
                 }
               } else {
-                // Fallback to random location with geocoding
-                const offsetLat = (Math.random() - 0.5) * 0.02
-                const offsetLng = (Math.random() - 0.5) * 0.02
-                recLat = location.latitude + offsetLat
-                recLng = location.longitude + offsetLng
-                const placeInfo = await fetchPlaceName(recLat, recLng)
-                placeTitle = placeInfo?.name || `Hidden Gem #${i + 1}`
-                placeDescription = placeInfo?.name ? 
-                  "A cool spot I think you'll love!" :
-                  "A cool spot I think you'll love!"
-                category = 'adventure'
-                rating = 3.5 + Math.random() * 1.5
-                photoUrl = placeInfo?.photoUrl
+                // No more places available - skip this discovery recommendation
+                console.log('🧠 No more discovery places available, skipping')
+                break
               }
               
+              // CRITICAL: Use EXACT coordinates from Foursquare API (no approximation)
               aiRecs.push({
-                id: `discovery-${Date.now()}-${i}`,
+                id: `discovery-${fsqId || Date.now()}-${i}`, // Use place ID for deterministic IDs
                 title: placeTitle,
                 description: placeDescription,
                 category: category,
                 location: {
-                  lat: recLat,
-                  lng: recLng
+                  lat: recLat, // EXACT coordinate from Foursquare
+                  lng: recLng  // EXACT coordinate from Foursquare
                 },
                 rating: rating,
                 isAISuggestion: true,
@@ -1037,46 +1129,29 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 fsq_id: fsqId
               } as Recommendation)
             }
-              // Fallback to geocoding if no Foursquare places available
-              if (discoveryPlaces.length === 0) {
-                for (let i = 0; i < discoveryCount; i++) {
-                  if (signal.aborted) break
-                  const offsetLat = (Math.random() - 0.5) * 0.02
-                  const offsetLng = (Math.random() - 0.5) * 0.02
-                  const recLat = location.latitude + offsetLat
-                  const recLng = location.longitude + offsetLng
-                  const placeInfo = await fetchPlaceName(recLat, recLng)
-                  
-                  aiRecs.push({
-                    id: `discovery-${Date.now()}-${i}`,
-                    title: placeInfo?.name || `Hidden Gem #${i + 1}`,
-                    description: placeInfo?.name ? 
-                      "A cool spot I think you'll love!" :
-                      "A cool spot I think you'll love!",
-                    category: 'adventure',
-                    location: {
-                      lat: recLat,
-                      lng: recLng
-                    },
-                    rating: 3.5 + Math.random() * 1.5,
-                    isAISuggestion: true,
-                    confidence: Math.round((insights.userPersonality?.confidence || 0.5) * 60),
-                    reason: "Discovery mode - expanding your horizons",
-                    timestamp: new Date(),
-                    fallbackImage: placeInfo?.photoUrl ? undefined : getFallbackImage('adventure')
-                  })
-                }
-              }
             }
             
             // Store the timestamp of this generation
             localStorage.setItem('last-ai-recommendation-time', now.toString())
             
+            // CACHE: Store recommendations by location for consistency
+            if (aiRecs.length > 0 && location && location.latitude && location.longitude) {
+              const cacheKey = getLocationCacheKey(location.latitude, location.longitude)
+              recommendationCacheRef.current.set(cacheKey, {
+                recommendations: aiRecs,
+                timestamp: now
+              })
+              console.log(`💾 Cached ${aiRecs.length} recommendations for location: ${cacheKey}`)
+            }
+            
             // Add new recommendations to existing ones (don't replace)
             setRecommendations(prev => {
-              const combined = [...prev, ...aiRecs]
-              // Keep only the most recent 8 recommendations to prevent spam
-              return combined.slice(-8)
+              // Remove duplicates by ID
+              const existingIds = new Set(prev.map(r => r.id))
+              const newRecs = aiRecs.filter(r => !existingIds.has(r.id))
+              const combined = [...prev, ...newRecs]
+              // Keep only the most recent 10 recommendations to prevent spam
+              return combined.slice(-10)
             })
             
             // NEW: Update clustered pins whenever recommendations change
@@ -1086,7 +1161,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               return prev
             })
             
-            console.log(`🧠 Generated ${aiRecs.length} new AI recommendations`)
+            console.log(`🧠 Generated ${aiRecs.length} new AI recommendations (cached for consistency)`)
         } catch (error: any) {
           if (error.name === 'AbortError') {
             console.log('🧠 Request was aborted')
@@ -1108,7 +1183,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
         setIsGeneratingRecommendations(false)
       })
     }
-  }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations]) // Added recommendations.length to dependency
+  }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations, getLocationCacheKey, clusterPins]) // Added cache key and cluster functions
 
   // Refresh map when returning to map view
   useEffect(() => {
@@ -1463,144 +1538,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
     }
   }
 
-  // Add markers when map and clustered pins are ready
-  useEffect(() => {
-    if (mapInstanceRef.current && clusteredPins.length > 0) {
-      addMarkersToMap()
-    }
-  }, [clusteredPins]) // Depend on clustered pins instead of recommendations
-
-  const addMarkersToMap = () => {
-    try {
-      if (!mapInstanceRef.current || !clusteredPins.length) return
-
-      // Clear existing markers
-      if (window.google && window.google.maps) {
-        // Add markers for each cluster
-        clusteredPins.forEach((cluster) => {
-          // CRITICAL: Verify cluster has valid coordinates
-          if (!cluster.location || !cluster.location.lat || !cluster.location.lng || 
-              !isFinite(cluster.location.lat) || !isFinite(cluster.location.lng)) {
-            console.error('🗺️ Skipping cluster with invalid coordinates:', cluster)
-            return
-          }
-          
-          console.log('🗺️ Creating marker for:', cluster.recommendations[0]?.title, 'at:', cluster.location)
-          
-          const marker = new window.google.maps.Marker({
-            position: { lat: cluster.location.lat, lng: cluster.location.lng },
-            map: mapInstanceRef.current,
-            title: cluster.count > 1 ? `${cluster.count} recommendations` : cluster.recommendations[0].title,
-            icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="16" cy="16" r="15" fill="${cluster.count > 1 ? '#f59e0b' : (cluster.recommendations[0].isAISuggestion ? '#3b82f6' : '#10b981')}" stroke="white" stroke-width="2"/>
-                  ${cluster.count > 1 ? 
-                    `<text x="16" y="22" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${cluster.count}</text>` :
-                    `<text x="16" y="22" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${cluster.recommendations[0].isAISuggestion ? '🤖' : '📍'}</text>`
-                  }
-                </svg>
-              `),
-              scaledSize: new window.google.maps.Size(32, 32)
-            },
-            zIndex: 10 // Put recommendation markers above user location marker
-          })
-
-          // Create InfoWindow with PINIT blue theme
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
-              <div style="
-                padding: 20px;
-                max-width: 320px;
-                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
-                border-radius: 16px;
-                color: white;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                border: 2px solid rgba(59, 130, 246, 0.6);
-                box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
-                backdrop-filter: blur(10px);
-                position: relative;
-                z-index: 1000;
-                margin: 0;
-                line-height: 1.4;
-              ">
-                <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: white;">
-                  ${cluster.count > 1 ? `${cluster.count} Recommendations` : cluster.recommendations[0].title}
-                </h3>
-                ${cluster.count > 1 ? 
-                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.9);">${cluster.category}</p>
-                   <button id="view-recommendations-${cluster.id}" style="
-                     width: 100%; 
-                     padding: 12px 16px; 
-                     background: rgba(255,255,255,0.15); 
-                     border: 1px solid rgba(255,255,255,0.2); 
-                     border-radius: 12px; 
-                     color: white; 
-                     font-size: 14px; 
-                     font-weight: 600; 
-                     cursor: pointer; 
-                     transition: all 0.2s ease; 
-                     margin-top: 8px; 
-                     backdrop-filter: blur(10px);
-                     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                     font-family: inherit; 
-                     outline: none; 
-                     display: block;
-                   ">
-                     👁️ View All ${cluster.count} Recommendations
-                   </button>
-                   <p style="margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.8); text-align: center;">
-                     Tap to explore these amazing spots!
-                   </p>` :
-                  `<p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255,255,255,0.9);">${cluster.recommendations[0].description}</p>
-                   <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                     <span style="background: ${cluster.recommendations[0].isAISuggestion ? 'rgba(59, 130, 246,0.9)' : 'rgba(16, 185, 129, 0.9)'}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">
-                       ${cluster.recommendations[0].isAISuggestion ? '🤖 AI' : '👥 Community'}
-                     </span>
-                     <span style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 500;">⭐ ${cluster.recommendations[0].rating.toFixed(1)}/5</span>
-                   </div>`
-                }
-              </div>
-            `,
-            pixelOffset: new window.google.maps.Size(0, -10),
-            backgroundColor: 'transparent',
-            border: 'none',
-            disableAutoPan: false
-          })
-
-          marker.addListener('click', () => {
-            infoWindow.open(mapInstanceRef.current, marker)
-            
-            // Add click handler for the view recommendations button
-            setTimeout(() => {
-              const button = document.getElementById(`view-recommendations-${cluster.id}`)
-              if (button) {
-                button.addEventListener('click', () => {
-                  console.log('🧠 User clicked to view cluster recommendations:', cluster)
-                  
-                  // Filter recommendations to show only this cluster's recommendations
-                  const clusterRecommendations = cluster.recommendations
-                  setFilteredRecommendations(clusterRecommendations)
-                  setCurrentCluster(cluster)
-                  setIsShowingCluster(true)
-                  
-                  // Switch to list view to show the filtered recommendations
-                  setViewMode('list')
-                  
-                  // Close the info window
-                  infoWindow.close()
-                  
-                  console.log(`🧠 Showing ${clusterRecommendations.length} recommendations from cluster:`, cluster.id)
-                })
-              }
-            }, 100)
-          })
-        })
-      }
-    } catch (error) {
-      console.error('🗺️ Failed to add clustered markers:', error)
-    }
-  }
+  // REMOVED: Map markers - now using buttons to navigate to list view instead
 
   // Add after createMapInstance function:
   const createFallbackMap = () => {
@@ -1855,6 +1793,102 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                 </button>
               </div>
             )}
+            
+            {/* NEW: User Recommendations and AI Recommendations buttons */}
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              gap: '12px',
+              zIndex: 5,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              maxWidth: '90%'
+            }}>
+              <button
+                onClick={() => {
+                  console.log('👥 User clicked User Recommendations button')
+                  const userRecs = getUserRecommendations()
+                  setFilteredRecommendations(userRecs)
+                  setIsShowingCluster(false)
+                  setCurrentCluster(null)
+                  setRecommendationFilter("user")
+                  setViewMode('list')
+                }}
+                style={{
+                  background: 'rgba(16, 185, 129, 0.95)',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 1)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.95)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+                }}
+              >
+                👥 User Recommendations
+              </button>
+              
+              <button
+                onClick={() => {
+                  console.log('🤖 User clicked AI Recommendations button')
+                  const aiRecs = recommendations.filter(rec => rec.isAISuggestion)
+                  setFilteredRecommendations(aiRecs)
+                  setIsShowingCluster(false)
+                  setCurrentCluster(null)
+                  setRecommendationFilter("ai")
+                  setViewMode('list')
+                }}
+                style={{
+                  background: 'rgba(59, 130, 246, 0.95)',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 1)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.95)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+                }}
+              >
+                🤖 AI Recommendations
+              </button>
+            </div>
             
             {/* Status indicator */}
             <div style={{
@@ -2231,7 +2265,7 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             backdropFilter: 'blur(15px)',
             border: '1px solid rgba(255,255,255,0.2)',
           }}>
-            {/* NEW: Dynamic header based on whether showing cluster or all recommendations */}
+            {/* NEW: Dynamic header based on filter type */}
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -2241,7 +2275,11 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
             }}>
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold' }}>
-                  {isShowingCluster ? 
+                  {recommendationFilter === "user" ? 
+                    '👥 User Recommendations' :
+                    recommendationFilter === "ai" ?
+                    '🤖 AI Recommendations' :
+                    isShowingCluster ?
                     `📍 ${currentCluster?.count || 0} Recommendations` : 
                     '🧠 AI-Powered Recommendations'
                   }
@@ -2286,10 +2324,22 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
               )}
             </div>
             
-            {/* NEW: Show filtered recommendations or all recommendations */}
-            {(isShowingCluster ? filteredRecommendations : recommendations).length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {(isShowingCluster ? filteredRecommendations : recommendations).map((rec) => (
+            {/* NEW: Show filtered recommendations based on filter type */}
+            {(() => {
+              let displayRecs: Recommendation[] = []
+              if (recommendationFilter === "user") {
+                displayRecs = filteredRecommendations
+              } else if (recommendationFilter === "ai") {
+                displayRecs = filteredRecommendations
+              } else if (isShowingCluster) {
+                displayRecs = filteredRecommendations
+              } else {
+                displayRecs = recommendations
+              }
+              
+              return displayRecs.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {displayRecs.map((rec) => (
                   <div
                     key={rec.id}
                     style={{
@@ -2561,7 +2611,8 @@ export default function AIRecommendationsHub({ onBack, userLocation, initialReco
                   }
                 </p>
               </div>
-            )}
+              )
+            })()}
           </div>
         )}
 
