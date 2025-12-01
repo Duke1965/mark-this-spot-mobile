@@ -1116,9 +1116,23 @@ export default function PINITApp() {
   // NEW: Fetch location photos for pins (returns single best photo with aggressive filtering)
   // Includes request deduplication to prevent multiple API calls for the same location
   // Accepts optional AbortSignal for cancellation from parent requests
+  // Helper function to calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000 // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c // Distance in meters
+  }
+
   const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal, bypassCache: boolean = false): Promise<{url: string, placeName: string, description?: string}[]> => {
     // Request deduplication: Check cache first (unless bypassing)
-    const cacheKey = `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}` // Round to ~100m precision
+    // Use more precise cache key for exact location matching
+    const cacheKey = `${lat.toFixed(6)},${lng.toFixed(6)}` // Use full precision for exact location
     const cached = photoFetchCacheRef.current.get(cacheKey)
     const now = Date.now()
     
@@ -1129,7 +1143,7 @@ export default function PINITApp() {
     }
     
     if (bypassCache) {
-      console.log("📸 Bypassing cache - fetching fresh data for:", { lat, lng, cacheKey })
+      console.log("📸 Bypassing cache - fetching fresh data for EXACT location:", { lat, lng, cacheKey })
     }
     
     // Check if external signal is already aborted
@@ -1176,10 +1190,10 @@ export default function PINITApp() {
       let data: any = null
       
       try {
-        console.log("📸 Trying Foursquare API for place data and photos...")
-        // Use small radius (500m) for speed-based pinning - pin location is calculated precisely
-        // This finds the exact place the user passed, not places far away
-        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=500&limit=5`, { signal })
+        console.log("📸 Trying Foursquare API for place data and photos at EXACT location...")
+        // Use very small radius (50m) for precise location matching - ensures we get the exact place at the pin location
+        // This prevents mixing up restaurants, monuments, or other places that might be right next door
+        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=10`, { signal })
         console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
         
         if (photoResponse.ok) {
@@ -1190,8 +1204,17 @@ export default function PINITApp() {
           if (data.items && data.items.length > 0) {
             const photos: {url: string, placeName: string, description?: string}[] = []
             
-            // Find closest place (first one should be closest)
-            const closestPlace = data.items[0]
+            // Calculate distance from exact pin location to each place and sort by distance
+            const placesWithDistance = data.items.map((place: any) => {
+              const placeLat = place.location?.lat || place.latitude
+              const placeLng = place.location?.lng || place.longitude
+              const distance = calculateDistance(lat, lng, placeLat, placeLng)
+              return { ...place, distance }
+            }).sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+            
+            // Get the closest place to the exact pin coordinates
+            const closestPlace = placesWithDistance[0]
+            console.log(`✅ Found closest place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m from pin location`)
             
             if (closestPlace.photoUrl) {
               photos.push({
@@ -1237,8 +1260,9 @@ export default function PINITApp() {
       
       // Fallback to /api/places if Foursquare didn't work or returned no results
       if (!data || !data.items || data.items.length === 0) {
-        console.log("📸 Falling back to /api/places endpoint...")
-        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000`, { signal })
+        console.log("📸 Falling back to /api/places endpoint for EXACT location...")
+        // Use small radius (100m) for precise location matching
+        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=100`, { signal })
         console.log(`📸 API response status: ${photoResponse.status}`)
         
         if (!photoResponse.ok) {
@@ -1256,8 +1280,22 @@ export default function PINITApp() {
       const results = data.items || data.results || []
       
       if (results.length > 0) {
-        // Get the closest place
-        const closestPlace = results[0]
+        // Calculate distance from exact pin location to each place and sort by distance
+        const placesWithDistance = results.map((place: any) => {
+          // Handle both Foursquare and Google format
+          const placeLat = place.location?.lat || place.geometry?.location?.lat || place.latitude
+          const placeLng = place.location?.lng || place.geometry?.location?.lng || place.longitude
+          if (placeLat && placeLng) {
+            const distance = calculateDistance(lat, lng, placeLat, placeLng)
+            return { ...place, distance }
+          }
+          // If no coordinates, assign very large distance
+          return { ...place, distance: 999999 }
+        }).sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+        
+        // Get the closest place to the exact pin coordinates
+        const closestPlace = placesWithDistance[0]
+        console.log(`✅ Found closest place: ${closestPlace.name || closestPlace.title} at ${closestPlace.distance.toFixed(1)}m from pin location`)
         
         // Handle Foursquare format
         if (closestPlace.photoUrl) {
