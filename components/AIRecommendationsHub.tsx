@@ -454,7 +454,7 @@ export default function AIRecommendationsHub({
     return categoryMap[category] || categoryMap['general']
   }, [])
   
-  // NEW: Get user recommendations from localStorage pins
+  // NEW: Get user recommendations from localStorage pins, with gradual mock fade-out
   const getUserRecommendations = useCallback((): Recommendation[] => {
     try {
       const pinsJson = localStorage.getItem('pinit-pins') || '[]'
@@ -466,7 +466,7 @@ export default function AIRecommendationsHub({
       )
       
       // Convert pins to Recommendation format
-      return userRecommendedPins.map(pin => ({
+      const realUserRecs = userRecommendedPins.map(pin => ({
         id: pin.id,
         title: pin.title || pin.locationName || "User Recommendation",
         description: pin.description || pin.personalThoughts || "A recommended place",
@@ -484,11 +484,44 @@ export default function AIRecommendationsHub({
         mediaUrl: pin.mediaUrl || undefined,
         fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || "general")
       }))
+      
+      // GRADUAL FADE-OUT: Add mock user recommendations if we have few real ones
+      // Get AI confidence to determine fade-out level
+      const aiConfidence = insights.userPersonality?.confidence || 0
+      const realRecCount = realUserRecs.length
+      
+      // Calculate how many mock recommendations to show based on confidence and real count
+      // At confidence 0: show 4 mocks, at confidence 0.3: show 0 mocks
+      // Also fade out if we have real recommendations
+      let mockCount = 0
+      if (realRecCount === 0 && aiConfidence < 0.3) {
+        // Full mocks when no real recommendations and low confidence
+        mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
+      } else if (realRecCount > 0 && realRecCount < 4) {
+        // Partial mocks when we have some real recommendations
+        mockCount = Math.max(0, 4 - realRecCount)
+        // Further reduce based on confidence
+        mockCount = Math.floor(mockCount * (1 - (aiConfidence / 0.3)))
+      }
+      
+      if (mockCount > 0 && location && location.latitude && location.longitude) {
+        const mockUserRecs = generateMockUserRecommendations(location.latitude, location.longitude)
+        // Take only the number we need
+        const selectedMocks = mockUserRecs.slice(0, mockCount)
+        console.log(`👥 Adding ${selectedMocks.length} mock user recommendations (${realRecCount} real, confidence: ${aiConfidence.toFixed(2)})`)
+        return [...realUserRecs, ...selectedMocks]
+      }
+      
+      return realUserRecs
     } catch (error) {
       console.error('Error loading user recommendations:', error)
+      // Return mock recommendations as fallback
+      if (location && location.latitude && location.longitude) {
+        return generateMockUserRecommendations(location.latitude, location.longitude)
+      }
       return []
     }
-  }, [getFallbackImage])
+  }, [getFallbackImage, insights.userPersonality?.confidence, location])
 
   // Helper function to categorize places based on their types
   const getCategoryFromTypes = useCallback((types: string[]): string => {
@@ -505,8 +538,8 @@ export default function AIRecommendationsHub({
     }
   }, [])
 
-  // Generate mock recommendations for new users when API is unavailable
-  const generateMockNewUserRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
+  // Generate mock AI recommendations for new users when API is unavailable
+  const generateMockAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
     const mockPlaces = [
       {
         name: "Local Café",
@@ -543,7 +576,7 @@ export default function AIRecommendationsHub({
     ]
 
     return mockPlaces.map((place, index) => ({
-      id: `mock-new-user-${index}`,
+      id: `mock-ai-${index}`,
       title: place.name,
       description: place.description,
       category: place.category,
@@ -555,6 +588,62 @@ export default function AIRecommendationsHub({
       isAISuggestion: true,
       confidence: 20, // Low confidence for mock data
       reason: "Local area discovery - exploring your neighborhood",
+      timestamp: new Date(),
+      fallbackImage: getFallbackImage(place.category.toLowerCase().split(' ')[0])
+    }))
+  }, [getFallbackImage])
+
+  // Generate mock USER recommendations (different places from AI mocks to avoid looking fake)
+  const generateMockUserRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
+    // DIFFERENT places from AI mocks - positioned in different locations
+    const mockPlaces = [
+      {
+        name: "Riverside Bistro",
+        category: "Food & Dining",
+        lat: lat + 0.012,
+        lng: lng - 0.015,
+        rating: 4.6,
+        description: "Popular bistro with great views and delicious food"
+      },
+      {
+        name: "Heritage Trail",
+        category: "Nature & Parks", 
+        lat: lat - 0.018,
+        lng: lng - 0.01,
+        rating: 4.7,
+        description: "Scenic walking trail through historic areas"
+      },
+      {
+        name: "Cultural Center",
+        category: "Culture & Arts",
+        lat: lat - 0.01,
+        lng: lng + 0.014,
+        rating: 4.3,
+        description: "Community cultural center with events and exhibitions"
+      },
+      {
+        name: "Market Square",
+        category: "Shopping",
+        lat: lat + 0.015,
+        lng: lng + 0.012,
+        rating: 4.1,
+        description: "Vibrant market square with local vendors"
+      }
+    ]
+
+    return mockPlaces.map((place, index) => ({
+      id: `mock-user-${index}`,
+      title: place.name,
+      description: place.description,
+      category: place.category,
+      location: {
+        lat: place.lat,
+        lng: place.lng,
+      },
+      rating: place.rating,
+      isAISuggestion: false, // User recommendations
+      confidence: 0,
+      reason: "Recommended by community members",
       timestamp: new Date(),
       fallbackImage: getFallbackImage(place.category.toLowerCase().split(' ')[0])
     }))
@@ -961,17 +1050,29 @@ export default function AIRecommendationsHub({
               } catch (error) {
                 console.log('🧠 Error fetching local places for new user:', error)
                 
-                // Fallback to mock recommendations if API fails
-                const mockRecommendations = generateMockNewUserRecommendations(location.latitude, location.longitude)
-                aiRecs.push(...mockRecommendations)
-                console.log('🧠 Using mock recommendations as fallback')
+                // Fallback to mock AI recommendations if API fails
+                // GRADUAL FADE-OUT: Show fewer mocks as confidence increases
+                const aiConfidence = insights.userPersonality?.confidence || 0
+                const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
+                if (mockCount > 0) {
+                  const mockRecommendations = generateMockAIRecommendations(location.latitude, location.longitude)
+                  const selectedMocks = mockRecommendations.slice(0, mockCount)
+                  aiRecs.push(...selectedMocks)
+                  console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations as fallback (confidence: ${aiConfidence.toFixed(2)})`)
+                }
               }
             } else {
               console.log('🧠 Skipping API request - too soon since last request (rate limiting)')
               
-              // Use cached/mock recommendations to avoid API loops
-              const mockRecommendations = generateMockNewUserRecommendations(location.latitude, location.longitude)
-              aiRecs.push(...mockRecommendations)
+              // GRADUAL FADE-OUT: Use fewer mock recommendations based on confidence
+              const aiConfidence = insights.userPersonality?.confidence || 0
+              const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
+              if (mockCount > 0) {
+                const mockRecommendations = generateMockAIRecommendations(location.latitude, location.longitude)
+                const selectedMocks = mockRecommendations.slice(0, mockCount)
+                aiRecs.push(...selectedMocks)
+                console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (confidence: ${aiConfidence.toFixed(2)})`)
+              }
             }
           }
           
