@@ -144,42 +144,65 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 /**
- * Call OpenCage reverse geocoding API
+ * Call Foursquare Places API for reverse geocoding (get place name)
  */
 async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: string; components: Record<string, string> | null }> {
-  if (!OPENCAGE_KEY) {
-    throw new Error('OpenCage API key not configured')
+  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+  
+  if (!foursquareServiceKey) {
+    throw new Error('Foursquare API key not configured')
   }
   
-  const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${OPENCAGE_KEY}&no_record=1&language=en&limit=1`
+  // Use internal Foursquare Places API endpoint
+  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+    : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000'
+  
+  const url = `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
   
   try {
     const response = await fetchWithTimeout(url)
     
     if (!response.ok) {
-      throw new Error(`OpenCage API error: ${response.status}`)
+      throw new Error(`Foursquare API error: ${response.status}`)
     }
     
     const data = await response.json()
     
-    if (!data.results || data.results.length === 0) {
-      throw new Error('No geocoding results found')
+    if (!data.items || data.items.length === 0) {
+      // Return coordinate-based fallback
+      return {
+        formatted: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+        components: null
+      }
     }
     
-    const result = data.results[0]
+    const place = data.items[0]
+    const placeName = place.title || place.name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    const address = place.address || place.location?.address || ""
     
     return {
-      formatted: result.formatted || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      components: result.components || null
+      formatted: address ? `${placeName}, ${address}` : placeName,
+      components: {
+        name: placeName,
+        address: address,
+        category: place.category || ""
+      }
     }
   } catch (error) {
-    console.error('❌ OpenCage error:', error)
-    throw error
+    console.error('❌ Foursquare geocoding error:', error)
+    // Return coordinate-based fallback on error
+    return {
+      formatted: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+      components: null
+    }
   }
 }
 
 /**
- * Call Geoapify Places API
+ * Call Foursquare Places API for nearby places
  */
 async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
   id: string
@@ -189,35 +212,65 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
   lat: number
   lng: number
 }>> {
-  if (!GEOAPIFY_KEY) {
-    throw new Error('Geoapify API key not configured')
+  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+  
+  if (!foursquareServiceKey) {
+    throw new Error('Foursquare API key not configured')
   }
   
-  const url = `https://api.geoapify.com/v2/places?categories=commercial,leisure,catering,activity&filter=circle:${lng},${lat},100&bias=proximity:${lng},${lat}&limit=20&apiKey=${GEOAPIFY_KEY}`
+  // Use internal Foursquare Places API endpoint
+  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+    : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000'
+  
+  const url = `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=5000&limit=20`
   
   try {
     const response = await fetchWithTimeout(url)
     
     if (!response.ok) {
-      throw new Error(`Geoapify API error: ${response.status}`)
+      throw new Error(`Foursquare API error: ${response.status}`)
     }
     
     const data = await response.json()
     
-    if (!data.features || !Array.isArray(data.features)) {
+    if (!data.items || !Array.isArray(data.items)) {
       return []
     }
     
-    return data.features.map((feature: any) => ({
-      id: feature.properties?.place_id || `place-${Math.random().toString(36).substr(2, 9)}`,
-      name: feature.properties?.name,
-      categories: feature.properties?.categories,
-      distance_m: feature.properties?.distance,
-      lat: feature.geometry?.coordinates?.[1] || lat,
-      lng: feature.geometry?.coordinates?.[0] || lng
-    }))
+    // Calculate distance from center point to each place
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 6371000 // Earth radius in meters
+      const toRad = (deg: number) => (deg * Math.PI) / 180
+      const dLat = toRad(lat2 - lat1)
+      const dLng = toRad(lon2 - lon1)
+      const lat1Rad = toRad(lat1)
+      const lat2Rad = toRad(lat2)
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2)
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      return R * c
+    }
+    
+    return data.items.map((place: any) => {
+      const placeLat = place.location?.lat || place.latitude || lat
+      const placeLng = place.location?.lng || place.longitude || lng
+      const distance = calculateDistance(lat, lng, placeLat, placeLng)
+      
+      return {
+        id: place.fsq_id || place.id || `place-${Math.random().toString(36).substr(2, 9)}`,
+        name: place.title || place.name,
+        categories: place.category ? [place.category] : (place.categories || []),
+        distance_m: Math.round(distance),
+        lat: placeLat,
+        lng: placeLng
+      }
+    })
   } catch (error) {
-    console.error('❌ Geoapify error:', error)
+    console.error('❌ Foursquare places error:', error)
     throw error
   }
 }
@@ -310,8 +363,8 @@ export async function POST(request: NextRequest) {
     }
     
     // Generate cache keys
-    const geocodeKey = `opencage:${coarseKey(lat, lng, precision)}`
-    const poiKey = `geoapify:${coarseKey(lat, lng, precision)}`
+    const geocodeKey = `foursquare-geocode:${coarseKey(lat, lng, precision)}`
+    const poiKey = `foursquare-places:${coarseKey(lat, lng, precision)}`
     const imageryKey = `mapillary:${coarseKey(lat, lng, precision)}`
     
     // Try to get from cache (Redis first, then in-memory)
@@ -336,7 +389,7 @@ export async function POST(request: NextRequest) {
     
     // Fetch geocode if not cached
     if (!geocodeData) {
-      console.log(`🌍 Fetching geocode from OpenCage...`)
+      console.log(`🌍 Fetching geocode from Foursquare...`)
       try {
         geocodeData = await reverseGeocode(lat, lng)
         
@@ -379,7 +432,7 @@ export async function POST(request: NextRequest) {
     
     // Fetch POI if not cached
     if (!poiData) {
-      console.log(`🏪 Fetching POI from Geoapify...`)
+      console.log(`🏪 Fetching POI from Foursquare...`)
       try {
         poiData = await fetchNearbyPlaces(lat, lng)
         
@@ -451,8 +504,8 @@ export async function POST(request: NextRequest) {
     const response = {
       meta: {
         source: {
-          geocode: 'opencage',
-          places: 'geoapify',
+          geocode: 'foursquare',
+          places: 'foursquare',
           ...(imagerySource !== 'none' ? { imagery: imagerySource } : {})
         },
         cached: {
