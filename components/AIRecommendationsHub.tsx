@@ -1794,18 +1794,17 @@ export default function AIRecommendationsHub({
               </div>
             )}
             
-            {/* NEW: User Recommendations and AI Recommendations buttons */}
+            {/* NEW: User Recommendations and AI Recommendations buttons - centered on map */}
             <div style={{
               position: 'absolute',
-              top: '20px',
+              top: '50%',
               left: '50%',
-              transform: 'translateX(-50%)',
+              transform: 'translate(-50%, -50%)',
               display: 'flex',
               gap: '12px',
               zIndex: 5,
-              flexWrap: 'wrap',
               justifyContent: 'center',
-              maxWidth: '90%'
+              alignItems: 'center'
             }}>
               <button
                 onClick={() => {
@@ -1818,31 +1817,27 @@ export default function AIRecommendationsHub({
                   setViewMode('list')
                 }}
                 style={{
-                  background: 'rgba(16, 185, 129, 0.95)',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '0.75rem',
                   padding: '12px 20px',
                   color: 'white',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  backdropFilter: 'blur(15px)',
                   whiteSpace: 'nowrap',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(16, 185, 129, 1)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.95)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
                 }}
               >
                 👥 User Recommendations
@@ -1859,31 +1854,27 @@ export default function AIRecommendationsHub({
                   setViewMode('list')
                 }}
                 style={{
-                  background: 'rgba(59, 130, 246, 0.95)',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '0.75rem',
                   padding: '12px 20px',
                   color: 'white',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  backdropFilter: 'blur(15px)',
                   whiteSpace: 'nowrap',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 1)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.95)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
                 }}
               >
                 🤖 AI Recommendations
@@ -2281,7 +2272,7 @@ export default function AIRecommendationsHub({
                     '🤖 AI Recommendations' :
                     isShowingCluster ?
                     `📍 ${currentCluster?.count || 0} Recommendations` : 
-                    '🧠 AI-Powered Recommendations'
+                    '🧠 Recommendations'
                   }
                 </h3>
                 {isShowingCluster && currentCluster && (
