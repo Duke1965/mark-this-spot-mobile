@@ -180,11 +180,43 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
     }
     
     const place = data.items[0]
-    const placeName = place.title || place.name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    const placeName = place.title || place.name || ""
     const address = place.address || place.location?.address || ""
     
+    // Format as "Street Name, Town" - extract street and locality from address
+    // Foursquare address format is typically: "Street Number Street Name, Locality, City, Country"
+    // We want: "Street Name, Locality/City" (concise format)
+    let formatted = ""
+    
+    if (address) {
+      // Split address by comma to get components
+      const addressParts = address.split(',').map(part => part.trim()).filter(part => part.length > 0)
+      
+      if (addressParts.length >= 2) {
+        // First part is usually street, second is usually locality/town
+        const street = addressParts[0]
+        const town = addressParts[1]
+        formatted = `${street}, ${town}`
+      } else if (addressParts.length === 1) {
+        // Only one part - use it as street, try to get town from place name or use place name
+        formatted = addressParts[0]
+        if (placeName && placeName !== addressParts[0]) {
+          // If place name is different, add it as town
+          formatted = `${addressParts[0]}, ${placeName}`
+        }
+      } else {
+        formatted = address
+      }
+    } else if (placeName) {
+      // No address, use place name
+      formatted = placeName
+    } else {
+      // Fallback to coordinates (but we'll try to avoid this)
+      formatted = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    }
+    
     return {
-      formatted: address ? `${placeName}, ${address}` : placeName,
+      formatted: formatted,
       components: {
         name: placeName,
         address: address,
