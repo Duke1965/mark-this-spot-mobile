@@ -1046,24 +1046,14 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   <span style={{ fontSize: "1.5rem" }}>💬</span>
                   <span style={{ fontWeight: "bold" }}>WhatsApp</span>
                 </div>
-                <input
-                  type="text"
-                  placeholder="+27 123 456 7890"
-                  value={userProfile.socialAccounts.whatsapp}
-                  onChange={(e) => setUserProfile(prev => ({
-                    ...prev,
-                    socialAccounts: { ...prev.socialAccounts, whatsapp: e.target.value }
-                  }))}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    fontSize: "0.875rem"
-                  }}
-                />
+                <p style={{ 
+                  margin: "0.5rem 0 0 0", 
+                  fontSize: "0.875rem", 
+                  opacity: 0.8,
+                  fontStyle: "italic"
+                }}>
+                  WhatsApp sharing is ready! When you share, it will open WhatsApp to let you choose who to send it to.
+                </p>
               </div>
 
               <button
