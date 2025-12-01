@@ -2089,8 +2089,8 @@ export default function PINITApp() {
         latitude: recommendationData?.foursquareData?.latitude || recommendationData?.latitude || userLocation?.latitude || 0,
         longitude: recommendationData?.foursquareData?.longitude || recommendationData?.longitude || userLocation?.longitude || 0,
         locationName: foursquareTitle,
-        mediaUrl: uploadedMediaUrl,
-        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+              mediaUrl: uploadedMediaUrl,
+              mediaType: recommendationData?.mediaUrl ? (recommendationData.mediaUrl.includes('video') || recommendationData.mediaUrl.startsWith('blob:') ? "video" : "photo") : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
         // Use Foursquare place name as title, with user review
@@ -2143,8 +2143,8 @@ export default function PINITApp() {
         latitude: recommendationData?.foursquareData?.latitude || userLocation?.latitude || 0,
         longitude: recommendationData?.foursquareData?.longitude || userLocation?.longitude || 0,
         locationName: foursquareTitle,
-        mediaUrl: uploadedMediaUrl,
-        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+              mediaUrl: uploadedMediaUrl,
+              mediaType: recommendationData?.mediaUrl ? (recommendationData.mediaUrl.includes('video') || recommendationData.mediaUrl.startsWith('blob:') ? "video" : "photo") : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
         // Use Foursquare place name as title
@@ -2280,21 +2280,33 @@ export default function PINITApp() {
           
           // Handle posting with content data - save the pin first
           if (capturedMedia && location) {
-            // Create a new pin with the captured photo and content
+            // PRIORITIZE Foursquare data for location name and title
+            const foursquareTitle = capturedMedia.foursquareData?.placeName || locationDetails?.name
+            const foursquareDescription = capturedMedia.foursquareData?.description
+            const isVideo = capturedMedia.type === "video"
+            
+            // Create a new pin with the captured media (photo or video) and content
             const newPin: PinData = {
               id: Date.now().toString(),
-              latitude: location.latitude,
-              longitude: location.longitude,
-              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+              // PRIORITIZE Foursquare coordinates over location coordinates
+              latitude: capturedMedia.foursquareData?.latitude || location.latitude,
+              longitude: capturedMedia.foursquareData?.longitude || location.longitude,
+              // PRIORITIZE Foursquare place name for locationName
+              locationName: foursquareTitle || locationName || (isVideo ? "Camera Video Location" : "Camera Photo Location"),
+              // For videos, use the video URL directly; for photos, use rendered image if available
+              mediaUrl: isVideo ? capturedMedia.url : (contentData.finalImageUrl || capturedMedia.url),
               mediaType: capturedMedia.type,
-              title: locationDetails?.name || "Camera Photo",
-              description: contentData.comments || "Photo taken with PINIT camera",
-              tags: ["camera", "photo", "personal"],
+              audioUrl: null,
+              // PRIORITIZE Foursquare place name, then location details, then fallback
+              title: foursquareTitle || (isVideo ? "Camera Video" : "Camera Photo"),
+              // Use Foursquare description if available, otherwise default description
+              description: foursquareDescription || contentData.comments || (isVideo ? "Video taken with PINIT camera" : "Photo taken with PINIT camera"),
+              tags: ["camera", isVideo ? "video" : "photo", "personal"],
               personalThoughts: contentData.comments || "",
               timestamp: new Date().toISOString(),
               stickers: contentData.stickers || [],
               platform: contentData.platform || "camera"
-            } as PinData
+            }
             
             // Add the pin to the collection
             addPin(newPin)
@@ -2316,8 +2328,10 @@ export default function PINITApp() {
             // Show recommendation form after success message for PINIT pins
           setTimeout(() => {
             setShowRecommendationPopup(false)
+            // For videos, use video URL directly; for photos, use rendered image if available
+            const isVideo = capturedMedia.type === "video"
             setRecommendationData({
-              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+              mediaUrl: isVideo ? capturedMedia.url : (contentData.finalImageUrl || capturedMedia.url),
               // PRIORITIZE Foursquare place name over generic location
               locationName: capturedMedia.foursquareData?.placeName || capturedMedia.location || capturedMedia.title || "PINIT Location",
               platform: selectedPlatform,
@@ -2346,22 +2360,32 @@ export default function PINITApp() {
         onSave={(contentData) => {
           // Handle saving with content data - actually save the pin
           if (capturedMedia && location) {
-            // Create a new pin with the captured photo and content
+            // PRIORITIZE Foursquare data for location name and title
+            const foursquareTitle = capturedMedia.foursquareData?.placeName || locationDetails?.name
+            const foursquareDescription = capturedMedia.foursquareData?.description
+            const isVideo = capturedMedia.type === "video"
+            
+            // Create a new pin with the captured media (photo or video) and content
             const newPin: PinData = {
               id: Date.now().toString(),
-              latitude: location.latitude,
-              longitude: location.longitude,
-              locationName: capturedMedia.foursquareData?.placeName || locationName || "Camera Photo Location", // Prioritize Foursquare
-              mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
+              // PRIORITIZE Foursquare coordinates over location coordinates
+              latitude: capturedMedia.foursquareData?.latitude || location.latitude,
+              longitude: capturedMedia.foursquareData?.longitude || location.longitude,
+              locationName: foursquareTitle || locationName || (isVideo ? "Camera Video Location" : "Camera Photo Location"), // Prioritize Foursquare
+              // For videos, use the video URL directly; for photos, use rendered image if available
+              mediaUrl: isVideo ? capturedMedia.url : (contentData.finalImageUrl || capturedMedia.url),
               mediaType: capturedMedia.type,
-              title: capturedMedia.foursquareData?.placeName || locationDetails?.name || "Camera Photo", // Prioritize Foursquare
-              description: contentData.comments || "Photo taken with PINIT camera",
-              tags: ["camera", "photo", "personal"],
+              audioUrl: null,
+              // PRIORITIZE Foursquare place name, then location details, then fallback
+              title: foursquareTitle || (isVideo ? "Camera Video" : "Camera Photo"), // Prioritize Foursquare
+              // Use Foursquare description if available, otherwise default description
+              description: foursquareDescription || contentData.comments || (isVideo ? "Video taken with PINIT camera" : "Photo taken with PINIT camera"),
+              tags: ["camera", isVideo ? "video" : "photo", "personal"],
               personalThoughts: contentData.comments || "",
               timestamp: new Date().toISOString(),
               stickers: contentData.stickers || [],
               platform: contentData.platform || "camera"
-            } as PinData
+            }
             
             // Add the pin to the collection
             addPin(newPin)
