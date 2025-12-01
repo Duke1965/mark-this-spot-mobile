@@ -713,24 +713,63 @@ export default function PINITApp() {
       
       // If throttled (returns null), fall through to coordinate fallback
       if (pinIntel && pinIntel.geocode && pinIntel.geocode.formatted) {
-        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location name from gateway:`, pinIntel.geocode.formatted)
-        return pinIntel.geocode.formatted
+        const formatted = pinIntel.geocode.formatted
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Location name from gateway:`, formatted)
+        
+        // Don't show coordinates - if it's a coordinate string, try to get better format
+        if (formatted.includes('Location (') && formatted.includes(',')) {
+          // It's showing coordinates, use a better fallback
+          return await getLocationFallback(lat, lng)
+        }
+        
+        return formatted
       }
       
       // Fallback to coordinate-based detection (also used when throttled)
       if (!pinIntel) {
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Pin-intel call throttled, using coordinate fallback`)
+        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Pin-intel call throttled, using location fallback`)
       } else {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway returned no location, using coordinate fallback`)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway returned no location, using location fallback`)
       }
     } catch (error) {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway error, using coordinate fallback:`, error)
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Gateway error, using location fallback:`, error)
     }
     
-    // COORDINATE-BASED FALLBACK (no API calls)
-    console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using coordinate fallback...`)
+    // Use better fallback that doesn't show coordinates
+    return await getLocationFallback(lat, lng)
+  }
+  
+  // Helper function for location fallback (no coordinates shown)
+  const getLocationFallback = async (lat: number, lng: number): Promise<string> => {
+    // Try to get location from Foursquare API directly as fallback
+    try {
+      const response = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.items && data.items.length > 0) {
+          const place = data.items[0]
+          const address = place.address || place.location?.address || ""
+          const placeName = place.title || place.name || ""
+          
+          // Format as "Street, Town"
+          if (address) {
+            const addressParts = address.split(',').map((part: string) => part.trim()).filter((part: string) => part.length > 0)
+            if (addressParts.length >= 2) {
+              return `${addressParts[0]}, ${addressParts[1]}`
+            } else if (addressParts.length === 1) {
+              return addressParts[0]
+            }
+          } else if (placeName) {
+            return placeName
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Foursquare fallback error:`, error)
+    }
     
-    // Riebeek West area - expanded range
+    // Regional fallbacks (no coordinates)
+    // Riebeek West area
     if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
       return "Riebeek West"
     }
@@ -740,13 +779,13 @@ export default function PINITApp() {
       return "Cape Town"
     }
     
-    // Western Cape region (broader fallback)
+    // Western Cape region
     if (lat > -34.5 && lat < -33.0 && lng > 18.0 && lng < 19.5) {
       return "Western Cape"
     }
     
-    // Final fallback
-    return `Current Location`
+    // Final fallback - just say "Current Location" instead of coordinates
+    return "Current Location"
   }
 
   // UPDATED: Use pin-intel gateway for nearby places (NO MORE GOOGLE PLACES API)
