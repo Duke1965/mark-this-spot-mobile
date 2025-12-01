@@ -279,6 +279,12 @@ export default function PINITApp() {
     latitude?: number
     longitude?: number
     additionalPhotos?: Array<{ url: string; placeName: string }>
+    foursquareData?: {
+      placeName: string | null
+      description: string | null
+      latitude: number
+      longitude: number
+    }
   } | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
@@ -609,6 +615,12 @@ export default function PINITApp() {
     latitude?: number
     longitude?: number
     additionalPhotos?: Array<{ url: string; placeName: string }>
+    foursquareData?: {
+      placeName: string | null
+      description: string | null
+      latitude: number
+      longitude: number
+    }
   } | null>(null)
 
   // Add location name resolution
@@ -869,23 +881,6 @@ export default function PINITApp() {
       setLastActivity(`proactive-${action}`)
     },
     [],
-  )
-
-  // Handle camera capture
-  const handleCameraCapture = useCallback(
-    async (mediaUrl: string, type: "photo" | "video") => {
-      if (!location) return
-
-      setCapturedMedia({
-        url: mediaUrl,
-        type,
-        location: "Camera Capture",
-      })
-
-      setLastActivity(`camera-${type}`)
-      setCurrentScreen("editor")
-    },
-    [location],
   )
 
   // Handle platform select
@@ -1443,6 +1438,129 @@ export default function PINITApp() {
     }
   }
 
+  // Request deduplication for camera capture
+  const cameraFetchControllerRef = useRef<AbortController | null>(null)
+  const isFetchingCameraLocationRef = useRef(false)
+
+  // Handle camera capture
+  const handleCameraCapture = useCallback(
+    async (mediaUrl: string, type: "photo" | "video") => {
+      if (!location) return
+
+      // PROTECTION: Prevent duplicate requests for the same location
+      if (isFetchingCameraLocationRef.current) {
+        console.log("⏸️ Camera location fetch already in progress, using cached or skipping...")
+        // Use cached data if available, otherwise proceed without Foursquare data
+        const cacheKey = `${location.latitude.toFixed(6)},${location.longitude.toFixed(6)}`
+        const cached = photoFetchCacheRef.current.get(cacheKey)
+        let foursquareData = null
+        
+        if (cached && cached.data && cached.data.length > 0) {
+          foursquareData = {
+            placeName: cached.data[0]?.placeName || null,
+            description: cached.data[0]?.description || null,
+            latitude: location.latitude,
+            longitude: location.longitude
+          }
+          console.log("✅ Using cached Foursquare data for camera capture")
+        }
+        
+        setCapturedMedia({
+          url: mediaUrl,
+          type,
+          location: "Camera Capture",
+          foursquareData: foursquareData || {
+            placeName: null,
+            description: null,
+            latitude: location.latitude,
+            longitude: location.longitude
+          }
+        })
+        setLastActivity(`camera-${type}`)
+        setCurrentScreen("editor")
+        return
+      }
+
+      console.log("📸 Camera capture - fetching Foursquare location data...")
+      
+      // Set guard to prevent duplicate requests
+      isFetchingCameraLocationRef.current = true
+      
+      // Cancel any previous request
+      if (cameraFetchControllerRef.current) {
+        cameraFetchControllerRef.current.abort()
+      }
+      cameraFetchControllerRef.current = new AbortController()
+      const signal = cameraFetchControllerRef.current.signal
+      
+      // Fetch Foursquare location data for the exact photo location
+      // Use cache first (don't bypass) to avoid unnecessary API calls
+      // Only fetch fresh if cache is empty or stale
+      let foursquareData = null
+      try {
+        // Check cache first to avoid duplicate API calls
+        const cacheKey = `${location.latitude.toFixed(6)},${location.longitude.toFixed(6)}`
+        const cached = photoFetchCacheRef.current.get(cacheKey)
+        const now = Date.now()
+        
+        // Use cached data if available and recent (within 30 seconds)
+        if (cached && (now - cached.timestamp) < 30000 && cached.data && cached.data.length > 0) {
+          foursquareData = {
+            placeName: cached.data[0]?.placeName || null,
+            description: cached.data[0]?.description || null,
+            latitude: location.latitude,
+            longitude: location.longitude
+          }
+          console.log("✅ Using cached Foursquare data (avoiding duplicate API call)")
+        } else {
+          // Cache is stale or empty, fetch fresh data (but use existing deduplication in fetchLocationPhotos)
+          const locationPhotos = await fetchLocationPhotos(location.latitude, location.longitude, signal, false) // Use cache protection
+          if (signal.aborted) {
+            console.log("📸 Camera location fetch was aborted")
+            return
+          }
+          
+          if (locationPhotos && locationPhotos.length > 0) {
+            foursquareData = {
+              placeName: locationPhotos[0]?.placeName || null,
+              description: locationPhotos[0]?.description || null,
+              latitude: location.latitude,
+              longitude: location.longitude
+            }
+            console.log("✅ Foursquare location data captured:", foursquareData)
+          }
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log("📸 Camera location fetch was aborted")
+          return
+        }
+        console.error("❌ Failed to fetch Foursquare data for photo:", error)
+      } finally {
+        // Always reset guard
+        isFetchingCameraLocationRef.current = false
+        cameraFetchControllerRef.current = null
+      }
+
+      setCapturedMedia({
+        url: mediaUrl,
+        type,
+        location: "Camera Capture",
+        // Store Foursquare location data with the photo
+        foursquareData: foursquareData || {
+          placeName: null,
+          description: null,
+          latitude: location.latitude,
+          longitude: location.longitude
+        }
+      })
+
+      setLastActivity(`camera-${type}`)
+      setCurrentScreen("editor")
+    },
+    [location, fetchLocationPhotos],
+  )
+
   // Handle place navigation from recommendations
   const handlePlaceNavigation = (place: any) => {
     console.log("dY-,? Opening place navigation for:", place.title)
@@ -1731,18 +1849,26 @@ export default function PINITApp() {
       console.log("dYO This is a PINIT pin recommendation")
       
       // Create a new recommendation pin with ALL enhanced PINIT data
+      // PRIORITIZE Foursquare data over AI-generated content
+      const foursquareTitle = recommendationData?.foursquareData?.placeName || recommendationData?.aiTitle || recommendationData?.locationName || "Location"
+      const foursquareDescription = recommendationData?.foursquareData?.description || recommendationData?.aiDescription || null
+      
       const newRecommendation: PinData = {
         id: Date.now().toString(),
-        // Use original pin coordinates if available, otherwise current location
-        latitude: recommendationData?.latitude || userLocation?.latitude || 0,
-        longitude: recommendationData?.longitude || userLocation?.longitude || 0,
-        locationName: recommendationData?.locationName || "Unknown Location",
+        // Use Foursquare coordinates if available, otherwise original pin coordinates, then current location
+        latitude: recommendationData?.foursquareData?.latitude || recommendationData?.latitude || userLocation?.latitude || 0,
+        longitude: recommendationData?.foursquareData?.longitude || recommendationData?.longitude || userLocation?.longitude || 0,
+        locationName: foursquareTitle,
         mediaUrl: uploadedMediaUrl,
         mediaType: recommendationData?.mediaUrl ? "photo" : null,
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: `PINIT Recommendation - ${recommendationData?.aiTitle || recommendationData?.locationName || "Location"}`,
-        description: `${review}\n\nOriginal AI Description: ${recommendationData?.aiDescription || "No AI description available"}`,
+        // Use Foursquare place name as title, with user review
+        title: `PINIT Recommendation - ${foursquareTitle}`,
+        // Combine user review with Foursquare description if available
+        description: foursquareDescription 
+          ? `${review}\n\n${foursquareDescription}` 
+          : `${review}\n\nOriginal AI Description: ${recommendationData?.aiDescription || "No description available"}`,
         personalThoughts: recommendationData.personalThoughts, // Include original user thoughts
         // Combine AI tags with recommendation tags
         tags: [
@@ -1774,22 +1900,31 @@ export default function PINITApp() {
       setTimeout(() => setCurrentScreen("map"), 100)
     } else {
       // Regular photo recommendation
-    const newRecommendation: PinData = {
-      id: Date.now().toString(),
-      latitude: userLocation?.latitude || 0,
-      longitude: userLocation?.longitude || 0,
-      locationName: recommendationData?.locationName || "Unknown Location",
-      mediaUrl: uploadedMediaUrl,
-      mediaType: recommendationData?.mediaUrl ? "photo" : null,
-      audioUrl: null,
-      timestamp: new Date().toISOString(),
-      title: `Recommendation - ${recommendationData?.locationName || "Location"}`,
-      description: review,
-      tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
-      isRecommended: true,
-      rating: rating,
-      types: ["recommendation"],
-    }
+      // PRIORITIZE Foursquare data over generic location name
+      const foursquareTitle = recommendationData?.foursquareData?.placeName || recommendationData?.locationName || "Unknown Location"
+      const foursquareDescription = recommendationData?.foursquareData?.description || null
+      
+      const newRecommendation: PinData = {
+        id: Date.now().toString(),
+        // Use Foursquare coordinates if available, otherwise current location
+        latitude: recommendationData?.foursquareData?.latitude || userLocation?.latitude || 0,
+        longitude: recommendationData?.foursquareData?.longitude || userLocation?.longitude || 0,
+        locationName: foursquareTitle,
+        mediaUrl: uploadedMediaUrl,
+        mediaType: recommendationData?.mediaUrl ? "photo" : null,
+        audioUrl: null,
+        timestamp: new Date().toISOString(),
+        // Use Foursquare place name as title
+        title: `Recommendation - ${foursquareTitle}`,
+        // Combine user review with Foursquare description if available
+        description: foursquareDescription 
+          ? `${review}\n\n${foursquareDescription}` 
+          : review,
+        tags: ["recommendation", "user-submitted", recommendationData?.platform || "social"],
+        isRecommended: true,
+        rating: rating,
+        types: ["recommendation"],
+      }
 
       console.log("dYO Created regular recommendation pin:", newRecommendation)
 
@@ -2401,16 +2536,18 @@ export default function PINITApp() {
                 setShowRecommendationPopup(false)
                 setRecommendationData({
                   mediaUrl: finalImageData?.finalImageUrl || capturedMedia?.url || "",
-                  locationName: capturedMedia?.location || capturedMedia?.title || "PINIT Location",
+                  locationName: capturedMedia?.foursquareData?.placeName || capturedMedia?.location || capturedMedia?.title || "PINIT Location",
                   platform: selectedPlatform,
                   aiTitle: capturedMedia?.title,
                   aiDescription: capturedMedia?.description,
                   aiTags: capturedMedia?.tags,
                   personalThoughts: capturedMedia?.personalThoughts,
                   pinId: capturedMedia?.id,
-                  latitude: capturedMedia?.latitude,
-                  longitude: capturedMedia?.longitude,
-                  additionalPhotos: capturedMedia?.additionalPhotos
+                  latitude: capturedMedia?.foursquareData?.latitude || capturedMedia?.latitude,
+                  longitude: capturedMedia?.foursquareData?.longitude || capturedMedia?.longitude,
+                  additionalPhotos: capturedMedia?.additionalPhotos,
+                  // Include Foursquare data for the recommendation
+                  foursquareData: capturedMedia?.foursquareData
                 })
                 setShowRecommendationForm(true) // ADDED BACK: Show the recommendations form
               }}
@@ -2441,6 +2578,7 @@ export default function PINITApp() {
           locationName={recommendationData.locationName}
           onRecommend={handleRecommendationSubmit}
           onSkip={handleRecommendationSkip}
+          foursquareData={recommendationData.foursquareData}
         />
       )}
       
