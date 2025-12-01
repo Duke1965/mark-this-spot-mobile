@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
       if (foursquareResponse.ok) {
         const foursquareData = await foursquareResponse.json()
         const foursquareResults = foursquareData.items || []
-        
+      
         console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
         
         // Debug: Log first result details
@@ -180,11 +180,11 @@ export async function GET(request: NextRequest) {
           console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
         }
         
-        // Use Foursquare if we found results, otherwise fall through to Google
+        // ONLY use Foursquare - no Google fallback
         if (foursquareResults.length > 0) {
           console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
-          // Convert Foursquare results to Google Places API format
-          const googleFormatResults = foursquareResults.map((place: any) => {
+          // Convert Foursquare results to expected format
+          const foursquareFormatResults = foursquareResults.map((place: any) => {
             return {
               place_id: place.fsq_id || place.id,
               name: place.title || place.name,
@@ -208,264 +208,42 @@ export async function GET(request: NextRequest) {
           })
         
           return NextResponse.json({
-            results: googleFormatResults,
+            results: foursquareFormatResults,
             status: "OK",
             source: "foursquare"
           })
         } else {
-          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results, falling back to Google`)
+          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results - returning empty array`)
+          return NextResponse.json({
+            results: [],
+            status: "OK",
+            source: "foursquare"
+          })
         }
       } else {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK, falling back to Google`)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK - returning empty array`)
+        return NextResponse.json({
+          results: [],
+          status: "OK",
+          source: "foursquare"
+        })
       }
     } catch (foursquareError) {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed, falling back to Google:`, foursquareError)
-    }
-  } else {
-    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found, trying Google`)
-  }
-
-  // Check if API key is available
-  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Maps API key not configured, using mock data`)
-    return NextResponse.json({
-      results: generateMockPlaces(parseFloat(lat), parseFloat(lng)),
-      status: "OK",
-      source: "mock"
-    })
-  }
-
-  try {
-    const types = [
-      "tourist_attraction",
-      "restaurant",
-      "cafe",
-      "museum",
-      "park",
-      "shopping_mall",
-      "art_gallery",
-      "amusement_park",
-      "zoo",
-      "aquarium",
-      "establishment", // Added to catch more places
-      "point_of_interest" // Added to catch more places
-    ]
-
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-      "|",
-    )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-    
-    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Calling Google Places API...`)
-    
-    const response = await fetch(placesUrl, {
-      headers: {
-        'User-Agent': isMobile ? 'PINIT-Mobile-App/1.0' : 'PINIT-Web-App/1.0'
-      }
-    })
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
-    }
-
-    console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API: Found ${data.results?.length || 0} places`)
-    
-    // Handle ZERO_RESULTS specifically for mobile
-    if (data.status === 'ZERO_RESULTS') {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found in radius ${radius}m`)
-      
-      // For mobile, try with a larger radius if no results
-      if (isMobile && Number.parseInt(radius) < 10000) {
-        console.log(`🔄 [MOBILE] Trying with larger radius (10km)...`)
-        const largerRadiusUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=${types.join(
-          "|",
-        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        
-        try {
-          const largerResponse = await fetch(largerRadiusUrl, {
-            headers: {
-              'User-Agent': 'PINIT-Mobile-App/1.0'
-            }
-          })
-          const largerData = await largerResponse.json()
-          
-          if (largerResponse.ok && largerData.results && largerData.results.length > 0) {
-            console.log(`✅ [MOBILE] Found ${largerData.results.length} places with larger radius`)
-            return NextResponse.json(largerData)
-          }
-        } catch (largerError) {
-          console.log(`⚠️ [MOBILE] Larger radius search failed:`, largerError)
-        }
-      }
-      
-      // Only fall back to mock data if we really can't find anything
-      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after no Google results`)
-      
-      // Try reverse geocoding first before falling back to mock data
-      try {
-        const geocodeResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        )
-        
-        if (geocodeResponse.ok) {
-          const geocodeData = await geocodeResponse.json()
-          if (geocodeData.results && geocodeData.results.length > 0) {
-            const addressComponents = geocodeData.results[0].address_components
-            const formattedAddress = geocodeData.results[0].formatted_address
-            
-            // Create a meaningful place from geocoding data
-            const locality = addressComponents.find((comp: any) => 
-              comp.types.includes('locality') || comp.types.includes('sublocality')
-            )
-            
-            const route = addressComponents.find((comp: any) => 
-              comp.types.includes('route')
-            )
-            
-            const neighborhood = addressComponents.find((comp: any) => 
-              comp.types.includes('neighborhood')
-            )
-            
-            let placeName = "Unknown Location"
-            let vicinity = ""
-            
-            if (locality && route) {
-              placeName = `${locality.long_name} - ${route.long_name}`
-              vicinity = locality.long_name
-            } else if (locality && neighborhood) {
-              placeName = `${locality.long_name} - ${neighborhood.long_name}`
-              vicinity = locality.long_name
-            } else if (locality) {
-              placeName = locality.long_name
-              vicinity = locality.long_name
-            } else if (formattedAddress) {
-              const parts = formattedAddress.split(',')
-              placeName = parts[0]?.trim() || "Unknown Location"
-              vicinity = parts[parts.length - 2]?.trim() || ""
-            }
-            
-            console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding:`, { placeName, vicinity })
-            
-            return NextResponse.json({
-              results: [{
-                place_id: `geocode-${Date.now()}`,
-                name: placeName,
-                geometry: {
-                  location: {
-                    lat: Number.parseFloat(lat),
-                    lng: Number.parseFloat(lng)
-                  }
-                },
-                rating: undefined,
-                price_level: undefined,
-                types: ["point_of_interest"],
-                vicinity: vicinity,
-                photos: []
-              }],
-              status: "OK",
-              source: "geocoding"
-            })
-          }
-        }
-      } catch (geocodeError) {
-        console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback failed:`, geocodeError)
-      }
-      
-      // Final fallback to mock data
-      const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed - returning empty array:`, foursquareError)
       return NextResponse.json({
-        results: mockPlaces,
-        status: "OK",
-        source: "mock"
+        results: [],
+        status: "ERROR",
+        source: "foursquare",
+        error: foursquareError instanceof Error ? foursquareError.message : "Unknown error"
       })
     }
-
+  } else {
+    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found - returning empty array`)
     return NextResponse.json({
-      ...data,
-      source: "google"
-    })
-  } catch (error) {
-    console.error(`❌ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API error:`, error)
-
-    // Try reverse geocoding before falling back to mock data
-    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying reverse geocoding after API error...`)
-    try {
-      const geocodeResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      )
-      
-      if (geocodeResponse.ok) {
-        const geocodeData = await geocodeResponse.json()
-        if (geocodeData.results && geocodeData.results.length > 0) {
-          const addressComponents = geocodeData.results[0].address_components
-          const formattedAddress = geocodeData.results[0].formatted_address
-          
-          // Create a meaningful place from geocoding data
-          const locality = addressComponents.find((comp: any) => 
-            comp.types.includes('locality') || comp.types.includes('sublocality')
-          )
-          
-          const route = addressComponents.find((comp: any) => 
-            comp.types.includes('route')
-          )
-          
-          const neighborhood = addressComponents.find((comp: any) => 
-            comp.types.includes('neighborhood')
-          )
-          
-          let placeName = "Unknown Location"
-          let vicinity = ""
-          
-          if (locality && route) {
-            placeName = `${locality.long_name} - ${route.long_name}`
-            vicinity = locality.long_name
-          } else if (locality && neighborhood) {
-            placeName = `${locality.long_name} - ${neighborhood.long_name}`
-            vicinity = locality.long_name
-          } else if (locality) {
-            placeName = locality.long_name
-            vicinity = locality.long_name
-          } else if (formattedAddress) {
-            const parts = formattedAddress.split(',')
-            placeName = parts[0]?.trim() || "Unknown Location"
-            vicinity = parts[parts.length - 2]?.trim() || ""
-          }
-          
-          console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Created place from geocoding after API error:`, { placeName, vicinity })
-          
-          return NextResponse.json({
-            results: [{
-              place_id: `geocode-error-${Date.now()}`,
-              name: placeName,
-              geometry: {
-                location: {
-                  lat: Number.parseFloat(lat),
-                  lng: Number.parseFloat(lng)
-                }
-              },
-              rating: undefined,
-              price_level: undefined,
-              types: ["point_of_interest"],
-              vicinity: vicinity,
-              photos: []
-            }],
-            status: "OK",
-            source: "geocoding-error"
-          })
-        }
-      }
-    } catch (geocodeError) {
-      console.log(`📍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Geocoding fallback after API error failed:`, geocodeError)
-    }
-    
-    // Only fall back to mock data on actual API errors
-    console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Falling back to mock data after API error`)
-    const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
-    
-    return NextResponse.json({
-      results: fallbackPlaces,
-      status: "OK",
-      source: "mock-error"
+      results: [],
+      status: "ERROR",
+      source: "foursquare",
+      error: "Foursquare API key not configured"
     })
   }
 }
@@ -512,211 +290,78 @@ export async function POST(request: NextRequest) {
         if (foursquareResponse.ok) {
           const foursquareData = await foursquareResponse.json()
           const foursquareResults = foursquareData.items || []
-          
+        
           console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
-          
-          // Debug: Log first result details
+        
+        // Debug: Log first result details
           if (foursquareResults.length > 0) {
-            console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
-          }
-          
-          // Return Foursquare results even if empty (or use fallback for photos)
+          console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
+        }
+        
+        // ONLY use Foursquare - no Google fallback
           if (foursquareResults.length > 0) {
-            console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
-            // Convert Foursquare results to Google Places API format
-            const googleFormatResults = foursquareResults.map((place: any) => {
-              return {
-                place_id: place.fsq_id || place.id,
-                name: place.title || place.name,
-                geometry: {
-                  location: {
-                    lat: place.location?.lat || place.latitude,
-                    lng: place.location?.lng || place.longitude
-                  }
-                },
-                rating: place.rating,
-                price_level: place.priceLevel,
-                types: place.types || place.categories?.map((cat: any) => typeof cat === 'string' ? cat.toLowerCase().replace(/\s+/g, '_') : cat.name?.toLowerCase().replace(/\s+/g, '_')) || [],
-                vicinity: place.address || place.location?.address || "",
-                description: place.description || "",
-                photos: place.photoUrl ? [{
-                  photo_reference: place.photoUrl, // This is actually a full URL, not a reference
-                  width: 400,
-                  height: 300
-                }] : []
-              }
-            })
-            
+          console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
+          // Convert Foursquare results to expected format
+          const foursquareFormatResults = foursquareResults.map((place: any) => {
+            return {
+              place_id: place.fsq_id || place.id,
+              name: place.title || place.name,
+              geometry: {
+                location: {
+                  lat: place.location?.lat || place.latitude,
+                  lng: place.location?.lng || place.longitude
+                }
+              },
+              rating: place.rating,
+              price_level: place.priceLevel,
+              types: place.types || place.categories?.map((cat: any) => typeof cat === 'string' ? cat.toLowerCase().replace(/\s+/g, '_') : cat.name?.toLowerCase().replace(/\s+/g, '_')) || [],
+              vicinity: place.address || place.location?.address || "",
+              description: place.description || "",
+              photos: place.photoUrl ? [{
+                photo_reference: place.photoUrl, // This is actually a full URL, not a reference
+                width: 400,
+                height: 300
+              }] : []
+            }
+          })
+          
+          return NextResponse.json({
+            results: foursquareFormatResults,
+            status: "OK",
+            source: "foursquare"
+          })
+          } else {
+            console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results - returning empty array`)
             return NextResponse.json({
-              results: googleFormatResults,
+              results: [],
               status: "OK",
               source: "foursquare"
             })
           }
+        } else {
+          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK - returning empty array`)
+          return NextResponse.json({
+            results: [],
+            status: "OK",
+            source: "foursquare"
+          })
         }
       } catch (foursquareError) {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed, falling back to Google:`, foursquareError)
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed - returning empty array:`, foursquareError)
+        return NextResponse.json({
+          results: [],
+          status: "ERROR",
+          source: "foursquare",
+          error: foursquareError instanceof Error ? foursquareError.message : "Unknown error"
+        })
       }
-    }
-
-    // Fall back to Google Places API
-    const types = [
-      "tourist_attraction",
-      "restaurant",
-      "cafe",
-      "museum",
-      "park",
-      "shopping_mall",
-      "art_gallery",
-      "amusement_park",
-      "zoo",
-      "aquarium",
-      "establishment", // Added to catch more places
-      "point_of_interest" // Added to catch more places
-    ]
-
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${types.join(
-      "|",
-    )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-    
-    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Calling Google Places API via POST...`)
-    
-    const response = await fetch(placesUrl, {
-      headers: {
-        'User-Agent': isMobile ? 'PINIT-Mobile-App/1.0' : 'PINIT-Web-App/1.0'
-      }
-    })
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(`Google Places API error: ${data.error_message || "Unknown error"}`)
-    }
-
-    console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Google Places API POST: Found ${data.results?.length || 0} places`)
-    
-    // Handle ZERO_RESULTS specifically for mobile
-    if (data.status === 'ZERO_RESULTS') {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] No places found in radius ${radius}m`)
-      
-      // For mobile, try with a larger radius if no results
-      if (isMobile && Number.parseInt(radius) < 10000) {
-        console.log(`🔄 [MOBILE] Trying with larger radius (10km)...`)
-        const largerRadiusUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=${types.join(
-          "|",
-        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        
-        try {
-          const largerResponse = await fetch(largerRadiusUrl, {
-            headers: {
-              'User-Agent': 'PINIT-Mobile-App/1.0'
-            }
-          })
-          const largerData = await largerResponse.json()
-          
-          if (largerResponse.ok && largerData.results && largerData.results.length > 0) {
-            console.log(`✅ [MOBILE] Found ${largerData.results.length} places with larger radius`)
-            return NextResponse.json(largerData)
-          }
-        } catch (largerError) {
-          console.log(`⚠️ [MOBILE] Larger radius search failed:`, largerError)
-        }
-      }
-      
-      // Try reverse geocoding before falling back to mock data
-      console.log(`🔄 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying reverse geocoding...`)
-      try {
-        const geocodeResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-        )
-        
-        if (geocodeResponse.ok) {
-          const geocodeData = await geocodeResponse.json()
-          if (geocodeData.results && geocodeData.results.length > 0) {
-            const addressComponents = geocodeData.results[0].address_components
-            const formattedAddress = geocodeData.results[0].formatted_address
-            
-            // Create a meaningful place from geocoding data
-            const locality = addressComponents.find((comp: any) => 
-              comp.types.includes('locality') || comp.types.includes('sublocality')
-            )
-            
-            const route = addressComponents.find((comp: any) => 
-              comp.types.includes('route')
-            )
-            
-            const neighborhood = addressComponents.find((comp: any) => 
-              comp.types.includes('neighborhood')
-            )
-            
-            let placeName = "Unknown Location"
-            let vicinity = ""
-            
-            if (locality && route) {
-              placeName = `${locality.long_name} - ${route.long_name}`
-              vicinity = locality.long_name
-            } else if (locality && neighborhood) {
-              placeName = `${locality.long_name} - ${neighborhood.long_name}`
-              vicinity = locality.long_name
-            } else if (locality) {
-              placeName = locality.long_name
-              vicinity = locality.long_name
-            } else if (formattedAddress) {
-              const parts = formattedAddress.split(',')
-              placeName = parts[0]?.trim() || "Unknown Location"
-              vicinity = parts[parts.length - 2]?.trim() || ""
-            }
-            
-            console.log(`📍 Created place from geocoding:`, { placeName, vicinity })
-            
-            return NextResponse.json({
-              results: [{
-                place_id: `geocode-${Date.now()}`,
-                name: placeName,
-                geometry: {
-                  location: {
-                    lat: Number.parseFloat(lat),
-                    lng: Number.parseFloat(lng)
-                  }
-                },
-                rating: undefined,
-                price_level: undefined,
-                types: ["point_of_interest"],
-                vicinity: vicinity,
-                photos: []
-              }],
-              status: "OK",
-              source: "geocoding"
-            })
-          }
-        }
-      } catch (geocodeError) {
-        console.log(`📍 Geocoding fallback failed:`, geocodeError)
-      }
-      
-      // Only fall back to mock data if we really can't find anything
-      console.log(`🔄 Falling back to mock data after no Google results`)
-      const mockPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
+    } else {
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found - returning empty array`)
       return NextResponse.json({
-        results: mockPlaces,
-        status: "OK",
-        source: "mock"
+        results: [],
+        status: "ERROR",
+        source: "foursquare",
+        error: "Foursquare API key not configured"
       })
     }
-
-    return NextResponse.json({
-      ...data,
-      source: "google"
-    })
-  } catch (error) {
-    console.error(`❌ Google Places API POST error:`, error)
-
-    // Only fall back to mock data on actual API errors
-    console.log(`🔄 Falling back to mock data after API error`)
-    const fallbackPlaces = generateMockPlaces(Number.parseFloat(lat), Number.parseFloat(lng))
-    
-    return NextResponse.json({
-      results: fallbackPlaces,
-      status: "OK",
-    })
-  }
 }
