@@ -1826,9 +1826,11 @@ export default function PINITApp() {
 
   // Recommendation form handlers
   const handleRecommendationSubmit = async (rating: number, review: string) => {
-    console.log("-? Recommendation submitted:", { rating, review })
-    console.log("dY? Current recommendationData:", recommendationData)
-    console.log("dY? Current userLocation:", userLocation)
+    console.log("📍 Recommendation submitted:", { rating, review })
+    console.log("📍 Current recommendationData:", recommendationData)
+    console.log("📍 Current userLocation:", userLocation)
+    console.log("📍 RecommendationData mediaUrl:", recommendationData?.mediaUrl)
+    console.log("📍 RecommendationData foursquareData:", recommendationData?.foursquareData)
     
     // Upload image to Firebase if mediaUrl is a base64 data URL
     let uploadedMediaUrl = recommendationData?.mediaUrl || null
@@ -1842,6 +1844,9 @@ export default function PINITApp() {
         console.error("❌ Failed to upload image to Firebase:", error)
         // Continue with base64 URL as fallback
       }
+    } else if (recommendationData?.mediaUrl) {
+      // Even if not a data URL, log it to help debug
+      console.log("📍 Using existing mediaUrl (not a data URL):", recommendationData.mediaUrl.substring(0, 100))
     }
     
     // Check if this is a PINIT pin recommendation (has personalThoughts)
@@ -1887,7 +1892,10 @@ export default function PINITApp() {
         additionalPhotos: recommendationData?.additionalPhotos || []
       }
 
-      console.log("dYO Created enhanced PINIT recommendation pin:", newRecommendation)
+      console.log("📍 Created enhanced PINIT recommendation pin:", newRecommendation)
+      console.log("📍 Pin mediaUrl:", newRecommendation.mediaUrl)
+      console.log("📍 Pin locationName:", newRecommendation.locationName)
+      console.log("📍 Pin title:", newRecommendation.title)
       
       // Add the recommendation to pins
       addPin(newRecommendation)
@@ -2077,16 +2085,20 @@ export default function PINITApp() {
             setShowRecommendationPopup(false)
             setRecommendationData({
               mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
-                locationName: capturedMedia.location || capturedMedia.title || "PINIT Location",
+              // PRIORITIZE Foursquare place name over generic location
+              locationName: capturedMedia.foursquareData?.placeName || capturedMedia.location || capturedMedia.title || "PINIT Location",
               platform: selectedPlatform,
               aiTitle: capturedMedia.title,
               aiDescription: capturedMedia.description,
               aiTags: capturedMedia.tags,
               personalThoughts: capturedMedia.personalThoughts,
               pinId: capturedMedia.id,
-              latitude: capturedMedia.latitude,
-              longitude: capturedMedia.longitude,
-              additionalPhotos: capturedMedia.additionalPhotos
+              // PRIORITIZE Foursquare coordinates over capturedMedia coordinates
+              latitude: capturedMedia.foursquareData?.latitude || capturedMedia.latitude,
+              longitude: capturedMedia.foursquareData?.longitude || capturedMedia.longitude,
+              additionalPhotos: capturedMedia.additionalPhotos,
+              // CRITICAL: Include Foursquare data for the recommendation
+              foursquareData: capturedMedia.foursquareData
             })
             setShowRecommendationForm(true)
           }, 2000)
