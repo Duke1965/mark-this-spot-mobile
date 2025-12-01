@@ -945,23 +945,29 @@ export default function PINITApp() {
       console.log("📸 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
-      // NEW: Generate intelligent AI content based on location and context
-      // Pass Foursquare data if available (title/name, description)
+      // Get Foursquare data (prioritize over AI-generated content)
       const placeName = locationPhotos[0]?.placeName
       const placeDescription = locationPhotos[0]?.description
+      
+      console.log("📸 Foursquare API place info:", { placeName, placeDescription })
+      
+      // Only generate AI content as fallback if Foursquare data is missing
       const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
       
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
-        locationName: aiGeneratedContent.locationName || locationDescription,
+        // PRIORITIZE Foursquare data over AI-generated content
+        locationName: placeName || aiGeneratedContent.locationName || locationDescription,
         mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        title: aiGeneratedContent.title,
-        description: aiGeneratedContent.description,
+        // Use Foursquare placeName as title first, then AI, then fallback
+        title: placeName || aiGeneratedContent.title || "Untitled Location",
+        // Use Foursquare description first, then AI, then fallback
+        description: placeDescription || aiGeneratedContent.description || "",
         tags: aiGeneratedContent.tags,
         // NEW: Store all photos for the carousel
         additionalPhotos: locationPhotos,
@@ -1529,36 +1535,52 @@ export default function PINITApp() {
         photos: locationPhotos.map(p => ({ url: p.url?.substring(0, 50), placeName: p.placeName }))
       })
       
-      // Get place name and description from photos
+      // Get place name and description from Foursquare API data (prioritize over AI)
       placeName = locationPhotos[0]?.placeName || editingPin.locationName
       placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
       
-      console.log("📸 Place info from photos:", { placeName, placeDescription })
+      console.log("📸 Foursquare API place info:", { placeName, placeDescription })
       
-      // Generate AI content with new location
-      aiGeneratedContent = generateAIContent(
-        editingPinLocation.lat, 
-        editingPinLocation.lng, 
-        motionData, 
-        locationPhotos, 
-        placeName, 
-        placeDescription
-      )
-      
-      console.log("📸 Generated AI content:", { 
-        title: aiGeneratedContent.title,
-        description: aiGeneratedContent.description?.substring(0, 100),
-        locationName: aiGeneratedContent.locationName
-      })
+      // Only generate AI content as fallback if Foursquare data is missing
+      // Prioritize actual Foursquare data over AI-generated content
+      if (!placeName || placeName === "Unknown Place" || !placeDescription) {
+        console.log("📸 Foursquare data incomplete, generating AI content as fallback...")
+        aiGeneratedContent = generateAIContent(
+          editingPinLocation.lat, 
+          editingPinLocation.lng, 
+          motionData, 
+          locationPhotos, 
+          placeName, 
+          placeDescription
+        )
+        console.log("📸 Generated AI content as fallback:", { 
+          title: aiGeneratedContent.title,
+          description: aiGeneratedContent.description?.substring(0, 100),
+          locationName: aiGeneratedContent.locationName
+        })
+      } else {
+        console.log("✅ Using Foursquare API data (title and description) - skipping AI generation")
+        // Use Foursquare data directly, no AI needed
+        aiGeneratedContent = {
+          title: placeName,
+          description: placeDescription,
+          locationName: placeName,
+          tags: editingPin.tags || []
+        }
+      }
       
       // Update the pin with new location and data
+      // PRIORITIZE Foursquare data over AI-generated content
       const updatedPin: PinData = {
         ...editingPin,
         latitude: editingPinLocation.lat,
         longitude: editingPinLocation.lng,
-        locationName: aiGeneratedContent.locationName || placeName || editingPin.locationName,
-        title: aiGeneratedContent.title || placeName || editingPin.title,
-        description: aiGeneratedContent.description || placeDescription || editingPin.description,
+        // Use Foursquare placeName first, then AI, then fallback
+        locationName: placeName || aiGeneratedContent.locationName || editingPin.locationName,
+        // Use Foursquare placeName as title first, then AI, then fallback
+        title: placeName || aiGeneratedContent.title || editingPin.title,
+        // Use Foursquare description first, then AI, then fallback
+        description: placeDescription || aiGeneratedContent.description || editingPin.description,
         mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
         additionalPhotos: locationPhotos.length > 0 ? locationPhotos : (editingPin.additionalPhotos || []),
         tags: aiGeneratedContent.tags || editingPin.tags || [],
