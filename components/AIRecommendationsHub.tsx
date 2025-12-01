@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
 import { useLocationServices } from '../hooks/useLocationServices'
-import { ViewPlaceCard } from './ViewPlaceCard'
+import { usePinStorage } from '../hooks/usePinStorage'
+import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
+import type { PinData } from '../lib/types'
 
 // Google Maps global declaration
 declare global {
@@ -96,9 +98,20 @@ export default function AIRecommendationsHub({
   const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
+  const { addPin } = usePinStorage()
   const [learningProgress, setLearningProgress] = useState<any>(null)
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
-  const [showViewPlaceCard, setShowViewPlaceCard] = useState(false)
+  const [showRecommendationForm, setShowRecommendationForm] = useState(false)
+  const [recommendationFormData, setRecommendationFormData] = useState<{
+    mediaUrl: string
+    locationName: string
+    foursquareData?: {
+      placeName: string | null
+      description: string | null
+      latitude: number
+      longitude: number
+    }
+  } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   
   // NEW: Add ref to track the user location marker
@@ -2734,32 +2747,6 @@ export default function AIRecommendationsHub({
                           🗺️ Map
                         </button>
                         
-                        <button 
-                          onClick={() => {
-                            console.log('📍 Opening View Place for:', rec.title)
-                            setSelectedRecommendation(rec)
-                            setShowViewPlaceCard(true)
-                          }}
-                          style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '6px',
-                            padding: '4px 8px',
-                            color: 'white',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
-                          }}
-                        >
-                          📍 Place
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -2943,21 +2930,91 @@ export default function AIRecommendationsHub({
         )}
       </div>
 
-      {/* View Place Card Modal */}
-      {showViewPlaceCard && selectedRecommendation && (
-        <ViewPlaceCard
-          recommendation={selectedRecommendation}
-          onClose={() => {
-            setShowViewPlaceCard(false)
+      {/* Recommendation Form Modal - Same as photo recommendation flow */}
+      {showRecommendationForm && recommendationFormData && selectedRecommendation && (
+        <RecommendationForm
+          mediaUrl={recommendationFormData.mediaUrl}
+          locationName={recommendationFormData.locationName}
+          foursquareData={recommendationFormData.foursquareData}
+          onRecommend={async (rating: number, review: string) => {
+            console.log('📍 Recommendation submitted:', { rating, review, rec: selectedRecommendation })
+            
+            // Create a new recommendation pin
+            const newRecommendation: PinData = {
+              id: Date.now().toString(),
+              latitude: selectedRecommendation.location?.lat || 0,
+              longitude: selectedRecommendation.location?.lng || 0,
+              locationName: selectedRecommendation.title || 'Location',
+              mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || null,
+              mediaType: (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) ? "photo" : null,
+              audioUrl: null,
+              timestamp: new Date().toISOString(),
+              title: `Recommendation - ${selectedRecommendation.title || 'Location'}`,
+              description: selectedRecommendation.description 
+                ? `${review}\n\n${selectedRecommendation.description}` 
+                : review,
+              tags: [
+                "recommendation", 
+                "user-submitted",
+                selectedRecommendation.category?.toLowerCase() || "general"
+              ],
+              isRecommended: true,
+              rating: rating,
+              types: ["recommendation"],
+              category: selectedRecommendation.category || "general",
+              personalThoughts: review,
+              isAISuggestion: selectedRecommendation.isAISuggestion || false
+            }
+
+            console.log('📍 Created recommendation pin:', newRecommendation)
+            
+            // Save to library as a recommendation
+            addPin(newRecommendation)
+            
+            // Close the form
+            setShowRecommendationForm(false)
+            setRecommendationFormData(null)
             setSelectedRecommendation(null)
+            
+            // Show success message (you can add a toast/notification here)
+            console.log('✅ Recommendation saved!')
           }}
-          onShare={(rec) => {
-            console.log('📤 Sharing recommendation:', rec.title)
-            // TODO: Implement share functionality
-          }}
-          onSaveToFavorites={(rec) => {
-            console.log('💾 Saving to favorites:', rec.title)
-            // TODO: Implement save to favorites functionality
+          onSkip={() => {
+            console.log('📍 Recommendation skipped - saving to library without recommendation')
+            
+            // Save to library without recommendation (just as a saved pin)
+            const savedPin: PinData = {
+              id: Date.now().toString(),
+              latitude: selectedRecommendation.location?.lat || 0,
+              longitude: selectedRecommendation.location?.lng || 0,
+              locationName: selectedRecommendation.title || 'Location',
+              mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || null,
+              mediaType: (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) ? "photo" : null,
+              audioUrl: null,
+              timestamp: new Date().toISOString(),
+              title: selectedRecommendation.title || 'Location',
+              description: selectedRecommendation.description || undefined,
+              tags: [
+                "saved",
+                selectedRecommendation.category?.toLowerCase() || "general"
+              ],
+              isRecommended: false, // Not a recommendation, just saved
+              types: ["saved"],
+              category: selectedRecommendation.category || "general",
+              isAISuggestion: selectedRecommendation.isAISuggestion || false
+            }
+
+            console.log('📍 Created saved pin:', savedPin)
+            
+            // Save to library
+            addPin(savedPin)
+            
+            // Close the form
+            setShowRecommendationForm(false)
+            setRecommendationFormData(null)
+            setSelectedRecommendation(null)
+            
+            console.log('✅ Pin saved to library!')
           }}
         />
       )}
