@@ -217,8 +217,46 @@ export async function GET(request: NextRequest) {
       // New API uses: fsq_id (or id), name (or title), geocodes, categories, etc.
       const fsqId = p.fsq_id || p.id || p.place_id;
       const placeName = p.name || p.title;
-      const latitude = p.geocodes?.main?.latitude || p.location?.latitude || p.latitude;
-      const longitude = p.geocodes?.main?.longitude || p.location?.longitude || p.longitude;
+      
+      // Extract coordinates with multiple fallbacks - Foursquare API can return coordinates in different formats
+      const latitude = p.geocodes?.main?.latitude || 
+                      p.geocodes?.main?.lat ||
+                      p.location?.latitude || 
+                      p.location?.lat ||
+                      p.latitude ||
+                      p.lat;
+      const longitude = p.geocodes?.main?.longitude || 
+                       p.geocodes?.main?.lng ||
+                       p.location?.longitude || 
+                       p.location?.lng ||
+                       p.longitude ||
+                       p.lng;
+      
+      // Validate coordinates - if missing, log detailed debug info and skip this place
+      if (!latitude || !longitude || isNaN(Number(latitude)) || isNaN(Number(longitude))) {
+        console.warn(`⚠️ [Foursquare API] Missing coordinates for place: ${placeName}`, {
+          fsq_id: fsqId,
+          geocodes: p.geocodes,
+          location: p.location,
+          hasGeocodes: !!p.geocodes,
+          hasLocation: !!p.location,
+          geocodesKeys: p.geocodes ? Object.keys(p.geocodes) : [],
+          locationKeys: p.location ? Object.keys(p.location) : []
+        })
+        // Skip places without valid coordinates
+        return null
+      }
+      
+      // Ensure coordinates are numbers
+      const latNum = Number(latitude)
+      const lngNum = Number(longitude)
+      
+      // Validate coordinate ranges
+      if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+        console.warn(`⚠️ [Foursquare API] Invalid coordinate ranges for place: ${placeName}`, { lat: latNum, lng: lngNum })
+        return null
+      }
+      
       const category = p.categories?.[0]?.name || p.primary_category?.name;
       const address = p.location?.address || p.location?.formatted_address || p.address || p.location?.cross_street;
 
@@ -230,15 +268,16 @@ export async function GET(request: NextRequest) {
         category: category || undefined,
         rating: p.rating || undefined,
         location: {
-          lat: latitude,
-          lng: longitude
+          lat: latNum,
+          lng: lngNum
         },
         photoUrl: photoUrl,
         address: address || undefined
       }
     })
+    .filter((item: any) => item !== null) // Remove places without valid coordinates
 
-    console.log(`✅ Foursquare Places API: Returning ${items.length} places`)
+    console.log(`✅ Foursquare Places API: Returning ${items.length} places (filtered out places without coordinates)`)
 
     return NextResponse.json({
       items,
@@ -434,8 +473,44 @@ export async function POST(request: NextRequest) {
       // New API uses: fsq_id (or id), name (or title), geocodes, categories, etc.
       const fsqId = p.fsq_id || p.id || p.place_id;
       const placeName = p.name || p.title;
-      const latitude = p.geocodes?.main?.latitude || p.location?.latitude || p.latitude;
-      const longitude = p.geocodes?.main?.longitude || p.location?.longitude || p.longitude;
+      
+      // Extract coordinates with multiple fallbacks - Foursquare API can return coordinates in different formats
+      const latitude = p.geocodes?.main?.latitude || 
+                      p.geocodes?.main?.lat ||
+                      p.location?.latitude || 
+                      p.location?.lat ||
+                      p.latitude ||
+                      p.lat;
+      const longitude = p.geocodes?.main?.longitude || 
+                       p.geocodes?.main?.lng ||
+                       p.location?.longitude || 
+                       p.location?.lng ||
+                       p.longitude ||
+                       p.lng;
+      
+      // Validate coordinates - if missing, log detailed debug info and skip this place
+      if (!latitude || !longitude || isNaN(Number(latitude)) || isNaN(Number(longitude))) {
+        console.warn(`⚠️ [Foursquare API POST] Missing coordinates for place: ${placeName}`, {
+          fsq_id: fsqId,
+          geocodes: p.geocodes,
+          location: p.location,
+          hasGeocodes: !!p.geocodes,
+          hasLocation: !!p.location
+        })
+        // Skip places without valid coordinates
+        return null
+      }
+      
+      // Ensure coordinates are numbers
+      const latNum = Number(latitude)
+      const lngNum = Number(longitude)
+      
+      // Validate coordinate ranges
+      if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+        console.warn(`⚠️ [Foursquare API POST] Invalid coordinate ranges for place: ${placeName}`, { lat: latNum, lng: lngNum })
+        return null
+      }
+      
       const category = p.categories?.[0]?.name || p.primary_category?.name;
       const address = p.location?.address || p.location?.formatted_address || p.address || p.location?.cross_street;
 
@@ -447,15 +522,16 @@ export async function POST(request: NextRequest) {
         category: category || undefined,
         rating: p.rating || undefined,
         location: {
-          lat: latitude,
-          lng: longitude
+          lat: latNum,
+          lng: lngNum
         },
         photoUrl: photoUrl,
         address: address || undefined
       }
     })
+    .filter((item: any) => item !== null) // Remove places without valid coordinates
 
-    console.log(`✅ Foursquare Places API: Returning ${items.length} places`)
+    console.log(`✅ Foursquare Places API: Returning ${items.length} places (filtered out places without coordinates)`)
 
     return NextResponse.json({
       items,
