@@ -152,6 +152,21 @@ export default function AIRecommendationsHub({
   // NEW: State for filtering by User vs AI recommendations
   const [recommendationFilter, setRecommendationFilter] = useState<"all" | "user" | "ai">("all")
   
+  // Helper function to categorize places based on their types (must be defined before functions that use it)
+  const getCategoryFromTypes = useCallback((types: string[]): string => {
+    if (types.includes('restaurant') || types.includes('cafe') || types.includes('food')) {
+      return 'Food & Dining'
+    } else if (types.includes('park') || types.includes('natural_feature')) {
+      return 'Nature & Parks'
+    } else if (types.includes('museum') || types.includes('art_gallery') || types.includes('tourist_attraction')) {
+      return 'Culture & Arts'
+    } else if (types.includes('shopping_mall') || types.includes('store')) {
+      return 'Shopping'
+    } else {
+      return 'Location Discovery'
+    }
+  }, [])
+  
   // NEW: Request management to prevent duplicate API calls
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -454,8 +469,92 @@ export default function AIRecommendationsHub({
     return categoryMap[category] || categoryMap['general']
   }, [])
   
+  // Generate mock USER recommendations using REAL places from Foursquare API (different from AI mocks)
+  const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
+    try {
+      // Fetch real places from Foursquare API
+      const response = await fetch('/api/foursquare-places', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat: lat,
+          lng: lng,
+          radius: 5000, // 5km radius
+          limit: 12 // Get more places to choose different ones from AI
+        }),
+        signal
+      })
+
+      if (signal?.aborted) {
+        return []
+      }
+
+      if (response.ok) {
+        const data = await response.json()
+        const places = data.items || data.results || []
+        
+        if (places.length === 0) {
+          return []
+        }
+
+        // DETERMINISTIC: Sort by ID and take places 4-7 (different from AI which takes 0-3)
+        // This ensures AI and User mocks show different places
+        const sortedPlaces = [...places].sort((a: any, b: any) => {
+          const idA = a.fsq_id || a.id || a.place_id || ''
+          const idB = b.fsq_id || b.id || b.place_id || ''
+          return idA.localeCompare(idB)
+        }).slice(4, 8) // Take different places than AI mocks
+
+        return sortedPlaces.map((place: any, index: number) => {
+          const placeLat = place.location?.lat || place.geometry?.location?.lat || lat
+          const placeLng = place.location?.lng || place.geometry?.location?.lng || lng
+          
+          // Extract photo URL
+          let photoUrl = place.photoUrl || place.mediaUrl
+          if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+            const firstPhoto = place.photos[0]
+            photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+          }
+
+          const category = place.category || getCategoryFromTypes(place.types || [])
+
+          return {
+            id: `mock-user-${place.fsq_id || place.id || index}`,
+            title: place.title || place.name || "Local Place",
+            description: place.description || 
+              (place.category ? `A great ${place.category.toLowerCase()} spot recommended by the community` : 
+               "A recommended location nearby"),
+            category: category,
+            location: {
+              lat: placeLat,
+              lng: placeLng,
+            },
+            rating: place.rating || 4.0,
+            isAISuggestion: false, // User recommendations
+            confidence: 0,
+            reason: "Recommended by community members",
+            timestamp: new Date(),
+            photoUrl: photoUrl || undefined,
+            mediaUrl: photoUrl || undefined,
+            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0]),
+            fsq_id: place.fsq_id || place.id || undefined
+          }
+        })
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return []
+      }
+      console.error('Error fetching mock user recommendations:', error)
+    }
+    
+    return []
+  }, [getFallbackImage, getCategoryFromTypes])
+  
   // NEW: Get user recommendations from localStorage pins, with gradual mock fade-out
-  const getUserRecommendations = useCallback((): Recommendation[] => {
+  const getUserRecommendations = useCallback(async (): Promise<Recommendation[]> => {
     try {
       const pinsJson = localStorage.getItem('pinit-pins') || '[]'
       const pins: any[] = JSON.parse(pinsJson)
@@ -505,11 +604,16 @@ export default function AIRecommendationsHub({
       }
       
       if (mockCount > 0 && location && location.latitude && location.longitude) {
-        const mockUserRecs = generateMockUserRecommendations(location.latitude, location.longitude)
-        // Take only the number we need
-        const selectedMocks = mockUserRecs.slice(0, mockCount)
-        console.log(`👥 Adding ${selectedMocks.length} mock user recommendations (${realRecCount} real, confidence: ${aiConfidence.toFixed(2)})`)
-        return [...realUserRecs, ...selectedMocks]
+        // Fetch real places from Foursquare for mock user recommendations
+        try {
+          const mockUserRecs = await generateMockUserRecommendations(location.latitude, location.longitude)
+          // Take only the number we need
+          const selectedMocks = mockUserRecs.slice(0, mockCount)
+          console.log(`👥 Adding ${selectedMocks.length} mock user recommendations (${realRecCount} real, confidence: ${aiConfidence.toFixed(2)})`)
+          return [...realUserRecs, ...selectedMocks]
+        } catch (error) {
+          console.error('Error fetching mock user recommendations:', error)
+        }
       }
       
       return realUserRecs
@@ -517,137 +621,99 @@ export default function AIRecommendationsHub({
       console.error('Error loading user recommendations:', error)
       // Return mock recommendations as fallback
       if (location && location.latitude && location.longitude) {
-        return generateMockUserRecommendations(location.latitude, location.longitude)
+        try {
+          return await generateMockUserRecommendations(location.latitude, location.longitude)
+        } catch (err) {
+          console.error('Error fetching fallback mock user recommendations:', err)
+        }
       }
       return []
     }
-  }, [getFallbackImage, insights.userPersonality?.confidence, location])
+  }, [getFallbackImage, insights.userPersonality?.confidence, location, generateMockUserRecommendations])
 
-  // Helper function to categorize places based on their types
-  const getCategoryFromTypes = useCallback((types: string[]): string => {
-    if (types.includes('restaurant') || types.includes('cafe') || types.includes('food')) {
-      return 'Food & Dining'
-    } else if (types.includes('park') || types.includes('natural_feature')) {
-      return 'Nature & Parks'
-    } else if (types.includes('museum') || types.includes('art_gallery') || types.includes('tourist_attraction')) {
-      return 'Culture & Arts'
-    } else if (types.includes('shopping_mall') || types.includes('store')) {
-      return 'Shopping'
-    } else {
-      return 'Location Discovery'
+
+  // Generate mock AI recommendations using REAL places from Foursquare API
+  const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
+    try {
+      // Fetch real places from Foursquare API
+      const response = await fetch('/api/foursquare-places', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat: lat,
+          lng: lng,
+          radius: 5000, // 5km radius
+          limit: 8 // Get enough places to choose from
+        }),
+        signal
+      })
+
+      if (signal?.aborted) {
+        return []
+      }
+
+      if (response.ok) {
+        const data = await response.json()
+        const places = data.items || data.results || []
+        
+        if (places.length === 0) {
+          return []
+        }
+
+        // DETERMINISTIC: Sort by ID and take first 4 for AI mocks
+        const sortedPlaces = [...places].sort((a: any, b: any) => {
+          const idA = a.fsq_id || a.id || a.place_id || ''
+          const idB = b.fsq_id || b.id || b.place_id || ''
+          return idA.localeCompare(idB)
+        }).slice(0, 4)
+
+        return sortedPlaces.map((place: any, index: number) => {
+          const placeLat = place.location?.lat || place.geometry?.location?.lat || lat
+          const placeLng = place.location?.lng || place.geometry?.location?.lng || lng
+          
+          // Extract photo URL
+          let photoUrl = place.photoUrl || place.mediaUrl
+          if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+            const firstPhoto = place.photos[0]
+            photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
+          }
+
+          const category = place.category || getCategoryFromTypes(place.types || [])
+
+          return {
+            id: `mock-ai-${place.fsq_id || place.id || index}`,
+            title: place.title || place.name || "Local Place",
+            description: place.description || 
+              (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
+               "A recommended location nearby"),
+            category: category,
+            location: {
+              lat: placeLat,
+              lng: placeLng,
+            },
+            rating: place.rating || 4.0,
+            isAISuggestion: true,
+            confidence: 20, // Low confidence for mock data
+            reason: "Local area discovery - exploring your neighborhood",
+            timestamp: new Date(),
+            photoUrl: photoUrl || undefined,
+            mediaUrl: photoUrl || undefined,
+            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0]),
+            fsq_id: place.fsq_id || place.id || undefined
+          }
+        })
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return []
+      }
+      console.error('Error fetching mock AI recommendations:', error)
     }
-  }, [])
-
-  // Generate mock AI recommendations for new users when API is unavailable
-  const generateMockAIRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
-    const mockPlaces = [
-      {
-        name: "Local Café",
-        category: "Food & Dining",
-        lat: lat + 0.01,
-        lng: lng + 0.01,
-        rating: 4.2,
-        description: "Cozy local café perfect for coffee and light meals"
-      },
-      {
-        name: "Community Park",
-        category: "Nature & Parks", 
-        lat: lat - 0.015,
-        lng: lng + 0.008,
-        rating: 4.5,
-        description: "Beautiful park with walking trails and green spaces"
-      },
-      {
-        name: "Art Gallery",
-        category: "Culture & Arts",
-        lat: lat + 0.008,
-        lng: lng - 0.012,
-        rating: 4.0,
-        description: "Local art gallery featuring regional artists"
-      },
-      {
-        name: "Shopping Center",
-        category: "Shopping",
-        lat: lat - 0.01,
-        lng: lng - 0.01,
-        rating: 3.8,
-        description: "Convenient shopping center with various stores"
-      }
-    ]
-
-    return mockPlaces.map((place, index) => ({
-      id: `mock-ai-${index}`,
-      title: place.name,
-      description: place.description,
-      category: place.category,
-      location: {
-        lat: place.lat,
-        lng: place.lng,
-      },
-      rating: place.rating,
-      isAISuggestion: true,
-      confidence: 20, // Low confidence for mock data
-      reason: "Local area discovery - exploring your neighborhood",
-      timestamp: new Date(),
-      fallbackImage: getFallbackImage(place.category.toLowerCase().split(' ')[0])
-    }))
-  }, [getFallbackImage])
-
-  // Generate mock USER recommendations (different places from AI mocks to avoid looking fake)
-  const generateMockUserRecommendations = useCallback((lat: number, lng: number): Recommendation[] => {
-    // DIFFERENT places from AI mocks - positioned in different locations
-    const mockPlaces = [
-      {
-        name: "Riverside Bistro",
-        category: "Food & Dining",
-        lat: lat + 0.012,
-        lng: lng - 0.015,
-        rating: 4.6,
-        description: "Popular bistro with great views and delicious food"
-      },
-      {
-        name: "Heritage Trail",
-        category: "Nature & Parks", 
-        lat: lat - 0.018,
-        lng: lng - 0.01,
-        rating: 4.7,
-        description: "Scenic walking trail through historic areas"
-      },
-      {
-        name: "Cultural Center",
-        category: "Culture & Arts",
-        lat: lat - 0.01,
-        lng: lng + 0.014,
-        rating: 4.3,
-        description: "Community cultural center with events and exhibitions"
-      },
-      {
-        name: "Market Square",
-        category: "Shopping",
-        lat: lat + 0.015,
-        lng: lng + 0.012,
-        rating: 4.1,
-        description: "Vibrant market square with local vendors"
-      }
-    ]
-
-    return mockPlaces.map((place, index) => ({
-      id: `mock-user-${index}`,
-      title: place.name,
-      description: place.description,
-      category: place.category,
-      location: {
-        lat: place.lat,
-        lng: place.lng,
-      },
-      rating: place.rating,
-      isAISuggestion: false, // User recommendations
-      confidence: 0,
-      reason: "Recommended by community members",
-      timestamp: new Date(),
-      fallbackImage: getFallbackImage(place.category.toLowerCase().split(' ')[0])
-    }))
-  }, [getFallbackImage])
+    
+    return []
+  }, [getFallbackImage, getCategoryFromTypes])
 
   // Get learning status when component mounts
   useEffect(() => {
@@ -1055,10 +1121,16 @@ export default function AIRecommendationsHub({
                 const aiConfidence = insights.userPersonality?.confidence || 0
                 const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
                 if (mockCount > 0) {
-                  const mockRecommendations = generateMockAIRecommendations(location.latitude, location.longitude)
-                  const selectedMocks = mockRecommendations.slice(0, mockCount)
-                  aiRecs.push(...selectedMocks)
-                  console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations as fallback (confidence: ${aiConfidence.toFixed(2)})`)
+                  try {
+                    const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
+                    if (!signal.aborted && mockRecommendations.length > 0) {
+                      const selectedMocks = mockRecommendations.slice(0, mockCount)
+                      aiRecs.push(...selectedMocks)
+                      console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations as fallback (confidence: ${aiConfidence.toFixed(2)})`)
+                    }
+                  } catch (mockError) {
+                    console.error('Error fetching mock AI recommendations:', mockError)
+                  }
                 }
               }
             } else {
@@ -1068,10 +1140,16 @@ export default function AIRecommendationsHub({
               const aiConfidence = insights.userPersonality?.confidence || 0
               const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
               if (mockCount > 0) {
-                const mockRecommendations = generateMockAIRecommendations(location.latitude, location.longitude)
-                const selectedMocks = mockRecommendations.slice(0, mockCount)
-                aiRecs.push(...selectedMocks)
-                console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (confidence: ${aiConfidence.toFixed(2)})`)
+                try {
+                  const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
+                  if (!signal.aborted && mockRecommendations.length > 0) {
+                    const selectedMocks = mockRecommendations.slice(0, mockCount)
+                    aiRecs.push(...selectedMocks)
+                    console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (confidence: ${aiConfidence.toFixed(2)})`)
+                  }
+                } catch (mockError) {
+                  console.error('Error fetching mock AI recommendations:', mockError)
+                }
               }
             }
           }
@@ -1908,9 +1986,9 @@ export default function AIRecommendationsHub({
               alignItems: 'center'
             }}>
               <button
-                onClick={() => {
+                onClick={async () => {
                   console.log('👥 User clicked User Recommendations button')
-                  const userRecs = getUserRecommendations()
+                  const userRecs = await getUserRecommendations()
                   setFilteredRecommendations(userRecs)
                   setIsShowingCluster(false)
                   setCurrentCluster(null)
