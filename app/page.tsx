@@ -775,7 +775,7 @@ export default function PINITApp() {
         id: place.id,
         latitude: place.lat,
         longitude: place.lng,
-        locationName: place.name || pinIntel.geocode.formatted,
+        locationName: place.name || "Foursquare Place", // Use Foursquare data only
         mediaUrl: null,
         mediaType: null,
         audioUrl: null,
@@ -1259,33 +1259,26 @@ export default function PINITApp() {
         console.warn("⚠️ Foursquare API failed, falling back to /api/places:", fsqError)
       }
       
-      // Fallback to /api/places if Foursquare didn't work or returned no results
+      // NO FALLBACK - Only use Foursquare API
+      // If Foursquare didn't work or returned no results, return placeholder
       if (!data || !data.items || data.items.length === 0) {
-        console.log("📸 Falling back to /api/places endpoint for EXACT location...")
-        // Use small radius (100m) for precise location matching
-        photoResponse = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=100`, { signal })
-        console.log(`📸 API response status: ${photoResponse.status}`)
-        
-        if (!photoResponse.ok) {
-          console.error(`❌ API failed with status: ${photoResponse.status}`)
-          throw new Error("Failed to fetch location data")
-        }
-
-        data = await photoResponse.json()
-        console.log(`📸 API returned ${data.results?.length || 0} results, source: ${data.source}`)
+        console.log("📸 Foursquare API returned no results, using placeholder")
+        const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+        photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+        return placeholderResult
       }
       
       const photos: {url: string, placeName: string, description?: string}[] = []
 
-      // Handle both Foursquare format (data.items) and Google format (data.results)
-      const results = data.items || data.results || []
+      // ONLY handle Foursquare format (data.items) - no Google format
+      const results = data.items || []
       
       if (results.length > 0) {
         // Calculate distance from exact pin location to each place and sort by distance
         const placesWithDistance = results.map((place: any) => {
-          // Handle both Foursquare and Google format
-          const placeLat = place.location?.lat || place.geometry?.location?.lat || place.latitude
-          const placeLng = place.location?.lng || place.geometry?.location?.lng || place.longitude
+          // ONLY handle Foursquare format
+          const placeLat = place.location?.lat || place.latitude
+          const placeLng = place.location?.lng || place.longitude
           if (placeLat && placeLng) {
             const distance = calculateDistance(lat, lng, placeLat, placeLng)
             return { ...place, distance }
@@ -1298,7 +1291,7 @@ export default function PINITApp() {
         const closestPlace = placesWithDistance[0]
         console.log(`✅ Found closest place: ${closestPlace.name || closestPlace.title} at ${closestPlace.distance.toFixed(1)}m from pin location`)
         
-        // Handle Foursquare format
+        // ONLY handle Foursquare format - no Google format
         if (closestPlace.photoUrl) {
           photos.push({
             url: closestPlace.photoUrl,
@@ -1313,8 +1306,20 @@ export default function PINITApp() {
           return photos
         }
         
-        // Handle Google format (existing code)
-        if (closestPlace.photos && closestPlace.photos.length > 0) {
+        // If no Foursquare photo, return placeholder with place name
+        if (closestPlace.title || closestPlace.name) {
+          console.log(`⚠️ Foursquare place found but no photo: ${closestPlace.title}`)
+          const placeData = [{
+            url: "/pinit-placeholder.jpg",
+            placeName: closestPlace.title || closestPlace.name || "Unknown Place",
+            description: closestPlace.description
+          }]
+          photoFetchCacheRef.current.set(cacheKey, { data: placeData, timestamp: Date.now() })
+          return placeData
+        }
+        
+        // REMOVED: Google format handling - only Foursquare now
+        if (false && closestPlace.photos && closestPlace.photos.length > 0) {
           // More aggressive filtering to exclude logos, clipart, and non-location photos
           const filteredPhotos = closestPlace.photos.filter((photo: any) => {
             // Skip photos that are likely logos, clipart, or non-location photos
@@ -1969,7 +1974,7 @@ export default function PINITApp() {
           id: Date.now().toString(),
           latitude: place.latitude,
           longitude: place.longitude,
-          locationName: place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`,
+          locationName: place.title || place.name || place.vicinity || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`, // Prioritize Foursquare title/name
           mediaUrl: place.mediaUrl || null,
           mediaType: place.mediaUrl ? "photo" : null,
           audioUrl: null,
@@ -2118,10 +2123,10 @@ export default function PINITApp() {
               id: Date.now().toString(),
               latitude: location.latitude,
               longitude: location.longitude,
-              locationName: locationName || "Camera Photo Location",
+              locationName: capturedMedia.foursquareData?.placeName || locationName || "Camera Photo Location", // Prioritize Foursquare
               mediaUrl: contentData.finalImageUrl || capturedMedia.url, // Use rendered image if available
               mediaType: capturedMedia.type,
-              title: locationDetails?.name || "Camera Photo",
+              title: capturedMedia.foursquareData?.placeName || locationDetails?.name || "Camera Photo", // Prioritize Foursquare
               description: contentData.comments || "Photo taken with PINIT camera",
               tags: ["camera", "photo", "personal"],
               personalThoughts: contentData.comments || "",
