@@ -1817,12 +1817,12 @@ export default function AIRecommendationsHub({
                   setViewMode('list')
                 }}
                 style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(147, 197, 253, 0.9)',
+                  border: '1px solid rgba(255,255,255,0.3)',
                   borderRadius: '0.75rem',
-                  padding: '12px 20px',
+                  padding: '10px 16px',
                   color: 'white',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
@@ -1831,13 +1831,17 @@ export default function AIRecommendationsHub({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '6px',
+                  minWidth: '140px',
+                  maxWidth: '160px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                  e.currentTarget.style.background = 'rgba(147, 197, 253, 1)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                  e.currentTarget.style.background = 'rgba(147, 197, 253, 0.9)'
                 }}
               >
                 👥 User Recommendations
@@ -1854,12 +1858,12 @@ export default function AIRecommendationsHub({
                   setViewMode('list')
                 }}
                 style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(147, 197, 253, 0.9)',
+                  border: '1px solid rgba(255,255,255,0.3)',
                   borderRadius: '0.75rem',
-                  padding: '12px 20px',
+                  padding: '10px 16px',
                   color: 'white',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
@@ -1868,13 +1872,17 @@ export default function AIRecommendationsHub({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '6px',
+                  minWidth: '140px',
+                  maxWidth: '160px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                  e.currentTarget.style.background = 'rgba(147, 197, 253, 1)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                  e.currentTarget.style.background = 'rgba(147, 197, 253, 0.9)'
                 }}
               >
                 🤖 AI Recommendations
