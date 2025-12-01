@@ -1192,9 +1192,9 @@ export default function PINITApp() {
       
       try {
         console.log("📸 Trying Foursquare API for place data and photos at EXACT location...")
-        // Use very small radius (50m) for precise location matching - ensures we get the exact place at the pin location
+        // Use very small radius (25m) for precise location matching - ensures we get the exact place at the pin location
         // This prevents mixing up restaurants, monuments, or other places that might be right next door
-        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=10`, { signal })
+        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=25&limit=10`, { signal })
         console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
         
         if (photoResponse.ok) {
@@ -1206,16 +1206,60 @@ export default function PINITApp() {
             const photos: {url: string, placeName: string, description?: string}[] = []
             
             // Calculate distance from exact pin location to each place and sort by distance
-            const placesWithDistance = data.items.map((place: any) => {
-              const placeLat = place.location?.lat || place.latitude
-              const placeLng = place.location?.lng || place.longitude
-              const distance = calculateDistance(lat, lng, placeLat, placeLng)
-              return { ...place, distance }
-            }).sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+            // Filter out places with invalid coordinates first
+            const placesWithDistance = data.items
+              .map((place: any) => {
+                // Foursquare API returns location as { lat, lng } object
+                const placeLat = place.location?.lat
+                const placeLng = place.location?.lng
+                
+                // Debug log to see the structure
+                if (!placeLat || !placeLng) {
+                  console.warn(`⚠️ Missing coordinates for place: ${place.title || place.name}`, { 
+                    place, 
+                    location: place.location,
+                    hasLocation: !!place.location,
+                    locationKeys: place.location ? Object.keys(place.location) : []
+                  })
+                }
+                
+                // Validate coordinates before calculating distance
+                if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
+                    isNaN(placeLat) || isNaN(placeLng) ||
+                    placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
+                  console.warn(`⚠️ Invalid coordinates for place: ${place.title || place.name}`, { placeLat, placeLng, placeLocation: place.location })
+                  return null
+                }
+                
+                const distance = calculateDistance(lat, lng, placeLat, placeLng)
+                if (isNaN(distance) || distance < 0) {
+                  console.warn(`⚠️ Invalid distance calculated for place: ${place.title || place.name}`, { distance, placeLat, placeLng, pinLat: lat, pinLng: lng })
+                  return null
+                }
+                
+                return { ...place, distance }
+              })
+              .filter((place: any) => place !== null) // Remove invalid places
+              .sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+            
+            if (placesWithDistance.length === 0) {
+              console.log("⚠️ No places with valid coordinates found")
+              const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+              photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+              return placeholderResult
+            }
             
             // Get the closest place to the exact pin coordinates
             const closestPlace = placesWithDistance[0]
             console.log(`✅ Found closest place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m from pin location`)
+            
+            // Only use the place if it's within 25m of the pin (very precise - prevents mixing up nearby places)
+            if (closestPlace.distance > 25) {
+              console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m) - using placeholder`)
+              const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+              photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+              return placeholderResult
+            }
             
             if (closestPlace.photoUrl) {
               photos.push({
@@ -1275,21 +1319,60 @@ export default function PINITApp() {
       
       if (results.length > 0) {
         // Calculate distance from exact pin location to each place and sort by distance
-        const placesWithDistance = results.map((place: any) => {
-          // ONLY handle Foursquare format
-          const placeLat = place.location?.lat || place.latitude
-          const placeLng = place.location?.lng || place.longitude
-          if (placeLat && placeLng) {
+        // Filter out places with invalid coordinates first
+        const placesWithDistance = results
+          .map((place: any) => {
+            // ONLY handle Foursquare format - location is { lat, lng } object
+            const placeLat = place.location?.lat
+            const placeLng = place.location?.lng
+            
+            // Debug log to see the structure
+            if (!placeLat || !placeLng) {
+              console.warn(`⚠️ Missing coordinates for place: ${place.title || place.name}`, { 
+                place, 
+                location: place.location,
+                hasLocation: !!place.location,
+                locationKeys: place.location ? Object.keys(place.location) : []
+              })
+            }
+            
+            // Validate coordinates before calculating distance
+            if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
+                isNaN(placeLat) || isNaN(placeLng) ||
+                placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
+              console.warn(`⚠️ Invalid coordinates for place: ${place.title || place.name}`, { placeLat, placeLng, placeLocation: place.location })
+              return null
+            }
+            
             const distance = calculateDistance(lat, lng, placeLat, placeLng)
+            if (isNaN(distance) || distance < 0) {
+              console.warn(`⚠️ Invalid distance calculated for place: ${place.title || place.name}`, { distance, placeLat, placeLng, pinLat: lat, pinLng: lng })
+              return null
+            }
+            
             return { ...place, distance }
-          }
-          // If no coordinates, assign very large distance
-          return { ...place, distance: 999999 }
-        }).sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+          })
+          .filter((place: any) => place !== null) // Remove invalid places
+          .sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+        
+        if (placesWithDistance.length === 0) {
+          console.log("⚠️ No places with valid coordinates found")
+          const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+          photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+          return placeholderResult
+        }
         
         // Get the closest place to the exact pin coordinates
         const closestPlace = placesWithDistance[0]
-        console.log(`✅ Found closest place: ${closestPlace.name || closestPlace.title} at ${closestPlace.distance.toFixed(1)}m from pin location`)
+        console.log(`✅ Found closest place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m from pin location`)
+        
+        // Only use the place if it's within 25m of the pin (very precise - prevents mixing up nearby places)
+        if (closestPlace.distance > 25) {
+          console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m) - using placeholder`)
+          const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+          photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+          return placeholderResult
+        }
         
         // ONLY handle Foursquare format - no Google format
         if (closestPlace.photoUrl) {
