@@ -701,6 +701,104 @@ export default function PINITApp() {
     throw lastError!
   }
 
+  // Share to social media platform
+  const shareToPlatform = async (platform: string, imageUrl: string, mediaData?: any) => {
+    const locationName = mediaData?.foursquareData?.placeName || mediaData?.location || mediaData?.title || "PINIT Location"
+    const description = mediaData?.description || mediaData?.personalThoughts || ""
+    const shareText = `${locationName}${description ? ` - ${description}` : ''}`
+    
+    switch (platform.toLowerCase()) {
+      case 'whatsapp':
+        // Try Web Share API first (works best on mobile, allows image sharing)
+        if (navigator.share && imageUrl) {
+          try {
+            // Convert image URL to blob if it's a data URL
+            let imageBlob: Blob | null = null
+            if (imageUrl.startsWith('data:image')) {
+              const response = await fetch(imageUrl)
+              imageBlob = await response.blob()
+            } else {
+              const response = await fetch(imageUrl)
+              imageBlob = await response.blob()
+            }
+            
+            const imageFile = new File([imageBlob], 'pinit-share.jpg', { type: 'image/jpeg' })
+            
+            await navigator.share({
+              title: locationName,
+              text: `${shareText}\n\n📍 Shared via PINIT`,
+              files: [imageFile]
+            })
+            console.log('📤 Shared to WhatsApp via Web Share API')
+            return
+          } catch (error: any) {
+            // If user cancels or Web Share fails, fall through to URL method
+            if (error.name !== 'AbortError') {
+              console.log('📤 Web Share API failed, trying URL method:', error)
+            } else {
+              console.log('📤 User cancelled WhatsApp share')
+              return
+            }
+          }
+        }
+        
+        // Fallback: WhatsApp Web API - opens WhatsApp with message (user can attach image manually)
+        // Format: https://wa.me/?text=URL_ENCODED_TEXT
+        const whatsappText = encodeURIComponent(`${shareText}\n\n📍 Shared via PINIT`)
+        const whatsappUrl = `https://wa.me/?text=${whatsappText}`
+        window.open(whatsappUrl, '_blank')
+        console.log('📤 Opening WhatsApp with message (user can attach image)')
+        break
+        
+      case 'instagram':
+        // Instagram doesn't support direct sharing via URL
+        // User will need to download and share manually
+        console.log('📸 Instagram sharing - user needs to download and share manually')
+        // Could trigger download here
+        break
+        
+      case 'twitter':
+      case 'x':
+        // Twitter/X sharing
+        const twitterText = encodeURIComponent(`${shareText} #PINIT`)
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${twitterText}`
+        window.open(twitterUrl, '_blank')
+        console.log('📤 Opening Twitter/X with message')
+        break
+        
+      case 'facebook':
+        // Facebook sharing
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(shareText)}`
+        window.open(facebookUrl, '_blank')
+        console.log('📤 Opening Facebook with message')
+        break
+        
+      case 'linkedin':
+        // LinkedIn sharing
+        const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}&summary=${encodeURIComponent(shareText)}`
+        window.open(linkedinUrl, '_blank')
+        console.log('📤 Opening LinkedIn with message')
+        break
+        
+      default:
+        // Fallback: Use Web Share API if available
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: locationName,
+              text: shareText,
+              url: imageUrl
+            })
+            console.log('📤 Shared via Web Share API')
+          } catch (error) {
+            console.error('Error sharing:', error)
+          }
+        } else {
+          console.log(`📤 Platform ${platform} sharing not implemented`)
+        }
+    }
+  }
+
   // UPDATED: Use pin-intel gateway for location name (NO MORE GOOGLE API CALLS)
   const getRealLocationName = async (lat: number, lng: number): Promise<string> => {
     const isMobile = isMobileDevice()
@@ -2172,7 +2270,7 @@ export default function PINITApp() {
         mediaType={capturedMedia.type}
         platform={selectedPlatform}
         onBack={() => setCurrentScreen("platform-select")}
-        onPost={(contentData) => {
+        onPost={async (contentData) => {
           // Prevent multiple rapid clicks
           if (isPosting) return
           setIsPosting(true)
@@ -2202,7 +2300,15 @@ export default function PINITApp() {
             addPin(newPin)
           }
           
-          setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
+          // Actually share to the selected platform
+          try {
+            await shareToPlatform(selectedPlatform, contentData.finalImageUrl || capturedMedia.url, capturedMedia)
+            setSuccessMessage(`Shared to ${selectedPlatform} successfully!`)
+          } catch (error) {
+            console.error('Error sharing to platform:', error)
+            setSuccessMessage(`Posted to ${selectedPlatform} successfully!`)
+          }
+          
           setShowRecommendationPopup(true) // Show recommendation popup instead of success popup
           
           // Check if this is a PINIT pin (has personalThoughts) and show recommendation form
