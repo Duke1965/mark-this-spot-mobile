@@ -18,68 +18,40 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
   }
 
   try {
-    // Fetch from Google Geocoding API
+    // Fetch from Foursquare Places API instead of Google Geocoding
+    // Use Foursquare to get place name and description
+    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+      : process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000'
+    
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=en&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
     )
     
     const data = await response.json()
     
-    // Check API response status
-    if (data.status !== "OK" || !data.results || data.results.length === 0) {
+    // Check Foursquare API response
+    if (!response.ok || !data.items || data.items.length === 0) {
       // Cache the null result
       geocodeCache.set(cacheKey, { result: null, timestamp: now })
       return null
     }
 
-    const result = data.results[0]
-    const components = result.address_components || []
+    // Use Foursquare place data
+    const place = data.items[0]
+    const placeName = place.title || place.name || "Unknown Location"
+    const address = place.address || place.location?.address || ""
     
-    // Extract components in priority order
-    let neighborhood = ""
-    let locality = ""
-    let admin2 = ""
-    let admin1 = ""
-    let countryCode = ""
-
-    for (const component of components) {
-      const types = component.types || []
-      
-      if (types.includes("neighborhood") || types.includes("sublocality")) {
-        neighborhood = component.long_name
-      } else if (types.includes("locality")) {
-        locality = component.long_name
-      } else if (types.includes("administrative_area_level_2")) {
-        admin2 = component.long_name
-      } else if (types.includes("administrative_area_level_1")) {
-        admin1 = component.long_name
-      } else if (types.includes("country")) {
-        countryCode = component.short_name
-      }
-    }
-
-    // Build smart label
-    let shortLabel = ""
-    
-    if (neighborhood && locality) {
-      shortLabel = `${neighborhood}, ${locality}`
-    } else if (locality) {
-      shortLabel = locality
-    } else {
-      const adminArea = admin2 || admin1
-      if (adminArea && countryCode) {
-        shortLabel = `${adminArea}, ${countryCode}`
-      } else if (adminArea) {
-        shortLabel = adminArea
-      } else if (countryCode) {
-        shortLabel = countryCode
-      } else {
-        shortLabel = "Unknown Location"
-      }
+    // Build smart label from Foursquare data
+    let shortLabel = placeName
+    if (address && address !== placeName) {
+      shortLabel = `${placeName}, ${address}`
     }
 
     const placeLabel: PlaceLabel = {
-      raw: result.formatted_address || "",
+      raw: address || placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       short: shortLabel
     }
 
