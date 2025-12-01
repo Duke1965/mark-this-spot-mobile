@@ -190,7 +190,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
     
     if (address) {
       // Split address by comma to get components
-      const addressParts = address.split(',').map(part => part.trim()).filter(part => part.length > 0)
+      const addressParts = address.split(',').map((part: string) => part.trim()).filter((part: string) => part.length > 0)
       
       if (addressParts.length >= 2) {
         // First part is usually street, second is usually locality/town
