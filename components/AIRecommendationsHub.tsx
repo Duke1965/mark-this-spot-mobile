@@ -1767,7 +1767,7 @@ export default function AIRecommendationsHub({
         textAlign: 'center'
       }}>
         <div style={{ fontSize: '48px', marginBottom: '20px' }}>📍</div>
-        <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Initializing AI Recommendations</h2>
+        <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Initializing Recommendations</h2>
         <p style={{ margin: 0, opacity: 0.8, fontSize: '14px' }}>
           {!location ? 'Waiting for location services...' : 'Preparing personalized recommendations...'}
         </p>
@@ -1844,7 +1844,7 @@ export default function AIRecommendationsHub({
           ←
         </button>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
-          🧠 AI Recommendations
+          📍 Recommendations
         </h1>
         <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
           Personalized for you based on your behavior
@@ -2533,6 +2533,21 @@ export default function AIRecommendationsHub({
                   {displayRecs.map((rec) => (
                   <div
                     key={rec.id}
+                    onClick={() => {
+                      console.log('📍 Card clicked for:', rec.title)
+                      setSelectedRecommendation(rec)
+                      setRecommendationFormData({
+                        mediaUrl: rec.photoUrl || rec.mediaUrl || '',
+                        locationName: rec.title || 'Location',
+                        foursquareData: rec.fsq_id ? {
+                          placeName: rec.title || null,
+                          description: rec.description || null,
+                          latitude: rec.location?.lat,
+                          longitude: rec.location?.lng,
+                        } : undefined,
+                      })
+                      setShowRecommendationForm(true)
+                    }}
                     style={{
                       background: 'rgba(255,255,255,0.1)',
                       padding: '18px',
@@ -2541,6 +2556,7 @@ export default function AIRecommendationsHub({
                       backdropFilter: 'blur(15px)',
                       transition: 'all 0.2s ease',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                      cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
