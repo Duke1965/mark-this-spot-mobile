@@ -2946,12 +2946,47 @@ export default function AIRecommendationsHub({
         )}
       </div>
 
-      {/* Recommendation Form Modal - Same as photo recommendation flow */}
+      {/* Recommendation Form Modal - Enhanced for recommendations */}
       {showRecommendationForm && recommendationFormData && selectedRecommendation && (
         <RecommendationForm
-          mediaUrl={recommendationFormData.mediaUrl}
+          mediaUrl={recommendationFormData.mediaUrl || ''}
           locationName={recommendationFormData.locationName}
           foursquareData={recommendationFormData.foursquareData}
+          additionalPhotos={selectedRecommendation.additionalPhotos || (selectedRecommendation.photoUrl ? [{ url: selectedRecommendation.photoUrl, placeName: selectedRecommendation.title }] : undefined)}
+          onSave={() => {
+            console.log('📍 Saving recommendation to library (without recommending)')
+            // Use the existing onSkip logic for saving
+            const savedPin: PinData = {
+              id: Date.now().toString(),
+              latitude: selectedRecommendation.location?.lat || 0,
+              longitude: selectedRecommendation.location?.lng || 0,
+              locationName: selectedRecommendation.title || 'Location',
+              mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || null,
+              mediaType: (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) ? "photo" : null,
+              audioUrl: null,
+              timestamp: new Date().toISOString(),
+              title: selectedRecommendation.title || 'Location',
+              description: selectedRecommendation.description || undefined,
+              tags: [
+                "saved",
+                selectedRecommendation.category?.toLowerCase() || "general"
+              ],
+              isRecommended: false,
+              types: ["saved"],
+              category: selectedRecommendation.category || "general",
+              isAISuggestion: selectedRecommendation.isAISuggestion || false
+            }
+            addPin(savedPin)
+            setShowRecommendationForm(false)
+            setRecommendationFormData(null)
+            setSelectedRecommendation(null)
+            console.log('✅ Pin saved to library!')
+          }}
+          onShare={() => {
+            console.log('📤 Share on social media - to be implemented')
+            // TODO: Navigate to platform select screen or implement sharing
+            // For now, just log
+          }}
           onRecommend={async (rating: number, review: string) => {
             console.log('📍 Recommendation submitted:', { rating, review, rec: selectedRecommendation })
             
