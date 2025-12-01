@@ -2303,7 +2303,7 @@ export default function PINITApp() {
 
   // NEW RECOMMENDATIONS HUB SCREEN
   if (currentScreen === "recommendations") {
-    console.log("dY Opening AI-Powered Recommendations Hub")
+    console.log("dY Opening Recommendations Hub")
     console.log("dY - AI brain is learning from user behavior")
     console.log("dY - Generating personalized recommendations")
     
@@ -3229,7 +3229,7 @@ export default function PINITApp() {
         </div>
       )}
 
-              {/* Bottom Navigation - Photo/Video/Library/AI-Powered Recommendations */}
+              {/* Bottom Navigation - Photo/Video/Library/Recommendations */}
       <div
         style={{
           position: "absolute",
@@ -3364,7 +3364,7 @@ export default function PINITApp() {
             borderRadius: "0.5rem",
             transition: "all 0.2s ease",
           }}
-          title="dY AI-Powered Recommendations"
+          title="dY Recommendations"
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "rgba(255,255,255,0.1)"
             e.currentTarget.style.transform = "scale(1.05)"
