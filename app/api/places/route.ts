@@ -260,46 +260,44 @@ export async function POST(request: NextRequest) {
   const deviceType = request.headers.get("x-device-type") || "unknown"
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || deviceType === "mobile"
   
-  try {
-    
-    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Places API POST request:`, { lat, lng, radius, deviceType })
+  console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Places API POST request:`, { lat, lng, radius, deviceType })
 
-    if (!lat || !lng) {
-      return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
-    }
+  if (!lat || !lng) {
+    return NextResponse.json({ error: "Missing lat/lng parameters" }, { status: 400 })
+  }
 
-    // NEW: Try Foursquare Places API first
-    const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
-    
-    if (foursquareServiceKey) {
-      console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare Places API first...`)
-      try {
-        // Call the new /api/foursquare-places endpoint
-        const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
-          : process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000'
-        
-        const foursquareResponse = await fetch(`${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=${parseInt(radius)}&limit=5`, {
-          headers: {
-            'Accept': 'application/json',
-          },
-        })
-        
-        if (foursquareResponse.ok) {
-          const foursquareData = await foursquareResponse.json()
-          const foursquareResults = foursquareData.items || []
-        
-          console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
+  // NEW: Try Foursquare Places API first
+  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+  
+  if (foursquareServiceKey) {
+    console.log(`🌐 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Trying Foursquare Places API first...`)
+    try {
+      // Call the new /api/foursquare-places endpoint
+      const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+        : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000'
+      
+      const foursquareResponse = await fetch(`${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=${parseInt(radius)}&limit=5`, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      })
+      
+      if (foursquareResponse.ok) {
+        const foursquareData = await foursquareResponse.json()
+        const foursquareResults = foursquareData.items || []
+      
+        console.log(`✅ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API: Found ${foursquareResults.length} places`)
         
         // Debug: Log first result details
-          if (foursquareResults.length > 0) {
+        if (foursquareResults.length > 0) {
           console.log(`🔍 [${isMobile ? 'MOBILE' : 'DESKTOP'}] First Foursquare result:`, JSON.stringify(foursquareResults[0], null, 2))
         }
         
         // ONLY use Foursquare - no Google fallback
-          if (foursquareResults.length > 0) {
+        if (foursquareResults.length > 0) {
           console.log(`📸 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Using Foursquare results`)
           // Convert Foursquare results to expected format
           const foursquareFormatResults = foursquareResults.map((place: any) => {
@@ -330,38 +328,38 @@ export async function POST(request: NextRequest) {
             status: "OK",
             source: "foursquare"
           })
-          } else {
-            console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results - returning empty array`)
-            return NextResponse.json({
-              results: [],
-              status: "OK",
-              source: "foursquare"
-            })
-          }
         } else {
-          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK - returning empty array`)
+          console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API returned 0 results - returning empty array`)
           return NextResponse.json({
             results: [],
             status: "OK",
             source: "foursquare"
           })
         }
-      } catch (foursquareError) {
-        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed - returning empty array:`, foursquareError)
+      } else {
+        console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API response not OK - returning empty array`)
         return NextResponse.json({
           results: [],
-          status: "ERROR",
-          source: "foursquare",
-          error: foursquareError instanceof Error ? foursquareError.message : "Unknown error"
+          status: "OK",
+          source: "foursquare"
         })
       }
-    } else {
-      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found - returning empty array`)
+    } catch (foursquareError) {
+      console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API failed - returning empty array:`, foursquareError)
       return NextResponse.json({
         results: [],
         status: "ERROR",
         source: "foursquare",
-        error: "Foursquare API key not configured"
+        error: foursquareError instanceof Error ? foursquareError.message : "Unknown error"
       })
     }
+  } else {
+    console.log(`⚠️ [${isMobile ? 'MOBILE' : 'DESKTOP'}] Foursquare Places API service key not found - returning empty array`)
+    return NextResponse.json({
+      results: [],
+      status: "ERROR",
+      source: "foursquare",
+      error: "Foursquare API key not configured"
+    })
+  }
 }
