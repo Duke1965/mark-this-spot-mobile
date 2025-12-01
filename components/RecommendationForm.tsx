@@ -8,9 +8,15 @@ interface RecommendationFormProps {
   locationName: string
   onRecommend: (rating: number, review: string) => void
   onSkip: () => void
+  foursquareData?: {
+    placeName: string | null
+    description: string | null
+    latitude: number
+    longitude: number
+  }
 }
 
-export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip }: RecommendationFormProps) {
+export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip, foursquareData }: RecommendationFormProps) {
   const [showForm, setShowForm] = useState(false)
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState("")
@@ -126,8 +132,21 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           fontWeight: "500",
           textAlign: "center"
         }}>
-          {locationName}
+          {foursquareData?.placeName || locationName}
         </div>
+        {foursquareData?.description && (
+          <div style={{ 
+            fontSize: "0.875rem", 
+            opacity: 0.8, 
+            textAlign: "center",
+            marginTop: "0.5rem",
+            padding: "0.75rem",
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: "0.5rem"
+          }}>
+            {foursquareData.description}
+          </div>
+        )}
       </div>
 
       {/* Star Rating */}
