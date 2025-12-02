@@ -68,14 +68,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Build URL for new Places API
-    // Note: New Places API may require explicit fields parameter to include photos
+    // Note: 'photos' field removed to avoid Premium Tier 1 pricing (~18 credits/call)
     const url = new URL(`${FSQ_PLACES_BASE}/places/search`);
     url.searchParams.set('ll', `${lat},${lng}`); // Latitude, longitude
     url.searchParams.set('radius', String(radius)); // Radius in meters
     url.searchParams.set('limit', String(limit)); // Limit results
-    // Request photos explicitly - use correct field names for new Places API
-    // Note: fsq_id and geocodes are not valid field names in new API (they're always included)
-    url.searchParams.set('fields', 'name,categories,description,rating,photos,location');
+    // Request basic fields only - keeps calls in free tier (~1 credit/call)
+    // fsq_id and geocodes are always included by default
+    url.searchParams.set('fields', 'name,categories,description,rating,location');
     
     console.log('🔗 Foursquare Places API URL:', url.toString());
     
@@ -331,14 +331,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Build URL for new Places API
-    // Note: New Places API may require explicit fields parameter to include photos
+    // Note: 'photos' field removed to avoid Premium Tier 1 pricing (~18 credits/call)
     const url = new URL(`${FSQ_PLACES_BASE}/places/search`);
     url.searchParams.set('ll', `${lat},${lng}`); // Latitude, longitude
     url.searchParams.set('radius', String(radius)); // Radius in meters
     url.searchParams.set('limit', String(limit)); // Limit results
-    // Request photos explicitly - use correct field names for new Places API
-    // Note: fsq_id and geocodes are not valid field names in new API (they're always included)
-    url.searchParams.set('fields', 'name,categories,description,rating,photos,location');
+    // Request basic fields only - keeps calls in free tier (~1 credit/call)
+    // fsq_id and geocodes are always included by default
+    url.searchParams.set('fields', 'name,categories,description,rating,location');
     
     console.log('🔗 Foursquare Places API URL:', url.toString());
     console.log('🔑 Service Key present:', !!serviceKey, 'Length:', serviceKey?.length || 0);
