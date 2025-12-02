@@ -28,6 +28,7 @@ import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
+import "mapbox-gl/dist/mapbox-gl.css"
 
 
 
@@ -104,7 +105,7 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker
+// Interactive Map Editor Component with Draggable Marker (Mapbox)
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -119,45 +120,54 @@ function InteractiveMapEditor({
   const markerRef = useRef<any>(null)
 
   useEffect(() => {
-    if (!mapRef.current || !(window as any).google) return
+    if (!mapRef.current) return
 
-    // Initialize map
-    const map = new (window as any).google.maps.Map(mapRef.current, {
-      center: { lat: initialLat, lng: initialLng },
-      zoom: 17,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: true,
-      gestureHandling: 'greedy'
+    // Dynamically import Mapbox GL
+    import('mapbox-gl').then((mapboxgl) => {
+      if (!mapRef.current || mapInstanceRef.current) return
+
+      // Set Mapbox access token
+      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
+
+      // Initialize Mapbox map
+      const map = new mapboxgl.default.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [initialLng, initialLat], // Mapbox uses [lng, lat]
+        zoom: 16,
+        attributionControl: false
+      })
+
+      mapInstanceRef.current = map
+
+      // Create draggable marker
+      const marker = new mapboxgl.default.Marker({
+        draggable: true,
+        color: '#3B82F6'
+      })
+        .setLngLat([initialLng, initialLat])
+        .addTo(map)
+
+      markerRef.current = marker
+
+      // Listen for marker drag events
+      marker.on('dragend', () => {
+        const lngLat = marker.getLngLat()
+        console.log("📍 Marker dragged to:", { lat: lngLat.lat, lng: lngLat.lng })
+        onLocationChange(lngLat.lat, lngLat.lng)
+      })
+
+      // Cleanup
+      return () => {
+        marker.remove()
+        map.remove()
+      }
     })
 
-    mapInstanceRef.current = map
-
-    // Create draggable marker
-    const marker = new (window as any).google.maps.Marker({
-      position: { lat: initialLat, lng: initialLng },
-      map: map,
-      draggable: true,
-      animation: (window as any).google.maps.Animation.DROP,
-      title: "Drag to move pin"
-    })
-
-    markerRef.current = marker
-
-    // Listen for marker drag events
-    marker.addListener('dragend', (e: any) => {
-      const newLat = e.latLng.lat()
-      const newLng = e.latLng.lng()
-      console.log("📍 Marker dragged to:", { lat: newLat, lng: newLng })
-      // Only update the location, don't update originalPinLocation here
-      onLocationChange(newLat, newLng)
-    })
-
-    // Update marker position when initial location changes
     return () => {
-      if (marker) {
-        (window as any).google.maps.event.clearInstanceListeners(marker)
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
       }
     }
   }, []) // Only run once on mount
@@ -165,9 +175,8 @@ function InteractiveMapEditor({
   // Update marker position when initial location changes (but not during drag)
   useEffect(() => {
     if (markerRef.current && mapInstanceRef.current) {
-      const newPosition = { lat: initialLat, lng: initialLng }
-      markerRef.current.setPosition(newPosition)
-      mapInstanceRef.current.setCenter(newPosition)
+      markerRef.current.setLngLat([initialLng, initialLat])
+      mapInstanceRef.current.setCenter([initialLng, initialLat])
     }
   }, [initialLat, initialLng])
 
@@ -3028,7 +3037,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE GOOGLE MAPS BACKGROUND */}
+          {/* LIVE MAPBOX BACKGROUND */}
           {(userLocation || location) && (
             <div
               style={{
@@ -3041,11 +3050,11 @@ export default function PINITApp() {
               }}
             >
               <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${
-                  userLocation?.latitude || location?.latitude || -25.7479
-                },${
+                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${
                   userLocation?.longitude || location?.longitude || 28.2293
-                }&zoom=16&size=280x280&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}`}
+                },${
+                  userLocation?.latitude || location?.latitude || -25.7479
+                },15,0/280x280@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""}`}
                 alt="Live Map"
                 style={{
                   width: "100%",
@@ -3054,10 +3063,10 @@ export default function PINITApp() {
                   filter: "contrast(1.1) saturate(1.2)",
                 }}
                 onLoad={(e) => {
-                  console.log("Map loaded successfully")
+                  console.log("Mapbox map loaded successfully")
                 }}
                 onError={(e) => {
-                  console.log("Google Maps failed, trying alternative...")
+                  console.log("Mapbox failed, trying OpenStreetMap...")
                   const imgElement = e.currentTarget
                   if (!imgElement) return
                   
