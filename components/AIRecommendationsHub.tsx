@@ -101,6 +101,7 @@ export default function AIRecommendationsHub({
   const { addPin } = usePinStorage()
   const [learningProgress, setLearningProgress] = useState<any>(null)
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
+  const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
   const [recommendationFormData, setRecommendationFormData] = useState<{
     mediaUrl: string
@@ -2586,17 +2587,8 @@ export default function AIRecommendationsHub({
                     onClick={() => {
                       console.log('📍 Card clicked for:', rec.title)
                       setSelectedRecommendation(rec)
-                      setRecommendationFormData({
-                        mediaUrl: rec.photoUrl || rec.mediaUrl || '',
-                        locationName: rec.title || 'Location',
-                        foursquareData: rec.fsq_id ? {
-                          placeName: rec.title || null,
-                          description: rec.description || null,
-                          latitude: rec.location?.lat,
-                          longitude: rec.location?.lng,
-                        } : undefined,
-                      })
-                      setShowRecommendationForm(true)
+                      // First show read-only view, then user can choose to save/share
+                      setShowReadOnlyRecommendation(true)
                     }}
                     style={{
                       background: 'rgba(255,255,255,0.1)',
@@ -2996,7 +2988,227 @@ export default function AIRecommendationsHub({
         )}
       </div>
 
-      {/* Recommendation Form Modal - Enhanced for recommendations */}
+      {/* Read-Only Recommendation View - Shows completed recommendation first */}
+      {showReadOnlyRecommendation && selectedRecommendation && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%)',
+            zIndex: 2000,
+            overflowY: 'auto',
+            padding: '20px',
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <button
+              onClick={() => {
+                setShowReadOnlyRecommendation(false)
+                setSelectedRecommendation(null)
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              ← Back
+            </button>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white' }}>
+              {selectedRecommendation.isAISuggestion ? '🤖 AI Recommendation' : '👤 User Recommendation'}
+            </div>
+            <div style={{ width: '60px' }}></div>
+          </div>
+
+          {/* Image Carousel */}
+          <div
+            style={{
+              width: '100%',
+              height: '300px',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              marginBottom: '20px',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl ? (
+              <img
+                src={selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl}
+                alt={selectedRecommendation.title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: '4rem' }}>
+                {selectedRecommendation.fallbackImage || '📍'}
+              </div>
+            )}
+          </div>
+
+          {/* Content Card */}
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: '16px',
+              padding: '24px',
+              marginBottom: '20px',
+            }}
+          >
+            {/* Title */}
+            <h2 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '12px', marginTop: 0 }}>
+              {selectedRecommendation.title || 'Location'}
+            </h2>
+
+            {/* Rating */}
+            {selectedRecommendation.rating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '1.2rem' }}>⭐</div>
+                <span style={{ color: 'white', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                  {selectedRecommendation.rating.toFixed(1)}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
+                  / 5.0
+                </span>
+              </div>
+            )}
+
+            {/* Description */}
+            {selectedRecommendation.description && (
+              <p style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.6', margin: '0 0 16px 0' }}>
+                {selectedRecommendation.description}
+              </p>
+            )}
+
+            {/* Reason (for AI recommendations) */}
+            {selectedRecommendation.reason && (
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  marginTop: '12px',
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '4px' }}>
+                  Why we recommend this:
+                </div>
+                <div style={{ color: 'white', fontSize: '0.95rem' }}>
+                  {selectedRecommendation.reason}
+                </div>
+              </div>
+            )}
+
+            {/* Category */}
+            {selectedRecommendation.category && (
+              <div
+                style={{
+                  display: 'inline-block',
+                  background: 'rgba(255,255,255,0.2)',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  color: 'white',
+                  marginTop: '16px',
+                }}
+              >
+                {selectedRecommendation.category}
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => {
+                console.log('💾 Save button clicked - opening editable form')
+                // Prepare data and open editable form
+                setRecommendationFormData({
+                  mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
+                  locationName: selectedRecommendation.title || 'Location',
+                  foursquareData: selectedRecommendation.fsq_id ? {
+                    placeName: selectedRecommendation.title || null,
+                    description: selectedRecommendation.description || null,
+                    latitude: selectedRecommendation.location?.lat,
+                    longitude: selectedRecommendation.location?.lng,
+                  } : undefined,
+                })
+                setShowReadOnlyRecommendation(false)
+                setShowRecommendationForm(true)
+              }}
+              style={{
+                flex: 1,
+                background: 'rgba(16, 185, 129, 0.9)',
+                border: 'none',
+                padding: '16px',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              💾 Save to Library
+            </button>
+            <button
+              onClick={() => {
+                console.log('📤 Share button clicked - opening editable form')
+                // Prepare data and open editable form for sharing
+                setRecommendationFormData({
+                  mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
+                  locationName: selectedRecommendation.title || 'Location',
+                  foursquareData: selectedRecommendation.fsq_id ? {
+                    placeName: selectedRecommendation.title || null,
+                    description: selectedRecommendation.description || null,
+                    latitude: selectedRecommendation.location?.lat,
+                    longitude: selectedRecommendation.location?.lng,
+                  } : undefined,
+                })
+                setShowReadOnlyRecommendation(false)
+                setShowRecommendationForm(true)
+              }}
+              style={{
+                flex: 1,
+                background: 'rgba(59, 130, 246, 0.9)',
+                border: 'none',
+                padding: '16px',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              📤 Share
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Recommendation Form Modal - Enhanced for recommendations (Editable) */}
       {showRecommendationForm && recommendationFormData && selectedRecommendation && (
         <RecommendationForm
           mediaUrl={recommendationFormData.mediaUrl || ''}
@@ -3028,6 +3240,7 @@ export default function AIRecommendationsHub({
             }
             addPin(savedPin)
             setShowRecommendationForm(false)
+            setShowReadOnlyRecommendation(false)
             setRecommendationFormData(null)
             setSelectedRecommendation(null)
             console.log('✅ Pin saved to library!')
@@ -3074,6 +3287,7 @@ export default function AIRecommendationsHub({
             
             // Close the form
             setShowRecommendationForm(false)
+            setShowReadOnlyRecommendation(false)
             setRecommendationFormData(null)
             setSelectedRecommendation(null)
             
@@ -3112,6 +3326,7 @@ export default function AIRecommendationsHub({
             
             // Close the form
             setShowRecommendationForm(false)
+            setShowReadOnlyRecommendation(false)
             setRecommendationFormData(null)
             setSelectedRecommendation(null)
             
