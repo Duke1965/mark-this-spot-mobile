@@ -1130,39 +1130,89 @@ export default function AIRecommendationsHub({
                 console.log('🧠 Error fetching local places for new user:', error)
                 
                 // Fallback to mock AI recommendations if API fails
-                // GRADUAL FADE-OUT: Show fewer mocks as confidence increases
-                const aiConfidence = insights.userPersonality?.confidence || 0
-                const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
+                // NEW LOGIC: Show mock recommendations until 3+ real user recommendations exist in the area
+                // Count real user recommendations within 5km radius
+                const userRecommendationsInArea = recommendations.filter(rec => {
+                  if (rec.isAISuggestion) return false // Skip AI suggestions
+                  
+                  // Calculate distance from current location to recommendation
+                  const lat1 = location.latitude
+                  const lng1 = location.longitude
+                  const lat2 = rec.location.lat
+                  const lng2 = rec.location.lng
+                  
+                  const R = 6371 // Earth radius in km
+                  const dLat = (lat2 - lat1) * Math.PI / 180
+                  const dLng = (lng2 - lng1) * Math.PI / 180
+                  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                           Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                           Math.sin(dLng / 2) * Math.sin(dLng / 2)
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                  const distance = R * c // Distance in km
+                  
+                  return distance <= 5 // Within 5km
+                }).length
+                
+                // Show up to 4 mock recommendations if less than 3 real user recommendations in area
+                const mockCount = userRecommendationsInArea < 3 ? 4 : 0
+                
                 if (mockCount > 0) {
                   try {
                     const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
                     if (!signal.aborted && mockRecommendations.length > 0) {
                       const selectedMocks = mockRecommendations.slice(0, mockCount)
                       aiRecs.push(...selectedMocks)
-                      console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations as fallback (confidence: ${aiConfidence.toFixed(2)})`)
+                      console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations (${userRecommendationsInArea} real user recs in area - need 3+)`)
                     }
                   } catch (mockError) {
                     console.error('Error fetching mock AI recommendations:', mockError)
                   }
+                } else {
+                  console.log(`🧠 Skipping mock recommendations - ${userRecommendationsInArea} real user recommendations already exist in this area`)
                 }
               }
             } else {
               console.log('🧠 Skipping API request - too soon since last request (rate limiting)')
               
-              // GRADUAL FADE-OUT: Use fewer mock recommendations based on confidence
-              const aiConfidence = insights.userPersonality?.confidence || 0
-              const mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
+              // NEW LOGIC: Show mock recommendations until 3+ real user recommendations exist in the area
+              // Count real user recommendations within 5km radius
+              const userRecommendationsInArea = recommendations.filter(rec => {
+                if (rec.isAISuggestion) return false // Skip AI suggestions
+                
+                // Calculate distance from current location to recommendation
+                const lat1 = location.latitude
+                const lng1 = location.longitude
+                const lat2 = rec.location.lat
+                const lng2 = rec.location.lng
+                
+                const R = 6371 // Earth radius in km
+                const dLat = (lat2 - lat1) * Math.PI / 180
+                const dLng = (lng2 - lng1) * Math.PI / 180
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                         Math.sin(dLng / 2) * Math.sin(dLng / 2)
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                const distance = R * c // Distance in km
+                
+                return distance <= 5 // Within 5km
+              }).length
+              
+              // Show up to 4 mock recommendations if less than 3 real user recommendations in area
+              const mockCount = userRecommendationsInArea < 3 ? 4 : 0
+              
               if (mockCount > 0) {
                 try {
                   const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
                   if (!signal.aborted && mockRecommendations.length > 0) {
                     const selectedMocks = mockRecommendations.slice(0, mockCount)
                     aiRecs.push(...selectedMocks)
-                    console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (confidence: ${aiConfidence.toFixed(2)})`)
+                    console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (${userRecommendationsInArea} real user recs in area - need 3+)`)
                   }
                 } catch (mockError) {
                   console.error('Error fetching mock AI recommendations:', mockError)
                 }
+              } else {
+                console.log(`🧠 Skipping mock recommendations - ${userRecommendationsInArea} real user recommendations already exist in this area`)
               }
             }
           }
