@@ -1298,7 +1298,7 @@ export default function PINITApp() {
       console.log("📸 External signal already aborted, returning cached or placeholder")
       const cached = photoFetchCacheRef.current.get(cacheKey)
       if (cached) return cached.data
-      return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      return [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
     }
     
     // Cancel any previous request (only if no external signal provided)
@@ -1330,336 +1330,145 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📸 Fetching location photo with aggressive filtering...")
+      console.log("📸 Fetching location data using Foursquare (place data) + Mapillary (photos)...")
       
-      // NEW: Try Foursquare API first for better photos and place data
-      let photoResponse: Response | null = null
-      let data: any = null
+      // STEP 1: Fetch Foursquare place data (name, description, category)
+      let foursquareData: any = null
+      let placeName = "Location"
+      let placeDescription: string | undefined = undefined
       
       try {
-        console.log("📸 Trying Foursquare API for place data and photos at EXACT location...")
-        // Use very small radius (25m) for precise location matching - ensures we get the exact place at the pin location
-        // This prevents mixing up restaurants, monuments, or other places that might be right next door
-        photoResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=25&limit=10`, { signal })
-        console.log(`📸 Foursquare API response status: ${photoResponse.status}`)
+        console.log("📍 Step 1: Fetching Foursquare place data at EXACT location...")
+        // Use very small radius (25m) for precise location matching
+        const foursquareResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=25&limit=10`, { signal })
+        console.log(`📍 Foursquare API response status: ${foursquareResponse.status}`)
         
-        if (photoResponse.ok) {
-          data = await photoResponse.json()
-          console.log(`📸 Foursquare API returned ${data.items?.length || 0} places`)
+        if (foursquareResponse.ok) {
+          const fsqData = await foursquareResponse.json()
+          console.log(`📍 Foursquare API returned ${fsqData.items?.length || 0} places`)
           
-          // Convert Foursquare format to expected format
-          if (data.items && data.items.length > 0) {
-            const photos: {url: string, placeName: string, description?: string}[] = []
-            
-            // Calculate distance from exact pin location to each place and sort by distance
-            // Filter out places with invalid coordinates first
-            const placesWithDistance = data.items
+          if (fsqData.items && fsqData.items.length > 0) {
+            // Calculate distance and find closest place
+            const placesWithDistance = fsqData.items
               .map((place: any) => {
-                // Foursquare API returns location as { lat, lng } object
                 const placeLat = place.location?.lat
                 const placeLng = place.location?.lng
                 
-                // Debug log to see the structure
-                if (!placeLat || !placeLng) {
-                  console.warn(`⚠️ Missing coordinates for place: ${place.title || place.name}`, { 
-                    place, 
-                    location: place.location,
-                    hasLocation: !!place.location,
-                    locationKeys: place.location ? Object.keys(place.location) : []
-                  })
-                }
-                
-                // Validate coordinates before calculating distance
+                // Validate coordinates
                 if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
                     isNaN(placeLat) || isNaN(placeLng) ||
                     placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
-                  console.warn(`⚠️ Invalid coordinates for place: ${place.title || place.name}`, { placeLat, placeLng, placeLocation: place.location })
                   return null
                 }
                 
                 const distance = calculateDistance(lat, lng, placeLat, placeLng)
-                if (isNaN(distance) || distance < 0) {
-                  console.warn(`⚠️ Invalid distance calculated for place: ${place.title || place.name}`, { distance, placeLat, placeLng, pinLat: lat, pinLng: lng })
-                  return null
-                }
+                if (isNaN(distance) || distance < 0) return null
                 
                 return { ...place, distance }
               })
-              .filter((place: any) => place !== null) // Remove invalid places
-              .sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+              .filter((place: any) => place !== null)
+              .sort((a: any, b: any) => a.distance - b.distance)
             
-            if (placesWithDistance.length === 0) {
-              console.log("⚠️ No places with valid coordinates found")
-              const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-              photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
-              return placeholderResult
-            }
-            
-            // Get the closest place to the exact pin coordinates
-            const closestPlace = placesWithDistance[0]
-            console.log(`✅ Found closest place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m from pin location`)
-            
-            // Only use the place if it's within 25m of the pin (very precise - prevents mixing up nearby places)
-            if (closestPlace.distance > 25) {
-              console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m) - using placeholder`)
-              const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-              photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
-              return placeholderResult
-            }
-            
-            if (closestPlace.photoUrl) {
-              photos.push({
-                url: closestPlace.photoUrl,
-                placeName: closestPlace.title || closestPlace.name || "Unknown Place",
-                description: closestPlace.description
-              })
+            if (placesWithDistance.length > 0) {
+              const closestPlace = placesWithDistance[0]
+              console.log(`✅ Found closest Foursquare place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m`)
               
-              console.log(`✅ Found Foursquare photo for: ${closestPlace.title}`, closestPlace.photoUrl)
-              
-              // Cache the result
-              photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
-              
-              // Return early with Foursquare data
-              return photos
+              // Only use if within 25m
+              if (closestPlace.distance <= 25) {
+                foursquareData = closestPlace
+                placeName = closestPlace.title || closestPlace.name || placeName
+                placeDescription = closestPlace.description
+                console.log(`✅ Using Foursquare place data: ${placeName}`)
+              } else {
+                console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m)`)
+              }
             }
-            
-            // Note: If no photoUrl, we skip trying legacy /api/fsq/photos endpoint
-            // The new Places API should return photos in the initial response
-            
-            // If we have place data but no photos, return the place name and description at least
-            if (closestPlace.title || closestPlace.name) {
-              console.log(`⚠️ Foursquare place found but no photos: ${closestPlace.title}`)
-              // Return place data even without photos so title/description can be used
-              const placeData = [{
-                url: "/pinit-placeholder.jpg",
-                placeName: closestPlace.title || closestPlace.name || "Unknown Place",
-                description: closestPlace.description
-              }]
-              // Cache the result
-              photoFetchCacheRef.current.set(cacheKey, { data: placeData, timestamp: Date.now() })
-              return placeData
-            }
+          } else {
+            console.log("⚠️ Foursquare returned no places within 25m")
           }
         }
       } catch (fsqError: any) {
         if (fsqError.name === 'AbortError') {
           console.log("📸 Foursquare request was aborted")
-          throw fsqError // Re-throw to be handled by outer catch
+          throw fsqError
         }
-        console.warn("⚠️ Foursquare API failed, falling back to /api/places:", fsqError)
+        console.warn("⚠️ Foursquare API failed:", fsqError.message)
       }
       
-      // NO FALLBACK - Only use Foursquare API
-      // If Foursquare didn't work or returned no results, return placeholder
-      if (!data || !data.items || data.items.length === 0) {
-        console.log("📸 Foursquare API returned no results, using placeholder")
-        const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-        photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
-        return placeholderResult
-      }
+      // STEP 2: Fetch Mapillary street-level photos
+      let mapillaryPhotos: any[] = []
       
-      const photos: {url: string, placeName: string, description?: string}[] = []
-
-      // ONLY handle Foursquare format (data.items) - no Google format
-      const results = data.items || []
-      
-      if (results.length > 0) {
-        // Calculate distance from exact pin location to each place and sort by distance
-        // Filter out places with invalid coordinates first
-        const placesWithDistance = results
-          .map((place: any) => {
-            // ONLY handle Foursquare format - location is { lat, lng } object
-            const placeLat = place.location?.lat
-            const placeLng = place.location?.lng
-            
-            // Debug log to see the structure
-            if (!placeLat || !placeLng) {
-              console.warn(`⚠️ Missing coordinates for place: ${place.title || place.name}`, { 
-                place, 
-                location: place.location,
-                hasLocation: !!place.location,
-                locationKeys: place.location ? Object.keys(place.location) : []
-              })
-            }
-            
-            // Validate coordinates before calculating distance
-            if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
-                isNaN(placeLat) || isNaN(placeLng) ||
-                placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
-              console.warn(`⚠️ Invalid coordinates for place: ${place.title || place.name}`, { placeLat, placeLng, placeLocation: place.location })
-              return null
-            }
-            
-            const distance = calculateDistance(lat, lng, placeLat, placeLng)
-            if (isNaN(distance) || distance < 0) {
-              console.warn(`⚠️ Invalid distance calculated for place: ${place.title || place.name}`, { distance, placeLat, placeLng, pinLat: lat, pinLng: lng })
-              return null
-            }
-            
-            return { ...place, distance }
-          })
-          .filter((place: any) => place !== null) // Remove invalid places
-          .sort((a: any, b: any) => a.distance - b.distance) // Sort by distance, closest first
+      try {
+        console.log("📸 Step 2: Fetching Mapillary street-level photos...")
+        const mapillaryResponse = await fetch(`/api/mapillary?lat=${lat}&lng=${lng}&radius=50&limit=5`, { signal })
+        console.log(`📸 Mapillary API response status: ${mapillaryResponse.status}`)
         
-        if (placesWithDistance.length === 0) {
-          console.log("⚠️ No places with valid coordinates found")
-          const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-          photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
-          return placeholderResult
-        }
-        
-        // Get the closest place to the exact pin coordinates
-        const closestPlace = placesWithDistance[0]
-        console.log(`✅ Found closest place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m from pin location`)
-        
-        // Only use the place if it's within 25m of the pin (very precise - prevents mixing up nearby places)
-        if (closestPlace.distance > 25) {
-          console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m) - using placeholder`)
-          const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
-          photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
-          return placeholderResult
-        }
-        
-        // ONLY handle Foursquare format - no Google format
-        if (closestPlace.photoUrl) {
-          photos.push({
-            url: closestPlace.photoUrl,
-            placeName: closestPlace.title || closestPlace.name || "Unknown Place",
-            description: closestPlace.description
-          })
-          console.log(`✅ Found Foursquare photo: ${closestPlace.title}`)
+        if (mapillaryResponse.ok) {
+          const mapillaryData = await mapillaryResponse.json()
+          console.log(`📸 Mapillary API returned ${mapillaryData.images?.length || 0} images`)
           
-          // Cache the result
-          photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
-          
-          return photos
-        }
-        
-        // If no Foursquare photo, return placeholder with place name
-        if (closestPlace.title || closestPlace.name) {
-          console.log(`⚠️ Foursquare place found but no photo: ${closestPlace.title}`)
-          const placeData = [{
-            url: "/pinit-placeholder.jpg",
-            placeName: closestPlace.title || closestPlace.name || "Unknown Place",
-            description: closestPlace.description
-          }]
-          photoFetchCacheRef.current.set(cacheKey, { data: placeData, timestamp: Date.now() })
-          return placeData
-        }
-        
-        // REMOVED: Google format handling - only Foursquare now
-        if (false && closestPlace.photos && closestPlace.photos.length > 0) {
-          // More aggressive filtering to exclude logos, clipart, and non-location photos
-          const filteredPhotos = closestPlace.photos.filter((photo: any) => {
-            // Skip photos that are likely logos, clipart, or non-location photos
-            if (photo.width && photo.height) {
-              const aspectRatio = photo.width / photo.height
-              const isSquareish = aspectRatio >= 0.8 && aspectRatio <= 1.2
-              const isTooSmall = photo.width < 300 || photo.height < 300
-              const isTooLarge = photo.width > 2000 || photo.height > 2000
-              const isPortrait = aspectRatio < 0.5 // Very tall photos are often signs
-              const isLandscape = aspectRatio > 2.5 // Very wide photos are often banners
-              
-              // Log what we're filtering out
-              if (isSquareish || isTooSmall || isTooLarge || isPortrait || isLandscape) {
-                console.log("📸 Filtering out photo:", {
-                  dimensions: `${photo.width}x${photo.height}`,
-                  aspectRatio: aspectRatio.toFixed(2),
-                  reason: isSquareish ? "squareish (likely logo)" : 
-                          isTooSmall ? "too small" :
-                          isTooLarge ? "too large" :
-                          isPortrait ? "too tall (likely sign)" :
-                          isLandscape ? "too wide (likely banner)" : "unknown"
-                })
-                return false
-              }
-            }
-            return true
-          })
-          
-          if (filteredPhotos.length > 0) {
-            // Get the best filtered photo (prefer landscape photos for location views)
-            const bestPhoto = filteredPhotos.reduce((best: any, current: any) => {
-              if (current.width && current.height && best.width && best.height) {
-                const currentRatio = current.width / current.height
-                const bestRatio = best.width / best.height
-                
-                // Prefer photos closer to 16:9 ratio (typical landscape)
-                const currentScore = Math.abs(currentRatio - 1.78)
-                const bestScore = Math.abs(bestRatio - 1.78)
-                
-                return currentScore < bestScore ? current : best
-              }
-              return best
-            })
-            
-            // Handle both Foursquare URLs and Google photo references
-            let photoUrl: string
-            if (bestPhoto.photo_reference.startsWith('http')) {
-              // It's a Foursquare URL
-              photoUrl = bestPhoto.photo_reference
-            } else {
-              // It's a Google photo reference
-              photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${bestPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-            }
-            
-            photos.push({
-              url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place",
-              description: closestPlace.description // Include description if available (from Foursquare converted format)
-            })
-            
-            console.log(`✅ Found best filtered location photo: ${closestPlace.name} (${bestPhoto.width}x${bestPhoto.height})`)
-            
-            // Cache the result
-            photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
-            
-            return photos
+          if (mapillaryData.images && mapillaryData.images.length > 0) {
+            mapillaryPhotos = mapillaryData.images
+            console.log(`✅ Found ${mapillaryPhotos.length} Mapillary street-level photos`)
           } else {
-            // If all photos were filtered out, try to get any photo but log it
-            console.log("⚠️ All photos filtered out, using fallback photo")
-            const fallbackPhoto = closestPlace.photos[0]
-            // Handle both Foursquare URLs and Google photo references
-            let photoUrl: string
-            if (fallbackPhoto.photo_reference.startsWith('http')) {
-              // It's a Foursquare URL
-              photoUrl = fallbackPhoto.photo_reference
-            } else {
-              // It's a Google photo reference
-              photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${fallbackPhoto.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-            }
-            
-            photos.push({
-              url: photoUrl,
-              placeName: closestPlace.name || "Unknown Place",
-              description: closestPlace.description // Include description if available
-            })
-            
-            // Cache the result
-            photoFetchCacheRef.current.set(cacheKey, { data: photos, timestamp: Date.now() })
-            
-            return photos
+            console.log("⚠️ No Mapillary images found for this location")
           }
         }
+      } catch (mapillaryError: any) {
+        if (mapillaryError.name === 'AbortError') {
+          console.log("📸 Mapillary request was aborted")
+          throw mapillaryError
+        }
+        console.warn("⚠️ Mapillary API failed:", mapillaryError.message)
       }
       
-      console.log("📸 No location photos found, will use PINIT placeholder")
-      const placeholderResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      // STEP 3: Combine Mapillary photos with Foursquare place data
+      const combinedResults: {url: string, placeName: string, description?: string}[] = []
       
-      // Cache the result (even if it's a placeholder)
-      photoFetchCacheRef.current.set(cacheKey, { data: placeholderResult, timestamp: Date.now() })
+      if (mapillaryPhotos.length > 0) {
+        // Use Mapillary photos with Foursquare place data
+        mapillaryPhotos.forEach(photo => {
+          combinedResults.push({
+            url: photo.url,
+            placeName: placeName,
+            description: placeDescription
+          })
+        })
+        
+        console.log(`✅ Combined result: ${mapillaryPhotos.length} Mapillary photos + Foursquare place name "${placeName}"`)
+        
+        // Cache the combined result
+        photoFetchCacheRef.current.set(cacheKey, { data: combinedResults, timestamp: Date.now() })
+        return combinedResults
+      }
       
-      return placeholderResult
+      // STEP 4: Fallback - no photos available, but return place data if we have it
+      if (foursquareData) {
+        console.log(`⚠️ No Mapillary photos available, but returning Foursquare place data: ${placeName}`)
+        const fallbackResult = [{
+          url: "/pinit-placeholder.jpg",
+          placeName: placeName,
+          description: placeDescription
+        }]
+        photoFetchCacheRef.current.set(cacheKey, { data: fallbackResult, timestamp: Date.now() })
+        return fallbackResult
+      }
+      
+      // STEP 5: Ultimate fallback - no place data, no photos
+      console.log("⚠️ No Foursquare place data or Mapillary photos available")
+      const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
+      photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
+      return finalFallback
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log("📸 Photo fetch was aborted")
         // Return cached result if available, otherwise placeholder
         const cached = photoFetchCacheRef.current.get(cacheKey)
         if (cached) return cached.data
-        return [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+        return [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       }
       console.error("❌ Error fetching location photos:", error)
-      const errorResult = [{url: "/pinit-placeholder.jpg", placeName: "PINIT Placeholder"}]
+      const errorResult = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       // Cache error result to prevent repeated failures
       photoFetchCacheRef.current.set(cacheKey, { data: errorResult, timestamp: Date.now() })
       return errorResult
