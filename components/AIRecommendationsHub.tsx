@@ -95,7 +95,7 @@ export default function AIRecommendationsHub({
   onPinEditDone,
   onPinEditCancel
 }: AIRecommendationsHubProps) {
-  const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
+  const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("list")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const { addPin } = usePinStorage()
