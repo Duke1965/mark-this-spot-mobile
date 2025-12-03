@@ -3151,10 +3151,21 @@ export default function AIRecommendationsHub({
                 setShowReadOnlyRecommendation(false)
                 setShowRecommendationForm(true)
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.25)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+              }}
               style={{
                 flex: 1,
-                background: 'rgba(16, 185, 129, 0.9)',
-                border: 'none',
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(15px)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 padding: '16px',
                 borderRadius: '12px',
                 color: 'white',
@@ -3165,6 +3176,8 @@ export default function AIRecommendationsHub({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
               }}
             >
               💾 Save to Library
@@ -3186,10 +3199,21 @@ export default function AIRecommendationsHub({
                 setShowReadOnlyRecommendation(false)
                 setShowRecommendationForm(true)
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.25)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+              }}
               style={{
                 flex: 1,
-                background: 'rgba(59, 130, 246, 0.9)',
-                border: 'none',
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(15px)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 padding: '16px',
                 borderRadius: '12px',
                 color: 'white',
@@ -3200,6 +3224,8 @@ export default function AIRecommendationsHub({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
               }}
             >
               📤 Share
