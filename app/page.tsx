@@ -401,25 +401,13 @@ export default function PINITApp() {
             // Returning user - ALWAYS try to restore their last screen first
             if (parsedState.currentScreen && 
                 ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(parsedState.currentScreen)) {
-              // Restore their last screen (but not camera)
-              if (parsedState.currentScreen !== "camera") {
-                setCurrentScreen(parsedState.currentScreen)
-                console.log("🔄 Returning user - restored screen:", parsedState.currentScreen)
-              } else {
-                setCurrentScreen("map")
-                console.log("🔄 Returning user - prevented camera, going to map")
-              }
+              // Always start on the main map screen (PINIT Circle) - don't restore previous screen
+              setCurrentScreen("map")
+              console.log("🔄 Returning user - always starting on main map screen")
             } else {
-              // No saved screen - check if we have a current screen in memory
-              const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
-              if (currentScreenFromMemory && 
-                  ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
-                setCurrentScreen(currentScreenFromMemory as any)
-                console.log("🔄 Returning user - restored from memory:", currentScreenFromMemory)
-              } else {
-                setCurrentScreen("map")
-                console.log("🔄 Returning user - no saved screen, going to map")
-              }
+              // Always start on map
+              setCurrentScreen("map")
+              console.log("🔄 Returning user - no saved screen, going to map")
             }
           }
           return
@@ -474,16 +462,9 @@ export default function PINITApp() {
             console.log("🆕 No saved state - new user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            // Returning user - check if we have a current screen in memory
-            const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
-            if (currentScreenFromMemory && 
-                ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
-              setCurrentScreen(currentScreenFromMemory as any)
-              console.log("🔄 No saved state - returning user restored from memory:", currentScreenFromMemory)
-            } else {
-              console.log("🔄 No saved state - returning user, going to map")
-              setCurrentScreen("map")
-            }
+            // Returning user - always start on main map screen
+            console.log("🔄 No saved state - returning user, going to map")
+            setCurrentScreen("map")
           }
         } else if (!authLoading && user) {
           setCurrentScreen("map")
@@ -510,16 +491,9 @@ export default function PINITApp() {
           console.log("🆕 Error case - new user, showing welcome screen")
           setCurrentScreen("settings")
         } else {
-          // Returning user - check if we have a current screen in memory
-          const currentScreenFromMemory = localStorage.getItem('pinit-current-screen')
-          if (currentScreenFromMemory && 
-              ["map", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(currentScreenFromMemory)) {
-            setCurrentScreen(currentScreenFromMemory as any)
-            console.log("🔄 Error case - returning user restored from memory:", currentScreenFromMemory)
-          } else {
-            console.log("🔄 Error case - returning user, going to map")
-            setCurrentScreen("map")
-          }
+          // Returning user - always start on main map screen
+          console.log("🔄 Error case - returning user, going to map")
+          setCurrentScreen("map")
         }
       } else if (!authLoading && user) {
         setCurrentScreen("map")
