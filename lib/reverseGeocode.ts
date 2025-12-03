@@ -20,14 +20,9 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
   try {
     // Fetch from Foursquare Places API instead of Google Geocoding
     // Use Foursquare to get place name and description
-    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
-      : process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
-    
+    // Use relative path to avoid CORS issues with Vercel preview URLs
     const response = await fetch(
-      `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
+      `/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
     )
     
     const data = await response.json()
