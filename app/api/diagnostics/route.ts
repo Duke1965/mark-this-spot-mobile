@@ -168,12 +168,27 @@ export async function GET(request: NextRequest) {
   ]
   
   diagnostics.overall_status = allChecks.every(check => check) ? "OK" : "ISSUES_FOUND"
+  
+  // Build issues summary arrays
+  const missingEnvVars: string[] = []
+  if (!diagnostics.environment.FSQ_PLACES_SERVICE_KEY && !diagnostics.environment.FOURSQUARE_API_KEY && !diagnostics.environment.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
+    missingEnvVars.push("Foursquare API Key")
+  }
+  if (!diagnostics.environment.MAPILLARY_TOKEN) {
+    missingEnvVars.push("Mapillary Token")
+  }
+  
+  const failingApis: string[] = []
+  if (diagnostics.apis.foursquare?.status !== "OK") {
+    failingApis.push("Foursquare")
+  }
+  if (diagnostics.apis.mapillary?.status !== "OK") {
+    failingApis.push("Mapillary")
+  }
+  
   diagnostics.issues_summary = {
-    missing_env_vars: !diagnostics.environment.FSQ_PLACES_SERVICE_KEY && !diagnostics.environment.FOURSQUARE_API_KEY && !diagnostics.environment.NEXT_PUBLIC_FOURSQUARE_API_KEY ? ["Foursquare API Key"] : []
-      .concat(!diagnostics.environment.MAPILLARY_TOKEN ? ["Mapillary Token"] : []),
-    failing_apis: []
-      .concat(diagnostics.apis.foursquare?.status !== "OK" ? ["Foursquare"] : [])
-      .concat(diagnostics.apis.mapillary?.status !== "OK" ? ["Mapillary"] : [])
+    missing_env_vars: missingEnvVars,
+    failing_apis: failingApis
   }
 
   return NextResponse.json(diagnostics, { 
