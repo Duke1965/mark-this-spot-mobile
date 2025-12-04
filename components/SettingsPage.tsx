@@ -1380,6 +1380,42 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               </div>
             </div>
 
+            {/* Quick Diagnostics Link */}
+            <a
+              href="/diagnostics"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block",
+                background: "rgba(59, 130, 246, 0.2)",
+                border: "2px solid rgba(59, 130, 246, 0.4)",
+                borderRadius: "1rem",
+                padding: "1rem",
+                marginBottom: "1rem",
+                textDecoration: "none",
+                color: "white",
+                textAlign: "center",
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(59, 130, 246, 0.3)"
+                e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.6)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(59, 130, 246, 0.2)"
+                e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.4)"
+              }}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
+                Run Full System Diagnostics
+              </div>
+              <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
+                Test API connections and environment setup
+              </div>
+            </a>
+
             <div style={{ 
               background: "rgba(255,255,255,0.05)", 
               borderRadius: "1rem", 
