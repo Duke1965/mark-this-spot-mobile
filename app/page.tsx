@@ -551,14 +551,20 @@ export default function PINITApp() {
   }, [location])
 
   const addPin = useCallback((pin: PinData) => {
-    setPins((prev: PinData[]) => [...prev, pin])
-    setNewPins((prev: number) => prev + 1)
-    addPinFromStorage(pin) // Also save to storage
+    // Ensure pending pins are marked as unviewed
+    const pinWithViewed = pin.isPending ? { ...pin, isViewed: false } : pin
+    setPins((prev: PinData[]) => [...prev, pinWithViewed])
+    addPinFromStorage(pinWithViewed) // Also save to storage
   }, [addPinFromStorage])
+
+  // Calculate unviewed pending pins count (persists across app restarts)
+  const getUnviewedPendingPinsCount = useCallback(() => {
+    return pins.filter(pin => pin.isPending === true && !pin.isViewed).length
+  }, [pins])
 
   const openLibrary = useCallback(() => {
     setCurrentScreen("library")
-    setNewPins(0) // Reset new pins count when Library is opened
+    // Don't reset badge here - only when pin is actually viewed
   }, [setCurrentScreen])
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
@@ -2370,6 +2376,17 @@ export default function PINITApp() {
         onPinSelect={(pin: PinData) => {
           // Navigate to map with pin editing mode
           console.log("📌 Pin selected from library - entering edit mode:", pin)
+          
+          // Mark pending pin as viewed when opened
+          if (pin.isPending && !pin.isViewed) {
+            updatePinInStorage(pin.id, { isViewed: true })
+            // Update local state
+            setPins(prev => prev.map(p => 
+              p.id === pin.id ? { ...p, isViewed: true } : p
+            ))
+            console.log("✅ Marked pending pin as viewed:", pin.id)
+          }
+          
           setEditingPin(pin)
           setEditingPinLocation({ lat: pin.latitude, lng: pin.longitude })
           setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
@@ -3321,8 +3338,8 @@ export default function PINITApp() {
           }}
         >
           <Library size={28} style={{ color: "white" }} />
-          {/* Pin Count Badge */}
-          {newPins > 0 && (
+          {/* Pin Count Badge - shows unviewed pending pins */}
+          {getUnviewedPendingPinsCount() > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -3341,7 +3358,7 @@ export default function PINITApp() {
                 border: "2px solid white",
               }}
             >
-              {newPins}
+              {getUnviewedPendingPinsCount()}
             </div>
           )}
         </button>
