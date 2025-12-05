@@ -1314,22 +1314,25 @@ export default function PINITApp() {
       
       try {
         console.log("📍 Step 1: Fetching Mapbox place data at EXACT location...")
-        // Use Mapbox Geocoding API for reverse geocoding (coordinates -> place name)
-        const mapboxResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`, { signal })
-        console.log(`📍 Mapbox API response status: ${mapboxResponse.status}`)
         
-        if (mapboxResponse.ok) {
-          const mapboxResponseData = await mapboxResponse.json()
-          console.log(`📍 Mapbox API returned ${mapboxResponseData.places?.length || 0} places`)
+        // STRATEGY: Try POI first (restaurants, shops), then fall back to place (neighborhoods, towns)
+        // This gives us specific businesses when available, but doesn't fail in rural areas
+        
+        // ATTEMPT 1: Try POI (specific businesses/landmarks)
+        console.log("📍 Step 1a: Trying POI (restaurants, shops, landmarks)...")
+        let poiResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
+        
+        if (poiResponse.ok) {
+          const poiData = await poiResponse.json()
+          console.log(`📍 POI search returned ${poiData.places?.length || 0} places`)
           
-          if (mapboxResponseData.places && mapboxResponseData.places.length > 0) {
-            // Calculate distance and find closest place
-            const placesWithDistance = mapboxResponseData.places
+          if (poiData.places && poiData.places.length > 0) {
+            // Calculate distance and find closest POI
+            const poisWithDistance = poiData.places
               .map((place: any) => {
                 const placeLat = place.location?.lat
                 const placeLng = place.location?.lng
                 
-                // Validate coordinates
                 if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
                     isNaN(placeLat) || isNaN(placeLng) ||
                     placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
@@ -1344,26 +1347,57 @@ export default function PINITApp() {
               .filter((place: any) => place !== null)
               .sort((a: any, b: any) => a.distance - b.distance)
             
-            if (placesWithDistance.length > 0) {
-              const closestPlace = placesWithDistance[0]
-              console.log(`✅ Found closest Mapbox place: ${closestPlace.name} at ${closestPlace.distance.toFixed(1)}m`)
+            if (poisWithDistance.length > 0) {
+              const closestPOI = poisWithDistance[0]
+              console.log(`✅ Found closest POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
               
-              // Always use the closest place for 'place' type (cities/neighborhoods are large areas)
-              // No distance filtering needed since places represent entire geographic regions
+              // Use POI if within 100m (reasonable walking distance)
+              if (closestPOI.distance <= 100) {
+                mapboxData = closestPOI
+                placeName = closestPOI.name || closestPOI.place_name || placeName
+                
+                // Build description from address and context
+                const parts = []
+                if (closestPOI.address) parts.push(closestPOI.address)
+                if (closestPOI.context?.neighborhood) parts.push(closestPOI.context.neighborhood)
+                if (closestPOI.context?.city) parts.push(closestPOI.context.city)
+                placeDescription = parts.length > 0 ? parts.join(', ') : undefined
+                
+                console.log(`✅ Using POI data: ${placeName}`)
+              } else {
+                console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
+              }
+            }
+          }
+        }
+        
+        // ATTEMPT 2: If no POI found, fall back to place (neighborhood/town)
+        if (!mapboxData) {
+          console.log("📍 Step 1b: No nearby POI, falling back to place (neighborhood/town)...")
+          const placeResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`, { signal })
+          
+          if (placeResponse.ok) {
+            const placeData = await placeResponse.json()
+            console.log(`📍 Place search returned ${placeData.places?.length || 0} places`)
+            
+            if (placeData.places && placeData.places.length > 0) {
+              const closestPlace = placeData.places[0]
+              console.log(`✅ Found place: ${closestPlace.name}`)
+              
               mapboxData = closestPlace
               placeName = closestPlace.name || closestPlace.place_name || placeName
               
-              // Build description from address components
+              // Build description
               const parts = []
               if (closestPlace.address) parts.push(closestPlace.address)
               if (closestPlace.context?.neighborhood) parts.push(closestPlace.context.neighborhood)
               if (closestPlace.context?.city) parts.push(closestPlace.context.city)
               placeDescription = parts.length > 0 ? parts.join(', ') : undefined
               
-              console.log(`✅ Using Mapbox place data: ${placeName}`)
+              console.log(`✅ Using place data as fallback: ${placeName}`)
+            } else {
+              console.log("⚠️ No place data found")
             }
-          } else {
-            console.log("⚠️ Mapbox returned no places within 50m")
           }
         }
       } catch (mapboxError: any) {
