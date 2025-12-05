@@ -21,7 +21,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
     // Fetch from Mapbox Geocoding API for reverse geocoding
     // Use relative path to avoid CORS issues with Vercel preview URLs
     const response = await fetch(
-      `/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi,address,place`
+      `/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`
     )
     
     const data = await response.json()
