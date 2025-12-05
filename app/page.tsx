@@ -16,7 +16,7 @@ import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import AIRecommendationsHub from "@/components/AIRecommendationsHub"
 import { RecommendationForm } from "@/components/RecommendationForm"
-import { PlaceNavigation } from "@/components/PlaceNavigation"
+// import { PlaceNavigation } from "@/components/PlaceNavigation" // Disabled - migrating to Mapbox
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
 import { LocationPermissionPrompt } from "@/components/LocationPermissionPrompt"
@@ -2267,17 +2267,12 @@ export default function PINITApp() {
   }
 
   // NEW PLACE NAVIGATION SCREEN
+  // PlaceNavigation disabled - Google Maps turn-by-turn navigation feature
+  // TODO: Re-implement with Mapbox Directions API if needed
   if (currentScreen === "place-navigation" && selectedPlace) {
-    return (
-      <PlaceNavigation
-        place={selectedPlace}
-        userLocation={userLocation}
-        onBack={() => setCurrentScreen("recommendations")}
-        onSaveForLater={handleSaveForLater}
-        onNavigate={handleStartNavigation}
-        onArrived={handleArrival}
-      />
-    )
+    // Redirect back to recommendations instead of showing navigation
+    setCurrentScreen("recommendations")
+    return null
   }
 
   if (currentScreen === "results" && currentResultPin) {
