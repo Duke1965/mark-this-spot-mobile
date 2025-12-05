@@ -237,6 +237,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               <img
                 src={item.mediaUrl}
                 alt={item.title}
+                loading="lazy"
                 style={{ 
                   width: '100%', 
                   height: '100%', 
@@ -265,6 +266,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               <img
                 src={firstPhoto.url}
                 alt={item.title}
+                loading="lazy"
                 style={{ 
                   width: '100%', 
                   height: '100%', 
