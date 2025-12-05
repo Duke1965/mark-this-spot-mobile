@@ -1065,9 +1065,9 @@ export default function PINITApp() {
       const placeName = locationPhotos[0]?.placeName
       const placeDescription = locationPhotos[0]?.description
       
-      console.log("📸 Foursquare API place info:", { placeName, placeDescription })
+      console.log("📸 Mapbox + Mapillary API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Only generate AI content as fallback if Foursquare data is missing
+      // Only generate AI content as fallback if Mapbox data is missing
       const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
       
       const newPin: PinData = {
@@ -1348,22 +1348,19 @@ export default function PINITApp() {
               const closestPlace = placesWithDistance[0]
               console.log(`✅ Found closest Mapbox place: ${closestPlace.name} at ${closestPlace.distance.toFixed(1)}m`)
               
-              // Use place if within 50m (Mapbox is more accurate than Foursquare)
-              if (closestPlace.distance <= 50) {
-                mapboxData = closestPlace
-                placeName = closestPlace.name || closestPlace.place_name || placeName
-                
-                // Build description from address components
-                const parts = []
-                if (closestPlace.address) parts.push(closestPlace.address)
-                if (closestPlace.context?.neighborhood) parts.push(closestPlace.context.neighborhood)
-                if (closestPlace.context?.city) parts.push(closestPlace.context.city)
-                placeDescription = parts.length > 0 ? parts.join(', ') : undefined
-                
-                console.log(`✅ Using Mapbox place data: ${placeName}`)
-              } else {
-                console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 50m)`)
-              }
+              // Always use the closest place for 'place' type (cities/neighborhoods are large areas)
+              // No distance filtering needed since places represent entire geographic regions
+              mapboxData = closestPlace
+              placeName = closestPlace.name || closestPlace.place_name || placeName
+              
+              // Build description from address components
+              const parts = []
+              if (closestPlace.address) parts.push(closestPlace.address)
+              if (closestPlace.context?.neighborhood) parts.push(closestPlace.context.neighborhood)
+              if (closestPlace.context?.city) parts.push(closestPlace.context.city)
+              placeDescription = parts.length > 0 ? parts.join(', ') : undefined
+              
+              console.log(`✅ Using Mapbox place data: ${placeName}`)
             }
           } else {
             console.log("⚠️ Mapbox returned no places within 50m")
@@ -1682,12 +1679,12 @@ export default function PINITApp() {
       placeName = locationPhotos[0]?.placeName || editingPin.locationName
       placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
       
-      console.log("📸 Foursquare API place info:", { placeName, placeDescription })
+      console.log("📸 Mapbox + Mapillary API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Only generate AI content as fallback if Foursquare data is missing
-      // Prioritize actual Foursquare data over AI-generated content
+      // Only generate AI content as fallback if Mapbox data is missing
+      // Prioritize actual Mapbox place data over AI-generated content
       if (!placeName || placeName === "Unknown Place" || !placeDescription) {
-        console.log("📸 Foursquare data incomplete, generating AI content as fallback...")
+        console.log("📸 Mapbox data incomplete, generating AI content as fallback...")
         aiGeneratedContent = generateAIContent(
           editingPinLocation.lat, 
           editingPinLocation.lng, 
