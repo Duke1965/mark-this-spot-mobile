@@ -41,8 +41,7 @@ export async function GET(request: NextRequest) {
     } else {
       const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${testLng},${testLat}.json`)
       mapboxUrl.searchParams.set('access_token', mapboxKey)
-      mapboxUrl.searchParams.set('types', 'poi,address,place')
-      mapboxUrl.searchParams.set('limit', '5')
+      mapboxUrl.searchParams.set('types', 'poi') // Single type only for reverse geocoding
       
       const mapboxResponse = await fetch(mapboxUrl.toString())
 
