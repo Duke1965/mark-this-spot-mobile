@@ -95,7 +95,7 @@ export default function AIRecommendationsHub({
   onPinEditDone,
   onPinEditCancel
 }: AIRecommendationsHubProps) {
-  const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("list")
+  const [viewMode, setViewMode] = useState<"map" | "list" | "insights">("map")
   const { insights, getLearningStatus, getPersonalizedRecommendations } = useAIBehaviorTracker()
   const { location: hookLocation, watchLocation, getCurrentLocation } = useLocationServices()
   const { addPin } = usePinStorage()
@@ -1910,6 +1910,7 @@ export default function AIRecommendationsHub({
         gap: '10px'
       }}>
         {[
+          { key: "map", label: "Map", icon: "🗺️" },
           { key: "list", label: "List", icon: "📋" },
           { key: "insights", label: "Insights", icon: "🧠" }
         ].map((tab) => (
