@@ -10,10 +10,10 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
   // Create cache key by rounding to ~100m buckets
   const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`
   
-  // Check cache and throttle (10 seconds)
+  // Check cache and throttle (5 minutes) - increased for better performance
   const cached = geocodeCache.get(cacheKey)
   const now = Date.now()
-  if (cached && now - cached.timestamp < 10000) {
+  if (cached && now - cached.timestamp < 300000) {
     return cached.result
   }
 
