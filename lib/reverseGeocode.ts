@@ -19,9 +19,10 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
 
   try {
     // Fetch from Mapbox Geocoding API for reverse geocoding
+    // Request both address and place to get street + city information
     // Use relative path to avoid CORS issues with Vercel preview URLs
     const response = await fetch(
-      `/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`
+      `/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place&limit=5`
     )
     
     const data = await response.json()
@@ -33,29 +34,54 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
       return null
     }
 
-    // Use Mapbox place data
-    const place = data.places[0]
-    const placeName = place.name || place.place_name || "Unknown Location"
-    const address = place.address || ""
+    // Find address result (for street) and place result (for city/town)
+    // place_type can be an array or string
+    const addressResult = data.places.find((p: any) => {
+      const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
+      return types.includes('address') || p.context?.street
+    })
+    const placeResult = data.places.find((p: any) => {
+      const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
+      return types.includes('place') || p.context?.city
+    }) || data.places[0]
     
-    // Build smart label from Mapbox data
-    let shortLabel = placeName
+    // Use address result for street, place result for city/town
+    const street = addressResult?.context?.street || addressResult?.address || addressResult?.name || ""
+    const neighborhood = placeResult?.context?.neighborhood || addressResult?.context?.neighborhood || ""
+    const city = placeResult?.context?.city || placeResult?.name || ""
+    const placeName = placeResult?.name || placeResult?.place_name || "Unknown Location"
     
-    // Add context if available (neighborhood, city)
-    if (place.context) {
-      const contextParts = []
-      if (place.context.neighborhood) contextParts.push(place.context.neighborhood)
-      if (place.context.city) contextParts.push(place.context.city)
-      
-      if (contextParts.length > 0) {
-        shortLabel = `${placeName}, ${contextParts[0]}`
-      }
-    } else if (address && address !== placeName) {
-      shortLabel = `${placeName}, ${address}`
+    // Format location name according to user requirements:
+    // - For rural/town: "Street Town" (e.g., "Eikenhof street Riebeek west")
+    // - For city: "Street Suburb City" (e.g., "Lytton street Observatory Cape town")
+    
+    let shortLabel = ""
+    
+    if (city && neighborhood) {
+      // City location: "Street Suburb City"
+      const parts = []
+      if (street) parts.push(street)
+      if (neighborhood) parts.push(neighborhood)
+      if (city) parts.push(city)
+      shortLabel = parts.join(" ")
+    } else if (city || placeName) {
+      // Rural/town location: "Street Town"
+      const parts = []
+      if (street) parts.push(street)
+      // Use city if available, otherwise use placeName
+      const town = city || placeName
+      if (town) parts.push(town)
+      shortLabel = parts.join(" ")
+    } else {
+      // Fallback to place name
+      shortLabel = placeName
     }
+    
+    // Ensure "street" is lowercase (as per user examples)
+    shortLabel = shortLabel.replace(/\bStreet\b/g, "street")
 
     const placeLabel: PlaceLabel = {
-      raw: place.place_name || address || placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      raw: placeResult?.place_name || placeResult?.name || placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       short: shortLabel
     }
 
