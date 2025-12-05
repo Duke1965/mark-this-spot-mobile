@@ -1315,7 +1315,7 @@ export default function PINITApp() {
       try {
         console.log("📍 Step 1: Fetching Mapbox place data at EXACT location...")
         // Use Mapbox Geocoding API for reverse geocoding (coordinates -> place name)
-        const mapboxResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
+        const mapboxResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`, { signal })
         console.log(`📍 Mapbox API response status: ${mapboxResponse.status}`)
         
         if (mapboxResponse.ok) {
