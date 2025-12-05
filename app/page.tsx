@@ -375,42 +375,18 @@ export default function PINITApp() {
             console.log("🆕 New user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            // Returning user - restore their last screen (pull-to-refresh should stay on current page)
-            if (parsedState.currentScreen && 
-                ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(parsedState.currentScreen)) {
-              // Restore the actual screen they were on (don't force back to map)
-              // Skip camera to prevent auto-opening on refresh
-              if (parsedState.currentScreen !== "camera") {
-                setCurrentScreen(parsedState.currentScreen)
-                console.log("🔄 Returning user - restored screen:", parsedState.currentScreen)
-              } else {
-                setCurrentScreen("map")
-                console.log("🔄 Preventing camera from opening on refresh, staying on map")
-              }
-            } else {
-              // No valid saved screen, default to map
-              setCurrentScreen("map")
-              console.log("🔄 Returning user - no saved screen, going to map")
-            }
+            // Returning user - always start on main map screen (don't restore other screens)
+            // This prevents issues with recommendations page loading before it's ready
+            setCurrentScreen("map")
+            console.log("🔄 Returning user - always starting on main map screen")
           }
           return
         }
         
-        // User is authenticated, restore screen if valid
-        if (parsedState.currentScreen && 
-            ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results", "settings"].includes(parsedState.currentScreen)) {
-          // Only restore if it's a valid screen and not camera (to prevent camera opening on app start)
-          if (parsedState.currentScreen !== "camera") {
-            setCurrentScreen(parsedState.currentScreen)
-            console.log("o. Restored screen:", parsedState.currentScreen)
-          } else {
-            console.log("s,? Preventing camera from opening on app start, staying on map")
-            setCurrentScreen("map")
-          }
-        } else {
-          console.log("s,? Invalid screen state, defaulting to map")
-          setCurrentScreen("map")
-        }
+        // User is authenticated - always start on main map screen
+        // Don't restore other screens to prevent loading issues (recommendations page, etc.)
+        setCurrentScreen("map")
+        console.log("🔄 Authenticated user - always starting on main map screen")
         
         // Restore recommendations
         if (parsedState.recommendations && Array.isArray(parsedState.recommendations)) {
