@@ -250,15 +250,8 @@ export function checkDataIntegrity(pins: PinData[]): {
       })
     }
 
-    if (!pin.placeId) {
-      issues.push({
-        type: 'migration',
-        severity: 'low',
-        description: `Pin ${pin.id} needs migration to new system`,
-        pin,
-        fixable: true
-      })
-    }
+    // placeId is optional - don't create warnings for missing placeId
+    // Migration happens automatically when needed, no warning required
   })
 
   // Generate recommendations
