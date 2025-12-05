@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const query = searchParams.get("query") // For forward geocoding
-  const types = searchParams.get("types") || "poi" // Default to single type for reverse geocoding
+  const types = searchParams.get("types") || "place" // Default to 'place' for reliable results
 
   console.log('📍 Mapbox Geocoding API GET - params:', { lat, lng, query, types })
 
