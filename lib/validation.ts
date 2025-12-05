@@ -107,8 +107,9 @@ export function validatePin(pin: PinData, rules: Partial<PinValidationRules> = {
         errors.push('Timestamp cannot be in the future')
       }
       
-      if (diffDays > 365 * 10) { // 10 years
-        warnings.push('Pin timestamp is very old')
+      // Only warn if timestamp is extremely old (50+ years) - likely data corruption
+      if (diffDays > 365 * 50) {
+        warnings.push('Pin timestamp is extremely old (possible data corruption)')
       }
     }
   }
@@ -131,53 +132,55 @@ export function validatePin(pin: PinData, rules: Partial<PinValidationRules> = {
       errors.push('Score must be a valid number')
     } else if (pin.score < 0) {
       errors.push('Score cannot be negative')
-    } else if (pin.score > 1000) {
-      warnings.push('Score is unusually high')
+    } else if (pin.score > 10000) {
+      // Only warn if score is extremely high (likely data corruption)
+      warnings.push('Score is extremely high (possible data corruption)')
     }
   }
 
-  // Category validation
-  if (pin.category) {
-    const validCategories = [
-      'coffee', 'restaurant', 'museum', 'park', 'shopping', 
-      'hotel', 'bar', 'general', 'tourist_attraction', 'cafe',
-      'food', 'entertainment', 'nature', 'culture', 'adventure'
-    ]
-    
-    if (!validCategories.includes(pin.category)) {
-      warnings.push(`Category '${pin.category}' is not in the standard list`)
-    }
+  // Category validation - allow any category, no warnings for non-standard categories
+  // Categories are flexible and user-defined
+
+  // Enhanced data integrity checks - only warn on extreme values
+  if (pin.title && pin.title.length > 500) {
+    // Only warn if title is extremely long (likely copy-paste error)
+    warnings.push('Pin title is extremely long (>500 characters)')
   }
 
-  // Enhanced data integrity checks
-  if (pin.title && pin.title.length > 200) {
-    warnings.push('Pin title is very long (>200 characters)')
+  if (pin.description && pin.description.length > 5000) {
+    // Only warn if description is extremely long (likely copy-paste error)
+    warnings.push('Pin description is extremely long (>5000 characters)')
   }
 
-  if (pin.description && pin.description.length > 1000) {
-    warnings.push('Pin description is very long (>1000 characters)')
-  }
-
-  if (pin.tags && pin.tags.length > 20) {
-    warnings.push('Pin has many tags (>20)')
+  if (pin.tags && pin.tags.length > 100) {
+    // Only warn if tags are extremely excessive (likely data corruption)
+    warnings.push('Pin has excessive tags (>100)')
   }
 
   // Remove reference to non-existent aiGenerated property
 
-  // Social validation
+  // Social validation - only warn on extreme cases
   if (pin.totalEndorsements !== undefined && pin.downvotes !== undefined) {
-    const ratio = pin.downvotes / (pin.totalEndorsements + pin.downvotes)
-    if (ratio > 0.5) {
-      warnings.push('Pin has high downvote ratio (>50%)')
+    const total = pin.totalEndorsements + pin.downvotes
+    if (total > 10) { // Only check ratio if there's meaningful engagement
+      const ratio = pin.downvotes / total
+      if (ratio > 0.9) {
+        // Only warn if downvote ratio is extremely high (>90%)
+        warnings.push('Pin has extremely high downvote ratio (>90%)')
+      }
     }
   }
 
-  // Media validation
+  // Media validation - only warn if URL is clearly broken
   if (pin.mediaUrl) {
-    try {
-      new URL(pin.mediaUrl)
-    } catch {
-      warnings.push('Media URL format may be invalid')
+    // Allow relative paths (like /pinit-placeholder.jpg) and data URIs
+    if (!pin.mediaUrl.startsWith('/') && !pin.mediaUrl.startsWith('data:') && !pin.mediaUrl.startsWith('blob:')) {
+      try {
+        new URL(pin.mediaUrl)
+      } catch {
+        // Only warn if it's clearly not a valid URL and not a relative path
+        warnings.push('Media URL format appears invalid')
+      }
     }
   }
 
@@ -241,8 +244,8 @@ export function validateSystemConfig(): ValidationResult {
   const warnings: string[] = []
 
   // Check required environment variables
-  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    warnings.push('Google Maps API key not found')
+  if (!process.env.NEXT_PUBLIC_MAPBOX_API_KEY) {
+    warnings.push('Mapbox API key not found')
   }
 
   // Validate lifecycle configuration
