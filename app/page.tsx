@@ -373,14 +373,20 @@ export default function PINITApp() {
             console.log("🆕 New user, showing welcome screen")
             setCurrentScreen("settings")
           } else {
-            // Returning user - ALWAYS try to restore their last screen first
+            // Returning user - restore their last screen (pull-to-refresh should stay on current page)
             if (parsedState.currentScreen && 
                 ["map", "camera", "platform-select", "content-editor", "editor", "story", "library", "story-builder", "recommendations", "place-navigation", "results"].includes(parsedState.currentScreen)) {
-              // Always start on the main map screen (PINIT Circle) - don't restore previous screen
-              setCurrentScreen("map")
-              console.log("🔄 Returning user - always starting on main map screen")
+              // Restore the actual screen they were on (don't force back to map)
+              // Skip camera to prevent auto-opening on refresh
+              if (parsedState.currentScreen !== "camera") {
+                setCurrentScreen(parsedState.currentScreen)
+                console.log("🔄 Returning user - restored screen:", parsedState.currentScreen)
+              } else {
+                setCurrentScreen("map")
+                console.log("🔄 Preventing camera from opening on refresh, staying on map")
+              }
             } else {
-              // Always start on map
+              // No valid saved screen, default to map
               setCurrentScreen("map")
               console.log("🔄 Returning user - no saved screen, going to map")
             }
