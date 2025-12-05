@@ -1902,7 +1902,7 @@ export default function AIRecommendationsHub({
         </p>
       </div>
 
-      {/* View Mode Tabs */}
+      {/* View Mode Tabs - Map view disabled (migrating to Mapbox) */}
       <div style={{
         display: 'flex',
         padding: '0 20px',
@@ -1910,7 +1910,6 @@ export default function AIRecommendationsHub({
         gap: '10px'
       }}>
         {[
-          { key: "map", label: "Map", icon: "🗺️" },
           { key: "list", label: "List", icon: "📋" },
           { key: "insights", label: "Insights", icon: "🧠" }
         ].map((tab) => (
