@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const query = searchParams.get("query") // For forward geocoding
-  const types = searchParams.get("types") || "poi,address,place" // Default types
+  const types = searchParams.get("types") || "poi" // Default to single type for reverse geocoding
 
   console.log('📍 Mapbox Geocoding API GET - params:', { lat, lng, query, types })
 
@@ -60,8 +60,18 @@ export async function GET(request: NextRequest) {
 
     // Add query parameters
     geocodingUrl.searchParams.set('access_token', accessToken)
-    geocodingUrl.searchParams.set('types', types)
-    geocodingUrl.searchParams.set('limit', '10')
+    
+    // For reverse geocoding, only use 'types' parameter without 'limit' to avoid Mapbox 422 error
+    // For forward geocoding, we can use both 'types' and 'limit'
+    if (query) {
+      // Forward geocoding: can use multiple types and limit
+      geocodingUrl.searchParams.set('types', types)
+      geocodingUrl.searchParams.set('limit', '10')
+    } else {
+      // Reverse geocoding: use single type, no limit parameter
+      // Mapbox requires: "limit must be combined with a single type parameter when reverse geocoding"
+      geocodingUrl.searchParams.set('types', types.split(',')[0]) // Use only first type
+    }
 
     console.log('🔗 Mapbox Geocoding URL:', geocodingUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
 
