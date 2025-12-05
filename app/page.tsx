@@ -19,6 +19,7 @@ import { RecommendationForm } from "@/components/RecommendationForm"
 import { PlaceNavigation } from "@/components/PlaceNavigation"
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
+import { LocationPermissionPrompt } from "@/components/LocationPermissionPrompt"
 import { useAuth } from "@/hooks/useAuth"
 import { PinData } from "@/lib/types"
 
@@ -298,7 +299,7 @@ export default function PINITApp() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
   // Hooks
-  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading } = useLocationServices()
+  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading, requestPermission, permissionStatus } = useLocationServices()
   const { pins: storedPins, addPin: addPinFromStorage, removePin: removePinFromStorage, updatePin: updatePinInStorage } = usePinStorage()
   const motionData = useMotionDetection()
   
@@ -2500,6 +2501,12 @@ export default function PINITApp() {
         padding: "2rem",
       }}
     >
+      {/* Location Permission Prompt */}
+      <LocationPermissionPrompt 
+        onRequestPermission={requestPermission}
+        permissionStatus={permissionStatus}
+      />
+
       {/* Success Popup - Simple "Pinned Successfully" message */}
       {showSuccessPopup && (
         <div
