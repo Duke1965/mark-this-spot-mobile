@@ -245,36 +245,10 @@ export default function PINITApp() {
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
   const [isDraggingPin, setIsDraggingPin] = useState(false)
-  const [mapsLoaded, setMapsLoaded] = useState(false)
 
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
-  // Load Google Maps JavaScript API
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !mapsLoaded) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        setMapsLoaded(true)
-        console.log("🗺️ Google Maps JavaScript API loaded")
-      }
-      script.onerror = () => {
-        console.error("❌ Failed to load Google Maps JavaScript API")
-      }
-      document.head.appendChild(script)
-      
-      return () => {
-        // Cleanup on unmount
-        const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`)
-        if (existingScript) {
-          document.head.removeChild(existingScript)
-        }
-      }
-    }
-  }, [mapsLoaded])
 
   // Media state
   const [capturedMedia, setCapturedMedia] = useState<{
@@ -823,31 +797,31 @@ export default function PINITApp() {
   
   // Helper function for location fallback (no coordinates shown)
   const getLocationFallback = async (lat: number, lng: number): Promise<string> => {
-    // Try to get location from Foursquare API directly as fallback
+    // Try to get location from Mapbox API directly as fallback
     try {
-      const response = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`)
+      const response = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`)
       if (response.ok) {
         const data = await response.json()
-        if (data.items && data.items.length > 0) {
-          const place = data.items[0]
-          const address = place.address || place.location?.address || ""
-          const placeName = place.title || place.name || ""
+        if (data.places && data.places.length > 0) {
+          const place = data.places[0]
+          const placeName = place.name || place.place_name || ""
           
-          // Format as "Street, Town"
-          if (address) {
-            const addressParts = address.split(',').map((part: string) => part.trim()).filter((part: string) => part.length > 0)
-            if (addressParts.length >= 2) {
-              return `${addressParts[0]}, ${addressParts[1]}`
-            } else if (addressParts.length === 1) {
-              return addressParts[0]
+          // Return place name with context if available
+          if (placeName) {
+            const contextParts = []
+            if (place.context?.city && place.context.city !== placeName) {
+              contextParts.push(place.context.city)
             }
-          } else if (placeName) {
+            
+            if (contextParts.length > 0) {
+              return `${placeName}, ${contextParts.join(', ')}`
+            }
             return placeName
           }
         }
       }
     } catch (error) {
-      console.log(`⚠️ Foursquare fallback error:`, error)
+      console.log(`⚠️ Mapbox fallback error:`, error)
     }
     
     // Regional fallbacks (no coordinates)
@@ -2442,32 +2416,16 @@ export default function PINITApp() {
           </button>
         </div>
         
-        {/* Full Map View - Interactive Google Maps */}
+        {/* Full Map View - Interactive Mapbox Map */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {mapsLoaded && typeof window !== 'undefined' && (window as any).google ? (
-            <InteractiveMapEditor
-              initialLat={editingPinLocation.lat}
-              initialLng={editingPinLocation.lng}
-              onLocationChange={(lat, lng) => {
-                handlePinLocationUpdate(lat, lng)
-                // Don't update originalPinLocation here - keep it as the original pin's location
-              }}
-            />
-          ) : (
-            <div style={{ 
-              width: "100%", 
-              height: "100%", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center",
-              background: "rgba(30, 58, 138, 0.5)"
-            }}>
-              <div style={{ textAlign: "center", color: "white" }}>
-                <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🗺️</div>
-                <div>Loading map...</div>
-              </div>
-            </div>
-          )}
+          <InteractiveMapEditor
+            initialLat={editingPinLocation.lat}
+            initialLng={editingPinLocation.lng}
+            onLocationChange={(lat, lng) => {
+              handlePinLocationUpdate(lat, lng)
+              // Don't update originalPinLocation here - keep it as the original pin's location
+            }}
+          />
           
           {/* Instruction text */}
           <div
@@ -2826,7 +2784,7 @@ export default function PINITApp() {
           }}
         />
 
-        {/* Main Pin Button with LIVE GOOGLE MAPS */}
+        {/* Main Pin Button with LIVE MAPBOX MAP */}
         <button
           onClick={handleQuickPin}
           disabled={isQuickPinning}
