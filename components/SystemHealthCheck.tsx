@@ -243,8 +243,8 @@ export default function SystemHealthCheck() {
     const issues = []
     
     // Check environment variables
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      issues.push('Google Maps API key missing')
+    if (!process.env.NEXT_PUBLIC_MAPBOX_API_KEY) {
+      issues.push('Mapbox API key missing')
     }
     
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
