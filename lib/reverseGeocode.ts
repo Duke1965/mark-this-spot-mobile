@@ -18,35 +18,44 @@ export async function reverseGeocode(lat: number, lng: number): Promise<PlaceLab
   }
 
   try {
-    // Fetch from Foursquare Places API instead of Google Geocoding
-    // Use Foursquare to get place name and description
+    // Fetch from Mapbox Geocoding API for reverse geocoding
     // Use relative path to avoid CORS issues with Vercel preview URLs
     const response = await fetch(
-      `/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
+      `/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi,address,place`
     )
     
     const data = await response.json()
     
-    // Check Foursquare API response
-    if (!response.ok || !data.items || data.items.length === 0) {
+    // Check Mapbox API response
+    if (!response.ok || !data.places || data.places.length === 0) {
       // Cache the null result
       geocodeCache.set(cacheKey, { result: null, timestamp: now })
       return null
     }
 
-    // Use Foursquare place data
-    const place = data.items[0]
-    const placeName = place.title || place.name || "Unknown Location"
-    const address = place.address || place.location?.address || ""
+    // Use Mapbox place data
+    const place = data.places[0]
+    const placeName = place.name || place.place_name || "Unknown Location"
+    const address = place.address || ""
     
-    // Build smart label from Foursquare data
+    // Build smart label from Mapbox data
     let shortLabel = placeName
-    if (address && address !== placeName) {
+    
+    // Add context if available (neighborhood, city)
+    if (place.context) {
+      const contextParts = []
+      if (place.context.neighborhood) contextParts.push(place.context.neighborhood)
+      if (place.context.city) contextParts.push(place.context.city)
+      
+      if (contextParts.length > 0) {
+        shortLabel = `${placeName}, ${contextParts[0]}`
+      }
+    } else if (address && address !== placeName) {
       shortLabel = `${placeName}, ${address}`
     }
 
     const placeLabel: PlaceLabel = {
-      raw: address || placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      raw: place.place_name || address || placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       short: shortLabel
     }
 
