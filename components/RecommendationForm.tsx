@@ -132,6 +132,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                   key={index}
                   src={photo.url}
                   alt={photo.placeName || "Place photo"}
+                  loading={index === 0 ? "eager" : "lazy"}
                   style={{
                     width: "100%",
                     height: "100%",
