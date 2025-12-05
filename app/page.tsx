@@ -1304,26 +1304,26 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📸 Fetching location data using Foursquare (place data) + Mapillary (photos)...")
+      console.log("📸 Fetching location data using Mapbox (place data) + Mapillary (photos)...")
       
-      // STEP 1: Fetch Foursquare place data (name, description, category)
-      let foursquareData: any = null
+      // STEP 1: Fetch Mapbox place data (name, address, category)
+      let mapboxData: any = null
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
       
       try {
-        console.log("📍 Step 1: Fetching Foursquare place data at EXACT location...")
-        // Use very small radius (25m) for precise location matching
-        const foursquareResponse = await fetch(`/api/foursquare-places?lat=${lat}&lng=${lng}&radius=25&limit=10`, { signal })
-        console.log(`📍 Foursquare API response status: ${foursquareResponse.status}`)
+        console.log("📍 Step 1: Fetching Mapbox place data at EXACT location...")
+        // Use Mapbox Geocoding API for reverse geocoding (coordinates -> place name)
+        const mapboxResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi,address,place`, { signal })
+        console.log(`📍 Mapbox API response status: ${mapboxResponse.status}`)
         
-        if (foursquareResponse.ok) {
-          const fsqData = await foursquareResponse.json()
-          console.log(`📍 Foursquare API returned ${fsqData.items?.length || 0} places`)
+        if (mapboxResponse.ok) {
+          const mapboxResponseData = await mapboxResponse.json()
+          console.log(`📍 Mapbox API returned ${mapboxResponseData.places?.length || 0} places`)
           
-          if (fsqData.items && fsqData.items.length > 0) {
+          if (mapboxResponseData.places && mapboxResponseData.places.length > 0) {
             // Calculate distance and find closest place
-            const placesWithDistance = fsqData.items
+            const placesWithDistance = mapboxResponseData.places
               .map((place: any) => {
                 const placeLat = place.location?.lat
                 const placeLng = place.location?.lng
@@ -1345,28 +1345,35 @@ export default function PINITApp() {
             
             if (placesWithDistance.length > 0) {
               const closestPlace = placesWithDistance[0]
-              console.log(`✅ Found closest Foursquare place: ${closestPlace.title || closestPlace.name} at ${closestPlace.distance.toFixed(1)}m`)
+              console.log(`✅ Found closest Mapbox place: ${closestPlace.name} at ${closestPlace.distance.toFixed(1)}m`)
               
-              // Only use if within 25m
-              if (closestPlace.distance <= 25) {
-                foursquareData = closestPlace
-                placeName = closestPlace.title || closestPlace.name || placeName
-                placeDescription = closestPlace.description
-                console.log(`✅ Using Foursquare place data: ${placeName}`)
+              // Use place if within 50m (Mapbox is more accurate than Foursquare)
+              if (closestPlace.distance <= 50) {
+                mapboxData = closestPlace
+                placeName = closestPlace.name || closestPlace.place_name || placeName
+                
+                // Build description from address components
+                const parts = []
+                if (closestPlace.address) parts.push(closestPlace.address)
+                if (closestPlace.context?.neighborhood) parts.push(closestPlace.context.neighborhood)
+                if (closestPlace.context?.city) parts.push(closestPlace.context.city)
+                placeDescription = parts.length > 0 ? parts.join(', ') : undefined
+                
+                console.log(`✅ Using Mapbox place data: ${placeName}`)
               } else {
-                console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 25m)`)
+                console.log(`⚠️ Closest place is ${closestPlace.distance.toFixed(1)}m away (too far, max 50m)`)
               }
             }
           } else {
-            console.log("⚠️ Foursquare returned no places within 25m")
+            console.log("⚠️ Mapbox returned no places within 50m")
           }
         }
-      } catch (fsqError: any) {
-        if (fsqError.name === 'AbortError') {
-          console.log("📸 Foursquare request was aborted")
-          throw fsqError
+      } catch (mapboxError: any) {
+        if (mapboxError.name === 'AbortError') {
+          console.log("📸 Mapbox request was aborted")
+          throw mapboxError
         }
-        console.warn("⚠️ Foursquare API failed:", fsqError.message)
+        console.warn("⚠️ Mapbox API failed:", mapboxError.message)
       }
       
       // STEP 2: Fetch Mapillary street-level photos
@@ -1396,11 +1403,11 @@ export default function PINITApp() {
         console.warn("⚠️ Mapillary API failed:", mapillaryError.message)
       }
       
-      // STEP 3: Combine Mapillary photos with Foursquare place data
+      // STEP 3: Combine Mapillary photos with Mapbox place data
       const combinedResults: {url: string, placeName: string, description?: string}[] = []
       
       if (mapillaryPhotos.length > 0) {
-        // Use Mapillary photos with Foursquare place data
+        // Use Mapillary photos with Mapbox place data
         mapillaryPhotos.forEach(photo => {
           combinedResults.push({
             url: photo.url,
@@ -1409,7 +1416,7 @@ export default function PINITApp() {
           })
         })
         
-        console.log(`✅ Combined result: ${mapillaryPhotos.length} Mapillary photos + Foursquare place name "${placeName}"`)
+        console.log(`✅ Combined result: ${mapillaryPhotos.length} Mapillary photos + Mapbox place name "${placeName}"`)
         
         // Cache the combined result
         photoFetchCacheRef.current.set(cacheKey, { data: combinedResults, timestamp: Date.now() })
@@ -1417,8 +1424,8 @@ export default function PINITApp() {
       }
       
       // STEP 4: Fallback - no photos available, but return place data if we have it
-      if (foursquareData) {
-        console.log(`⚠️ No Mapillary photos available, but returning Foursquare place data: ${placeName}`)
+      if (mapboxData) {
+        console.log(`⚠️ No Mapillary photos available, but returning Mapbox place data: ${placeName}`)
         const fallbackResult = [{
           url: "/pinit-placeholder.jpg",
           placeName: placeName,
@@ -1429,7 +1436,7 @@ export default function PINITApp() {
       }
       
       // STEP 5: Ultimate fallback - no place data, no photos
-      console.log("⚠️ No Foursquare place data or Mapillary photos available")
+      console.log("⚠️ No Mapbox place data or Mapillary photos available")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
