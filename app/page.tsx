@@ -280,6 +280,8 @@ export default function PINITApp() {
   // Request deduplication for fetchLocationPhotos
   const photoFetchControllerRef = useRef<AbortController | null>(null)
   const photoFetchCacheRef = useRef<Map<string, { data: {url: string, placeName: string, description?: string}[], timestamp: number }>>(new Map())
+  // Cache for POI results to avoid redundant API calls (5 minutes)
+  const poiResultCacheRef = useRef<Map<string, { hasPOI: boolean; timestamp: number }>>(new Map())
   const isFetchingPhotosRef = useRef(false)
   
   // Request deduplication for pin editing
@@ -535,7 +537,7 @@ export default function PINITApp() {
     }
   }, [watchLocation, clearWatch])
 
-  // Update userLocation when location changes
+  // Update userLocation when location changes (debounced to reduce API calls)
   useEffect(() => {
     if (location) {
       setUserLocation({
@@ -543,10 +545,8 @@ export default function PINITApp() {
         longitude: location.longitude,
       })
       
-      // Update location name when location changes
-      getLocationName(location.latitude, location.longitude).then((name) => {
-        setLocationName(name)
-      })
+      // Location name is already updated by the throttled effect above (line 295)
+      // No need to call getLocationName here again - it's already handled
     }
   }, [location])
 
@@ -801,8 +801,19 @@ export default function PINITApp() {
     return await getLocationFallback(lat, lng)
   }
   
+  // Cache for location fallback (5 minutes)
+  const locationFallbackCacheRef = useRef<Map<string, { result: string; timestamp: number }>>(new Map())
+  
   // Helper function for location fallback (no coordinates shown)
   const getLocationFallback = async (lat: number, lng: number): Promise<string> => {
+    // Check cache first (5 minute cache)
+    const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`
+    const cached = locationFallbackCacheRef.current.get(cacheKey)
+    const now = Date.now()
+    if (cached && (now - cached.timestamp) < 300000) {
+      return cached.result
+    }
+    
     // Try to get location from Mapbox API directly as fallback
     try {
       const response = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`)
@@ -820,8 +831,11 @@ export default function PINITApp() {
             }
             
             if (contextParts.length > 0) {
-              return `${placeName}, ${contextParts.join(', ')}`
+              const result = `${placeName}, ${contextParts.join(', ')}`
+              locationFallbackCacheRef.current.set(cacheKey, { result, timestamp: now })
+              return result
             }
+            locationFallbackCacheRef.current.set(cacheKey, { result: placeName, timestamp: now })
             return placeName
           }
         }
@@ -831,23 +845,24 @@ export default function PINITApp() {
     }
     
     // Regional fallbacks (no coordinates)
+    let fallbackResult = "Current Location"
+    
     // Riebeek West area
     if (lat > -33.4 && lat < -33.3 && lng > 18.8 && lng < 18.9) {
-      return "Riebeek West"
+      fallbackResult = "Riebeek West"
     }
-    
     // Cape Town CBD
-    if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
-      return "Cape Town"
+    else if (lat > -33.9 && lat < -33.8 && lng > 18.4 && lng < 18.5) {
+      fallbackResult = "Cape Town"
     }
-    
     // Western Cape region
-    if (lat > -34.5 && lat < -33.0 && lng > 18.0 && lng < 19.5) {
-      return "Western Cape"
+    else if (lat > -34.5 && lat < -33.0 && lng > 18.0 && lng < 19.5) {
+      fallbackResult = "Western Cape"
     }
     
-    // Final fallback - just say "Current Location" instead of coordinates
-    return "Current Location"
+    // Cache the fallback result too
+    locationFallbackCacheRef.current.set(cacheKey, { result: fallbackResult, timestamp: now })
+    return fallbackResult
   }
 
   // UPDATED: Use pin-intel gateway for nearby places (NO MORE GOOGLE PLACES API)
@@ -1238,8 +1253,9 @@ export default function PINITApp() {
     const cached = photoFetchCacheRef.current.get(cacheKey)
     const now = Date.now()
     
-    // Return cached result if available and recent (within 5 seconds) - unless bypassing cache
-    if (!bypassCache && cached && (now - cached.timestamp) < 5000) {
+    // Return cached result if available and recent (within 5 minutes) - unless bypassing cache
+    // Increased from 5 seconds to 5 minutes for better performance and reduced API calls
+    if (!bypassCache && cached && (now - cached.timestamp) < 300000) {
       console.log("📸 Using cached photo data for location:", cacheKey)
       return cached.data
     }
@@ -1268,7 +1284,7 @@ export default function PINITApp() {
       await new Promise(resolve => setTimeout(resolve, 100))
       // Check cache again after waiting
       const cachedAfterWait = photoFetchCacheRef.current.get(cacheKey)
-      if (cachedAfterWait && (now - cachedAfterWait.timestamp) < 5000) {
+      if (cachedAfterWait && (now - cachedAfterWait.timestamp) < 300000) {
         return cachedAfterWait.data
       }
     }
@@ -1298,9 +1314,16 @@ export default function PINITApp() {
         // STRATEGY: Try POI first (restaurants, shops), then fall back to place (neighborhoods, towns)
         // This gives us specific businesses when available, but doesn't fail in rural areas
         
-        // ATTEMPT 1: Try POI (specific businesses/landmarks)
-        console.log("📍 Step 1a: Trying POI (restaurants, shops, landmarks)...")
-        let poiResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
+        // Check POI cache first - if we know there are no POIs in this area, skip the call
+        const poiCacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`
+        const poiCached = poiResultCacheRef.current.get(poiCacheKey)
+        const shouldTryPOI = !poiCached || (now - poiCached.timestamp) > 300000 // 5 minutes
+        
+        // ATTEMPT 1: Try POI (specific businesses/landmarks) - only if not cached as "no POI"
+        let poiFound = false
+        if (shouldTryPOI || poiCached?.hasPOI) {
+          console.log("📍 Step 1a: Trying POI (restaurants, shops, landmarks)...")
+          let poiResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
         
         if (poiResponse.ok) {
           const poiData = await poiResponse.json()
@@ -1344,11 +1367,26 @@ export default function PINITApp() {
                 placeDescription = parts.length > 0 ? parts.join(', ') : undefined
                 
                 console.log(`✅ Using POI data: ${placeName}`)
+                poiFound = true
+                // Cache that POI was found in this area
+                poiResultCacheRef.current.set(poiCacheKey, { hasPOI: true, timestamp: now })
               } else {
                 console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
+                // Cache that no nearby POI exists in this area
+                poiResultCacheRef.current.set(poiCacheKey, { hasPOI: false, timestamp: now })
               }
+            } else {
+              // No POIs found at all - cache this result
+              poiResultCacheRef.current.set(poiCacheKey, { hasPOI: false, timestamp: now })
             }
+          } else {
+            // POI API call failed - don't cache, will retry next time
+            console.log("⚠️ POI API call failed")
           }
+        }
+        } else if (poiCached && !poiCached.hasPOI) {
+          // Skip POI call - we know there are no POIs in this area (from cache)
+          console.log("📍 Skipping POI call - cached result shows no POIs in this area")
         }
         
         // ATTEMPT 2: If no POI found, fall back to place (neighborhood/town)
@@ -3105,6 +3143,7 @@ export default function PINITApp() {
                   <img
                     src={pin.mediaUrl || "/placeholder.svg"}
                     alt={pin.title}
+                    loading="lazy"
                     style={{
                       width: "100%",
                       height: "80px",
