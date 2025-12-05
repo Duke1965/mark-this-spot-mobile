@@ -120,17 +120,24 @@ export async function GET(request: NextRequest) {
       const placeType = feature.place_type?.[0] || 'place'
       
       // Extract address components from context
+      let street = ''
       let neighborhood = ''
       let city = ''
       let region = ''
       let country = ''
 
       context.forEach((ctx: any) => {
+        if (ctx.id.startsWith('address')) street = ctx.text
         if (ctx.id.startsWith('neighborhood')) neighborhood = ctx.text
         if (ctx.id.startsWith('place')) city = ctx.text
         if (ctx.id.startsWith('region')) region = ctx.text
         if (ctx.id.startsWith('country')) country = ctx.text
       })
+      
+      // If no street from context, try to extract from place_name or address property
+      if (!street && properties.address) {
+        street = properties.address
+      }
 
       return {
         id: feature.id,
@@ -144,6 +151,7 @@ export async function GET(request: NextRequest) {
           lng: coordinates[0]
         },
         context: {
+          street,
           neighborhood,
           city,
           region,
