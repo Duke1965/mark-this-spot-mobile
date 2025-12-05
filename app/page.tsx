@@ -815,28 +815,60 @@ export default function PINITApp() {
     }
     
     // Try to get location from Mapbox API directly as fallback
+    // Request both address and place to get street + city information
     try {
-      const response = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`)
+      const response = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place&limit=5`)
       if (response.ok) {
         const data = await response.json()
         if (data.places && data.places.length > 0) {
-          const place = data.places[0]
-          const placeName = place.name || place.place_name || ""
+          // Find address result (for street) and place result (for city/town)
+          const addressResult = data.places.find((p: any) => {
+            const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
+            return types.includes('address') || p.context?.street
+          })
+          const placeResult = data.places.find((p: any) => {
+            const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
+            return types.includes('place') || p.context?.city
+          }) || data.places[0]
           
-          // Return place name with context if available
-          if (placeName) {
-            const contextParts = []
-            if (place.context?.city && place.context.city !== placeName) {
-              contextParts.push(place.context.city)
-            }
-            
-            if (contextParts.length > 0) {
-              const result = `${placeName}, ${contextParts.join(', ')}`
-              locationFallbackCacheRef.current.set(cacheKey, { result, timestamp: now })
-              return result
-            }
-            locationFallbackCacheRef.current.set(cacheKey, { result: placeName, timestamp: now })
-            return placeName
+          // Use address result for street, place result for city/town
+          const street = addressResult?.context?.street || addressResult?.address || addressResult?.name || ""
+          const neighborhood = placeResult?.context?.neighborhood || addressResult?.context?.neighborhood || ""
+          const city = placeResult?.context?.city || placeResult?.name || ""
+          const placeName = placeResult?.name || placeResult?.place_name || ""
+          
+          // Format location name according to user requirements:
+          // - For rural/town: "Street Town" (e.g., "Eikenhof street Riebeek west")
+          // - For city: "Street Suburb City" (e.g., "Lytton street Observatory Cape town")
+          
+          let result = ""
+          
+          if (city && neighborhood) {
+            // City location: "Street Suburb City"
+            const parts = []
+            if (street) parts.push(street)
+            if (neighborhood) parts.push(neighborhood)
+            if (city) parts.push(city)
+            result = parts.join(" ")
+          } else if (city || placeName) {
+            // Rural/town location: "Street Town"
+            const parts = []
+            if (street) parts.push(street)
+            // Use city if available, otherwise use placeName
+            const town = city || placeName
+            if (town) parts.push(town)
+            result = parts.join(" ")
+          } else {
+            // Fallback to place name
+            result = placeName
+          }
+          
+          // Ensure "street" is lowercase (as per user examples)
+          result = result.replace(/\bStreet\b/g, "street")
+          
+          if (result) {
+            locationFallbackCacheRef.current.set(cacheKey, { result, timestamp: now })
+            return result
           }
         }
       }
