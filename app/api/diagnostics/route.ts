@@ -15,11 +15,8 @@ export async function GET(request: NextRequest) {
 
   // Check environment variables
   diagnostics.environment = {
-    FSQ_PLACES_SERVICE_KEY: !!process.env.FSQ_PLACES_SERVICE_KEY,
-    FOURSQUARE_API_KEY: !!process.env.FOURSQUARE_API_KEY,
-    NEXT_PUBLIC_FOURSQUARE_API_KEY: !!process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY,
+    NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
     MAPILLARY_TOKEN: !!process.env.MAPILLARY_TOKEN,
-    NEXT_PUBLIC_MAPBOX_TOKEN: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
   }
@@ -31,49 +28,43 @@ export async function GET(request: NextRequest) {
 
   console.log(`🔍 Running diagnostics for location: ${testLat}, ${testLng}`)
 
-  // Test Foursquare Places API
+  // Test Mapbox Geocoding API
   try {
-    const fsqKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
+    const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
     
-    if (!fsqKey) {
-      diagnostics.apis.foursquare = {
+    if (!mapboxKey) {
+      diagnostics.apis.mapbox = {
         status: "ERROR",
         error: "No API key found",
-        details: "Missing FSQ_PLACES_SERVICE_KEY, FOURSQUARE_API_KEY, and NEXT_PUBLIC_FOURSQUARE_API_KEY"
+        details: "Missing NEXT_PUBLIC_MAPBOX_API_KEY"
       }
     } else {
-      const fsqUrl = new URL('https://places-api.foursquare.com/places/search')
-      fsqUrl.searchParams.set('ll', `${testLat},${testLng}`)
-      fsqUrl.searchParams.set('radius', '100')
-      fsqUrl.searchParams.set('limit', '5')
-      fsqUrl.searchParams.set('fields', 'name,categories,description,rating,location')
+      const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${testLng},${testLat}.json`)
+      mapboxUrl.searchParams.set('access_token', mapboxKey)
+      mapboxUrl.searchParams.set('types', 'poi,address,place')
+      mapboxUrl.searchParams.set('limit', '5')
       
-      const fsqResponse = await fetch(fsqUrl.toString(), {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${fsqKey}`,
-          'X-Places-Api-Version': '2025-06-17',
-        },
-      })
+      const mapboxResponse = await fetch(mapboxUrl.toString())
 
-      if (fsqResponse.ok) {
-        const fsqData = await fsqResponse.json()
-        diagnostics.apis.foursquare = {
+      if (mapboxResponse.ok) {
+        const mapboxData = await mapboxResponse.json()
+        const features = mapboxData.features || []
+        diagnostics.apis.mapbox = {
           status: "OK",
-          places_found: fsqData.items?.length || 0,
-          sample_place: fsqData.items?.[0]?.title || fsqData.items?.[0]?.name || "No places found"
+          places_found: features.length,
+          sample_place: features[0]?.text || features[0]?.place_name || "No places found"
         }
       } else {
-        const errorText = await fsqResponse.text()
-        diagnostics.apis.foursquare = {
+        const errorText = await mapboxResponse.text()
+        diagnostics.apis.mapbox = {
           status: "ERROR",
-          http_status: fsqResponse.status,
+          http_status: mapboxResponse.status,
           error: errorText.substring(0, 200)
         }
       }
     }
   } catch (error) {
-    diagnostics.apis.foursquare = {
+    diagnostics.apis.mapbox = {
       status: "ERROR",
       error: error instanceof Error ? error.message : String(error)
     }
@@ -139,11 +130,11 @@ export async function GET(request: NextRequest) {
       ? `https://${process.env.VERCEL_URL}`
       : 'http://localhost:3000'
     
-    // Test /api/foursquare-places
-    const internalFsqResponse = await fetch(`${baseUrl}/api/foursquare-places?lat=${testLat}&lng=${testLng}&radius=100&limit=5`)
-    diagnostics.apis.internal_foursquare = {
-      status: internalFsqResponse.ok ? "OK" : "ERROR",
-      http_status: internalFsqResponse.status
+    // Test /api/mapbox_geocoding
+    const internalMapboxResponse = await fetch(`${baseUrl}/api/mapbox_geocoding?lat=${testLat}&lng=${testLng}`)
+    diagnostics.apis.internal_mapbox = {
+      status: internalMapboxResponse.ok ? "OK" : "ERROR",
+      http_status: internalMapboxResponse.status
     }
     
     // Test /api/mapillary
@@ -161,9 +152,9 @@ export async function GET(request: NextRequest) {
 
   // Overall status
   const allChecks = [
-    diagnostics.environment.FSQ_PLACES_SERVICE_KEY || diagnostics.environment.FOURSQUARE_API_KEY || diagnostics.environment.NEXT_PUBLIC_FOURSQUARE_API_KEY,
+    diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY,
     diagnostics.environment.MAPILLARY_TOKEN,
-    diagnostics.apis.foursquare?.status === "OK",
+    diagnostics.apis.mapbox?.status === "OK",
     diagnostics.apis.mapillary?.status === "OK"
   ]
   
@@ -171,16 +162,16 @@ export async function GET(request: NextRequest) {
   
   // Build issues summary arrays
   const missingEnvVars: string[] = []
-  if (!diagnostics.environment.FSQ_PLACES_SERVICE_KEY && !diagnostics.environment.FOURSQUARE_API_KEY && !diagnostics.environment.NEXT_PUBLIC_FOURSQUARE_API_KEY) {
-    missingEnvVars.push("Foursquare API Key")
+  if (!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
+    missingEnvVars.push("Mapbox API Key")
   }
   if (!diagnostics.environment.MAPILLARY_TOKEN) {
     missingEnvVars.push("Mapillary Token")
   }
   
   const failingApis: string[] = []
-  if (diagnostics.apis.foursquare?.status !== "OK") {
-    failingApis.push("Foursquare")
+  if (diagnostics.apis.mapbox?.status !== "OK") {
+    failingApis.push("Mapbox")
   }
   if (diagnostics.apis.mapillary?.status !== "OK") {
     failingApis.push("Mapillary")
