@@ -1428,6 +1428,29 @@ export default function AIRecommendationsHub({
     }
   }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations, getLocationCacheKey, clusterPins]) // Added cache key and cluster functions
 
+  // Load user recommendations on mount and location change
+  useEffect(() => {
+    if (location && location.latitude && location.longitude && isInitialized) {
+      const loadUserRecs = async () => {
+        try {
+          const userRecs = await getUserRecommendations()
+          if (userRecs.length > 0) {
+            console.log(`👥 Loaded ${userRecs.length} user recommendations (including mocks)`)
+            setRecommendations(prev => {
+              // Remove duplicates by ID
+              const existingIds = new Set(prev.map(r => r.id))
+              const newRecs = userRecs.filter(r => !existingIds.has(r.id))
+              return [...prev, ...newRecs]
+            })
+          }
+        } catch (error) {
+          console.error('Error loading user recommendations:', error)
+        }
+      }
+      loadUserRecs()
+    }
+  }, [location, isInitialized, getUserRecommendations])
+
   // Refresh map when returning to map view
   useEffect(() => {
     if (viewMode === "map" && mapRef.current) {
