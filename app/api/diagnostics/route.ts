@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // Check environment variables
   diagnostics.environment = {
     NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
-    MAPILLARY_TOKEN: !!process.env.MAPILLARY_TOKEN,
+    // MAPILLARY_TOKEN is optional (no longer required)
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
   }
