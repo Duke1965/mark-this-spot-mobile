@@ -121,6 +121,41 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Test OSM Nominatim API
+  try {
+    const nominatimUrl = new URL('https://nominatim.openstreetmap.org/reverse')
+    nominatimUrl.searchParams.set('lat', testLat)
+    nominatimUrl.searchParams.set('lon', testLng)
+    nominatimUrl.searchParams.set('format', 'json')
+    nominatimUrl.searchParams.set('addressdetails', '1')
+    
+    const nominatimResponse = await fetch(nominatimUrl.toString(), {
+      headers: {
+        'User-Agent': 'PINIT-App/1.0 (Location-based pinning app)',
+        'Accept': 'application/json'
+      }
+    })
+
+    if (nominatimResponse.ok) {
+      const nominatimData = await nominatimResponse.json()
+      diagnostics.apis.nominatim = {
+        status: "OK",
+        place_found: !!nominatimData.display_name,
+        sample_place: nominatimData.display_name?.substring(0, 50) || "No place found"
+      }
+    } else {
+      diagnostics.apis.nominatim = {
+        status: "ERROR",
+        http_status: nominatimResponse.status
+      }
+    }
+  } catch (error) {
+    diagnostics.apis.nominatim = {
+      status: "ERROR",
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+
   // Test internal API endpoints
   try {
     const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
@@ -129,18 +164,25 @@ export async function GET(request: NextRequest) {
       ? `https://${process.env.VERCEL_URL}`
       : 'http://localhost:3000'
     
-    // Test /api/mapbox_geocoding
+    // Test /api/mapbox_geocoding (for address geocoding only)
     const internalMapboxResponse = await fetch(`${baseUrl}/api/mapbox_geocoding?lat=${testLat}&lng=${testLng}`)
     diagnostics.apis.internal_mapbox = {
       status: internalMapboxResponse.ok ? "OK" : "ERROR",
       http_status: internalMapboxResponse.status
     }
     
-    // Test /api/mapillary
-    const internalMapillaryResponse = await fetch(`${baseUrl}/api/mapillary?lat=${testLat}&lng=${testLng}&radius=50&limit=5`)
-    diagnostics.apis.internal_mapillary = {
-      status: internalMapillaryResponse.ok ? "OK" : "ERROR",
-      http_status: internalMapillaryResponse.status
+    // Test /api/nominatim (OSM)
+    const internalNominatimResponse = await fetch(`${baseUrl}/api/nominatim?lat=${testLat}&lng=${testLng}&radius=100&limit=5`)
+    diagnostics.apis.internal_nominatim = {
+      status: internalNominatimResponse.ok ? "OK" : "ERROR",
+      http_status: internalNominatimResponse.status
+    }
+    
+    // Test /api/overpass (OSM)
+    const internalOverpassResponse = await fetch(`${baseUrl}/api/overpass?lat=${testLat}&lng=${testLng}&radius=100&limit=5`)
+    diagnostics.apis.internal_overpass = {
+      status: internalOverpassResponse.ok ? "OK" : "ERROR",
+      http_status: internalOverpassResponse.status
     }
   } catch (error) {
     diagnostics.apis.internal_endpoints = {
