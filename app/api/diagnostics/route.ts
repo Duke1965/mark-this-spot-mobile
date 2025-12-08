@@ -191,12 +191,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Overall status
+  // Overall status - Mapillary is now optional (we use OSM instead)
+  // Only check critical APIs: Mapbox (for geocoding) and OSM (for POI data)
   const allChecks = [
     diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY,
-    diagnostics.environment.MAPILLARY_TOKEN,
     diagnostics.apis.mapbox?.status === "OK",
-    diagnostics.apis.mapillary?.status === "OK"
+    diagnostics.apis.nominatim?.status === "OK" || diagnostics.apis.internal_nominatim?.status === "OK"
   ]
   
   diagnostics.overall_status = allChecks.every(check => check) ? "OK" : "ISSUES_FOUND"
@@ -206,17 +206,16 @@ export async function GET(request: NextRequest) {
   if (!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
     missingEnvVars.push("Mapbox API Key")
   }
-  if (!diagnostics.environment.MAPILLARY_TOKEN) {
-    missingEnvVars.push("Mapillary Token")
-  }
+  // Mapillary Token is optional (no longer required)
   
   const failingApis: string[] = []
   if (diagnostics.apis.mapbox?.status !== "OK") {
     failingApis.push("Mapbox")
   }
-  if (diagnostics.apis.mapillary?.status !== "OK") {
-    failingApis.push("Mapillary")
+  if (diagnostics.apis.nominatim?.status !== "OK" && diagnostics.apis.internal_nominatim?.status !== "OK") {
+    failingApis.push("Nominatim (OSM)")
   }
+  // Mapillary is optional - don't include in failing APIs
   
   diagnostics.issues_summary = {
     missing_env_vars: missingEnvVars,
