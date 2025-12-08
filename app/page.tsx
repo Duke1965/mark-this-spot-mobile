@@ -1070,13 +1070,13 @@ export default function PINITApp() {
       console.log("📸 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
-      // Get Foursquare data (prioritize over AI-generated content)
+      // Get OSM place data (prioritize over AI-generated content)
       const placeName = locationPhotos[0]?.placeName
       const placeDescription = locationPhotos[0]?.description
       
-      console.log("📸 Mapbox + Mapillary API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
+      console.log("📍 OSM (OpenStreetMap) API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Only generate AI content as fallback if Mapbox data is missing
+      // Only generate AI content as fallback if OSM data is missing
       const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
       
       const newPin: PinData = {
@@ -1315,192 +1315,105 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📸 Fetching location data using Mapbox (place data) + Mapillary (photos)...")
+      console.log("📍 Fetching location data using OpenStreetMap (Nominatim + Overpass)...")
       
-      // STEP 1: Fetch Mapbox place data (name, address, category)
-      let mapboxData: any = null
+      // STEP 1: Try Overpass API first (richer POI data with descriptions)
+      let osmData: any = null
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
       
       try {
-        console.log("📍 Step 1: Fetching Mapbox place data at EXACT location...")
+        console.log("📍 Step 1: Fetching OSM POI data via Overpass API...")
+        const overpassResponse = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
         
-        // STRATEGY: Try POI first (restaurants, shops), then fall back to place (neighborhoods, towns)
-        // This gives us specific businesses when available, but doesn't fail in rural areas
-        
-        // Check POI cache first - if we know there are no POIs in this area, skip the call
-        const poiCacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`
-        const poiCached = poiResultCacheRef.current.get(poiCacheKey)
-        const shouldTryPOI = !poiCached || (now - poiCached.timestamp) > 300000 // 5 minutes
-        
-        // ATTEMPT 1: Try POI (specific businesses/landmarks) - only if not cached as "no POI"
-        let poiFound = false
-        if (shouldTryPOI || poiCached?.hasPOI) {
-          console.log("📍 Step 1a: Trying POI (restaurants, shops, landmarks)...")
-          let poiResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
-        
-        if (poiResponse.ok) {
-          const poiData = await poiResponse.json()
-          console.log(`📍 POI search returned ${poiData.places?.length || 0} places`)
+        if (overpassResponse.ok) {
+          const overpassData = await overpassResponse.json()
+          console.log(`📍 Overpass API returned ${overpassData.pois?.length || 0} POIs`)
           
-          if (poiData.places && poiData.places.length > 0) {
-            // Calculate distance and find closest POI
-            const poisWithDistance = poiData.places
-              .map((place: any) => {
-                const placeLat = place.location?.lat
-                const placeLng = place.location?.lng
-                
-                if (typeof placeLat !== 'number' || typeof placeLng !== 'number' || 
-                    isNaN(placeLat) || isNaN(placeLng) ||
-                    placeLat < -90 || placeLat > 90 || placeLng < -180 || placeLng > 180) {
-                  return null
-                }
-                
-                const distance = calculateDistance(lat, lng, placeLat, placeLng)
-                if (isNaN(distance) || distance < 0) return null
-                
-                return { ...place, distance }
-              })
-              .filter((place: any) => place !== null)
-              .sort((a: any, b: any) => a.distance - b.distance)
+          if (overpassData.pois && overpassData.pois.length > 0) {
+            // Find closest POI within 100m
+            const closestPOI = overpassData.pois[0]
+            console.log(`✅ Found closest OSM POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
             
-            if (poisWithDistance.length > 0) {
-              const closestPOI = poisWithDistance[0]
-              console.log(`✅ Found closest POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
-              
-              // Use POI if within 100m (reasonable walking distance)
+            if (closestPOI.distance <= 100) {
+              osmData = closestPOI
+              placeName = closestPOI.name || placeName
+              placeDescription = closestPOI.description || undefined
+              console.log(`✅ Using Overpass POI data: ${placeName}`)
+            } else {
+              console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
+            }
+          }
+        } else {
+          console.warn("⚠️ Overpass API failed, will try Nominatim")
+        }
+      } catch (overpassError: any) {
+        if (overpassError.name === 'AbortError') {
+          console.log("📍 Overpass request was aborted")
+          throw overpassError
+        }
+        console.warn("⚠️ Overpass API failed:", overpassError.message)
+      }
+      
+      // STEP 2: If Overpass didn't find a POI, try Nominatim (reverse geocoding + nearby POIs)
+      if (!osmData) {
+        try {
+          console.log("📍 Step 2: Fetching OSM data via Nominatim API...")
+          const nominatimResponse = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
+          
+          if (nominatimResponse.ok) {
+            const nominatimData = await nominatimResponse.json()
+            console.log(`📍 Nominatim returned place data and ${nominatimData.nearbyPOIs?.length || 0} nearby POIs`)
+            
+            // Check if we have a nearby POI within 100m
+            if (nominatimData.nearbyPOIs && nominatimData.nearbyPOIs.length > 0) {
+              const closestPOI = nominatimData.nearbyPOIs[0]
               if (closestPOI.distance <= 100) {
-                mapboxData = closestPOI
-                placeName = closestPOI.name || closestPOI.place_name || placeName
-                
-                // Build description from address and context
-                const parts = []
-                if (closestPOI.address) parts.push(closestPOI.address)
-                if (closestPOI.context?.neighborhood) parts.push(closestPOI.context.neighborhood)
-                if (closestPOI.context?.city) parts.push(closestPOI.context.city)
-                placeDescription = parts.length > 0 ? parts.join(', ') : undefined
-                
-                console.log(`✅ Using POI data: ${placeName}`)
-                poiFound = true
-                // Cache that POI was found in this area
-                poiResultCacheRef.current.set(poiCacheKey, { hasPOI: true, timestamp: now })
+                osmData = closestPOI
+                placeName = closestPOI.name || placeName
+                placeDescription = closestPOI.category ? `${closestPOI.category}` : undefined
+                console.log(`✅ Using Nominatim POI data: ${placeName}`)
               } else {
-                console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
-                // Cache that no nearby POI exists in this area
-                poiResultCacheRef.current.set(poiCacheKey, { hasPOI: false, timestamp: now })
+                // Use the reverse geocoded place data as fallback
+                if (nominatimData.place) {
+                  osmData = nominatimData.place
+                  placeName = nominatimData.place.name || placeName
+                  placeDescription = nominatimData.place.description || undefined
+                  console.log(`✅ Using Nominatim place data: ${placeName}`)
+                }
               }
-            } else {
-              // No POIs found at all - cache this result
-              poiResultCacheRef.current.set(poiCacheKey, { hasPOI: false, timestamp: now })
-            }
-          } else {
-            // POI API call failed - don't cache, will retry next time
-            console.log("⚠️ POI API call failed")
-          }
-        }
-        } else if (poiCached && !poiCached.hasPOI) {
-          // Skip POI call - we know there are no POIs in this area (from cache)
-          console.log("📍 Skipping POI call - cached result shows no POIs in this area")
-        }
-        
-        // ATTEMPT 2: If no POI found, fall back to place (neighborhood/town)
-        if (!mapboxData) {
-          console.log("📍 Step 1b: No nearby POI, falling back to place (neighborhood/town)...")
-          const placeResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=place`, { signal })
-          
-          if (placeResponse.ok) {
-            const placeData = await placeResponse.json()
-            console.log(`📍 Place search returned ${placeData.places?.length || 0} places`)
-            
-            if (placeData.places && placeData.places.length > 0) {
-              const closestPlace = placeData.places[0]
-              console.log(`✅ Found place: ${closestPlace.name}`)
-              
-              mapboxData = closestPlace
-              placeName = closestPlace.name || closestPlace.place_name || placeName
-              
-              // Build description
-              const parts = []
-              if (closestPlace.address) parts.push(closestPlace.address)
-              if (closestPlace.context?.neighborhood) parts.push(closestPlace.context.neighborhood)
-              if (closestPlace.context?.city) parts.push(closestPlace.context.city)
-              placeDescription = parts.length > 0 ? parts.join(', ') : undefined
-              
-              console.log(`✅ Using place data as fallback: ${placeName}`)
-            } else {
-              console.log("⚠️ No place data found")
+            } else if (nominatimData.place) {
+              // No nearby POIs, but we have reverse geocoded place data
+              osmData = nominatimData.place
+              placeName = nominatimData.place.name || placeName
+              placeDescription = nominatimData.place.description || undefined
+              console.log(`✅ Using Nominatim place data (no nearby POIs): ${placeName}`)
             }
           }
-        }
-      } catch (mapboxError: any) {
-        if (mapboxError.name === 'AbortError') {
-          console.log("📸 Mapbox request was aborted")
-          throw mapboxError
-        }
-        console.warn("⚠️ Mapbox API failed:", mapboxError.message)
-      }
-      
-      // STEP 2: Fetch Mapillary street-level photos
-      let mapillaryPhotos: any[] = []
-      
-      try {
-        console.log("📸 Step 2: Fetching Mapillary street-level photos...")
-        const mapillaryResponse = await fetch(`/api/mapillary?lat=${lat}&lng=${lng}&radius=50&limit=5`, { signal })
-        console.log(`📸 Mapillary API response status: ${mapillaryResponse.status}`)
-        
-        if (mapillaryResponse.ok) {
-          const mapillaryData = await mapillaryResponse.json()
-          console.log(`📸 Mapillary API returned ${mapillaryData.images?.length || 0} images`)
-          
-          if (mapillaryData.images && mapillaryData.images.length > 0) {
-            mapillaryPhotos = mapillaryData.images
-            console.log(`✅ Found ${mapillaryPhotos.length} Mapillary street-level photos`)
-          } else {
-            console.log("⚠️ No Mapillary images found for this location")
+        } catch (nominatimError: any) {
+          if (nominatimError.name === 'AbortError') {
+            console.log("📍 Nominatim request was aborted")
+            throw nominatimError
           }
+          console.warn("⚠️ Nominatim API failed:", nominatimError.message)
         }
-      } catch (mapillaryError: any) {
-        if (mapillaryError.name === 'AbortError') {
-          console.log("📸 Mapillary request was aborted")
-          throw mapillaryError
-        }
-        console.warn("⚠️ Mapillary API failed:", mapillaryError.message)
       }
       
-      // STEP 3: Combine Mapillary photos with Mapbox place data
-      const combinedResults: {url: string, placeName: string, description?: string}[] = []
-      
-      if (mapillaryPhotos.length > 0) {
-        // Use Mapillary photos with Mapbox place data
-        mapillaryPhotos.forEach(photo => {
-          combinedResults.push({
-            url: photo.url,
-            placeName: placeName,
-            description: placeDescription
-          })
-        })
-        
-        console.log(`✅ Combined result: ${mapillaryPhotos.length} Mapillary photos + Mapbox place name "${placeName}"`)
-        
-        // Cache the combined result
-        photoFetchCacheRef.current.set(cacheKey, { data: combinedResults, timestamp: Date.now() })
-        return combinedResults
-      }
-      
-      // STEP 4: Fallback - no photos available, but return place data if we have it
-      if (mapboxData) {
-        console.log(`⚠️ No Mapillary photos available, but returning Mapbox place data: ${placeName}`)
-        const fallbackResult = [{
+      // STEP 3: Return place data with placeholder image (OSM doesn't provide images)
+      // Note: We removed Mapillary dependency - no more road-facing street view images
+      if (osmData) {
+        console.log(`✅ Returning OSM place data: "${placeName}"`)
+        const result = [{
           url: "/pinit-placeholder.jpg",
           placeName: placeName,
           description: placeDescription
         }]
-        photoFetchCacheRef.current.set(cacheKey, { data: fallbackResult, timestamp: Date.now() })
-        return fallbackResult
+        photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
+        return result
       }
       
-      // STEP 5: Ultimate fallback - no place data, no photos
-      console.log("⚠️ No Mapbox place data or Mapillary photos available")
+      // STEP 4: Ultimate fallback - no OSM data available
+      console.log("⚠️ No OSM place data available")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
