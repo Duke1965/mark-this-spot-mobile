@@ -130,11 +130,10 @@ function InteractiveMapEditor({
       // Set Mapbox access token
       mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
 
-      // Initialize Mapbox map
-      // Using satellite-streets-v12 for better building/POI visibility
+      // Initialize Mapbox map - Changed to streets-v12 (normal map view)
       const map = new mapboxgl.default.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [initialLng, initialLat], // Mapbox uses [lng, lat]
         zoom: 17, // Higher zoom for more detail
         attributionControl: false
@@ -191,6 +190,167 @@ function InteractiveMapEditor({
         position: "absolute",
         top: 0,
         left: 0
+      }}
+    />
+  )
+}
+
+// Interactive Map Component for Main Circle with POI Markers
+function InteractiveMainMap({ 
+  lat, 
+  lng 
+}: { 
+  lat: number
+  lng: number
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const poiMarkersRef = useRef<any[]>([])
+
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    // Dynamically import Mapbox GL
+    import('mapbox-gl').then((mapboxgl) => {
+      if (!mapRef.current || mapInstanceRef.current) return
+
+      // Set Mapbox access token
+      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
+
+      // Initialize Mapbox map - Using streets-v12 (normal map view)
+      const map = new mapboxgl.default.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lng, lat], // Mapbox uses [lng, lat]
+        zoom: 16, // Good zoom level for POI visibility
+        attributionControl: false,
+        interactive: false, // Disable interaction for the circle map
+        pitch: 0,
+        bearing: 0
+      })
+
+      mapInstanceRef.current = map
+
+      // Wait for map to load, then fetch and display POIs
+      map.on('load', async () => {
+        console.log('🗺️ Main map loaded, fetching nearby POIs...')
+        
+        try {
+          // Fetch nearby POIs from OSM
+          const overpassResponse = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=200&limit=20`)
+          if (overpassResponse.ok) {
+            const overpassData = await overpassResponse.json()
+            const pois = overpassData.pois || []
+            
+            console.log(`📍 Found ${pois.length} POIs to display on map`)
+            
+            // Clear existing markers
+            poiMarkersRef.current.forEach(marker => marker.remove())
+            poiMarkersRef.current = []
+            
+            // Add markers for each POI
+            pois.forEach((poi: any) => {
+              if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
+                // Create a custom marker element with icon
+                const el = document.createElement('div')
+                el.className = 'poi-marker'
+                el.style.width = '24px'
+                el.style.height = '24px'
+                el.style.borderRadius = '50%'
+                el.style.backgroundColor = '#3B82F6'
+                el.style.border = '3px solid white'
+                el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+                el.style.cursor = 'pointer'
+                el.style.display = 'flex'
+                el.style.alignItems = 'center'
+                el.style.justifyContent = 'center'
+                el.style.fontSize = '12px'
+                el.style.color = 'white'
+                el.style.fontWeight = 'bold'
+                
+                // Add icon based on category
+                let icon = '📍'
+                if (poi.category) {
+                  if (poi.category.includes('restaurant') || poi.category.includes('cafe') || poi.category.includes('food')) {
+                    icon = '🍽️'
+                  } else if (poi.category.includes('hotel') || poi.category.includes('accommodation')) {
+                    icon = '🏨'
+                  } else if (poi.category.includes('shop') || poi.category.includes('store')) {
+                    icon = '🛍️'
+                  } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
+                    icon = '🎯'
+                  }
+                }
+                el.textContent = icon
+                
+                // Create marker with popup
+                const popup = new mapboxgl.default.Popup({ 
+                  offset: 25, 
+                  closeButton: false,
+                  className: 'poi-popup'
+                }).setHTML(`
+                  <div style="font-weight: 600; font-size: 13px; color: #1e3a8a; margin-bottom: 4px;">
+                    ${poi.name}
+                  </div>
+                  ${poi.category ? `<div style="font-size: 11px; color: #666; text-transform: capitalize;">${poi.category.replace(/_/g, ' ')}</div>` : ''}
+                `)
+                
+                const marker = new mapboxgl.default.Marker({
+                  element: el,
+                  anchor: 'bottom'
+                })
+                  .setLngLat([poi.location.lng, poi.location.lat])
+                  .setPopup(popup)
+                  .addTo(map)
+                
+                // Show popup on hover (for better UX in the circle)
+                el.addEventListener('mouseenter', () => {
+                  popup.addTo(map)
+                })
+                el.addEventListener('mouseleave', () => {
+                  popup.remove()
+                })
+                
+                poiMarkersRef.current.push(marker)
+              }
+            })
+            
+            console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to map`)
+          }
+        } catch (error) {
+          console.error('❌ Error fetching POIs for map:', error)
+        }
+      })
+
+      // Cleanup
+      return () => {
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+        }
+      }
+    })
+
+    return () => {
+      if (mapInstanceRef.current) {
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
+  }, [lat, lng])
+
+  return (
+    <div
+      ref={mapRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        borderRadius: "50%",
+        overflow: "hidden"
       }}
     />
   )
@@ -2969,7 +3129,7 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* LIVE MAPBOX BACKGROUND */}
+          {/* INTERACTIVE MAPBOX MAP WITH POI MARKERS */}
           {(userLocation || location) && (
             <div
               style={{
@@ -2981,48 +3141,9 @@ export default function PINITApp() {
                 background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
               }}
             >
-              <img
-                src={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${
-                  userLocation?.longitude || location?.longitude || 28.2293
-                },${
-                  userLocation?.latitude || location?.latitude || -25.7479
-                },16,0/280x280@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""}&fresh=true`}
-                alt="Live Map"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  filter: "contrast(1.1) saturate(1.2)",
-                }}
-                onLoad={(e) => {
-                  console.log("Mapbox map loaded successfully")
-                }}
-                onError={(e) => {
-                  console.log("Mapbox failed, trying OpenStreetMap...")
-                  const imgElement = e.currentTarget
-                  if (!imgElement) return
-                  
-                  // Try OpenStreetMap tile service as fallback
-                  imgElement.src = `https://tile.openstreetmap.org/16/${Math.floor(
-                    (((userLocation?.longitude || location?.longitude || 28.2293) + 180) / 360) * Math.pow(2, 16),
-                  )}/${Math.floor(
-                    ((1 -
-                      Math.log(
-                        Math.tan(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180) +
-                          1 / Math.cos(((userLocation?.latitude || location?.latitude || -25.7479) * Math.PI) / 180),
-                      ) /
-                        Math.PI) /
-                      2) *
-                      Math.pow(2, 16),
-                  )}.png`
-
-                  // If that also fails, show a nice gradient background
-                  setTimeout(() => {
-                    if (imgElement && imgElement.complete && imgElement.naturalHeight === 0) {
-                      imgElement.style.display = "none"
-                    }
-                  }, 2000)
-                }}
+              <InteractiveMainMap
+                lat={userLocation?.latitude || location?.latitude || -25.7479}
+                lng={userLocation?.longitude || location?.longitude || 28.2293}
               />
 
               {/* Speed-based pinning indicator */}
@@ -3061,6 +3182,7 @@ export default function PINITApp() {
                   padding: "0.2rem 0.4rem",
                   borderRadius: "0.2rem",
                   pointerEvents: "none",
+                  zIndex: 3
                 }}
               >
                 📍 Live
