@@ -134,7 +134,10 @@ export default function AIRecommendationsHub({
   
   // Initialize component when location becomes available
   useEffect(() => {
-    if (location && location.latitude && location.longitude && !isInitialized) {
+    // Handle both location formats: {latitude, longitude} or {lat, lng}
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    if (location && lat && lng && !isInitialized) {
       console.log('🧠 AIRecommendationsHub: Initializing with location:', location)
       setIsInitialized(true)
     }
@@ -486,18 +489,9 @@ export default function AIRecommendationsHub({
   // Generate mock USER recommendations using REAL places from Foursquare API (different from AI mocks)
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Fetch real places from Foursquare API
-      const response = await fetch('/api/foursquare-places', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lat: lat,
-          lng: lng,
-          radius: 5000, // 5km radius
-          limit: 12 // Get more places to choose different ones from AI
-        }),
+      // Foursquare API removed - using OSM instead
+      // Fetch real places from OSM Nominatim API
+      const response = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=5000&limit=12`, {
         signal
       })
 
@@ -507,7 +501,8 @@ export default function AIRecommendationsHub({
 
       if (response.ok) {
         const data = await response.json()
-        const places = data.items || data.results || []
+        // OSM Nominatim returns {place: {...}, nearbyPOIs: [...]}
+        const places = data.nearbyPOIs || data.items || data.results || []
         
         if (places.length === 0) {
           return []
@@ -516,27 +511,23 @@ export default function AIRecommendationsHub({
         // DETERMINISTIC: Sort by ID and take places 4-7 (different from AI which takes 0-3)
         // This ensures AI and User mocks show different places
         const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.fsq_id || a.id || a.place_id || ''
-          const idB = b.fsq_id || b.id || b.place_id || ''
+          const idA = a.id || a.place_id || ''
+          const idB = b.id || b.place_id || ''
           return idA.localeCompare(idB)
         }).slice(4, 8) // Take different places than AI mocks
 
         return sortedPlaces.map((place: any, index: number) => {
-          const placeLat = place.location?.lat || place.geometry?.location?.lat || lat
-          const placeLng = place.location?.lng || place.geometry?.location?.lng || lng
+          const placeLat = place.location?.lat || lat
+          const placeLng = place.location?.lng || lng
           
-          // Extract photo URL
-          let photoUrl = place.photoUrl || place.mediaUrl
-          if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
-            const firstPhoto = place.photos[0]
-            photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
-          }
+          // OSM doesn't provide photos, so no photoUrl
+          const photoUrl = undefined
 
-          const category = place.category || getCategoryFromTypes(place.types || [])
+          const category = place.category || place.type || "general"
 
           return {
-            id: `mock-user-${place.fsq_id || place.id || index}`,
-            title: place.title || place.name || "Local Place",
+            id: `mock-user-${place.id || place.place_id || index}`,
+            title: place.name || place.display_name?.split(',')[0] || "Local Place",
             description: place.description || 
               (place.category ? `A great ${place.category.toLowerCase()} spot recommended by the community` : 
                "A recommended location nearby"),
@@ -545,15 +536,14 @@ export default function AIRecommendationsHub({
               lat: placeLat,
               lng: placeLng,
             },
-            rating: place.rating || 4.0,
+            rating: 4.0,
             isAISuggestion: false, // User recommendations
             confidence: 0,
             reason: "Recommended by community members",
             timestamp: new Date(),
             photoUrl: photoUrl || undefined,
             mediaUrl: photoUrl || undefined,
-            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0]),
-            fsq_id: place.fsq_id || place.id || undefined
+            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0])
           }
         })
       }
@@ -649,18 +639,9 @@ export default function AIRecommendationsHub({
   // Generate mock AI recommendations using REAL places from Foursquare API
   const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Fetch real places from Foursquare API
-      const response = await fetch('/api/foursquare-places', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lat: lat,
-          lng: lng,
-          radius: 5000, // 5km radius
-          limit: 8 // Get enough places to choose from
-        }),
+      // Foursquare API removed - using OSM instead
+      // Fetch real places from OSM Nominatim API
+      const response = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=5000&limit=8`, {
         signal
       })
 
@@ -670,7 +651,8 @@ export default function AIRecommendationsHub({
 
       if (response.ok) {
         const data = await response.json()
-        const places = data.items || data.results || []
+        // OSM Nominatim returns {place: {...}, nearbyPOIs: [...]}
+        const places = data.nearbyPOIs || data.items || data.results || []
         
         if (places.length === 0) {
           return []
@@ -678,27 +660,23 @@ export default function AIRecommendationsHub({
 
         // DETERMINISTIC: Sort by ID and take first 4 for AI mocks
         const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.fsq_id || a.id || a.place_id || ''
-          const idB = b.fsq_id || b.id || b.place_id || ''
+          const idA = a.id || a.place_id || ''
+          const idB = b.id || b.place_id || ''
           return idA.localeCompare(idB)
         }).slice(0, 4)
 
         return sortedPlaces.map((place: any, index: number) => {
-          const placeLat = place.location?.lat || place.geometry?.location?.lat || lat
-          const placeLng = place.location?.lng || place.geometry?.location?.lng || lng
+          const placeLat = place.location?.lat || lat
+          const placeLng = place.location?.lng || lng
           
-          // Extract photo URL
-          let photoUrl = place.photoUrl || place.mediaUrl
-          if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
-            const firstPhoto = place.photos[0]
-            photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
-          }
+          // OSM doesn't provide photos, so no photoUrl
+          const photoUrl = undefined
 
-          const category = place.category || getCategoryFromTypes(place.types || [])
+          const category = place.category || place.type || "general"
 
           return {
-            id: `mock-ai-${place.fsq_id || place.id || index}`,
-            title: place.title || place.name || "Local Place",
+            id: `mock-ai-${place.id || place.place_id || index}`,
+            title: place.name || place.display_name?.split(',')[0] || "Local Place",
             description: place.description || 
               (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
                "A recommended location nearby"),
@@ -707,15 +685,14 @@ export default function AIRecommendationsHub({
               lat: placeLat,
               lng: placeLng,
             },
-            rating: place.rating || 4.0,
+            rating: 4.0,
             isAISuggestion: true,
             confidence: 20, // Low confidence for mock data
             reason: "Local area discovery - exploring your neighborhood",
             timestamp: new Date(),
             photoUrl: photoUrl || undefined,
             mediaUrl: photoUrl || undefined,
-            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0]),
-            fsq_id: place.fsq_id || place.id || undefined
+            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0])
           }
         })
       }
@@ -897,18 +874,8 @@ export default function AIRecommendationsHub({
               
               // OPTIMIZED: Make a SINGLE API call for all categories instead of one per category
               try {
-                console.log('🧠 Fetching places from Foursquare for all categories in one request...')
-                const response = await fetch('/api/foursquare-places', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    lat: location.latitude,
-                    lng: location.longitude,
-                    radius: 5000, // 5km radius for recommendations
-                    limit: 30 // Get enough places to filter by multiple categories
-                  }),
+                console.log('🧠 Fetching places from OSM for all categories in one request...')
+                const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                   signal // Add abort signal
                 })
                 
@@ -919,7 +886,7 @@ export default function AIRecommendationsHub({
                 
                 if (response.ok) {
                   const data = await response.json()
-                  const allPlaces = data.items || data.results || []
+                  const allPlaces = data.nearbyPOIs || data.items || data.results || []
                   console.log(`🧠 Fetched ${allPlaces.length} places from Foursquare`)
                   
                   // Process each category from the same API response
@@ -962,12 +929,8 @@ export default function AIRecommendationsHub({
                         continue
                       }
                       
-                      // Extract photo URL from Foursquare response
-                      let photoUrl = selectedPlace.photoUrl || selectedPlace.mediaUrl
-                      if (!photoUrl && selectedPlace.photos && Array.isArray(selectedPlace.photos) && selectedPlace.photos.length > 0) {
-                        const firstPhoto = selectedPlace.photos[0]
-                        photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
-                      }
+                    // OSM doesn't provide photos
+                    const photoUrl = undefined
                       
                       // Use Foursquare's real title and description
                       const placeTitle = selectedPlace.title || selectedPlace.name || 'Interesting Place'
@@ -1024,18 +987,8 @@ export default function AIRecommendationsHub({
                 try {
                   console.log('🧠 Fetching local places for new user...')
                   
-                  // Use Foursquare Places API with safeguards
-                  const response = await fetch('/api/foursquare-places', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      lat: location.latitude,
-                      lng: location.longitude,
-                      radius: 5000, // 5km radius for local area
-                      limit: 5 // Get 5 places
-                    }),
+                  // Use OSM Nominatim API with safeguards
+                  const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5`, {
                     signal // Add abort signal
                   })
                   
@@ -1047,7 +1000,7 @@ export default function AIRecommendationsHub({
                 if (response.ok) {
                   const data = await response.json()
                   // Handle both new format (items) and old format (results) for compatibility
-                  const places = data.items || data.results || []
+                  const places = data.nearbyPOIs || data.items || data.results || []
                   
                   // DETERMINISTIC: Sort places by ID for consistent selection
                   const sortedPlaces = [...places].sort((a: any, b: any) => {
@@ -1062,11 +1015,11 @@ export default function AIRecommendationsHub({
                   
                   for (const place of selectedPlaces) {
                     // Handle both new format (category) and old format (types)
-                    const category = place.category || getCategoryFromTypes(place.types || [])
+                    const category = place.category || place.type || "general"
                     
                     // CRITICAL: Extract location coordinates - must have valid lat/lng or skip this place
-                    const placeLat = place.location?.lat || place.geometry?.location?.lat
-                    const placeLng = place.location?.lng || place.geometry?.location?.lng
+                    const placeLat = place.location?.lat
+                    const placeLng = place.location?.lng
                     
                     // Skip places without valid coordinates - don't fall back to user location!
                     if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
@@ -1084,9 +1037,9 @@ export default function AIRecommendationsHub({
                     console.log(`🧠 Recommendation image for ${place.title || place.name}:`, {
                       hasPhotoUrl: !!place.photoUrl,
                       hasMediaUrl: !!place.mediaUrl,
-                      hasPhotosArray: !!(place.photos && place.photos.length > 0),
-                      finalPhotoUrl: photoUrl ? photoUrl.substring(0, 50) + '...' : 'none',
-                      fsq_id: place.fsq_id || place.id
+                      hasPhotosArray: false,
+                      finalPhotoUrl: 'none',
+                      id: place.id || place.place_id
                     })
                     
                     // Use Foursquare's real title and description - prioritize actual data over generic text
@@ -1228,23 +1181,13 @@ export default function AIRecommendationsHub({
             if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
               // We already have places from the category fetch above - reuse them
               try {
-                const response = await fetch('/api/foursquare-places', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    lat: location.latitude,
-                    lng: location.longitude,
-                    radius: 5000,
-                    limit: 30
-                  }),
+                const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                   signal
                 })
                 
                 if (!signal.aborted && response.ok) {
                   const data = await response.json()
-                  discoveryPlaces = data.items || data.results || []
+                  discoveryPlaces = data.nearbyPOIs || data.items || data.results || []
                   console.log(`🧠 Reusing Foursquare places for discovery: ${discoveryPlaces.length} places`)
                 }
               } catch (error: any) {
@@ -1255,17 +1198,7 @@ export default function AIRecommendationsHub({
             } else {
               // For new users, fetch discovery places separately
               try {
-                const discoveryResponse = await fetch('/api/foursquare-places', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    lat: location.latitude,
-                    lng: location.longitude,
-                    radius: 3000, // 3km radius for discovery
-                    limit: 10 // Get multiple places to choose from
-                  }),
+                const discoveryResponse = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10`, {
                   signal
                 })
                 
@@ -1643,9 +1576,12 @@ export default function AIRecommendationsHub({
     }
     
     if (mapRef.current && !mapInstanceRef.current && !mapError && isInitialized) {
-      if (location && location.latitude && location.longitude) {
+      // Handle both location formats: {latitude, longitude} or {lat, lng}
+      const lat = location?.latitude || location?.lat
+      const lng = location?.longitude || location?.lng
+      if (location && lat && lng) {
         console.log('🗺️ Map ref ready and location available, starting initialization...')
-        console.log('🗺️ Location data:', { lat: location.latitude, lng: location.longitude })
+        console.log('🗺️ Location data:', { lat, lng })
         initializeMap()
       } else {
         console.log('🗺️ Map ref ready but location not ready yet, waiting for location...')
@@ -1730,15 +1666,19 @@ export default function AIRecommendationsHub({
       }
 
       // Use the actual location that was passed to the component
-      if (!location || !location.latitude || !location.longitude) {
-        console.log('🗺️ No valid location available, cannot create map')
+      // Handle both location formats: {latitude, longitude} or {lat, lng}
+      const lat = location?.latitude || location?.lat
+      const lng = location?.longitude || location?.lng
+      
+      if (!location || !lat || !lng) {
+        console.log('🗺️ No valid location available, cannot create map', { location, lat, lng })
         return
       }
       
-      const mapLocation = { latitude: location.latitude, longitude: location.longitude }
+      const mapLocation = { latitude: lat, longitude: lng }
       console.log('🗺️ Using real GPS location:', mapLocation)
       
-      const centerLocation = { lat: mapLocation.latitude, lng: mapLocation.longitude }
+      const centerLocation = { lat: lat, lng: lng }
       console.log('🗺️ Center location for map:', centerLocation)
       
       if (!window.google || !window.google.maps) {
@@ -2302,18 +2242,8 @@ export default function AIRecommendationsHub({
                       
                       // OPTIMIZED: Make a SINGLE API call for all categories
                       try {
-                        console.log('🧠 Manual refresh: Fetching places from Foursquare for all categories in one request...')
-                        const response = await fetch('/api/foursquare-places', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            lat: location.latitude,
-                            lng: location.longitude,
-                            radius: 5000,
-                            limit: 30
-                          }),
+                        console.log('🧠 Manual refresh: Fetching places from OSM for all categories in one request...')
+                        const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                           signal
                         })
                         
@@ -2324,7 +2254,7 @@ export default function AIRecommendationsHub({
                         
                         if (response.ok) {
                           const data = await response.json()
-                          const allPlaces = data.items || data.results || []
+                          const allPlaces = data.nearbyPOIs || data.items || data.results || []
                           console.log(`🧠 Manual refresh: Fetched ${allPlaces.length} places from Foursquare`)
                           
                           // Process each category from the same API response
@@ -2396,17 +2326,7 @@ export default function AIRecommendationsHub({
                     
                     // Reuse places from the category fetch if available, otherwise fetch separately
                     try {
-                      const discoveryResponse = await fetch('/api/foursquare-places', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          lat: location.latitude,
-                          lng: location.longitude,
-                          radius: 5000,
-                          limit: 30
-                        }),
+                      const discoveryResponse = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                         signal
                       })
                       
