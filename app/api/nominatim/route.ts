@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
     reverseUrl.searchParams.set('lon', lng)
     reverseUrl.searchParams.set('format', 'json')
     reverseUrl.searchParams.set('addressdetails', '1')
+    reverseUrl.searchParams.set('extratags', '1') // Get additional OSM tags for richer descriptions
     reverseUrl.searchParams.set('zoom', '18') // High detail level
     
     // IMPORTANT: Nominatim requires User-Agent header
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
     searchUrl.searchParams.set('bounded', '1')
     searchUrl.searchParams.set('viewbox', `${lngNum - 0.001},${latNum - 0.001},${lngNum + 0.001},${latNum + 0.001}`) // ~100m bounding box
     searchUrl.searchParams.set('addressdetails', '1')
+    searchUrl.searchParams.set('extratags', '1') // Get additional OSM tags for richer descriptions
     
     // Wait 1 second between requests (Nominatim rate limiting)
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -114,20 +116,62 @@ export async function GET(request: NextRequest) {
       console.warn('⚠️ Nominatim POI search failed, continuing with reverse geocoding only')
     }
 
-    // Extract address components from reverse geocoding
+    // Extract address components and extra tags from reverse geocoding
     const address = reverseData.address || {}
+    const extratags = reverseData.extratags || {}
     const placeName = reverseData.name || address.amenity || address.shop || address.tourism || address.leisure || address.road || address.suburb || address.city || 'Location'
     const placeType = reverseData.type || reverseData.class || 'place'
     
-    // Build description from address components
+    // Build richer description from OSM tags and address components
+    // IMPORTANT: Never use display_name (address) as description - only use meaningful tags
     const descriptionParts = []
-    if (address.amenity) descriptionParts.push(address.amenity)
-    if (address.shop) descriptionParts.push(address.shop)
-    if (address.tourism) descriptionParts.push(address.tourism)
-    if (address.road) descriptionParts.push(address.road)
-    if (address.suburb) descriptionParts.push(address.suburb)
-    if (address.city) descriptionParts.push(address.city)
-    const description = descriptionParts.length > 0 ? descriptionParts.join(', ') : undefined
+    
+    // Priority 1: Use OSM description tag if available (most informative)
+    if (extratags.description && extratags.description.trim() && !extratags.description.includes(',')) {
+      // Only use if it's not an address-like string (addresses contain commas)
+      descriptionParts.push(extratags.description)
+    }
+    
+    // Priority 2: Build description from category and context (but not if it's just "place")
+    const category = address.amenity || address.shop || address.tourism || address.leisure
+    if (category && category !== 'place' && category !== placeType) {
+      // Capitalize first letter and make it readable
+      const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      descriptionParts.push(categoryName)
+    }
+    
+    // Priority 3: Add brand/operator if available (e.g., "McDonald's", "Woolworths")
+    if (extratags.brand && extratags.brand.trim()) {
+      descriptionParts.push(extratags.brand)
+    } else if (extratags.operator && extratags.operator.trim()) {
+      descriptionParts.push(extratags.operator)
+    }
+    
+    // Priority 4: Add cuisine type for restaurants
+    if (extratags.cuisine && extratags.cuisine.trim()) {
+      descriptionParts.push(`${extratags.cuisine} cuisine`)
+    }
+    
+    // Priority 5: Add opening hours if available
+    if (extratags.opening_hours && extratags.opening_hours.trim()) {
+      descriptionParts.push(`Open: ${extratags.opening_hours}`)
+    }
+    
+    // DO NOT add location context (suburb/city) - that's address information, not description
+    // DO NOT use display_name - that's the full address
+    
+    // Build final description - only if we have meaningful parts
+    let description: string | undefined = undefined
+    if (descriptionParts.length > 0) {
+      // If we have OSM description tag, use it directly
+      if (extratags.description && extratags.description.trim() && !extratags.description.includes(',')) {
+        description = extratags.description
+      } else {
+        // Otherwise, combine meaningful parts
+        description = descriptionParts.join(' • ')
+      }
+    }
+    // If no meaningful description parts, leave as undefined (don't use address)
 
     // Process nearby POIs and calculate distances
     const poisWithDistance = nearbyPOIs
@@ -142,14 +186,37 @@ export async function GET(request: NextRequest) {
         if (isNaN(distance) || distance < 0) return null
         
         const poiAddress = poi.address || {}
+        const poiExtratags = poi.extratags || {}
         const poiName = poi.display_name?.split(',')[0] || poi.name || poiAddress.amenity || poiAddress.shop || 'Unknown Place'
+        const poiCategory = poiAddress.amenity || poiAddress.shop || poiAddress.tourism || poi.type
+        
+        // Build description for nearby POI
+        const poiDescriptionParts = []
+        if (poiExtratags.description) {
+          poiDescriptionParts.push(poiExtratags.description)
+        } else {
+          if (poiCategory && poiCategory !== 'place') {
+            const categoryName = poiCategory.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            poiDescriptionParts.push(categoryName)
+          }
+          if (poiExtratags.brand) {
+            poiDescriptionParts.push(poiExtratags.brand)
+          } else if (poiExtratags.operator) {
+            poiDescriptionParts.push(poiExtratags.operator)
+          }
+          if (poiExtratags.cuisine) {
+            poiDescriptionParts.push(`${poiExtratags.cuisine} cuisine`)
+          }
+        }
+        const poiDescription = poiDescriptionParts.length > 0 ? poiDescriptionParts.join(' • ') : undefined
         
         return {
           id: poi.place_id || poi.osm_id,
           name: poiName,
           display_name: poi.display_name,
           type: poi.type || poi.class,
-          category: poiAddress.amenity || poiAddress.shop || poiAddress.tourism || poi.type,
+          category: poiCategory,
+          description: poiDescription,
           address: poiAddress,
           location: {
             lat: poiLat,
