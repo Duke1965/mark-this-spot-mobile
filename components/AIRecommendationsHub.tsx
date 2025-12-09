@@ -1631,6 +1631,17 @@ export default function AIRecommendationsHub({
 
   // Initialize Google Maps when map ref is ready AND location is available
   useEffect(() => {
+    // Only try to initialize if we have a Google Maps API key
+    const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!googleMapsKey) {
+      // No API key - show error message instead of trying to load
+      if (viewMode === "map" && !mapError) {
+        setMapError('Map view is currently being migrated to Mapbox. Please use List view for now.')
+        setIsMapLoading(false)
+      }
+      return
+    }
+    
     if (mapRef.current && !mapInstanceRef.current && !mapError && isInitialized) {
       if (location && location.latitude && location.longitude) {
         console.log('🗺️ Map ref ready and location available, starting initialization...')
@@ -1641,11 +1652,21 @@ export default function AIRecommendationsHub({
         // Don't create map without location - wait for it to be passed
       }
     }
-  }, [mapError, location, isInitialized]) // Only depend on mapError and location
+  }, [mapError, location, isInitialized, viewMode]) // Added viewMode to dependencies
 
   const initializeMap = useCallback(async () => {
     try {
       console.log('🗺️ Starting map initialization...')
+      
+      // Check if Google Maps API key is available
+      const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      if (!googleMapsKey) {
+        console.log('🗺️ Google Maps API key not found - map view disabled (migrating to Mapbox)')
+        setMapError('Map view is currently being migrated to Mapbox. Please use List view for now.')
+        setIsMapLoading(false)
+        return
+      }
+      
       setIsMapLoading(true)
       setMapError(null)
       
@@ -1661,7 +1682,7 @@ export default function AIRecommendationsHub({
       }
     } catch (error) {
       console.error('🗺️ Failed to initialize map:', error)
-      setMapError('Failed to load map')
+      setMapError('Failed to load map. Please use List view for now.')
       setIsMapLoading(false)
     }
   }, [])
@@ -2030,32 +2051,31 @@ export default function AIRecommendationsHub({
                 background: 'rgba(0,0,0,0.8)',
                 padding: '20px',
                 borderRadius: '12px',
-                zIndex: 3
+                zIndex: 3,
+                maxWidth: '80%'
               }}>
-                <div style={{ marginBottom: '15px' }}>⚠️</div>
-                <div>{mapError}</div>
+                <div style={{ marginBottom: '15px', fontSize: '48px' }}>🗺️</div>
+                <div style={{ marginBottom: '10px', fontWeight: '500' }}>{mapError}</div>
+                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '15px' }}>
+                  Map view is being migrated to Mapbox. Use the List view to see your recommendations.
+                </div>
                 <button
                   onClick={() => {
-                    setMapError(null)
-                    mapInstanceRef.current = null
-                    setIsMapLoading(true)
-                    setTimeout(() => {
-                      if (mapRef.current) {
-                        initializeMap()
-                      }
-                    }, 1000)
+                    setViewMode('list')
                   }}
                   style={{
                     marginTop: '15px',
-                    padding: '8px 16px',
-                    background: 'rgba(59, 130, 246, 0.8)',
+                    padding: '10px 20px',
+                    background: 'rgba(59, 130, 246, 0.9)',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
                   }}
                 >
-                  🔄 Retry
+                  📋 Switch to List View
                 </button>
               </div>
             )}
