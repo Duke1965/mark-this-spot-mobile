@@ -1260,33 +1260,56 @@ export default function PINITApp() {
     return R * c // Distance in meters
   }
 
+  // Helper function to check if an image is likely road-facing
+  // Returns true if the image should be REJECTED (road-facing)
+  const isRoadFacing = (bearing: number): boolean => {
+    // Normalize bearing to 0-360
+    const normalizedBearing = ((bearing % 360) + 360) % 360
+    
+    // Road-facing images are typically taken while driving, so they align with:
+    // - Cardinal directions (0°, 90°, 180°, 270°) - driving N, E, S, W
+    // - Or within ~20° of cardinal directions
+    // Building-facing images are usually perpendicular (45°, 135°, 225°, 315°)
+    
+    // Check distance from each cardinal direction
+    const distancesFromCardinal = [
+      Math.min(Math.abs(normalizedBearing - 0), Math.abs(normalizedBearing - 360)),
+      Math.abs(normalizedBearing - 90),
+      Math.abs(normalizedBearing - 180),
+      Math.abs(normalizedBearing - 270)
+    ]
+    const minDistanceFromCardinal = Math.min(...distancesFromCardinal)
+    
+    // REJECT images within 25° of any cardinal direction (likely road-facing)
+    // This is more aggressive than before
+    return minDistanceFromCardinal < 25
+  }
+
   // Helper function to score images for building-facing preference
   // Lower score = better (prefer building-facing over road-facing)
   const getImageScore = (bearing: number, distance: number): number => {
     // Normalize bearing to 0-360
     const normalizedBearing = ((bearing % 360) + 360) % 360
     
-    // Road-facing images often align with cardinal directions (0°, 90°, 180°, 270°)
-    // Building-facing images are often perpendicular (45°, 135°, 225°, 315°)
     // Calculate how close the bearing is to a cardinal direction
-    const cardinalDistances = [
+    const distancesFromCardinal = [
       Math.min(Math.abs(normalizedBearing - 0), Math.abs(normalizedBearing - 360)),
       Math.abs(normalizedBearing - 90),
       Math.abs(normalizedBearing - 180),
       Math.abs(normalizedBearing - 270)
     ]
-    const minCardinalDistance = Math.min(...cardinalDistances)
+    const minDistanceFromCardinal = Math.min(...distancesFromCardinal)
     
-    // Prefer images that are NOT aligned to cardinal directions (building-facing)
-    // Score: distance from cardinal direction (higher = better, but we want lower scores)
-    // So we invert: images close to cardinal get higher score (worse)
-    const cardinalPenalty = minCardinalDistance < 15 ? (15 - minCardinalDistance) * 10 : 0
+    // Strongly penalize images close to cardinal directions (even if not rejected)
+    // Images at 45° angles (building-facing) get score of 0
+    // Images at 0° (road-facing) get high penalty
+    const bearingPenalty = (25 - minDistanceFromCardinal) * 5 // Much steeper penalty
     
-    // Also prefer closer images
-    const distanceScore = distance / 10 // Distance in meters contributes to score
+    // Prefer closer images (but bearing is more important)
+    const distanceScore = distance / 20 // Less weight on distance
     
     // Total score: lower is better
-    return cardinalPenalty + distanceScore
+    return Math.max(0, bearingPenalty) + distanceScore
   }
 
   const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal, bypassCache: boolean = false): Promise<{url: string, placeName: string, description?: string}[]> => {
@@ -1484,23 +1507,38 @@ export default function PINITApp() {
       }
       
       // Filter and sort images to prefer building-facing over road-facing
-      // Strategy: Prefer images that are NOT facing cardinal directions (N, E, S, W)
-      // Road-facing images often align with cardinal directions
+      // Strategy: AGGRESSIVELY reject road-facing images, then sort remaining by quality
       const filteredImages = streetImages
         .filter((img) => {
           // Filter out images that are too far away
-          if (img.distance > 100) return false
+          if (img.distance > 100) {
+            console.log(`📸 Rejecting image: too far (${img.distance.toFixed(1)}m)`)
+            return false
+          }
+          
+          // AGGRESSIVELY reject road-facing images
+          if (isRoadFacing(img.bearing || 0)) {
+            console.log(`📸 Rejecting image: road-facing (bearing: ${img.bearing?.toFixed(1)}°)`)
+            return false
+          }
+          
+          // Keep this image (it's building-facing)
           return true
         })
         .sort((a, b) => {
-          // Score images: lower score = better (prefer building-facing)
+          // Score remaining images: lower score = better (prefer building-facing)
           const scoreA = getImageScore(a.bearing || 0, a.distance)
           const scoreB = getImageScore(b.bearing || 0, b.distance)
           return scoreA - scoreB
         })
         .slice(0, 3) // Take top 3 images
       
-      console.log(`📸 Filtered to ${filteredImages.length} best building-facing images`)
+      console.log(`📸 Filtering results: ${streetImages.length} total images → ${filteredImages.length} building-facing images after filtering`)
+      if (filteredImages.length > 0) {
+        filteredImages.forEach((img, idx) => {
+          console.log(`  ${idx + 1}. Bearing: ${img.bearing?.toFixed(1)}°, Distance: ${img.distance.toFixed(1)}m, Source: ${img.source}`)
+        })
+      }
       
       // STEP 4: Return place data with real images (or placeholder if none found)
       if (osmData) {
