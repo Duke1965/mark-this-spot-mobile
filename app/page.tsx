@@ -1260,6 +1260,35 @@ export default function PINITApp() {
     return R * c // Distance in meters
   }
 
+  // Helper function to score images for building-facing preference
+  // Lower score = better (prefer building-facing over road-facing)
+  const getImageScore = (bearing: number, distance: number): number => {
+    // Normalize bearing to 0-360
+    const normalizedBearing = ((bearing % 360) + 360) % 360
+    
+    // Road-facing images often align with cardinal directions (0°, 90°, 180°, 270°)
+    // Building-facing images are often perpendicular (45°, 135°, 225°, 315°)
+    // Calculate how close the bearing is to a cardinal direction
+    const cardinalDistances = [
+      Math.min(Math.abs(normalizedBearing - 0), Math.abs(normalizedBearing - 360)),
+      Math.abs(normalizedBearing - 90),
+      Math.abs(normalizedBearing - 180),
+      Math.abs(normalizedBearing - 270)
+    ]
+    const minCardinalDistance = Math.min(...cardinalDistances)
+    
+    // Prefer images that are NOT aligned to cardinal directions (building-facing)
+    // Score: distance from cardinal direction (higher = better, but we want lower scores)
+    // So we invert: images close to cardinal get higher score (worse)
+    const cardinalPenalty = minCardinalDistance < 15 ? (15 - minCardinalDistance) * 10 : 0
+    
+    // Also prefer closer images
+    const distanceScore = distance / 10 // Distance in meters contributes to score
+    
+    // Total score: lower is better
+    return cardinalPenalty + distanceScore
+  }
+
   const fetchLocationPhotos = async (lat: number, lng: number, externalSignal?: AbortSignal, bypassCache: boolean = false): Promise<{url: string, placeName: string, description?: string}[]> => {
     // Request deduplication: Check cache first (unless bypassing)
     // Use more precise cache key for exact location matching
@@ -1339,7 +1368,10 @@ export default function PINITApp() {
               osmData = closestPOI
               placeName = closestPOI.name || placeName
               placeDescription = closestPOI.description || undefined
-              console.log(`✅ Using Overpass POI data: ${placeName}`)
+              console.log(`✅ Using Overpass POI data: ${placeName}`, { 
+                hasDescription: !!placeDescription,
+                description: placeDescription?.substring(0, 100)
+              })
             } else {
               console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
             }
@@ -1371,8 +1403,8 @@ export default function PINITApp() {
               if (closestPOI.distance <= 100) {
                 osmData = closestPOI
                 placeName = closestPOI.name || placeName
-                placeDescription = closestPOI.category ? `${closestPOI.category}` : undefined
-                console.log(`✅ Using Nominatim POI data: ${placeName}`)
+                placeDescription = closestPOI.description || (closestPOI.category ? `${closestPOI.category}` : undefined)
+                console.log(`✅ Using Nominatim POI data: ${placeName}`, { description: placeDescription })
               } else {
                 // Use the reverse geocoded place data as fallback
                 if (nominatimData.place) {
@@ -1399,21 +1431,115 @@ export default function PINITApp() {
         }
       }
       
-      // STEP 3: Return place data with placeholder image (OSM doesn't provide images)
-      // Note: We removed Mapillary dependency - no more road-facing street view images
+      // STEP 3: Fetch street-level imagery from Mapillary and KartaView
+      console.log("📸 Step 3: Fetching street-level imagery from Mapillary and KartaView...")
+      let streetImages: Array<{url: string, thumb_url?: string, bearing?: number, source: string, distance: number}> = []
+      
+      // Fetch from both services in parallel
+      const [mapillaryResponse, kartaviewResponse] = await Promise.allSettled([
+        fetch(`/api/mapillary?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal }).catch(() => null),
+        fetch(`/api/kartaview?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal }).catch(() => null)
+      ])
+      
+      // Process Mapillary results
+      if (mapillaryResponse.status === 'fulfilled' && mapillaryResponse.value?.ok) {
+        try {
+          const mapillaryData = await mapillaryResponse.value.json()
+          if (mapillaryData.images && mapillaryData.images.length > 0) {
+            console.log(`✅ Mapillary: Found ${mapillaryData.images.length} images`)
+            streetImages.push(...mapillaryData.images.map((img: any) => ({
+              url: img.url,
+              thumb_url: img.thumb_url,
+              bearing: img.bearing,
+              source: 'mapillary',
+              distance: img.distance || 0
+            })))
+          }
+        } catch (err) {
+          console.warn("⚠️ Failed to parse Mapillary response:", err)
+        }
+      } else {
+        console.log("📸 Mapillary: No images or API unavailable")
+      }
+      
+      // Process KartaView results
+      if (kartaviewResponse.status === 'fulfilled' && kartaviewResponse.value?.ok) {
+        try {
+          const kartaviewData = await kartaviewResponse.value.json()
+          if (kartaviewData.images && kartaviewData.images.length > 0) {
+            console.log(`✅ KartaView: Found ${kartaviewData.images.length} images`)
+            streetImages.push(...kartaviewData.images.map((img: any) => ({
+              url: img.url,
+              thumb_url: img.thumb_url,
+              bearing: img.bearing,
+              source: 'kartaview',
+              distance: img.distance || 0
+            })))
+          }
+        } catch (err) {
+          console.warn("⚠️ Failed to parse KartaView response:", err)
+        }
+      } else {
+        console.log("📸 KartaView: No images or API unavailable")
+      }
+      
+      // Filter and sort images to prefer building-facing over road-facing
+      // Strategy: Prefer images that are NOT facing cardinal directions (N, E, S, W)
+      // Road-facing images often align with cardinal directions
+      const filteredImages = streetImages
+        .filter((img) => {
+          // Filter out images that are too far away
+          if (img.distance > 100) return false
+          return true
+        })
+        .sort((a, b) => {
+          // Score images: lower score = better (prefer building-facing)
+          const scoreA = getImageScore(a.bearing || 0, a.distance)
+          const scoreB = getImageScore(b.bearing || 0, b.distance)
+          return scoreA - scoreB
+        })
+        .slice(0, 3) // Take top 3 images
+      
+      console.log(`📸 Filtered to ${filteredImages.length} best building-facing images`)
+      
+      // STEP 4: Return place data with real images (or placeholder if none found)
       if (osmData) {
-        console.log(`✅ Returning OSM place data: "${placeName}"`)
-        const result = [{
-          url: "/pinit-placeholder.jpg",
-          placeName: placeName,
-          description: placeDescription
-        }]
+        if (filteredImages.length > 0) {
+          // Use real street-level images
+          console.log(`✅ Returning OSM place data with ${filteredImages.length} street-level images`)
+          const result = filteredImages.map((img, index) => ({
+            url: img.url,
+            placeName: index === 0 ? placeName : placeName, // Use place name for all images
+            description: index === 0 ? placeDescription : undefined // Description only on first image
+          }))
+          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
+          return result
+        } else {
+          // No images found, use placeholder
+          console.log(`✅ Returning OSM place data with placeholder (no street images found)`)
+          const result = [{
+            url: "/pinit-placeholder.jpg",
+            placeName: placeName,
+            description: placeDescription
+          }]
+          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
+          return result
+        }
+      }
+      
+      // STEP 5: Ultimate fallback - no OSM data available
+      if (filteredImages.length > 0) {
+        // We have images but no OSM place data
+        console.log("⚠️ No OSM place data, but found street images")
+        const result = filteredImages.map((img, index) => ({
+          url: img.url,
+          placeName: index === 0 ? "Location" : "Location"
+        }))
         photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
         return result
       }
       
-      // STEP 4: Ultimate fallback - no OSM data available
-      console.log("⚠️ No OSM place data available")
+      console.log("⚠️ No OSM place data and no street images available")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
@@ -1658,7 +1784,7 @@ export default function PINITApp() {
       placeName = locationPhotos[0]?.placeName || editingPin.locationName
       placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
       
-      console.log("📸 Mapbox + Mapillary API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
+      console.log("📍 OSM (OpenStreetMap) API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
       // Only generate AI content as fallback if Mapbox data is missing
       // Prioritize actual Mapbox place data over AI-generated content
