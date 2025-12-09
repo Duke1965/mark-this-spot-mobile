@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
     const category = address.amenity || address.shop || address.tourism || address.leisure
     if (category && category !== 'place' && category !== placeType) {
       // Capitalize first letter and make it readable
-      const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
       descriptionParts.push(categoryName)
     }
     
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
           poiDescriptionParts.push(poiExtratags.description)
         } else {
           if (poiCategory && poiCategory !== 'place') {
-            const categoryName = poiCategory.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            const categoryName = poiCategory.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
             poiDescriptionParts.push(categoryName)
           }
           if (poiExtratags.brand) {
