@@ -103,10 +103,22 @@ export async function GET(request: NextRequest) {
 
     console.log(`📸 Mapillary returned ${data.data.length} images, filtering for building-facing...`)
 
+    // Helper function to check if image is road-facing (should be rejected)
+    const isRoadFacing = (bearing: number): boolean => {
+      const normalizedBearing = ((bearing % 360) + 360) % 360
+      const distancesFromCardinal = [
+        Math.min(Math.abs(normalizedBearing - 0), Math.abs(normalizedBearing - 360)),
+        Math.abs(normalizedBearing - 90),
+        Math.abs(normalizedBearing - 180),
+        Math.abs(normalizedBearing - 270)
+      ]
+      const minDistanceFromCardinal = Math.min(...distancesFromCardinal)
+      // Reject images within 25° of cardinal directions (road-facing)
+      return minDistanceFromCardinal < 25
+    }
+
     // Filter and process images
-    // Strategy: Prefer images that are NOT facing directly down the road
-    // Road-facing images typically have bearings aligned with road direction (0-360°)
-    // Building-facing images are often perpendicular to road direction
+    // Strategy: AGGRESSIVELY reject road-facing images, then sort by quality
     const processedImages = data.data
       .map((image: any) => {
         const imageLat = image.geometry?.coordinates?.[1] || latNum
@@ -129,17 +141,21 @@ export async function GET(request: NextRequest) {
           source: 'mapillary'
         }
       })
-      .filter((img: any) => img.distance <= parseFloat(radius)) // Filter by radius
+      .filter((img: any) => {
+        // Filter by radius
+        if (img.distance > parseFloat(radius)) {
+          return false
+        }
+        // AGGRESSIVELY reject road-facing images
+        if (isRoadFacing(img.bearing)) {
+          return false
+        }
+        return true
+      })
       .sort((a: any, b: any) => {
-        // Sort by: 1) Distance (closer is better), 2) Prefer non-road-facing bearings
-        // Road-facing images often have bearings that are multiples of 90° (N, E, S, W)
-        // We'll prefer images with bearings that are NOT aligned to cardinal directions
-        const aIsCardinal = Math.abs(a.bearing % 90) < 10 || Math.abs(a.bearing % 90) > 80
-        const bIsCardinal = Math.abs(b.bearing % 90) < 10 || Math.abs(b.bearing % 90) > 80
-        
-        if (aIsCardinal && !bIsCardinal) return 1 // Prefer b (non-cardinal)
-        if (!aIsCardinal && bIsCardinal) return -1 // Prefer a (non-cardinal)
-        return a.distance - b.distance // Otherwise sort by distance
+        // Sort remaining images by distance (closer is better)
+        // Road-facing images already filtered out
+        return a.distance - b.distance
       })
       .slice(0, parseInt(limit)) // Limit results
 
