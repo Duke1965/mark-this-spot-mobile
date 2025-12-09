@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
     console.log(`📸 Mapillary returned ${data.data.length} images, filtering for building-facing...`)
 
     // Helper function to check if image is road-facing (should be rejected)
+    // Made less aggressive: only reject images very close to cardinal directions
     const isRoadFacing = (bearing: number): boolean => {
       const normalizedBearing = ((bearing % 360) + 360) % 360
       const distancesFromCardinal = [
@@ -113,8 +114,9 @@ export async function GET(request: NextRequest) {
         Math.abs(normalizedBearing - 270)
       ]
       const minDistanceFromCardinal = Math.min(...distancesFromCardinal)
-      // Reject images within 25° of cardinal directions (road-facing)
-      return minDistanceFromCardinal < 25
+      // Less aggressive: only reject images within 15° of cardinal directions (very road-facing)
+      // This allows more images through while still filtering obvious road-facing shots
+      return minDistanceFromCardinal < 15
     }
 
     // Filter and process images
@@ -146,16 +148,36 @@ export async function GET(request: NextRequest) {
         if (img.distance > parseFloat(radius)) {
           return false
         }
-        // AGGRESSIVELY reject road-facing images
-        if (isRoadFacing(img.bearing)) {
-          return false
-        }
-        return true
+        return true // Don't filter by bearing here - we'll prefer building-facing but keep all
       })
       .sort((a: any, b: any) => {
-        // Sort remaining images by distance (closer is better)
-        // Road-facing images already filtered out
-        return a.distance - b.distance
+        // Prefer building-facing images (not aligned to cardinal directions)
+        // But don't reject road-facing - just deprioritize them
+        const normalizedBearingA = ((a.bearing % 360) + 360) % 360
+        const normalizedBearingB = ((b.bearing % 360) + 360) % 360
+        
+        const distancesFromCardinalA = [
+          Math.min(Math.abs(normalizedBearingA - 0), Math.abs(normalizedBearingA - 360)),
+          Math.abs(normalizedBearingA - 90),
+          Math.abs(normalizedBearingA - 180),
+          Math.abs(normalizedBearingA - 270)
+        ]
+        const distancesFromCardinalB = [
+          Math.min(Math.abs(normalizedBearingB - 0), Math.abs(normalizedBearingB - 360)),
+          Math.abs(normalizedBearingB - 90),
+          Math.abs(normalizedBearingB - 180),
+          Math.abs(normalizedBearingB - 270)
+        ]
+        
+        const minDistanceA = Math.min(...distancesFromCardinalA)
+        const minDistanceB = Math.min(...distancesFromCardinalB)
+        
+        // Prefer images further from cardinal directions (building-facing)
+        // If similar bearing quality, prefer closer images
+        if (Math.abs(minDistanceA - minDistanceB) > 10) {
+          return minDistanceB - minDistanceA // Higher distance from cardinal = better
+        }
+        return a.distance - b.distance // Closer is better
       })
       .slice(0, parseInt(limit)) // Limit results
 
