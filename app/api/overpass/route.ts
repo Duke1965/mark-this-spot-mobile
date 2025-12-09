@@ -115,16 +115,48 @@ export async function GET(request: NextRequest) {
         const tags = element.tags || {}
         const name = tags.name || tags['name:en'] || tags['name:af'] || 'Unknown Place'
         const category = tags.amenity || tags.shop || tags.tourism || tags.leisure || 'place'
-        const description = tags.description || tags['description:en'] || undefined
+        const description = tags.description || tags['description:en'] || tags['description:af'] || undefined
         const cuisine = tags.cuisine || undefined
         const website = tags.website || undefined
         const phone = tags.phone || tags['contact:phone'] || undefined
+        const brand = tags.brand || undefined
+        const operator = tags.operator || undefined
+        const openingHours = tags.opening_hours || undefined
+        const wheelchair = tags.wheelchair || undefined
 
-        // Build rich description
+        // Build rich description from multiple OSM tags
         const descriptionParts = []
-        if (description) descriptionParts.push(description)
-        if (cuisine) descriptionParts.push(`Cuisine: ${cuisine}`)
-        if (category) descriptionParts.push(category)
+        
+        // Priority 1: Use OSM description tag if available (most informative)
+        if (description) {
+          descriptionParts.push(description)
+        } else {
+          // Priority 2: Build description from category and additional tags
+          if (category && category !== 'place') {
+            // Capitalize first letter and make it readable
+            const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+            descriptionParts.push(categoryName)
+          }
+          
+          // Priority 3: Add brand/operator if available
+          if (brand) {
+            descriptionParts.push(brand)
+          } else if (operator) {
+            descriptionParts.push(operator)
+          }
+          
+          // Priority 4: Add cuisine type for restaurants
+          if (cuisine) {
+            descriptionParts.push(`${cuisine} cuisine`)
+          }
+          
+          // Priority 5: Add accessibility info if available
+          if (wheelchair === 'yes') {
+            descriptionParts.push('Wheelchair accessible')
+          }
+        }
+        
+        // Build final description
         const fullDescription = descriptionParts.length > 0 ? descriptionParts.join(' • ') : undefined
 
         return {
@@ -135,8 +167,12 @@ export async function GET(request: NextRequest) {
           category: category,
           description: fullDescription,
           cuisine: cuisine,
+          brand: brand,
+          operator: operator,
           website: website,
           phone: phone,
+          opening_hours: openingHours,
+          wheelchair: wheelchair,
           tags: tags,
           location: {
             lat: poiLat,
