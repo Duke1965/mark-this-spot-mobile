@@ -1263,13 +1263,14 @@ export default function PINITApp() {
 
   // Helper function to check if an image is likely road-facing
   // Returns true if the image should be REJECTED (road-facing)
+  // Made less aggressive to allow more images through
   const isRoadFacing = (bearing: number): boolean => {
     // Normalize bearing to 0-360
     const normalizedBearing = ((bearing % 360) + 360) % 360
     
     // Road-facing images are typically taken while driving, so they align with:
     // - Cardinal directions (0°, 90°, 180°, 270°) - driving N, E, S, W
-    // - Or within ~20° of cardinal directions
+    // - Or within ~15° of cardinal directions
     // Building-facing images are usually perpendicular (45°, 135°, 225°, 315°)
     
     // Check distance from each cardinal direction
@@ -1281,9 +1282,9 @@ export default function PINITApp() {
     ]
     const minDistanceFromCardinal = Math.min(...distancesFromCardinal)
     
-    // REJECT images within 25° of any cardinal direction (likely road-facing)
-    // This is more aggressive than before
-    return minDistanceFromCardinal < 25
+    // Less aggressive: only reject images within 15° of cardinal directions (very road-facing)
+    // This allows more images through while still filtering obvious road-facing shots
+    return minDistanceFromCardinal < 15
   }
 
   // Helper function to score images for building-facing preference
@@ -1508,7 +1509,7 @@ export default function PINITApp() {
       }
       
       // Filter and sort images to prefer building-facing over road-facing
-      // Strategy: AGGRESSIVELY reject road-facing images, then sort remaining by quality
+      // Strategy: Prefer building-facing images but don't reject road-facing (just deprioritize)
       const filteredImages = streetImages
         .filter((img) => {
           // Filter out images that are too far away
@@ -1517,13 +1518,8 @@ export default function PINITApp() {
             return false
           }
           
-          // AGGRESSIVELY reject road-facing images
-          if (isRoadFacing(img.bearing || 0)) {
-            console.log(`📸 Rejecting image: road-facing (bearing: ${img.bearing?.toFixed(1)}°)`)
-            return false
-          }
-          
-          // Keep this image (it's building-facing)
+          // Don't reject road-facing images - we'll just prefer building-facing
+          // This ensures we get images even if all are road-facing
           return true
         })
         .sort((a, b) => {
