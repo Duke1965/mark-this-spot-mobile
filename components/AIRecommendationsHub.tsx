@@ -8,41 +8,7 @@ import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
 import type { PinData } from '../lib/types'
 
-// Google Maps global declaration
-declare global {
-  interface Window {
-    google: any
-  }
-}
-
-// CSS to override Google Maps InfoWindow default styling
-const infoWindowStyles = `
-  .gm-style .gm-style-iw-c {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-  
-  .gm-style .gm-style-iw-d {
-    background: transparent !important;
-    border: none !important;
-    overflow: hidden !important;
-  }
-  
-  .gm-style .gm-style-iw-t::after {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  
-  .gm-style .gm-style-iw-t::before {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-`
+// Google Maps removed - migrating to Mapbox
 
 interface Recommendation {
   id: string
@@ -116,18 +82,7 @@ export default function AIRecommendationsHub({
   const [isInitialized, setIsInitialized] = useState(false)
   
   // NEW: Add ref to track the user location marker
-  const userLocationMarkerRef = useRef<any>(null)
-  
-  // Inject CSS to override Google Maps InfoWindow styling
-  useEffect(() => {
-    const styleElement = document.createElement('style')
-    styleElement.textContent = infoWindowStyles
-    document.head.appendChild(styleElement)
-    
-    return () => {
-      document.head.removeChild(styleElement)
-    }
-  }, [])
+  // Google Maps CSS removed - migrating to Mapbox
   
   // Use passed userLocation if available, otherwise fall back to hook location
   const location = userLocation || hookLocation
@@ -143,17 +98,7 @@ export default function AIRecommendationsHub({
     }
   }, [location, isInitialized])
   
-  // Map states - use useRef for stable references
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const [isMapLoading, setIsMapLoading] = useState(true)
-  const [mapError, setMapError] = useState<string | null>(null)
-  
-  // NEW: Track map state to prevent unwanted centering
-  const [mapInitialized, setMapInitialized] = useState(false)
-  const [userHasInteracted, setUserHasInteracted] = useState(false)
-  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | null>(null)
-  const [mapZoom, setMapZoom] = useState(16)
+  // Map view - simplified (Google Maps removed, migrating to Mapbox)
   
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
@@ -205,112 +150,7 @@ export default function AIRecommendationsHub({
   const [lastMotionCheck, setLastMotionCheck] = useState(Date.now())
   const [lastLocationUpdate, setLastLocationUpdate] = useState(Date.now())
   
-  // NEW: Function to get the appropriate marker icon based on motion
-  const getMarkerIcon = useCallback((isMoving: boolean) => {
-    if (isMoving) {
-      // Car icon when moving
-      return {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
-            <path d="M8 20 L24 20 L22 16 L10 16 Z" fill="white"/>
-            <circle cx="12" cy="22" r="2" fill="#10b981"/>
-            <circle cx="20" cy="22" r="2" fill="#10b981"/>
-            <path d="M14 14 L18 14 L17 12 L15 12 Z" fill="#10b981"/>
-          </svg>
-        `),
-        scaledSize: new window.google.maps.Size(32, 32),
-        anchor: new window.google.maps.Point(16, 16)
-      }
-    } else {
-      // Pin icon when stationary
-      return {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" fill="#10b981" stroke="white" stroke-width="3"/>
-            <circle cx="16" cy="16" r="6" fill="white"/>
-            <text x="16" y="20" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">📍</text>
-          </svg>
-        `),
-        scaledSize: new window.google.maps.Size(32, 32),
-        anchor: new window.google.maps.Point(16, 16)
-      }
-    }
-  }, [])
-
-  // NEW: Throttled location updates with dynamic icon
-  useEffect(() => {
-    if (!location || !location.latitude || !location.longitude || !isInitialized) return
-    
-    const now = Date.now()
-    const timeSinceLastUpdate = now - lastLocationUpdate
-    
-    // Only update location every 300ms (3.3 times per second) for smooth movement
-    if (timeSinceLastUpdate >= 300) {
-      setLastLocationUpdate(now)
-      
-      // Update user location marker with smooth movement and dynamic icon
-      if (mapInstanceRef.current && userLocationMarkerRef.current) {
-        const newPosition = { lat: location.latitude, lng: location.longitude }
-        
-        // Update marker position
-        userLocationMarkerRef.current.setPosition(newPosition)
-        
-        // Update marker icon based on motion state
-        const newIcon = getMarkerIcon(isUserMoving)
-        userLocationMarkerRef.current.setIcon(newIcon)
-        
-        // Pan map to keep marker centered (smooth pan)
-        mapInstanceRef.current.panTo(newPosition)
-        
-        console.log('🗺️ Smooth location update:', newPosition, isUserMoving ? '🚗 Moving' : ' Stationary')
-      }
-    }
-  }, [location, lastLocationUpdate, isUserMoving, getMarkerIcon, isInitialized])
-
-  // NEW: Motion detection with reduced frequency
-  useEffect(() => {
-    if (!location || !location.latitude || !location.longitude || !isInitialized) return
-    
-    const checkMotion = () => {
-      const now = Date.now()
-      const timeSinceLastCheck = now - lastMotionCheck
-      
-      // Check motion every 2 seconds instead of 1 second
-      if (timeSinceLastCheck >= 2000) {
-        const speed = location.speed || 0
-        const isMoving = speed > 1.5 // Use existing algorithm threshold
-        
-        setIsUserMoving(isMoving)
-        setLastMotionCheck(now)
-        
-        if (isMoving) {
-          console.log('🚗 Motion detected - speed:', speed.toFixed(2), 'm/s - Switching to car icon')
-        } else {
-          console.log('📍 User stationary - speed:', speed.toFixed(2), 'm/s - Switching to pin icon')
-        }
-      }
-    }
-    
-    const motionInterval = setInterval(checkMotion, 2000)
-    return () => clearInterval(motionInterval)
-  }, [location, lastMotionCheck, isInitialized])
-
-  // NEW: Real-time map centering during movement
-  useEffect(() => {
-    if (!mapInstanceRef.current || !location || !location.latitude || !location.longitude || !isInitialized) return
-    
-    // Only auto-center if user is moving and hasn't manually interacted with map
-    if (isUserMoving && !userHasInteracted) {
-      const newCenter = { lat: location.latitude, lng: location.longitude }
-      
-      // Smoothly pan to new location
-      mapInstanceRef.current.panTo(newCenter)
-      setMapCenter(newCenter)
-      
-      console.log('🗺️ Auto-centering map during movement to:', newCenter)
-    }
-  }, [location, isUserMoving, userHasInteracted, isInitialized])
+  // Google Maps marker code removed - migrating to Mapbox
 
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
@@ -1384,404 +1224,13 @@ export default function AIRecommendationsHub({
     }
   }, [location, isInitialized, getUserRecommendations])
 
-  // Refresh map when returning to map view
-  useEffect(() => {
-    if (viewMode === "map" && mapRef.current) {
-      console.log('🗺️ Map view active, ensuring map is properly displayed...')
-      
-      if (mapInstanceRef.current) {
-        // Map instance exists, try to refresh it
-        console.log('🗺️ Refreshing existing map instance...')
-        setTimeout(() => {
-          if (mapInstanceRef.current && mapRef.current) {
-            try {
-              // Force a complete map refresh
-              window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-              console.log('🗺️ Map resize completed')
-              
-              // Check if tiles are actually visible
-              const mapDiv = mapRef.current.querySelector('.gm-style')
-              if (!mapDiv || mapDiv.children.length === 0) {
-                console.log('🗺️ Map tiles not visible, recreating map...')
-                recreateMap()
-                          } else {
-              console.log('🗺️ Map tiles visible, preserving user position...')
-              // NEW: Don't force center if user has interacted with the map
-              if (!userHasInteracted && location) {
-                console.log('🗺️ User hasn\'t interacted, centering on location...')
-                mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-              } else {
-                console.log('🗺️ User has interacted, preserving current position')
-              }
-            }
-            } catch (error) {
-              console.error('🗺️ Error refreshing map:', error)
-              recreateMap()
-            }
-          }
-        }, 200)
-      } else {
-        // No map instance, create new one
-        console.log('🗺️ No map instance, creating new map...')
-        initializeMap()
-      }
-    }
-  }, [viewMode, location])
-
-  // Function to recreate the map instance
-  const recreateMap = () => {
-    try {
-      console.log('🗺️ Recreating map instance...')
-      
-      // Clear existing map instance
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current = null
-      }
-      
-      // Reset loading state
-      setIsMapLoading(true)
-      setMapError(null)
-      
-      // Create new map instance
-      setTimeout(() => {
-        if (mapRef.current) {
-          createMapInstance()
-        }
-      }, 100)
-    } catch (error) {
-      console.error('🗺️ Error recreating map:', error)
-      setMapError('Failed to recreate map')
-      setIsMapLoading(false)
-    }
-  }
-
-  // Handle view mode changes and preserve map
+  // Handle view mode changes
   const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
     console.log('🗺️ Switching to view mode:', newViewMode)
-    
-    if (newViewMode === "map" && mapInstanceRef.current) {
-      // Returning to map view - ensure map is visible and properly sized
-      console.log('🗺️ Returning to map view, refreshing map...')
-      setTimeout(() => {
-        if (mapInstanceRef.current && mapRef.current) {
-          console.log('🗺️ Refreshing map after tab switch...')
-          try {
-            window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-            
-            // Check if tiles are visible after resize
-            setTimeout(() => {
-              const mapDiv = mapRef.current?.querySelector('.gm-style')
-              if (!mapDiv || mapDiv.children.length === 0) {
-                console.log('🗺️ Map tiles still not visible, recreating...')
-                recreateMap()
-                          } else {
-              console.log('🗺️ Map tiles visible after resize')
-              // NEW: Don't force center if user has interacted with the map
-              if (!userHasInteracted && location) {
-                console.log('🗺️ User hasn\'t interacted, centering on location after resize...')
-                mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-              } else {
-                console.log('🗺️ User has interacted, preserving current position after resize')
-              }
-            }
-            }, 300)
-          } catch (error) {
-            console.error('🗺️ Error during map refresh:', error)
-            recreateMap()
-          }
-        }
-      }, 100)
-    }
-    
     setViewMode(newViewMode)
   }
 
-  // Center map on user location when it becomes available (only if user hasn't interacted)
-  useEffect(() => {
-    if (location && location.latitude && location.longitude && mapInstanceRef.current && isInitialized) {
-      console.log('🗺️ Location updated, current user interaction state:', userHasInteracted)
-      
-      // NEW: Only center map if user hasn't interacted with it yet
-      if (!userHasInteracted) {
-        console.log('🗺️ User hasn\'t interacted, centering map on new location:', location)
-        console.log('🗺️ Location coordinates:', { lat: location.latitude, lng: location.longitude })
-        
-        // Center the map immediately
-        mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-        
-        // Update zoom to street level for precise location
-        mapInstanceRef.current.setZoom(16)
-        
-        // Update our state
-        setMapCenter({ lat: location.latitude, lng: location.longitude })
-        setMapZoom(16)
-        
-        console.log('🗺️ Map centered and zoomed to user location')
-      } else {
-        console.log('🗺️ User has interacted with map, preserving current position')
-      }
-      
-      // FIXED: Create user location marker with dynamic icon
-      if (mapRef.current) {
-        if (userLocationMarkerRef.current) {
-          // Update existing marker position and icon smoothly
-          const newPosition = { lat: location.latitude, lng: location.longitude }
-          const newIcon = getMarkerIcon(isUserMoving)
-          
-          userLocationMarkerRef.current.setPosition(newPosition)
-          userLocationMarkerRef.current.setIcon(newIcon)
-          
-          // Pan map to keep marker centered
-          mapInstanceRef.current.panTo(newPosition)
-          
-          console.log('🗺️ User location marker updated smoothly with', isUserMoving ? 'car' : 'pin', 'icon')
-        } else {
-          // Create new marker with dynamic icon based on current motion state
-          const marker = new window.google.maps.Marker({
-            position: { lat: location.latitude, lng: location.longitude },
-            map: mapInstanceRef.current,
-            title: 'Your Location',
-            icon: getMarkerIcon(isUserMoving),
-            optimized: false, // Disable optimization for smoother updates
-            zIndex: 0 // Put user location marker at the bottom so recommendations appear on top
-          })
-          
-          // Store reference to marker
-          userLocationMarkerRef.current = marker
-          console.log('🗺️ User location marker created with', isUserMoving ? 'car' : 'pin', 'icon')
-        }
-      }
-      
-      // Force a map refresh to ensure smooth rendering
-      setTimeout(() => {
-        if (mapInstanceRef.current) {
-          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
-          console.log('🗺️ Map refreshed after location update')
-        }
-      }, 100)
-    }
-  }, [location, isInitialized])
-
-  // Initialize Google Maps when map ref is ready AND location is available
-  useEffect(() => {
-    // Only try to initialize if we have a Google Maps API key
-    const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    if (!googleMapsKey) {
-      // No API key - show error message instead of trying to load
-      if (viewMode === "map" && !mapError) {
-        setMapError('Map view is currently being migrated to Mapbox. Please use List view for now.')
-        setIsMapLoading(false)
-      }
-      return
-    }
-    
-    if (mapRef.current && !mapInstanceRef.current && !mapError && isInitialized) {
-      // Handle both location formats: {latitude, longitude} or {lat, lng}
-      const lat = location?.latitude || location?.lat
-      const lng = location?.longitude || location?.lng
-      if (location && lat && lng) {
-        console.log('🗺️ Map ref ready and location available, starting initialization...')
-        console.log('🗺️ Location data:', { lat, lng })
-        initializeMap()
-      } else {
-        console.log('🗺️ Map ref ready but location not ready yet, waiting for location...')
-        // Don't create map without location - wait for it to be passed
-      }
-    }
-  }, [mapError, location, isInitialized, viewMode]) // Added viewMode to dependencies
-
-  const initializeMap = useCallback(async () => {
-    try {
-      console.log('🗺️ Starting map initialization...')
-      
-      // Check if Google Maps API key is available
-      const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      if (!googleMapsKey) {
-        console.log('🗺️ Google Maps API key not found - map view disabled (migrating to Mapbox)')
-        setMapError('Map view is currently being migrated to Mapbox. Please use List view for now.')
-        setIsMapLoading(false)
-        return
-      }
-      
-      setIsMapLoading(true)
-      setMapError(null)
-      
-      // Check if Google Maps is already loaded
-      if (window.google && window.google.maps) {
-        console.log('🗺️ Google Maps already loaded, creating map instance...')
-        createMapInstance()
-      } else {
-        console.log('🗺️ Loading Google Maps script...')
-        await loadGoogleMapsScript()
-        console.log('🗺️ Google Maps script loaded, creating map instance...')
-        createMapInstance()
-      }
-    } catch (error) {
-      console.error('🗺️ Failed to initialize map:', error)
-      setMapError('Failed to load map. Please use List view for now.')
-      setIsMapLoading(false)
-    }
-  }, [])
-
-  const loadGoogleMapsScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      console.log('🗺️ Setting up Google Maps script loading...')
-      
-      // Check if script is already being loaded
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-      if (existingScript) {
-        console.log('🗺️ Google Maps script already loading, waiting...')
-        existingScript.addEventListener('load', () => {
-          console.log('🗺️ Existing script loaded, resolving...')
-          resolve()
-        })
-        existingScript.addEventListener('error', reject) // ✅ Properly rejects on error
-        return
-      }
-
-      // Create and load new script
-      console.log('🗺️ Creating new Google Maps script...')
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&libraries=places`
-      script.async = true
-      script.onload = () => {
-        console.log('🗺️ New Google Maps script loaded successfully')
-        resolve()
-      }
-      script.onerror = (error) => {
-        console.error('🗺️ Google Maps script failed to load:', error)
-        reject(error)
-      }
-      document.head.appendChild(script)
-      console.log('🗺️ Google Maps script added to document head')
-    })
-  }
-
-  const createMapInstance = () => {
-    try {
-      console.log('🗺️ Creating map instance...')
-      if (!mapRef.current) {
-        console.log('🗺️ Map ref not ready, skipping...')
-        return
-      }
-
-      // Use the actual location that was passed to the component
-      // Handle both location formats: {latitude, longitude} or {lat, lng}
-      const lat = location?.latitude || location?.lat
-      const lng = location?.longitude || location?.lng
-      
-      if (!location || !lat || !lng) {
-        console.log('🗺️ No valid location available, cannot create map', { location, lat, lng })
-        return
-      }
-      
-      const mapLocation = { latitude: lat, longitude: lng }
-      console.log('🗺️ Using real GPS location:', mapLocation)
-      
-      const centerLocation = { lat: lat, lng: lng }
-      console.log('🗺️ Center location for map:', centerLocation)
-      
-      if (!window.google || !window.google.maps) {
-        console.error('🗺️ Google Maps not available after script load')
-        setMapError('Google Maps not available')
-        setIsMapLoading(false)
-        return
-      }
-
-      console.log('🗺️ Creating Google Maps instance...')
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: centerLocation,
-        zoom: 16, // Street level zoom for precise location
-        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-        disableDefaultUI: false,
-        zoomControl: true,
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.RIGHT_TOP
-        },
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: false,
-        backgroundColor: '#000000',
-        // Remove custom styles that might interfere with tiles
-        styles: [],
-        gestureHandling: 'auto', // Let Google Maps automatically choose the best gesture handling
-        scrollwheel: true, // Enable mouse wheel zoom
-        draggable: true, // Ensure map can be dragged
-        // Mobile-specific optimizations
-        clickableIcons: true,
-        keyboardShortcuts: false, // Disable keyboard shortcuts on mobile
-        // Ensure touch events work properly
-        tilt: 0 // Disable 3D tilt on mobile for better performance
-      })
-
-      console.log('🗺️ Google Maps instance created successfully')
-      mapInstanceRef.current = map
-      
-      // Wait for map to render and then remove loading
-      setTimeout(() => {
-        if (mapRef.current && map) {
-          console.log('🗺️ Triggering map resize...')
-          try {
-            window.google.maps.event.trigger(map, 'resize')
-            console.log('🗺️ Map resize completed')
-            
-            // Check if map actually rendered with tiles
-            const mapDiv = mapRef.current.querySelector('.gm-style')
-            if (mapDiv) {
-              console.log('🗺️ Map rendered successfully, removing loading state')
-              setIsMapLoading(false)
-              
-              // Center map on user location
-              map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-              map.setZoom(16)
-              
-              // NOTE: User location marker is created in the useEffect above, not here
-              // This prevents duplicate markers
-            } else {
-              console.log('🗺️ Map not rendered, triggering another resize')
-              setTimeout(() => {
-                window.google.maps.event.trigger(map, 'resize')
-                setIsMapLoading(false)
-                
-                // Center map on user location
-                console.log('🗺️ Centering map on user location after resize:', mapLocation)
-                map.setCenter({ lat: mapLocation.latitude, lng: mapLocation.longitude })
-              }, 500)
-            }
-          } catch (error) {
-            console.error('🗺️ Error during map resize:', error)
-            setIsMapLoading(false)
-          }
-        } else {
-          console.log('🗺️ Map ref or instance not available during resize')
-          setIsMapLoading(false)
-        }
-      }, 200)
-      
-    } catch (error) {
-      console.error('🗺️ Failed to create map instance:', error)
-      setMapError('Failed to create map')
-      setIsMapLoading(false)
-    }
-  }
-
-  // REMOVED: Map markers - now using buttons to navigate to list view instead
-
-  // Add after createMapInstance function:
-  const createFallbackMap = () => {
-    if (!mapRef.current) return
-    
-    console.log('🗺️ Creating fallback static map...')
-    mapRef.current.innerHTML = `
-      <div style="width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #666;">
-        <div style="font-size: 24px; margin-bottom: 10px;">🗺️</div>
-        <div style="font-size: 16px; text-align: center;">
-          Map temporarily unavailable<br/>
-          <small style="font-size: 12px;">Location: ${location?.latitude?.toFixed(4)}, ${location?.longitude?.toFixed(4)}</small>
-        </div>
-      </div>
-    `
-  }
+  // Google Maps code removed - map view will be migrated to Mapbox
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
@@ -1933,92 +1382,51 @@ export default function AIRecommendationsHub({
             overflow: 'hidden',
             backdropFilter: 'blur(15px)',
             border: '1px solid rgba(255,255,255,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            color: 'white',
+            textAlign: 'center',
+            padding: '40px'
           }}>
-            <div
-              ref={mapRef}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '16px',
-                minHeight: '400px',
-                position: 'relative',
-                zIndex: 1,
-                background: mapInstanceRef.current ? 'transparent' : '#f0f0f0' // Transparent when map is loaded, light gray when loading
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>🗺️</div>
+            <h2 style={{ margin: '0 0 10px 0', fontSize: '24px', fontWeight: '600' }}>
+              Map View Coming Soon
+            </h2>
+            <p style={{ margin: '0 0 20px 0', opacity: 0.9, fontSize: '16px', lineHeight: '1.5' }}>
+              We're migrating the map view to Mapbox for better performance and coverage.
+              <br />
+              Use the List view to see your recommendations in the meantime.
+            </p>
+            <button
+              onClick={() => {
+                setViewMode('list')
               }}
-            />
-            
-            {/* Loading overlay */}
-            {isMapLoading && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0,0,0,0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+              style={{
+                padding: '12px 24px',
+                background: 'rgba(59, 130, 246, 0.9)',
                 color: 'white',
-                fontSize: '18px',
-                textAlign: 'center',
-                zIndex: 2
-              }}>
-                <div>
-                  <div style={{ fontSize: '48px', marginBottom: '20px' }}>🗺️</div>
-                  <div>Loading AI-powered map...</div>
-                  <div style={{ 
-                    marginTop: '10px', 
-                    fontSize: '14px', 
-                    opacity: 0.7 
-                  }}>
-                    {location ? 'Location detected, initializing map...' : 'Waiting for location...'}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Error overlay */}
-            {mapError && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
                 fontSize: '16px',
-                textAlign: 'center',
-                background: 'rgba(0,0,0,0.8)',
-                padding: '20px',
-                borderRadius: '12px',
-                zIndex: 3,
-                maxWidth: '80%'
-              }}>
-                <div style={{ marginBottom: '15px', fontSize: '48px' }}>🗺️</div>
-                <div style={{ marginBottom: '10px', fontWeight: '500' }}>{mapError}</div>
-                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '15px' }}>
-                  Map view is being migrated to Mapbox. Use the List view to see your recommendations.
-                </div>
-                <button
-                  onClick={() => {
-                    setViewMode('list')
-                  }}
-                  style={{
-                    marginTop: '15px',
-                    padding: '10px 20px',
-                    background: 'rgba(59, 130, 246, 0.9)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  📋 Switch to List View
-                </button>
-              </div>
-            )}
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 1)'
+                e.currentTarget.style.transform = 'scale(1.05)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.9)'
+                e.currentTarget.style.transform = 'scale(1)'
+              }}
+            >
+              📋 Switch to List View
+            </button>
+          </div>
+        )}
             
             {/* NEW: User Recommendations and AI Recommendations buttons - centered on map */}
             <div style={{
@@ -2132,7 +1540,7 @@ export default function AIRecommendationsHub({
             </div>
 
             {/* NEW: Simple Motion Indicator - Only shows when moving */}
-            {mapInstanceRef.current && location && location.latitude && location.longitude && location.speed && location.speed > 2 && (
+            {false && location && location.latitude && location.longitude && location.speed && location.speed > 2 && (
               <div style={{
                 position: 'absolute',
                 top: '60px',
@@ -2154,18 +1562,10 @@ export default function AIRecommendationsHub({
             )}
 
             {/* NEW: Google Maps Style Location Button */}
-            {mapInstanceRef.current && location && location.latitude && location.longitude && (
+            {false && location && location.latitude && location.longitude && (
               <button
                 onClick={() => {
-                  if (mapInstanceRef.current && location) {
-                    console.log('🗺️ User clicked My Location button')
-                    mapInstanceRef.current.setCenter({ lat: location.latitude, lng: location.longitude })
-                    mapInstanceRef.current.setZoom(16)
-                    setMapCenter({ lat: location.latitude, lng: location.longitude })
-                    setMapZoom(16)
-                    setUserHasInteracted(false) // Reset interaction state to allow future auto-centering
-                    console.log('🗺️ Map returned to user location')
-                  }
+                  // Google Maps removed - button disabled
                 }}
                 style={{
                   position: 'absolute',
@@ -2196,7 +1596,7 @@ export default function AIRecommendationsHub({
             )}
 
             {/* NEW: Manual Refresh Recommendations Button */}
-            {mapInstanceRef.current && location && location.latitude && location.longitude && (
+            {false && location && location.latitude && location.longitude && (
               <button
                 onClick={async () => {
                   // ENHANCED: Prevent manual refresh while moving
@@ -2740,12 +2140,7 @@ export default function AIRecommendationsHub({
                             console.log('🗺️ Navigating to location:', rec.location)
                             // Switch to map view and center on this location
                             setViewMode('map')
-                            if (mapInstanceRef.current) {
-                              mapInstanceRef.current.setCenter({ lat: rec.location.lat, lng: rec.location.lng })
-                              mapInstanceRef.current.setZoom(18) // Close zoom for precise location
-                              setUserHasInteracted(true) // Mark as user interaction
-                              console.log('🗺️ Map centered on recommendation location')
-                            }
+                            // Google Maps removed - map centering disabled
                           }}
                           style={{
                             background: 'rgba(255,255,255,0.1)',
