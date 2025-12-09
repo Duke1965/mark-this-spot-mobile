@@ -5,7 +5,7 @@
 ### Prerequisites
 - Node.js 18+ installed
 - Vercel account (or similar deployment platform)
-- Google Maps API key
+- Mapbox API key
 - Environment variables configured
 
 ### Environment Variables
@@ -16,8 +16,8 @@ Create a `.env.local` file with the following variables:
 # Feature Flag - Enable pin management system
 NEXT_PUBLIC_FEATURE_MAP_LIFECYCLE=true
 
-# Google Maps API
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+# Mapbox API (for map display and geocoding)
+NEXT_PUBLIC_MAPBOX_API_KEY=your_mapbox_api_key_here
 
 # Analytics (Optional)
 NEXT_PUBLIC_ANALYTICS_ENDPOINT=https://your-analytics-endpoint.com/events
