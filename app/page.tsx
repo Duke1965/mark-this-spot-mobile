@@ -2427,23 +2427,32 @@ export default function PINITApp() {
         pins={storedPins}
         onBack={() => setCurrentScreen("map")}
         onPinSelect={(pin: PinData) => {
-          // Navigate to map with pin editing mode
-          console.log("📌 Pin selected from library - entering edit mode:", pin)
+          console.log("📌 Pin selected from library:", pin.title, "isPending:", pin.isPending)
           
-          // Mark pending pin as viewed when opened
-          if (pin.isPending && !pin.isViewed) {
-            updatePinInStorage(pin.id, { isViewed: true })
-            // Update local state
-            setPins(prev => prev.map(p => 
-              p.id === pin.id ? { ...p, isViewed: true } : p
-            ))
-            console.log("✅ Marked pending pin as viewed:", pin.id)
+          // If pin is pending, open map editor to allow location adjustment
+          if (pin.isPending) {
+            console.log("📌 Opening pending pin in map editor")
+            
+            // Mark pending pin as viewed when opened
+            if (!pin.isViewed) {
+              updatePinInStorage(pin.id, { isViewed: true })
+              // Update local state
+              setPins(prev => prev.map(p => 
+                p.id === pin.id ? { ...p, isViewed: true } : p
+              ))
+              console.log("✅ Marked pending pin as viewed:", pin.id)
+            }
+            
+            setEditingPin(pin)
+            setEditingPinLocation({ lat: pin.latitude, lng: pin.longitude })
+            setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
+            setCurrentScreen("map")
+          } else {
+            // If pin is completed, open results page
+            console.log("📌 Opening completed pin in results page")
+            setCurrentResultPin(pin)
+            setCurrentScreen("results")
           }
-          
-          setEditingPin(pin)
-          setEditingPinLocation({ lat: pin.latitude, lng: pin.longitude })
-          setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
-          setCurrentScreen("map")
         }}
         onPinUpdate={(pinId: string, updates: any) => {
           // Handle pin updates
