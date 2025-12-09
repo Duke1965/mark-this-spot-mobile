@@ -16,7 +16,7 @@ import { EnhancedLocationService } from "@/components/EnhancedLocationService"
 import { PinStoryBuilder } from "@/components/PinStoryBuilder"
 import AIRecommendationsHub from "@/components/AIRecommendationsHub"
 import { RecommendationForm } from "@/components/RecommendationForm"
-// import { PlaceNavigation } from "@/components/PlaceNavigation" // Disabled - migrating to Mapbox
+// PlaceNavigation component removed - Google Maps migration to Mapbox
 import { PinLibrary } from "@/components/PinLibrary"
 import { PinResults } from "@/components/PinResults"
 import { LocationPermissionPrompt } from "@/components/LocationPermissionPrompt"
@@ -1727,11 +1727,11 @@ export default function PINITApp() {
     [location, fetchLocationPhotos],
   )
 
-  // Handle place navigation from recommendations
+  // PlaceNavigation removed - Google Maps migration to Mapbox
   const handlePlaceNavigation = (place: any) => {
-    console.log("dY-,? Opening place navigation for:", place.title)
-    setSelectedPlace(place)
-    setCurrentScreen("place-navigation")
+    console.log("dY-,? Place navigation removed - redirecting to recommendations")
+    // Navigation feature removed - redirect to recommendations
+    setCurrentScreen("recommendations")
   }
 
   // Handle save for later
@@ -2402,8 +2402,7 @@ export default function PINITApp() {
     )
   }
 
-  // NEW PLACE NAVIGATION SCREEN
-  // PlaceNavigation disabled - Google Maps turn-by-turn navigation feature
+  // PlaceNavigation removed - Google Maps migration to Mapbox
   // TODO: Re-implement with Mapbox Directions API if needed
   if (currentScreen === "place-navigation" && selectedPlace) {
     // Redirect back to recommendations instead of showing navigation
