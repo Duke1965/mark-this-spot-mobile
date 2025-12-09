@@ -131,11 +131,12 @@ function InteractiveMapEditor({
       mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
 
       // Initialize Mapbox map
+      // Using satellite-streets-v12 for better building/POI visibility
       const map = new mapboxgl.default.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
         center: [initialLng, initialLat], // Mapbox uses [lng, lat]
-        zoom: 16,
+        zoom: 17, // Higher zoom for more detail
         attributionControl: false
       })
 
@@ -2977,11 +2978,11 @@ export default function PINITApp() {
               }}
             >
               <img
-                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${
+                src={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${
                   userLocation?.longitude || location?.longitude || 28.2293
                 },${
                   userLocation?.latitude || location?.latitude || -25.7479
-                },15,0/280x280@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""}`}
+                },16,0/280x280@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""}&fresh=true`}
                 alt="Live Map"
                 style={{
                   width: "100%",
