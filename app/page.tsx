@@ -3694,7 +3694,7 @@ export default function PINITApp() {
 
 
 
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes fadeInScale {
           from {
             opacity: 0;
