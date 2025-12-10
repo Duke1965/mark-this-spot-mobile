@@ -7,6 +7,7 @@ import { usePinStorage } from '../hooks/usePinStorage'
 import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
 import type { PinData } from '../lib/types'
+import "mapbox-gl/dist/mapbox-gl.css"
 
 // Google Maps removed - migrating to Mapbox
 
@@ -98,7 +99,12 @@ export default function AIRecommendationsHub({
     }
   }, [location, isInitialized])
   
-  // Map view - simplified (Google Maps removed, migrating to Mapbox)
+  // Map view - Mapbox implementation
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const recommendationMarkersRef = useRef<any[]>([])
+  const userMarkerRef = useRef<any>(null)
+  const isMapInitializedRef = useRef<boolean>(false)
   
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
@@ -1227,7 +1233,185 @@ export default function AIRecommendationsHub({
     setViewMode(newViewMode)
   }
 
-  // Google Maps code removed - map view will be migrated to Mapbox
+  // Function to update recommendation markers on map
+  const updateRecommendationMarkers = useCallback((map: any, mapboxgl: any) => {
+    // Clear existing markers
+    recommendationMarkersRef.current.forEach(marker => marker.remove())
+    recommendationMarkersRef.current = []
+    
+    if (!recommendations || recommendations.length === 0) {
+      console.log('🗺️ No recommendations to display on map')
+      return
+    }
+    
+    // Calculate bounds to fit all recommendations
+    const bounds = new mapboxgl.default.LngLatBounds()
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    
+    if (lat && lng) {
+      bounds.extend([lng, lat]) // Add user location
+    }
+    
+    // Add markers for each recommendation
+    recommendations.forEach((rec: Recommendation) => {
+      if (!rec.location || !rec.location.lat || !rec.location.lng) return
+      
+      const recLat = rec.location.lat
+      const recLng = rec.location.lng
+      bounds.extend([recLng, recLat])
+      
+      // Create custom marker element
+      const el = document.createElement('div')
+      el.style.width = '32px'
+      el.style.height = '32px'
+      el.style.borderRadius = '50%'
+      el.style.backgroundColor = rec.isAISuggestion ? '#3B82F6' : '#10B981'
+      el.style.border = '3px solid white'
+      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+      el.style.cursor = 'pointer'
+      el.style.display = 'flex'
+      el.style.alignItems = 'center'
+      el.style.justifyContent = 'center'
+      el.style.fontSize = '16px'
+      
+      // Add icon based on category
+      let icon = '📍'
+      if (rec.category) {
+        const cat = rec.category.toLowerCase()
+        if (cat.includes('restaurant') || cat.includes('food')) icon = '🍽️'
+        else if (cat.includes('cafe') || cat.includes('coffee')) icon = '☕'
+        else if (cat.includes('monument') || cat.includes('memorial')) icon = '🗿'
+        else if (cat.includes('museum')) icon = '🏛️'
+        else if (cat.includes('art') || cat.includes('gallery')) icon = '🎨'
+        else if (cat.includes('church') || cat.includes('worship')) icon = '⛪'
+        else if (cat.includes('tourism') || cat.includes('attraction')) icon = '🎯'
+      }
+      el.textContent = icon
+      
+      // Create popup with recommendation info
+      const popup = new mapboxgl.default.Popup({ 
+        offset: 25,
+        closeButton: true,
+        className: 'recommendation-popup'
+      }).setHTML(`
+        <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
+          ${rec.title}
+        </div>
+        ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
+        <div style="font-size: 11px; color: #999; margin-top: 4px;">
+          ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
+        </div>
+      `)
+      
+      // Create marker
+      const marker = new mapboxgl.default.Marker({
+        element: el,
+        anchor: 'bottom'
+      })
+        .setLngLat([recLng, recLat])
+        .setPopup(popup)
+        .addTo(map)
+      
+      // Click handler to select recommendation
+      el.addEventListener('click', () => {
+        setSelectedRecommendation(rec)
+        setShowReadOnlyRecommendation(true)
+      })
+      
+      recommendationMarkersRef.current.push(marker)
+    })
+    
+    // Fit map to show all recommendations and user location
+    if (bounds.isEmpty() === false) {
+      map.fitBounds(bounds, {
+        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+        maxZoom: 15
+      })
+    }
+    
+    console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to map`)
+  }, [recommendations, location])
+
+  // Initialize Mapbox map when map view is active
+  useEffect(() => {
+    if (viewMode !== "map" || !mapRef.current || !location || isMapInitializedRef.current) return
+    
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    
+    if (!lat || !lng) return
+    
+    // Dynamically import Mapbox GL
+    import('mapbox-gl').then((mapboxgl) => {
+      if (!mapRef.current || mapInstanceRef.current) return
+      
+      // Set Mapbox access token
+      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
+      
+      // Initialize Mapbox map
+      const map = new mapboxgl.default.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lng, lat],
+        zoom: 13, // Good zoom for seeing multiple recommendations
+        attributionControl: true,
+        interactive: true, // Enable interaction for recommendations map
+      })
+      
+      mapInstanceRef.current = map
+      isMapInitializedRef.current = true
+      
+      // Add user location marker
+      const userEl = document.createElement('div')
+      userEl.style.width = '20px'
+      userEl.style.height = '20px'
+      userEl.style.borderRadius = '50%'
+      userEl.style.backgroundColor = '#22C55E'
+      userEl.style.border = '3px solid white'
+      userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+      userEl.style.cursor = 'pointer'
+      
+      const userMarker = new mapboxgl.default.Marker({
+        element: userEl,
+        anchor: 'center'
+      })
+        .setLngLat([lng, lat])
+        .setPopup(new mapboxgl.default.Popup().setHTML('<div style="font-weight: 600; color: #1e3a8a;">📍 Your Location</div>'))
+        .addTo(map)
+      
+      userMarkerRef.current = userMarker
+      
+      // Wait for map to load, then add recommendation markers
+      map.on('load', () => {
+        console.log('🗺️ Recommendations map loaded')
+        updateRecommendationMarkers(map, mapboxgl)
+      })
+    })
+    
+    // Cleanup
+    return () => {
+      if (mapInstanceRef.current) {
+        recommendationMarkersRef.current.forEach(marker => marker.remove())
+        if (userMarkerRef.current) {
+          userMarkerRef.current.remove()
+          userMarkerRef.current = null
+        }
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        isMapInitializedRef.current = false
+      }
+    }
+  }, [viewMode, location, updateRecommendationMarkers])
+
+  // Update markers when recommendations change
+  useEffect(() => {
+    if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current) {
+      import('mapbox-gl').then((mapboxgl) => {
+        updateRecommendationMarkers(mapInstanceRef.current, mapboxgl)
+      })
+    }
+  }, [recommendations, viewMode, updateRecommendationMarkers])
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
@@ -1379,49 +1563,17 @@ export default function AIRecommendationsHub({
             overflow: 'hidden',
             backdropFilter: 'blur(15px)',
             border: '1px solid rgba(255,255,255,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            color: 'white',
-            textAlign: 'center',
-            padding: '40px'
           }}>
-            <div style={{ fontSize: '64px', marginBottom: '20px' }}>🗺️</div>
-            <h2 style={{ margin: '0 0 10px 0', fontSize: '24px', fontWeight: '600' }}>
-              Map View Coming Soon
-            </h2>
-            <p style={{ margin: '0 0 20px 0', opacity: 0.9, fontSize: '16px', lineHeight: '1.5' }}>
-              We're migrating the map view to Mapbox for better performance and coverage.
-              <br />
-              Use the List view to see your recommendations in the meantime.
-            </p>
-            <button
-              onClick={() => {
-                setViewMode('list')
-              }}
+            {/* Mapbox Map Container */}
+            <div
+              ref={mapRef}
               style={{
-                padding: '12px 24px',
-                background: 'rgba(59, 130, 246, 0.9)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '500',
-                transition: 'all 0.2s ease'
+                width: '100%',
+                height: '100%',
+                borderRadius: '16px',
+                overflow: 'hidden'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(59, 130, 246, 1)'
-                e.currentTarget.style.transform = 'scale(1.05)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.9)'
-                e.currentTarget.style.transform = 'scale(1)'
-              }}
-            >
-              📋 Switch to List View
-            </button>
+            />
           </div>
         )}
 
