@@ -326,12 +326,11 @@ export default function AIRecommendationsHub({
     return categoryMap[category] || categoryMap['general']
   }, [])
   
-  // Generate mock USER recommendations using REAL places from Foursquare API (different from AI mocks)
+  // Generate mock USER recommendations using REAL places from Mapbox API (different from AI mocks)
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Foursquare API removed - using OSM instead
-      // Fetch real places from OSM Nominatim API
-      const response = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=5000&limit=12`, {
+      // Using Mapbox Search API for nearby POIs
+      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=12`, {
         signal
       })
 
@@ -341,8 +340,8 @@ export default function AIRecommendationsHub({
 
       if (response.ok) {
         const data = await response.json()
-        // OSM Nominatim returns {place: {...}, nearbyPOIs: [...]}
-        const places = data.nearbyPOIs || data.items || data.results || []
+        // Mapbox Search returns {pois: [...]}
+        const places = data.pois || []
         
         if (places.length === 0) {
           return []
@@ -351,8 +350,8 @@ export default function AIRecommendationsHub({
         // DETERMINISTIC: Sort by ID and take places 4-7 (different from AI which takes 0-3)
         // This ensures AI and User mocks show different places
         const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.id || a.place_id || ''
-          const idB = b.id || b.place_id || ''
+          const idA = a.id || ''
+          const idB = b.id || ''
           return idA.localeCompare(idB)
         }).slice(4, 8) // Take different places than AI mocks
 
@@ -360,14 +359,14 @@ export default function AIRecommendationsHub({
           const placeLat = place.location?.lat || lat
           const placeLng = place.location?.lng || lng
           
-          // OSM doesn't provide photos, so no photoUrl
+          // Mapbox doesn't provide photos, so no photoUrl
           const photoUrl = undefined
 
-          const category = place.category || place.type || "general"
+          const category = place.category || "general"
 
           return {
-            id: `mock-user-${place.id || place.place_id || index}`,
-            title: place.name || place.display_name?.split(',')[0] || "Local Place",
+            id: `mock-user-${place.id || index}`,
+            title: place.name || "Local Place",
             description: place.description || 
               (place.category ? `A great ${place.category.toLowerCase()} spot recommended by the community` : 
                "A recommended location nearby"),
@@ -448,7 +447,7 @@ export default function AIRecommendationsHub({
       }
       
       if (mockCount > 0 && location && location.latitude && location.longitude) {
-        // Fetch real places from Foursquare for mock user recommendations
+        // Fetch real places from Mapbox for mock user recommendations
         try {
           const mockUserRecs = await generateMockUserRecommendations(location.latitude, location.longitude)
           // Take only the number we need
@@ -476,12 +475,11 @@ export default function AIRecommendationsHub({
   }, [getFallbackImage, insights.userPersonality?.confidence, location, generateMockUserRecommendations])
 
 
-  // Generate mock AI recommendations using REAL places from Foursquare API
+  // Generate mock AI recommendations using REAL places from Mapbox API
   const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Foursquare API removed - using OSM instead
-      // Fetch real places from OSM Nominatim API
-      const response = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=5000&limit=8`, {
+      // Using Mapbox Search API for nearby POIs
+      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=8`, {
         signal
       })
 
@@ -491,8 +489,8 @@ export default function AIRecommendationsHub({
 
       if (response.ok) {
         const data = await response.json()
-        // OSM Nominatim returns {place: {...}, nearbyPOIs: [...]}
-        const places = data.nearbyPOIs || data.items || data.results || []
+        // Mapbox Search returns {pois: [...]}
+        const places = data.pois || []
         
         if (places.length === 0) {
           return []
@@ -500,8 +498,8 @@ export default function AIRecommendationsHub({
 
         // DETERMINISTIC: Sort by ID and take first 4 for AI mocks
         const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.id || a.place_id || ''
-          const idB = b.id || b.place_id || ''
+          const idA = a.id || ''
+          const idB = b.id || ''
           return idA.localeCompare(idB)
         }).slice(0, 4)
 
@@ -509,14 +507,14 @@ export default function AIRecommendationsHub({
           const placeLat = place.location?.lat || lat
           const placeLng = place.location?.lng || lng
           
-          // OSM doesn't provide photos, so no photoUrl
+          // Mapbox doesn't provide photos, so no photoUrl
           const photoUrl = undefined
 
-          const category = place.category || place.type || "general"
+          const category = place.category || "general"
 
           return {
-            id: `mock-ai-${place.id || place.place_id || index}`,
-            title: place.name || place.display_name?.split(',')[0] || "Local Place",
+            id: `mock-ai-${place.id || index}`,
+            title: place.name || "Local Place",
             description: place.description || 
               (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
                "A recommended location nearby"),
@@ -714,8 +712,8 @@ export default function AIRecommendationsHub({
               
               // OPTIMIZED: Make a SINGLE API call for all categories instead of one per category
               try {
-                console.log('🧠 Fetching places from OSM for all categories in one request...')
-                const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
+                console.log('🧠 Fetching places from Mapbox for all categories in one request...')
+                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                   signal // Add abort signal
                 })
                 
@@ -726,21 +724,21 @@ export default function AIRecommendationsHub({
                 
                 if (response.ok) {
                   const data = await response.json()
-                  const allPlaces = data.nearbyPOIs || data.items || data.results || []
-                  console.log(`🧠 Fetched ${allPlaces.length} places from Foursquare`)
+                  const allPlaces = data.pois || []
+                  console.log(`🧠 Fetched ${allPlaces.length} places from Mapbox`)
                   
                   // Process each category from the same API response
                   // DETERMINISTIC: Sort places by ID for consistent selection (same region = same places)
                   const sortedPlaces = [...allPlaces].sort((a: any, b: any) => {
-                    const idA = a.fsq_id || a.id || a.place_id || ''
-                    const idB = b.fsq_id || b.id || b.place_id || ''
+                    const idA = a.id || ''
+                    const idB = b.id || ''
                     return idA.localeCompare(idB)
                   })
                   
                   for (const category of shuffledCategories) {
                     if (signal.aborted) break
                     
-                    // Filter places by category preference - match category names from Foursquare
+                    // Filter places by category preference - match category names from Mapbox
                     const categoryPlaces = sortedPlaces.filter((place: any) => {
                       const placeCategory = place.category?.toLowerCase() || ''
                       const categoryLower = category.toLowerCase()
@@ -786,9 +784,9 @@ export default function AIRecommendationsHub({
                       })
                       
                       aiRecs.push({
-                        id: `ai-${category}-${selectedPlace.fsq_id || selectedPlace.id || Date.now()}`,
+                        id: `ai-${category}-${selectedPlace.id || Date.now()}`,
                         title: placeTitle,
-                        description: placeDescription, // Use real Foursquare description
+                        description: placeDescription, // Use real Mapbox description
                         category: selectedPlace.category || category,
                         location: {
                           lat: placeLat,
@@ -802,7 +800,7 @@ export default function AIRecommendationsHub({
                         fallbackImage: photoUrl ? undefined : getFallbackImage(selectedPlace.category || category),
                         photoUrl: photoUrl || undefined,
                         mediaUrl: photoUrl || undefined,
-                        fsq_id: selectedPlace.fsq_id || selectedPlace.id || undefined
+                        fsq_id: selectedPlace.id || undefined
                       } as Recommendation)
                     }
                   }
@@ -827,8 +825,8 @@ export default function AIRecommendationsHub({
                 try {
                   console.log('🧠 Fetching local places for new user...')
                   
-                  // Use OSM Nominatim API with safeguards
-                  const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5`, {
+                  // Use Mapbox Search API with safeguards
+                  const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5`, {
                     signal // Add abort signal
                   })
                   
@@ -839,13 +837,13 @@ export default function AIRecommendationsHub({
                 
                 if (response.ok) {
                   const data = await response.json()
-                  // Handle both new format (items) and old format (results) for compatibility
-                  const places = data.nearbyPOIs || data.items || data.results || []
+                  // Mapbox Search returns {pois: [...]}
+                  const places = data.pois || []
                   
                   // DETERMINISTIC: Sort places by ID for consistent selection
                   const sortedPlaces = [...places].sort((a: any, b: any) => {
-                    const idA = a.fsq_id || a.id || a.place_id || ''
-                    const idB = b.fsq_id || b.id || b.place_id || ''
+                    const idA = a.id || ''
+                    const idB = b.id || ''
                     return idA.localeCompare(idB)
                   })
                   
@@ -855,7 +853,7 @@ export default function AIRecommendationsHub({
                   
                   for (const place of selectedPlaces) {
                     // Handle both new format (category) and old format (types)
-                    const category = place.category || place.type || "general"
+                    const category = place.category || "general"
                     
                     // CRITICAL: Extract location coordinates - must have valid lat/lng or skip this place
                     const placeLat = place.location?.lat
@@ -863,32 +861,28 @@ export default function AIRecommendationsHub({
                     
                     // Skip places without valid coordinates - don't fall back to user location!
                     if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
-                      console.warn('🧠 Skipping place without valid coordinates:', place.title || place.name, place)
+                      console.warn('🧠 Skipping place without valid coordinates:', place.name, place)
                       continue
                     }
                     
-                    // Extract photo URL - prioritize photoUrl, then mediaUrl, then check for photos array
-                    let photoUrl = place.photoUrl || place.mediaUrl
-                    if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
-                      const firstPhoto = place.photos[0]
-                      photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
-                    }
+                    // Mapbox doesn't provide photos, so no photoUrl
+                    let photoUrl = undefined
                     
-                    console.log(`🧠 Recommendation image for ${place.title || place.name}:`, {
-                      hasPhotoUrl: !!place.photoUrl,
-                      hasMediaUrl: !!place.mediaUrl,
+                    console.log(`🧠 Recommendation image for ${place.name}:`, {
+                      hasPhotoUrl: false,
+                      hasMediaUrl: false,
                       hasPhotosArray: false,
                       finalPhotoUrl: 'none',
-                      id: place.id || place.place_id
+                      id: place.id
                     })
                     
-                    // Use Foursquare's real title and description - prioritize actual data over generic text
-                    const placeTitle = place.title || place.name || 'Local Spot'
+                    // Use Mapbox's real title and description - prioritize actual data over generic text
+                    const placeTitle = place.name || 'Local Spot'
                     const placeDescription = place.description || 
                       (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
                        `A recommended ${category.toLowerCase()} location nearby`)
                     
-                    console.log(`🧠 New User Recommendation using Foursquare data for ${placeTitle}:`, {
+                    console.log(`🧠 New User Recommendation using Mapbox data for ${placeTitle}:`, {
                       hasDescription: !!place.description,
                       description: place.description?.substring(0, 50) + '...',
                       category: place.category || category,
@@ -896,9 +890,9 @@ export default function AIRecommendationsHub({
                     })
                     
                     aiRecs.push({
-                      id: `new-user-${place.fsq_id || place.id || place.place_id}`,
+                      id: `new-user-${place.id}`,
                       title: placeTitle,
-                      description: placeDescription, // Use real Foursquare description
+                      description: placeDescription, // Use real Mapbox description
                       category: place.category || category,
                       location: {
                         lat: placeLat,
@@ -912,7 +906,7 @@ export default function AIRecommendationsHub({
                       fallbackImage: photoUrl ? undefined : getFallbackImage(place.category || category),
                       photoUrl: photoUrl || undefined,
                       mediaUrl: photoUrl || undefined, // Also set mediaUrl for compatibility
-                      fsq_id: place.fsq_id || place.id || undefined
+                      fsq_id: place.id || undefined
                     } as Recommendation)
                   }
                   
@@ -1021,14 +1015,14 @@ export default function AIRecommendationsHub({
             if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
               // We already have places from the category fetch above - reuse them
               try {
-                const response = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
+                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
                   signal
                 })
                 
                 if (!signal.aborted && response.ok) {
                   const data = await response.json()
-                  discoveryPlaces = data.nearbyPOIs || data.items || data.results || []
-                  console.log(`🧠 Reusing Foursquare places for discovery: ${discoveryPlaces.length} places`)
+                  discoveryPlaces = data.pois || []
+                  console.log(`🧠 Reusing Mapbox places for discovery: ${discoveryPlaces.length} places`)
                 }
               } catch (error: any) {
                 if (error.name !== 'AbortError') {
@@ -1038,7 +1032,7 @@ export default function AIRecommendationsHub({
             } else {
               // For new users, fetch discovery places separately
               try {
-                const discoveryResponse = await fetch(`/api/nominatim?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10`, {
+                const discoveryResponse = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10`, {
                   signal
                 })
                 
@@ -1049,7 +1043,7 @@ export default function AIRecommendationsHub({
                 
                 if (discoveryResponse.ok) {
                   const discoveryData = await discoveryResponse.json()
-                  discoveryPlaces = discoveryData.items || discoveryData.results || []
+                  discoveryPlaces = discoveryData.pois || []
                 }
               } catch (error: any) {
                 if (error.name === 'AbortError') {
@@ -1064,12 +1058,12 @@ export default function AIRecommendationsHub({
             
               // DETERMINISTIC: Sort discovery places by ID for consistent selection
               const sortedDiscoveryPlaces = [...discoveryPlaces].sort((a: any, b: any) => {
-                const idA = a.fsq_id || a.id || a.place_id || ''
-                const idB = b.fsq_id || b.id || b.place_id || ''
+                const idA = a.id || ''
+                const idB = b.id || ''
                 return idA.localeCompare(idB)
               })
               
-              // Select places from Foursquare results deterministically (same region = same places)
+              // Select places from Mapbox results deterministically (same region = same places)
             for (let i = 0; i < discoveryCount; i++) {
               let placeTitle: string
               let placeDescription: string
@@ -1081,33 +1075,33 @@ export default function AIRecommendationsHub({
               let category: string
               
               if (sortedDiscoveryPlaces.length > 0 && i < sortedDiscoveryPlaces.length) {
-                // Use real Foursquare place (deterministic - same index = same place)
+                // Use real Mapbox place (deterministic - same index = same place)
                 const place = sortedDiscoveryPlaces[i]
-                // CRITICAL: Use EXACT coordinates from Foursquare API
-                recLat = place.location?.lat || place.geometry?.location?.lat
-                recLng = place.location?.lng || place.geometry?.location?.lng
+                // CRITICAL: Use EXACT coordinates from Mapbox API
+                recLat = place.location?.lat
+                recLng = place.location?.lng
                 
                 // CRITICAL: Validate coordinates are exact and valid
                 if (recLat && recLng && isFinite(recLat) && isFinite(recLng)) {
-                  // Use EXACT coordinates from Foursquare (no rounding or approximation)
-                  placeTitle = place.title || place.name || `Hidden Gem #${i + 1}`
+                  // Use EXACT coordinates from Mapbox (no rounding or approximation)
+                  placeTitle = place.name || `Hidden Gem #${i + 1}`
                   placeDescription = place.description || 
                     (place.category ? `Discover this ${place.category.toLowerCase()} spot` : 
                      "A cool spot I think you'll love!")
                   category = place.category || 'adventure'
                   // DETERMINISTIC: Use fixed rating based on place ID instead of random
-                  const placeId = place.fsq_id || place.id || place.place_id || ''
+                  const placeId = place.id || ''
                   rating = place.rating || (3.5 + (placeId.charCodeAt(0) % 10) / 10) // Deterministic rating
-                  fsqId = place.fsq_id || place.id
+                  fsqId = place.id
                   
-                  // Extract photo URL
-                  photoUrl = place.photoUrl || place.mediaUrl
-                  if (!photoUrl && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
+                  // Mapbox doesn't provide photos
+                  photoUrl = undefined
+                  if (false && place.photos && Array.isArray(place.photos) && place.photos.length > 0) {
                     const firstPhoto = place.photos[0]
                     photoUrl = firstPhoto.url || firstPhoto.prefix || firstPhoto.href || firstPhoto.link
                   }
                   
-                  console.log(`🧠 Discovery Recommendation using Foursquare data for ${placeTitle}:`, {
+                  console.log(`🧠 Discovery Recommendation using Mapbox data for ${placeTitle}:`, {
                     hasDescription: !!place.description,
                     description: place.description?.substring(0, 50) + '...',
                     category: category,
@@ -1124,15 +1118,15 @@ export default function AIRecommendationsHub({
                 break
               }
               
-              // CRITICAL: Use EXACT coordinates from Foursquare API (no approximation)
+              // CRITICAL: Use EXACT coordinates from Mapbox API (no approximation)
               aiRecs.push({
                 id: `discovery-${fsqId || Date.now()}-${i}`, // Use place ID for deterministic IDs
                 title: placeTitle,
                 description: placeDescription,
                 category: category,
                 location: {
-                  lat: recLat, // EXACT coordinate from Foursquare
-                  lng: recLng  // EXACT coordinate from Foursquare
+                  lat: recLat, // EXACT coordinate from Mapbox
+                  lng: recLng  // EXACT coordinate from Mapbox
                 },
                 rating: rating,
                 isAISuggestion: true,
