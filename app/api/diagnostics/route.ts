@@ -13,10 +13,9 @@ export async function GET(request: NextRequest) {
     apis: {}
   }
 
-  // Check environment variables
+  // Check environment variables (Mapbox only)
   diagnostics.environment = {
     NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
-    MAPILLARY_TOKEN: !!process.env.MAPILLARY_TOKEN, // Optional - for street-level imagery
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
   }
@@ -69,95 +68,57 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Test Mapillary API (for street-level imagery)
+  // Test Mapbox Search API (for POI data)
   try {
-    const mapillaryToken = process.env.MAPILLARY_TOKEN
+    const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
     
-    if (!mapillaryToken) {
-      diagnostics.apis.mapillary = {
-        status: "NO_TOKEN",
-        note: "MAPILLARY_TOKEN not configured (optional)"
-      }
-    } else {
-      // Test Mapillary API by calling our internal route
-      const mapillaryResponse = await fetch(`${request.nextUrl.origin}/api/mapillary?lat=${testLat}&lng=${testLng}&radius=100&limit=1`)
+    if (mapboxKey) {
+      const searchResponse = await fetch(`${request.nextUrl.origin}/api/mapbox/search?lat=${testLat}&lng=${testLng}&radius=200&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
       
-      if (mapillaryResponse.ok) {
-        const mapillaryData = await mapillaryResponse.json()
-        diagnostics.apis.mapillary = {
-          status: mapillaryData.status === "OK" ? "OK" : mapillaryData.status,
-          images_found: mapillaryData.images?.length || 0,
-          note: mapillaryData.note || undefined
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        diagnostics.apis.mapbox_search = {
+          status: searchData.status === "OK" ? "OK" : searchData.status,
+          pois_found: searchData.pois?.length || 0,
+          sample_poi: searchData.pois?.[0]?.name || "No POIs found"
         }
       } else {
-        diagnostics.apis.mapillary = {
+        diagnostics.apis.mapbox_search = {
           status: "ERROR",
-          http_status: mapillaryResponse.status
+          http_status: searchResponse.status
         }
       }
     }
   } catch (error) {
-    diagnostics.apis.mapillary = {
+    diagnostics.apis.mapbox_search = {
       status: "ERROR",
       error: error instanceof Error ? error.message : String(error)
     }
   }
 
-  // Test KartaView API (for street-level imagery)
+  // Test Mapbox Static Images API
   try {
-    // KartaView doesn't require an API key (open source)
-    const kartaviewResponse = await fetch(`${request.nextUrl.origin}/api/kartaview?lat=${testLat}&lng=${testLng}&radius=100&limit=1`)
+    const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
     
-    if (kartaviewResponse.ok) {
-      const kartaviewData = await kartaviewResponse.json()
-      diagnostics.apis.kartaview = {
-        status: kartaviewData.status === "OK" ? "OK" : kartaviewData.status,
-        images_found: kartaviewData.images?.length || 0,
-        note: kartaviewData.note || undefined
-      }
-    } else {
-      diagnostics.apis.kartaview = {
-        status: "ERROR",
-        http_status: kartaviewResponse.status
+    if (mapboxKey) {
+      const staticImageResponse = await fetch(`${request.nextUrl.origin}/api/mapbox/static-image?lat=${testLat}&lng=${testLng}&width=400&height=400&zoom=17&style=streets-v12`)
+      
+      if (staticImageResponse.ok) {
+        const staticImageData = await staticImageResponse.json()
+        diagnostics.apis.mapbox_static_image = {
+          status: staticImageData.status === "OK" ? "OK" : staticImageData.status,
+          has_image_url: !!staticImageData.imageUrl,
+          style: staticImageData.style || "streets-v12"
+        }
+      } else {
+        diagnostics.apis.mapbox_static_image = {
+          status: "ERROR",
+          http_status: staticImageResponse.status
+        }
       }
     }
   } catch (error) {
-    diagnostics.apis.kartaview = {
-      status: "ERROR",
-      error: error instanceof Error ? error.message : String(error)
-    }
-  }
-
-  // Test OSM Nominatim API
-  try {
-    const nominatimUrl = new URL('https://nominatim.openstreetmap.org/reverse')
-    nominatimUrl.searchParams.set('lat', testLat)
-    nominatimUrl.searchParams.set('lon', testLng)
-    nominatimUrl.searchParams.set('format', 'json')
-    nominatimUrl.searchParams.set('addressdetails', '1')
-    
-    const nominatimResponse = await fetch(nominatimUrl.toString(), {
-      headers: {
-        'User-Agent': 'PINIT-App/1.0 (Location-based pinning app)',
-        'Accept': 'application/json'
-      }
-    })
-
-    if (nominatimResponse.ok) {
-      const nominatimData = await nominatimResponse.json()
-      diagnostics.apis.nominatim = {
-        status: "OK",
-        place_found: !!nominatimData.display_name,
-        sample_place: nominatimData.display_name?.substring(0, 50) || "No place found"
-      }
-    } else {
-      diagnostics.apis.nominatim = {
-        status: "ERROR",
-        http_status: nominatimResponse.status
-      }
-    }
-  } catch (error) {
-    diagnostics.apis.nominatim = {
+    diagnostics.apis.mapbox_static_image = {
       status: "ERROR",
       error: error instanceof Error ? error.message : String(error)
     }
@@ -167,11 +128,11 @@ export async function GET(request: NextRequest) {
   // These routes work fine from client-side - the 401s are diagnostic artifacts only
   // Internal routes are tested implicitly through external API tests above
 
-  // Overall status - Check critical APIs: Mapbox (for geocoding) and OSM (for POI data)
+  // Overall status - Check critical Mapbox APIs only
   const allChecks = [
     diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY,
     diagnostics.apis.mapbox?.status === "OK",
-    diagnostics.apis.nominatim?.status === "OK"
+    diagnostics.apis.mapbox_search?.status === "OK"
   ]
   
   diagnostics.overall_status = allChecks.every(check => check) ? "OK" : "ISSUES_FOUND"
@@ -184,10 +145,10 @@ export async function GET(request: NextRequest) {
   
   const failingApis: string[] = []
   if (diagnostics.apis.mapbox?.status !== "OK") {
-    failingApis.push("Mapbox")
+    failingApis.push("Mapbox Geocoding")
   }
-  if (diagnostics.apis.nominatim?.status !== "OK") {
-    failingApis.push("Nominatim (OSM)")
+  if (diagnostics.apis.mapbox_search?.status !== "OK") {
+    failingApis.push("Mapbox Search")
   }
   
   diagnostics.issues_summary = {
