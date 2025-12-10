@@ -227,8 +227,8 @@ function InteractiveMainMap({
   // Helper function to fetch and update POIs
   const updatePOIs = useCallback(async (currentLat: number, currentLng: number, mapboxgl: any, map: any) => {
     try {
-      // Fetch nearby POIs from Mapbox Search API
-      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20`)
+      // Fetch nearby travel POIs from Mapbox Search API (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
+      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
       if (searchResponse.ok) {
         const searchData = await searchResponse.json()
         const pois = searchData.pois || []
@@ -259,15 +259,21 @@ function InteractiveMainMap({
             el.style.color = 'white'
             el.style.fontWeight = 'bold'
             
-            // Add icon based on category
+            // Add icon based on travel category
             let icon = '📍'
             if (poi.category) {
-              if (poi.category.includes('restaurant') || poi.category.includes('cafe') || poi.category.includes('food')) {
+              if (poi.category.includes('restaurant') || poi.category.includes('food')) {
                 icon = '🍽️'
-              } else if (poi.category.includes('hotel') || poi.category.includes('accommodation')) {
-                icon = '🏨'
-              } else if (poi.category.includes('shop') || poi.category.includes('store')) {
-                icon = '🛍️'
+              } else if (poi.category.includes('cafe') || poi.category.includes('coffee')) {
+                icon = '☕'
+              } else if (poi.category.includes('monument') || poi.category.includes('memorial')) {
+                icon = '🗿'
+              } else if (poi.category.includes('museum')) {
+                icon = '🏛️'
+              } else if (poi.category.includes('art_gallery') || poi.category.includes('gallery')) {
+                icon = '🎨'
+              } else if (poi.category.includes('place_of_worship') || poi.category.includes('church')) {
+                icon = '⛪'
               } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
                 icon = '🎯'
               }
@@ -1633,63 +1639,48 @@ export default function PINITApp() {
     try {
       console.log("📍 Fetching location data using Mapbox APIs only...")
       
-      // STEP 1: Fetch place name via Mapbox Geocoding (reverse geocoding)
+      // STEP 1: Fetch nearby POIs via Mapbox Search API FIRST (better place data with names)
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
       let placeData: any = null
       
       try {
-        console.log("📍 Step 1: Fetching place name via Mapbox Geocoding API...")
-        const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi,address,place`, { signal })
-        
-        if (geocodingResponse.ok) {
-          const geocodingData = await geocodingResponse.json()
-          console.log(`📍 Mapbox Geocoding returned ${geocodingData.places?.length || 0} places`)
-          
-          if (geocodingData.places && geocodingData.places.length > 0) {
-            // Use the first (most relevant) result
-            const place = geocodingData.places[0]
-            placeData = place
-            placeName = place.name || placeName
-            placeDescription = place.category ? `${place.category}` : undefined
-            console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
-              hasDescription: !!placeDescription,
-              category: place.category
-            })
-          }
-        } else {
-          console.warn("⚠️ Mapbox Geocoding API failed, will try Search API")
-        }
-      } catch (geocodingError: any) {
-        if (geocodingError.name === 'AbortError') {
-          console.log("📍 Geocoding request was aborted")
-          throw geocodingError
-        }
-        console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
-      }
-      
-      // STEP 2: Fetch nearby POIs via Mapbox Search API (for better place data)
-      try {
-        console.log("📍 Step 2: Fetching nearby POIs via Mapbox Search API...")
-        const searchResponse = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
+        console.log("📍 Step 1: Fetching nearby travel POIs via Mapbox Search API...")
+        // Focus on travel-related categories: restaurants, cafes, monuments, museums, art galleries, churches, tourism
+        const searchResponse = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=150&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, { signal })
         
         if (searchResponse.ok) {
           const searchData = await searchResponse.json()
           console.log(`📍 Mapbox Search returned ${searchData.pois?.length || 0} POIs`)
           
           if (searchData.pois && searchData.pois.length > 0) {
-            // Find closest POI within 100m
+            // Find closest POI within 150m
             const closestPOI = searchData.pois[0]
             console.log(`✅ Found closest Mapbox POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
             
-            if (closestPOI.distance <= 100) {
-              // Prefer POI data over geocoding (more specific)
+            if (closestPOI.distance <= 150) {
+              // Use POI data (most specific and reliable)
               placeData = closestPOI
-              placeName = closestPOI.name || placeName
-              placeDescription = closestPOI.description || closestPOI.category || undefined
+              placeName = closestPOI.name || "Location"
+              
+              // Build meaningful description from POI data
+              if (closestPOI.description && closestPOI.description.trim()) {
+                placeDescription = closestPOI.description
+              } else if (closestPOI.category) {
+                // Create description from category and address context
+                const categoryName = closestPOI.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+                if (closestPOI.address) {
+                  placeDescription = `${categoryName} located at ${closestPOI.address}`
+                } else if (closestPOI.city) {
+                  placeDescription = `${categoryName} in ${closestPOI.city}`
+                } else {
+                  placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
+                }
+              }
+              
               console.log(`✅ Using Mapbox Search POI data: ${placeName}`, { 
                 hasDescription: !!placeDescription,
-                category: closestPOI.category
+                description: placeDescription?.substring(0, 50)
               })
             }
           }
@@ -1704,12 +1695,63 @@ export default function PINITApp() {
         console.warn("⚠️ Mapbox Search API failed:", searchError.message)
       }
       
+      // STEP 2: Fallback to Mapbox Geocoding if no POI found (for place names)
+      if (!placeData || placeName === "Location") {
+        try {
+          console.log("📍 Step 2: Fallback - Fetching place name via Mapbox Geocoding API...")
+          // Try POI first, then address, then place
+          const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
+          
+          if (geocodingResponse.ok) {
+            const geocodingData = await geocodingResponse.json()
+            console.log(`📍 Mapbox Geocoding returned ${geocodingData.places?.length || 0} places`)
+            
+            if (geocodingData.places && geocodingData.places.length > 0) {
+              // Find the best result (prefer POI, then address with name)
+              const poiResult = geocodingData.places.find((p: any) => p.place_type === 'poi' || p.category)
+              const bestPlace = poiResult || geocodingData.places[0]
+              
+              if (bestPlace) {
+                placeData = bestPlace
+                // Extract name - prefer text (short name) over place_name (full address)
+                placeName = bestPlace.name || bestPlace.place_name?.split(',')[0] || "Location"
+                
+                // Build description from geocoding data
+                if (!placeDescription) {
+                  if (bestPlace.category) {
+                    const categoryName = bestPlace.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+                    if (bestPlace.context?.city) {
+                      placeDescription = `${categoryName} in ${bestPlace.context.city}`
+                    } else {
+                      placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
+                    }
+                  } else if (bestPlace.context?.neighborhood) {
+                    placeDescription = `Located in ${bestPlace.context.neighborhood}`
+                  }
+                }
+                
+                console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
+                  hasDescription: !!placeDescription
+                })
+              }
+            }
+          }
+        } catch (geocodingError: any) {
+          if (geocodingError.name === 'AbortError') {
+            console.log("📍 Geocoding request was aborted")
+            throw geocodingError
+          }
+          console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
+        }
+      }
+      
       // STEP 3: Fetch static image via Mapbox Static Images API
+      // Note: Mapbox doesn't provide true street-level photos, but streets-v12 shows buildings better than satellite
       console.log("📸 Step 3: Fetching building image via Mapbox Static Images API...")
       let imageUrl: string | null = null
       
       try {
-        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=18&style=satellite-v9`, { signal })
+        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=19&style=streets-v12`, { signal })
         
         if (staticImageResponse.ok) {
           const staticImageData = await staticImageResponse.json()
@@ -1729,7 +1771,8 @@ export default function PINITApp() {
       }
       
       // STEP 4: Return place data with image (or placeholder if none found)
-      if (placeData) {
+      // Always return placeName and description if we have them, even without image
+      if (placeName && placeName !== "Location") {
         if (imageUrl) {
           // Use Mapbox static image
           console.log(`✅ Returning Mapbox place data with static image`)
@@ -1741,7 +1784,7 @@ export default function PINITApp() {
           photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
           return result
         } else {
-          // No image found, use placeholder
+          // No image found, but we have place data - use placeholder
           console.log(`✅ Returning Mapbox place data with placeholder (no image found)`)
           const result = [{
             url: "/pinit-placeholder.jpg",
