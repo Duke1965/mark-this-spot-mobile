@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
   const lng = searchParams.get("lng")
   const width = searchParams.get("width") || "800"
   const height = searchParams.get("height") || "600"
-  const zoom = searchParams.get("zoom") || "18"
-  const style = searchParams.get("style") || "satellite-v9" // satellite-v9 shows buildings well
+  const zoom = searchParams.get("zoom") || "17" // Lower zoom (17) for less aerial view - Mapbox doesn't provide true street-level photos
+  const style = searchParams.get("style") || "streets-v12" // streets-v12 shows buildings with labels better than satellite
 
   console.log('📸 Mapbox Static Image API GET - params:', { lat, lng, width, height, zoom, style })
 
