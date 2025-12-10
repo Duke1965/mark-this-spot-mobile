@@ -206,9 +206,23 @@ function InteractiveMainMap({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const poiMarkersRef = useRef<any[]>([])
+  const carMarkerRef = useRef<any>(null)
   const lastLatRef = useRef<number | null>(null)
   const lastLngRef = useRef<number | null>(null)
   const isInitializedRef = useRef<boolean>(false)
+
+  // Helper function to calculate bearing (direction) between two points
+  const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const lat1Rad = lat1 * Math.PI / 180
+    const lat2Rad = lat2 * Math.PI / 180
+    
+    const y = Math.sin(dLng) * Math.cos(lat2Rad)
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng)
+    
+    const bearing = Math.atan2(y, x) * 180 / Math.PI
+    return (bearing + 360) % 360 // Normalize to 0-360
+  }
 
   // Helper function to fetch and update POIs
   const updatePOIs = useCallback(async (currentLat: number, currentLng: number, mapboxgl: any, map: any) => {
@@ -319,13 +333,33 @@ function InteractiveMainMap({
         attributionControl: false,
         interactive: false, // Disable interaction for the circle map
         pitch: 0,
-        bearing: 0
+        bearing: 0 // Always keep map north-up
       })
 
       mapInstanceRef.current = map
       isInitializedRef.current = true
       lastLatRef.current = lat
       lastLngRef.current = lng
+
+      // Create car icon marker for user position
+      const carEl = document.createElement('div')
+      carEl.style.width = '32px'
+      carEl.style.height = '32px'
+      carEl.style.fontSize = '24px'
+      carEl.style.display = 'flex'
+      carEl.style.alignItems = 'center'
+      carEl.style.justifyContent = 'center'
+      carEl.style.transition = 'transform 0.3s ease'
+      carEl.textContent = '🚗'
+      
+      const carMarker = new mapboxgl.default.Marker({
+        element: carEl,
+        anchor: 'center'
+      })
+        .setLngLat([lng, lat])
+        .addTo(map)
+      
+      carMarkerRef.current = carMarker
 
       // Wait for map to load, then fetch and display POIs
       map.on('load', async () => {
@@ -337,6 +371,10 @@ function InteractiveMainMap({
       return () => {
         if (mapInstanceRef.current) {
           poiMarkersRef.current.forEach(marker => marker.remove())
+          if (carMarkerRef.current) {
+            carMarkerRef.current.remove()
+            carMarkerRef.current = null
+          }
           mapInstanceRef.current.remove()
           mapInstanceRef.current = null
           isInitializedRef.current = false
@@ -347,6 +385,10 @@ function InteractiveMainMap({
     return () => {
       if (mapInstanceRef.current) {
         poiMarkersRef.current.forEach(marker => marker.remove())
+        if (carMarkerRef.current) {
+          carMarkerRef.current.remove()
+          carMarkerRef.current = null
+        }
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
         isInitializedRef.current = false
@@ -366,8 +408,27 @@ function InteractiveMainMap({
       Math.abs(lng - lastLngRef.current) > 0.0005
 
     if (hasChangedSignificantly) {
+      // CRITICAL: Always keep map bearing at 0 (north-up) - never rotate the map
+      mapInstanceRef.current.setBearing(0)
+      
       // Update map center smoothly
       mapInstanceRef.current.setCenter([lng, lat])
+      
+      // Calculate bearing for car icon rotation (direction of travel)
+      let carBearing = 0
+      if (lastLatRef.current !== null && lastLngRef.current !== null) {
+        carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
+      }
+      
+      // Update car marker position and rotation
+      if (carMarkerRef.current) {
+        carMarkerRef.current.setLngLat([lng, lat])
+        // Rotate the car icon element to show direction of travel
+        const carEl = carMarkerRef.current.getElement()
+        if (carEl) {
+          carEl.style.transform = `rotate(${carBearing}deg)`
+        }
+      }
       
       // Update POIs
       import('mapbox-gl').then((mapboxgl) => {
