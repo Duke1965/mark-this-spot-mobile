@@ -1463,19 +1463,31 @@ export default function PINITApp() {
       }
     }
     
-    // PRIORITY 1: Use Foursquare description if available
+    // PRIORITY 1: Use Mapbox description if available (from placeDescription parameter)
     let description = ""
-    if (placeDescription && placeDescription.trim()) {
-      // Use Foursquare description if available
+    if (placeDescription && placeDescription.trim() && placeDescription !== "undefined") {
+      // Use Mapbox description if available
       description = placeDescription
-      console.log("🧠 Using Foursquare description:", description)
+      console.log("🧠 Using Mapbox description:", description.substring(0, 100))
     } else {
-      // Fall back to AI-generated description only if no Foursquare data
-      if (motionData.isMoving && motionData.speed > 5) {
-        description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+      // Fall back to AI-generated description only if no Mapbox data
+      // But make it more location-specific using placeName if available
+      if (placeName && placeName !== "Location" && placeName !== "PINIT Placeholder" && placeName !== "Unknown Place") {
+        // We have a place name but no description - create a simple, location-specific description
+        if (motionData.isMoving && motionData.speed > 5) {
+          description = `Discovered ${placeName} while traveling at ${motionData.speed.toFixed(1)} km/h. A great spot worth remembering!`
+        } else {
+          description = `Found ${placeName}. A special location worth exploring and sharing.`
+        }
       } else {
-        description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+        // No place name either - use generic context-based description
+        if (motionData.isMoving && motionData.speed > 5) {
+          description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+        } else {
+          description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+        }
       }
+      console.log("🧠 No Mapbox description available, using generated description:", description.substring(0, 100))
     }
     
     // Generate smart tags based on context
@@ -1751,7 +1763,8 @@ export default function PINITApp() {
       let imageUrl: string | null = null
       
       try {
-        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=19&style=streets-v12`, { signal })
+        // Lower zoom (17) for less aerial view - Mapbox Static Images doesn't provide true street-level photos
+        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=17&style=streets-v12`, { signal })
         
         if (staticImageResponse.ok) {
           const staticImageData = await staticImageResponse.json()
@@ -1772,6 +1785,16 @@ export default function PINITApp() {
       
       // STEP 4: Return place data with image (or placeholder if none found)
       // Always return placeName and description if we have them, even without image
+      // CRITICAL: Ensure description is always meaningful, not empty or undefined
+      const finalDescription = placeDescription && placeDescription.trim() ? placeDescription : undefined
+      
+      console.log(`📋 Final place data:`, {
+        placeName,
+        hasDescription: !!finalDescription,
+        description: finalDescription?.substring(0, 50),
+        hasImage: !!imageUrl
+      })
+      
       if (placeName && placeName !== "Location") {
         if (imageUrl) {
           // Use Mapbox static image
@@ -1779,7 +1802,7 @@ export default function PINITApp() {
           const result = [{
             url: imageUrl,
             placeName: placeName,
-            description: placeDescription
+            description: finalDescription
           }]
           photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
           return result
@@ -1789,7 +1812,7 @@ export default function PINITApp() {
           const result = [{
             url: "/pinit-placeholder.jpg",
             placeName: placeName,
-            description: placeDescription
+            description: finalDescription
           }]
           photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
           return result
