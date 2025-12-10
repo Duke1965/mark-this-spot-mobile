@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
   const lng = searchParams.get("lng")
   const radius = searchParams.get("radius") || "200" // Default 200m
   const limit = searchParams.get("limit") || "20"
-  const categories = searchParams.get("categories") || "restaurant,hotel,shop,tourism,leisure"
+  // Focus on travel-related POIs: restaurants, cafes, monuments, museums, art galleries, churches, tourism
+  const categories = searchParams.get("categories") || "restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism"
 
   console.log('🔍 Mapbox Search API GET - params:', { lat, lng, radius, limit, categories })
 
