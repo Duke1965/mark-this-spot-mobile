@@ -206,9 +206,102 @@ function InteractiveMainMap({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const poiMarkersRef = useRef<any[]>([])
+  const lastLatRef = useRef<number | null>(null)
+  const lastLngRef = useRef<number | null>(null)
+  const isInitializedRef = useRef<boolean>(false)
 
+  // Helper function to fetch and update POIs
+  const updatePOIs = useCallback(async (currentLat: number, currentLng: number, mapboxgl: any, map: any) => {
+    try {
+      // Fetch nearby POIs from OSM
+      const overpassResponse = await fetch(`/api/overpass?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20`)
+      if (overpassResponse.ok) {
+        const overpassData = await overpassResponse.json()
+        const pois = overpassData.pois || []
+        
+        console.log(`📍 Found ${pois.length} POIs to display on map`)
+        
+        // Clear existing markers
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        poiMarkersRef.current = []
+        
+        // Add markers for each POI
+        pois.forEach((poi: any) => {
+          if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
+            // Create a custom marker element with icon
+            const el = document.createElement('div')
+            el.className = 'poi-marker'
+            el.style.width = '24px'
+            el.style.height = '24px'
+            el.style.borderRadius = '50%'
+            el.style.backgroundColor = '#3B82F6'
+            el.style.border = '3px solid white'
+            el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+            el.style.cursor = 'pointer'
+            el.style.display = 'flex'
+            el.style.alignItems = 'center'
+            el.style.justifyContent = 'center'
+            el.style.fontSize = '12px'
+            el.style.color = 'white'
+            el.style.fontWeight = 'bold'
+            
+            // Add icon based on category
+            let icon = '📍'
+            if (poi.category) {
+              if (poi.category.includes('restaurant') || poi.category.includes('cafe') || poi.category.includes('food')) {
+                icon = '🍽️'
+              } else if (poi.category.includes('hotel') || poi.category.includes('accommodation')) {
+                icon = '🏨'
+              } else if (poi.category.includes('shop') || poi.category.includes('store')) {
+                icon = '🛍️'
+              } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
+                icon = '🎯'
+              }
+            }
+            el.textContent = icon
+            
+            // Create marker with popup
+            const popup = new mapboxgl.default.Popup({ 
+              offset: 25, 
+              closeButton: false,
+              className: 'poi-popup'
+            }).setHTML(`
+              <div style="font-weight: 600; font-size: 13px; color: #1e3a8a; margin-bottom: 4px;">
+                ${poi.name}
+              </div>
+              ${poi.category ? `<div style="font-size: 11px; color: #666; text-transform: capitalize;">${poi.category.replace(/_/g, ' ')}</div>` : ''}
+            `)
+            
+            const marker = new mapboxgl.default.Marker({
+              element: el,
+              anchor: 'bottom'
+            })
+              .setLngLat([poi.location.lng, poi.location.lat])
+              .setPopup(popup)
+              .addTo(map)
+            
+            // Show popup on hover (for better UX in the circle)
+            el.addEventListener('mouseenter', () => {
+              popup.addTo(map)
+            })
+            el.addEventListener('mouseleave', () => {
+              popup.remove()
+            })
+            
+            poiMarkersRef.current.push(marker)
+          }
+        })
+        
+        console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to map`)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching POIs for map:', error)
+    }
+  }, [])
+
+  // Initialize map only once on mount
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapRef.current || isInitializedRef.current) return
 
     // Dynamically import Mapbox GL
     import('mapbox-gl').then((mapboxgl) => {
@@ -230,103 +323,23 @@ function InteractiveMainMap({
       })
 
       mapInstanceRef.current = map
+      isInitializedRef.current = true
+      lastLatRef.current = lat
+      lastLngRef.current = lng
 
       // Wait for map to load, then fetch and display POIs
       map.on('load', async () => {
         console.log('🗺️ Main map loaded, fetching nearby POIs...')
-        
-        try {
-          // Fetch nearby POIs from OSM
-          const overpassResponse = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=200&limit=20`)
-          if (overpassResponse.ok) {
-            const overpassData = await overpassResponse.json()
-            const pois = overpassData.pois || []
-            
-            console.log(`📍 Found ${pois.length} POIs to display on map`)
-            
-            // Clear existing markers
-            poiMarkersRef.current.forEach(marker => marker.remove())
-            poiMarkersRef.current = []
-            
-            // Add markers for each POI
-            pois.forEach((poi: any) => {
-              if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
-                // Create a custom marker element with icon
-                const el = document.createElement('div')
-                el.className = 'poi-marker'
-                el.style.width = '24px'
-                el.style.height = '24px'
-                el.style.borderRadius = '50%'
-                el.style.backgroundColor = '#3B82F6'
-                el.style.border = '3px solid white'
-                el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-                el.style.cursor = 'pointer'
-                el.style.display = 'flex'
-                el.style.alignItems = 'center'
-                el.style.justifyContent = 'center'
-                el.style.fontSize = '12px'
-                el.style.color = 'white'
-                el.style.fontWeight = 'bold'
-                
-                // Add icon based on category
-                let icon = '📍'
-                if (poi.category) {
-                  if (poi.category.includes('restaurant') || poi.category.includes('cafe') || poi.category.includes('food')) {
-                    icon = '🍽️'
-                  } else if (poi.category.includes('hotel') || poi.category.includes('accommodation')) {
-                    icon = '🏨'
-                  } else if (poi.category.includes('shop') || poi.category.includes('store')) {
-                    icon = '🛍️'
-                  } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
-                    icon = '🎯'
-                  }
-                }
-                el.textContent = icon
-                
-                // Create marker with popup
-                const popup = new mapboxgl.default.Popup({ 
-                  offset: 25, 
-                  closeButton: false,
-                  className: 'poi-popup'
-                }).setHTML(`
-                  <div style="font-weight: 600; font-size: 13px; color: #1e3a8a; margin-bottom: 4px;">
-                    ${poi.name}
-                  </div>
-                  ${poi.category ? `<div style="font-size: 11px; color: #666; text-transform: capitalize;">${poi.category.replace(/_/g, ' ')}</div>` : ''}
-                `)
-                
-                const marker = new mapboxgl.default.Marker({
-                  element: el,
-                  anchor: 'bottom'
-                })
-                  .setLngLat([poi.location.lng, poi.location.lat])
-                  .setPopup(popup)
-                  .addTo(map)
-                
-                // Show popup on hover (for better UX in the circle)
-                el.addEventListener('mouseenter', () => {
-                  popup.addTo(map)
-                })
-                el.addEventListener('mouseleave', () => {
-                  popup.remove()
-                })
-                
-                poiMarkersRef.current.push(marker)
-              }
-            })
-            
-            console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to map`)
-          }
-        } catch (error) {
-          console.error('❌ Error fetching POIs for map:', error)
-        }
+        await updatePOIs(lat, lng, mapboxgl, map)
       })
 
-      // Cleanup
+      // Cleanup on unmount
       return () => {
-        poiMarkersRef.current.forEach(marker => marker.remove())
         if (mapInstanceRef.current) {
+          poiMarkersRef.current.forEach(marker => marker.remove())
           mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+          isInitializedRef.current = false
         }
       }
     })
@@ -336,9 +349,37 @@ function InteractiveMainMap({
         poiMarkersRef.current.forEach(marker => marker.remove())
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
+        isInitializedRef.current = false
       }
     }
-  }, [lat, lng])
+  }, []) // Only run once on mount
+
+  // Update map center and POIs when location changes significantly (without re-initializing)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isInitializedRef.current) return
+
+    // Check if location has changed significantly (more than ~50 meters)
+    const hasChangedSignificantly = 
+      lastLatRef.current === null || 
+      lastLngRef.current === null ||
+      Math.abs(lat - lastLatRef.current) > 0.0005 || // ~50 meters
+      Math.abs(lng - lastLngRef.current) > 0.0005
+
+    if (hasChangedSignificantly) {
+      // Update map center smoothly
+      mapInstanceRef.current.setCenter([lng, lat])
+      
+      // Update POIs
+      import('mapbox-gl').then((mapboxgl) => {
+        if (mapInstanceRef.current) {
+          updatePOIs(lat, lng, mapboxgl, mapInstanceRef.current)
+        }
+      })
+
+      lastLatRef.current = lat
+      lastLngRef.current = lng
+    }
+  }, [lat, lng, updatePOIs])
 
   return (
     <div
