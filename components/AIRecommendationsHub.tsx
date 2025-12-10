@@ -329,8 +329,8 @@ export default function AIRecommendationsHub({
   // Generate mock USER recommendations using REAL places from Mapbox API (different from AI mocks)
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Using Mapbox Search API for nearby POIs
-      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=12`, {
+      // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
+      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
         signal
       })
 
@@ -478,8 +478,8 @@ export default function AIRecommendationsHub({
   // Generate mock AI recommendations using REAL places from Mapbox API
   const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Using Mapbox Search API for nearby POIs
-      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=8`, {
+      // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
+      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
         signal
       })
 
@@ -712,8 +712,9 @@ export default function AIRecommendationsHub({
               
               // OPTIMIZED: Make a SINGLE API call for all categories instead of one per category
               try {
-                console.log('🧠 Fetching places from Mapbox for all categories in one request...')
-                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
+                console.log('🧠 Fetching travel places from Mapbox for all categories in one request...')
+                // Focus on travel-related POIs: restaurants, cafes, monuments, museums, art galleries, churches, tourism
+                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal // Add abort signal
                 })
                 
@@ -825,8 +826,8 @@ export default function AIRecommendationsHub({
                 try {
                   console.log('🧠 Fetching local places for new user...')
                   
-                  // Use Mapbox Search API with safeguards
-                  const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5`, {
+                  // Use Mapbox Search API with safeguards - focus on travel POIs
+                  const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                     signal // Add abort signal
                   })
                   
@@ -1015,7 +1016,8 @@ export default function AIRecommendationsHub({
             if (insights.userPersonality && insights.userPersonality.confidence > 0.3) {
               // We already have places from the category fetch above - reuse them
               try {
-                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30`, {
+                // Focus on travel-related POIs for discovery recommendations
+                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
@@ -1032,7 +1034,8 @@ export default function AIRecommendationsHub({
             } else {
               // For new users, fetch discovery places separately
               try {
-                const discoveryResponse = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10`, {
+                // Focus on travel-related POIs for discovery
+                const discoveryResponse = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
