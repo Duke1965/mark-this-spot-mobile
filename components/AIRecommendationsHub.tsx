@@ -1233,16 +1233,30 @@ export default function AIRecommendationsHub({
     setViewMode(newViewMode)
   }
 
+  // Track if we've already fitted bounds to prevent repeated zooming
+  const hasFittedBoundsRef = useRef<boolean>(false)
+  const lastRecommendationsCountRef = useRef<number>(0)
+
   // Function to update recommendation markers on map
-  const updateRecommendationMarkers = useCallback((map: any, mapboxgl: any) => {
+  const updateRecommendationMarkers = useCallback((map: any, mapboxgl: any, shouldFitBounds: boolean = false) => {
     // Clear existing markers
     recommendationMarkersRef.current.forEach(marker => marker.remove())
     recommendationMarkersRef.current = []
     
     if (!recommendations || recommendations.length === 0) {
       console.log('🗺️ No recommendations to display on map')
+      hasFittedBoundsRef.current = false
+      lastRecommendationsCountRef.current = 0
       return
     }
+    
+    // Only update if recommendations actually changed (by count or IDs)
+    const currentCount = recommendations.length
+    if (currentCount === lastRecommendationsCountRef.current && !shouldFitBounds) {
+      // Recommendations count hasn't changed, skip update to prevent flashing
+      return
+    }
+    lastRecommendationsCountRef.current = currentCount
     
     // Calculate bounds to fit all recommendations
     const bounds = new mapboxgl.default.LngLatBounds()
@@ -1322,12 +1336,13 @@ export default function AIRecommendationsHub({
       recommendationMarkersRef.current.push(marker)
     })
     
-    // Fit map to show all recommendations and user location
-    if (bounds.isEmpty() === false) {
+    // Only fit bounds once on initial load, or when explicitly requested
+    if (shouldFitBounds && bounds.isEmpty() === false && !hasFittedBoundsRef.current) {
       map.fitBounds(bounds, {
         padding: { top: 50, bottom: 50, left: 50, right: 50 },
         maxZoom: 15
       })
+      hasFittedBoundsRef.current = true
     }
     
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to map`)
@@ -1385,7 +1400,8 @@ export default function AIRecommendationsHub({
       // Wait for map to load, then add recommendation markers
       map.on('load', () => {
         console.log('🗺️ Recommendations map loaded')
-        updateRecommendationMarkers(map, mapboxgl)
+        hasFittedBoundsRef.current = false // Reset on new map load
+        updateRecommendationMarkers(map, mapboxgl, true) // Fit bounds on initial load
       })
     })
     
@@ -1400,18 +1416,21 @@ export default function AIRecommendationsHub({
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
         isMapInitializedRef.current = false
+        hasFittedBoundsRef.current = false
+        lastRecommendationsCountRef.current = 0
       }
     }
-  }, [viewMode, location, updateRecommendationMarkers])
+  }, [viewMode, location]) // Removed updateRecommendationMarkers from deps to prevent re-init
 
-  // Update markers when recommendations change
+  // Update markers when recommendations change (but don't fit bounds again)
   useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current) {
+    if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
       import('mapbox-gl').then((mapboxgl) => {
-        updateRecommendationMarkers(mapInstanceRef.current, mapboxgl)
+        // Only update markers, don't fit bounds (prevents zooming out)
+        updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false)
       })
     }
-  }, [recommendations, viewMode, updateRecommendationMarkers])
+  }, [recommendations.length, viewMode]) // Only depend on count, not the full array
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
