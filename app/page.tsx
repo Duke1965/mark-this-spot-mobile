@@ -227,11 +227,11 @@ function InteractiveMainMap({
   // Helper function to fetch and update POIs
   const updatePOIs = useCallback(async (currentLat: number, currentLng: number, mapboxgl: any, map: any) => {
     try {
-      // Fetch nearby POIs from OSM
-      const overpassResponse = await fetch(`/api/overpass?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20`)
-      if (overpassResponse.ok) {
-        const overpassData = await overpassResponse.json()
-        const pois = overpassData.pois || []
+      // Fetch nearby POIs from Mapbox Search API
+      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20`)
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        const pois = searchData.pois || []
         
         console.log(`📍 Found ${pois.length} POIs to display on map`)
         
@@ -1631,189 +1631,118 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📍 Fetching location data using OpenStreetMap (Nominatim + Overpass)...")
+      console.log("📍 Fetching location data using Mapbox APIs only...")
       
-      // STEP 1: Try Overpass API first (richer POI data with descriptions)
-      let osmData: any = null
+      // STEP 1: Fetch place name via Mapbox Geocoding (reverse geocoding)
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
+      let placeData: any = null
       
       try {
-        console.log("📍 Step 1: Fetching OSM POI data via Overpass API...")
-        const overpassResponse = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
+        console.log("📍 Step 1: Fetching place name via Mapbox Geocoding API...")
+        const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi,address,place`, { signal })
         
-        if (overpassResponse.ok) {
-          const overpassData = await overpassResponse.json()
-          console.log(`📍 Overpass API returned ${overpassData.pois?.length || 0} POIs`)
+        if (geocodingResponse.ok) {
+          const geocodingData = await geocodingResponse.json()
+          console.log(`📍 Mapbox Geocoding returned ${geocodingData.places?.length || 0} places`)
           
-          if (overpassData.pois && overpassData.pois.length > 0) {
+          if (geocodingData.places && geocodingData.places.length > 0) {
+            // Use the first (most relevant) result
+            const place = geocodingData.places[0]
+            placeData = place
+            placeName = place.name || placeName
+            placeDescription = place.category ? `${place.category}` : undefined
+            console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
+              hasDescription: !!placeDescription,
+              category: place.category
+            })
+          }
+        } else {
+          console.warn("⚠️ Mapbox Geocoding API failed, will try Search API")
+        }
+      } catch (geocodingError: any) {
+        if (geocodingError.name === 'AbortError') {
+          console.log("📍 Geocoding request was aborted")
+          throw geocodingError
+        }
+        console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
+      }
+      
+      // STEP 2: Fetch nearby POIs via Mapbox Search API (for better place data)
+      try {
+        console.log("📍 Step 2: Fetching nearby POIs via Mapbox Search API...")
+        const searchResponse = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json()
+          console.log(`📍 Mapbox Search returned ${searchData.pois?.length || 0} POIs`)
+          
+          if (searchData.pois && searchData.pois.length > 0) {
             // Find closest POI within 100m
-            const closestPOI = overpassData.pois[0]
-            console.log(`✅ Found closest OSM POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
+            const closestPOI = searchData.pois[0]
+            console.log(`✅ Found closest Mapbox POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
             
             if (closestPOI.distance <= 100) {
-              osmData = closestPOI
+              // Prefer POI data over geocoding (more specific)
+              placeData = closestPOI
               placeName = closestPOI.name || placeName
-              placeDescription = closestPOI.description || undefined
-              console.log(`✅ Using Overpass POI data: ${placeName}`, { 
+              placeDescription = closestPOI.description || closestPOI.category || undefined
+              console.log(`✅ Using Mapbox Search POI data: ${placeName}`, { 
                 hasDescription: !!placeDescription,
-                description: placeDescription?.substring(0, 100)
+                category: closestPOI.category
               })
-            } else {
-              console.log(`⚠️ Closest POI is ${closestPOI.distance.toFixed(1)}m away (too far, max 100m)`)
             }
           }
         } else {
-          console.warn("⚠️ Overpass API failed, will try Nominatim")
+          console.warn("⚠️ Mapbox Search API failed")
         }
-      } catch (overpassError: any) {
-        if (overpassError.name === 'AbortError') {
-          console.log("📍 Overpass request was aborted")
-          throw overpassError
+      } catch (searchError: any) {
+        if (searchError.name === 'AbortError') {
+          console.log("📍 Search request was aborted")
+          throw searchError
         }
-        console.warn("⚠️ Overpass API failed:", overpassError.message)
+        console.warn("⚠️ Mapbox Search API failed:", searchError.message)
       }
       
-      // STEP 2: If Overpass didn't find a POI, try Nominatim (reverse geocoding + nearby POIs)
-      if (!osmData) {
-        try {
-          console.log("📍 Step 2: Fetching OSM data via Nominatim API...")
-          const nominatimResponse = await fetch(`/api/nominatim?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal })
-          
-          if (nominatimResponse.ok) {
-            const nominatimData = await nominatimResponse.json()
-            console.log(`📍 Nominatim returned place data and ${nominatimData.nearbyPOIs?.length || 0} nearby POIs`)
-            
-            // Check if we have a nearby POI within 100m
-            if (nominatimData.nearbyPOIs && nominatimData.nearbyPOIs.length > 0) {
-              const closestPOI = nominatimData.nearbyPOIs[0]
-              if (closestPOI.distance <= 100) {
-                osmData = closestPOI
-                placeName = closestPOI.name || placeName
-                placeDescription = closestPOI.description || (closestPOI.category ? `${closestPOI.category}` : undefined)
-                console.log(`✅ Using Nominatim POI data: ${placeName}`, { description: placeDescription })
-              } else {
-                // Use the reverse geocoded place data as fallback
-                if (nominatimData.place) {
-                  osmData = nominatimData.place
-                  placeName = nominatimData.place.name || placeName
-                  placeDescription = nominatimData.place.description || undefined
-                  console.log(`✅ Using Nominatim place data: ${placeName}`)
-                }
-              }
-            } else if (nominatimData.place) {
-              // No nearby POIs, but we have reverse geocoded place data
-              osmData = nominatimData.place
-              placeName = nominatimData.place.name || placeName
-              placeDescription = nominatimData.place.description || undefined
-              console.log(`✅ Using Nominatim place data (no nearby POIs): ${placeName}`)
-            }
+      // STEP 3: Fetch static image via Mapbox Static Images API
+      console.log("📸 Step 3: Fetching building image via Mapbox Static Images API...")
+      let imageUrl: string | null = null
+      
+      try {
+        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=18&style=satellite-v9`, { signal })
+        
+        if (staticImageResponse.ok) {
+          const staticImageData = await staticImageResponse.json()
+          if (staticImageData.imageUrl) {
+            imageUrl = staticImageData.imageUrl
+            console.log(`✅ Mapbox Static Image: Generated image URL`)
           }
-        } catch (nominatimError: any) {
-          if (nominatimError.name === 'AbortError') {
-            console.log("📍 Nominatim request was aborted")
-            throw nominatimError
-          }
-          console.warn("⚠️ Nominatim API failed:", nominatimError.message)
+        } else {
+          console.warn("⚠️ Mapbox Static Images API failed")
         }
-      }
-      
-      // STEP 3: Fetch street-level imagery from Mapillary and KartaView
-      console.log("📸 Step 3: Fetching street-level imagery from Mapillary and KartaView...")
-      let streetImages: Array<{url: string, thumb_url?: string, bearing?: number, source: string, distance: number}> = []
-      
-      // Fetch from both services in parallel
-      const [mapillaryResponse, kartaviewResponse] = await Promise.allSettled([
-        fetch(`/api/mapillary?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal }).catch(() => null),
-        fetch(`/api/kartaview?lat=${lat}&lng=${lng}&radius=100&limit=5`, { signal }).catch(() => null)
-      ])
-      
-      // Process Mapillary results
-      if (mapillaryResponse.status === 'fulfilled' && mapillaryResponse.value?.ok) {
-        try {
-          const mapillaryData = await mapillaryResponse.value.json()
-          if (mapillaryData.images && mapillaryData.images.length > 0) {
-            console.log(`✅ Mapillary: Found ${mapillaryData.images.length} images`)
-            streetImages.push(...mapillaryData.images.map((img: any) => ({
-              url: img.url,
-              thumb_url: img.thumb_url,
-              bearing: img.bearing,
-              source: 'mapillary',
-              distance: img.distance || 0
-            })))
-          }
-        } catch (err) {
-          console.warn("⚠️ Failed to parse Mapillary response:", err)
+      } catch (imageError: any) {
+        if (imageError.name === 'AbortError') {
+          console.log("📸 Static image request was aborted")
+          throw imageError
         }
-      } else {
-        console.log("📸 Mapillary: No images or API unavailable")
+        console.warn("⚠️ Mapbox Static Images API failed:", imageError.message)
       }
       
-      // Process KartaView results
-      if (kartaviewResponse.status === 'fulfilled' && kartaviewResponse.value?.ok) {
-        try {
-          const kartaviewData = await kartaviewResponse.value.json()
-          if (kartaviewData.images && kartaviewData.images.length > 0) {
-            console.log(`✅ KartaView: Found ${kartaviewData.images.length} images`)
-            streetImages.push(...kartaviewData.images.map((img: any) => ({
-              url: img.url,
-              thumb_url: img.thumb_url,
-              bearing: img.bearing,
-              source: 'kartaview',
-              distance: img.distance || 0
-            })))
-          }
-        } catch (err) {
-          console.warn("⚠️ Failed to parse KartaView response:", err)
-        }
-      } else {
-        console.log("📸 KartaView: No images or API unavailable")
-      }
-      
-      // Filter and sort images to prefer building-facing over road-facing
-      // Strategy: Prefer building-facing images but don't reject road-facing (just deprioritize)
-      const filteredImages = streetImages
-        .filter((img) => {
-          // Filter out images that are too far away
-          if (img.distance > 100) {
-            console.log(`📸 Rejecting image: too far (${img.distance.toFixed(1)}m)`)
-            return false
-          }
-          
-          // Don't reject road-facing images - we'll just prefer building-facing
-          // This ensures we get images even if all are road-facing
-          return true
-        })
-        .sort((a, b) => {
-          // Score remaining images: lower score = better (prefer building-facing)
-          const scoreA = getImageScore(a.bearing || 0, a.distance)
-          const scoreB = getImageScore(b.bearing || 0, b.distance)
-          return scoreA - scoreB
-        })
-        .slice(0, 3) // Take top 3 images
-      
-      console.log(`📸 Filtering results: ${streetImages.length} total images → ${filteredImages.length} building-facing images after filtering`)
-      if (filteredImages.length > 0) {
-        filteredImages.forEach((img, idx) => {
-          console.log(`  ${idx + 1}. Bearing: ${img.bearing?.toFixed(1)}°, Distance: ${img.distance.toFixed(1)}m, Source: ${img.source}`)
-        })
-      }
-      
-      // STEP 4: Return place data with real images (or placeholder if none found)
-      if (osmData) {
-        if (filteredImages.length > 0) {
-          // Use real street-level images
-          console.log(`✅ Returning OSM place data with ${filteredImages.length} street-level images`)
-          const result = filteredImages.map((img, index) => ({
-            url: img.url,
-            placeName: index === 0 ? placeName : placeName, // Use place name for all images
-            description: index === 0 ? placeDescription : undefined // Description only on first image
-          }))
+      // STEP 4: Return place data with image (or placeholder if none found)
+      if (placeData) {
+        if (imageUrl) {
+          // Use Mapbox static image
+          console.log(`✅ Returning Mapbox place data with static image`)
+          const result = [{
+            url: imageUrl,
+            placeName: placeName,
+            description: placeDescription
+          }]
           photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
           return result
         } else {
-          // No images found, use placeholder
-          console.log(`✅ Returning OSM place data with placeholder (no street images found)`)
+          // No image found, use placeholder
+          console.log(`✅ Returning Mapbox place data with placeholder (no image found)`)
           const result = [{
             url: "/pinit-placeholder.jpg",
             placeName: placeName,
@@ -1824,19 +1753,19 @@ export default function PINITApp() {
         }
       }
       
-      // STEP 5: Ultimate fallback - no OSM data available
-      if (filteredImages.length > 0) {
-        // We have images but no OSM place data
-        console.log("⚠️ No OSM place data, but found street images")
-        const result = filteredImages.map((img, index) => ({
-          url: img.url,
-          placeName: index === 0 ? "Location" : "Location"
-        }))
+      // STEP 5: Ultimate fallback - no place data available
+      if (imageUrl) {
+        // We have image but no place data
+        console.log("⚠️ No Mapbox place data, but found image")
+        const result = [{
+          url: imageUrl,
+          placeName: "Location"
+        }]
         photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
         return result
       }
       
-      console.log("⚠️ No OSM place data and no street images available")
+      console.log("⚠️ No Mapbox place data and no image available")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
