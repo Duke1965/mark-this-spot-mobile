@@ -29,6 +29,8 @@ import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
+import { MAP_PROVIDER } from "@/lib/mapConfig"
+import TomTomMap from "@/components/map/TomTomMap"
 import "mapbox-gl/dist/mapbox-gl.css"
 
 
@@ -106,7 +108,7 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker (Mapbox)
+// Interactive Map Editor Component with Draggable Marker (Mapbox or TomTom)
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -116,6 +118,34 @@ function InteractiveMapEditor({
   initialLng: number
   onLocationChange: (lat: number, lng: number) => void
 }) {
+  // Use TomTom if configured, otherwise fall back to Mapbox
+  if (MAP_PROVIDER === "tomtom") {
+    return (
+      <div style={{
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0
+      }}>
+        <TomTomMap
+          center={{ lat: initialLat, lng: initialLng }}
+          zoom={17}
+          interactive={true}
+          draggableMarker={{
+            lat: initialLat,
+            lng: initialLng,
+            onDragEnd: (lat, lng) => {
+              console.log("📍 Marker dragged to:", { lat, lng })
+              onLocationChange(lat, lng)
+            }
+          }}
+        />
+      </div>
+    )
+  }
+
+  // Mapbox implementation (existing code)
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
@@ -203,6 +233,12 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
+  // Use TomTom if configured, otherwise use Mapbox
+  if (MAP_PROVIDER === "tomtom") {
+    return <InteractiveMainMapTomTom lat={lat} lng={lng} />
+  }
+
+  // Mapbox implementation (existing code)
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const poiMarkersRef = useRef<any[]>([])
@@ -441,6 +477,253 @@ function InteractiveMainMap({
         if (mapInstanceRef.current) {
           updatePOIs(lat, lng, mapboxgl, mapInstanceRef.current)
         }
+      })
+
+      lastLatRef.current = lat
+      lastLngRef.current = lng
+    }
+  }, [lat, lng, updatePOIs])
+
+  return (
+    <div
+      ref={mapRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        borderRadius: "50%",
+        overflow: "hidden"
+      }}
+    />
+  )
+}
+
+// TomTom version of InteractiveMainMap
+function InteractiveMainMapTomTom({ 
+  lat, 
+  lng 
+}: { 
+  lat: number
+  lng: number
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const poiMarkersRef = useRef<any[]>([])
+  const carMarkerRef = useRef<any>(null)
+  const lastLatRef = useRef<number | null>(null)
+  const lastLngRef = useRef<number | null>(null)
+  const isInitializedRef = useRef<boolean>(false)
+
+  // Helper function to calculate bearing (direction) between two points
+  const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const lat1Rad = lat1 * Math.PI / 180
+    const lat2Rad = lat2 * Math.PI / 180
+    
+    const y = Math.sin(dLng) * Math.cos(lat2Rad)
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng)
+    
+    const bearing = Math.atan2(y, x) * 180 / Math.PI
+    return (bearing + 360) % 360 // Normalize to 0-360
+  }
+
+  // Helper function to fetch and update POIs (works with any map provider)
+  const updatePOIs = useCallback(async (currentLat: number, currentLng: number, tt: any, map: any) => {
+    try {
+      // Fetch nearby travel POIs from Mapbox Search API (can be replaced with TomTom Search later)
+      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        const pois = searchData.pois || []
+        
+        console.log(`📍 Found ${pois.length} POIs to display on TomTom map`)
+        
+        // Clear existing markers
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        poiMarkersRef.current = []
+        
+        // Add markers for each POI using TomTom API
+        pois.forEach((poi: any) => {
+          if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
+            // Create a custom marker element with icon
+            const el = document.createElement('div')
+            el.className = 'poi-marker'
+            el.style.width = '24px'
+            el.style.height = '24px'
+            el.style.borderRadius = '50%'
+            el.style.backgroundColor = '#3B82F6'
+            el.style.border = '3px solid white'
+            el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+            el.style.cursor = 'pointer'
+            el.style.display = 'flex'
+            el.style.alignItems = 'center'
+            el.style.justifyContent = 'center'
+            el.style.fontSize = '12px'
+            el.style.color = 'white'
+            el.style.fontWeight = 'bold'
+            
+            // Add icon based on travel category
+            let icon = '📍'
+            if (poi.category) {
+              if (poi.category.includes('restaurant') || poi.category.includes('food')) {
+                icon = '🍽️'
+              } else if (poi.category.includes('cafe') || poi.category.includes('coffee')) {
+                icon = '☕'
+              } else if (poi.category.includes('monument') || poi.category.includes('memorial')) {
+                icon = '🗿'
+              } else if (poi.category.includes('museum')) {
+                icon = '🏛️'
+              } else if (poi.category.includes('art_gallery') || poi.category.includes('gallery')) {
+                icon = '🎨'
+              } else if (poi.category.includes('place_of_worship') || poi.category.includes('church')) {
+                icon = '⛪'
+              } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
+                icon = '🎯'
+              }
+            }
+            el.textContent = icon
+            
+            // Create marker using TomTom API
+            const marker = new tt.default.Marker({
+              element: el,
+              anchor: 'bottom'
+            })
+              .setLngLat([poi.location.lng, poi.location.lat])
+              .addTo(map)
+            
+            // Add hover tooltip (TomTom doesn't have built-in popups like Mapbox, so we'll use title attribute)
+            el.title = `${poi.name}${poi.category ? ` - ${poi.category.replace(/_/g, ' ')}` : ''}`
+            
+            poiMarkersRef.current.push(marker)
+          }
+        })
+        
+        console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to TomTom map`)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching POIs for TomTom map:', error)
+    }
+  }, [])
+
+  // Initialize TomTom map only once on mount
+  useEffect(() => {
+    if (!mapRef.current || isInitializedRef.current) return
+
+    import('@tomtom-international/web-sdk-maps').then((tt) => {
+      if (!mapRef.current || mapInstanceRef.current) return
+
+      const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+      if (!apiKey) {
+        console.error('❌ TomTom API key is missing')
+        return
+      }
+
+      // Initialize TomTom map
+      const map = tt.default.map({
+        key: apiKey,
+        container: mapRef.current,
+        center: [lng, lat], // TomTom uses [lng, lat]
+        zoom: 16,
+        style: 'main', // TomTom's main style
+        interactive: false // Disable interaction for the circle map
+      })
+
+      mapInstanceRef.current = map
+      isInitializedRef.current = true
+      lastLatRef.current = lat
+      lastLngRef.current = lng
+
+      // Create car icon marker for user position
+      const carEl = document.createElement('div')
+      carEl.style.width = '32px'
+      carEl.style.height = '32px'
+      carEl.style.fontSize = '24px'
+      carEl.style.display = 'flex'
+      carEl.style.alignItems = 'center'
+      carEl.style.justifyContent = 'center'
+      carEl.style.transition = 'transform 0.3s ease'
+      carEl.textContent = '🚗'
+      
+      const carMarker = new tt.default.Marker({
+        element: carEl,
+        anchor: 'center'
+      })
+        .setLngLat([lng, lat])
+        .addTo(map)
+      
+      carMarkerRef.current = carMarker
+
+      // Wait for map to load, then fetch and display POIs
+      map.on('load', async () => {
+        console.log('🗺️ TomTom main map loaded, fetching nearby POIs...')
+        await updatePOIs(lat, lng, tt, map)
+      })
+
+      // Cleanup on unmount
+      return () => {
+        if (mapInstanceRef.current) {
+          poiMarkersRef.current.forEach(marker => marker.remove())
+          if (carMarkerRef.current) {
+            carMarkerRef.current.remove()
+            carMarkerRef.current = null
+          }
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+          isInitializedRef.current = false
+        }
+      }
+    }).catch((error) => {
+      console.error('❌ Failed to load TomTom Maps SDK:', error)
+    })
+
+    return () => {
+      if (mapInstanceRef.current) {
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        if (carMarkerRef.current) {
+          carMarkerRef.current.remove()
+          carMarkerRef.current = null
+        }
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        isInitializedRef.current = false
+      }
+    }
+  }, []) // Only run once on mount
+
+  // Update map center and POIs when location changes significantly
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isInitializedRef.current) return
+
+    const hasChangedSignificantly = 
+      lastLatRef.current === null || 
+      lastLngRef.current === null ||
+      Math.abs(lat - lastLatRef.current) > 0.0005 || // ~50 meters
+      Math.abs(lng - lastLngRef.current) > 0.0005
+
+    if (hasChangedSignificantly) {
+      import('@tomtom-international/web-sdk-maps').then((tt) => {
+        // Update map center
+        mapInstanceRef.current.setCenter([lng, lat])
+        
+        // Calculate bearing for car icon rotation
+        let carBearing = 0
+        if (lastLatRef.current !== null && lastLngRef.current !== null) {
+          carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
+        }
+        
+        // Update car marker position and rotation
+        if (carMarkerRef.current) {
+          carMarkerRef.current.setLngLat([lng, lat])
+          const carEl = carMarkerRef.current.getElement()
+          if (carEl) {
+            carEl.style.transform = `rotate(${carBearing}deg)`
+          }
+        }
+        
+        // Update POIs
+        updatePOIs(lat, lng, tt, mapInstanceRef.current)
       })
 
       lastLatRef.current = lat
