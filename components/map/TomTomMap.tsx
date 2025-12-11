@@ -86,12 +86,21 @@ export default function TomTomMap({
     }
 
     // Dynamically import TomTom Maps SDK
-    import('@tomtom-international/web-sdk-maps').then((tt) => {
+    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
       if (!mapContainerRef.current || mapInstanceRef.current) return
 
       try {
+        // TomTom SDK can be imported as default or named export
+        const tt = ttModule.default || ttModule
+        
+        console.log('🔧 TomTom SDK loaded, initializing map...', { 
+          hasContainer: !!mapContainerRef.current,
+          apiKey: TOMTOM_API_KEY ? 'present' : 'missing',
+          center: [center.lng, center.lat]
+        })
+
         // Initialize TomTom map
-        const map = tt.default.map({
+        const map = tt.map({
           key: TOMTOM_API_KEY,
           container: mapContainerRef.current,
           center: [center.lng, center.lat], // TomTom uses [lng, lat] format
@@ -102,18 +111,27 @@ export default function TomTomMap({
 
         mapInstanceRef.current = map
 
-        // Add click handler for map clicks (pin creation)
-        if (onMapClick && interactive) {
-          map.on('click', (e: any) => {
-            const coords = e.lngLat
-            onMapClick({
-              lat: coords.lat,
-              lng: coords.lng
+        // Wait for map to load before adding event handlers
+        map.on('load', () => {
+          console.log('🗺️ TomTom map loaded successfully')
+          
+          // Add click handler for map clicks (pin creation)
+          if (onMapClick && interactive) {
+            map.on('click', (e: any) => {
+              const coords = e.lngLat
+              onMapClick({
+                lat: coords.lat,
+                lng: coords.lng
+              })
             })
-          })
-        }
+          }
+        })
 
-        console.log('🗺️ TomTom map initialized successfully')
+        map.on('error', (e: any) => {
+          console.error('❌ TomTom map error:', e)
+        })
+
+        console.log('🗺️ TomTom map initialization started')
       } catch (error) {
         console.error('❌ Failed to initialize TomTom map:', error)
       }
@@ -170,7 +188,10 @@ export default function TomTomMap({
   useEffect(() => {
     if (!mapInstanceRef.current || !draggableMarker) return
 
-    import('@tomtom-international/web-sdk-maps').then((tt) => {
+    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+      // TomTom SDK can be imported as default or named export
+      const tt = ttModule.default || ttModule
+      
       // Remove existing draggable marker if it exists
       if (draggableMarkerRef.current) {
         draggableMarkerRef.current.remove()
@@ -187,7 +208,7 @@ export default function TomTomMap({
       markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
       markerElement.style.cursor = 'move'
 
-      const marker = new tt.default.Marker({
+      const marker = new tt.Marker({
         element: markerElement,
         anchor: 'center',
         draggable: true
@@ -211,7 +232,10 @@ export default function TomTomMap({
   useEffect(() => {
     if (!mapInstanceRef.current || draggableMarker) return // Skip if using draggable marker
 
-    import('@tomtom-international/web-sdk-maps').then((tt) => {
+    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+      // TomTom SDK can be imported as default or named export
+      const tt = ttModule.default || ttModule
+      
       // Remove old markers that are no longer in the pins array
       const currentPinIds = new Set(pins.map(pin => pin.id))
       markersRef.current.forEach((marker, pinId) => {
@@ -249,7 +273,7 @@ export default function TomTomMap({
           markerElement.style.justifyContent = 'center'
           markerElement.textContent = '📍'
 
-          const marker = new tt.default.Marker({
+          const marker = new tt.Marker({
             element: markerElement,
             anchor: 'center'
           })
@@ -270,7 +294,7 @@ export default function TomTomMap({
       // Fit bounds to show all pins if there are any
       if (pins.length > 0 && mapInstanceRef.current) {
         try {
-          const bounds = new tt.default.LngLatBounds()
+          const bounds = new tt.LngLatBounds()
           pins.forEach(pin => {
             bounds.extend([pin.lng, pin.lat])
           })
