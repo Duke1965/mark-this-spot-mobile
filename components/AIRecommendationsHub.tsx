@@ -1392,14 +1392,22 @@ export default function AIRecommendationsHub({
     
     if (!lat || !lng) return
     
-    // Check if location coordinates have actually changed (prevent unnecessary re-initialization)
+    // Only check location change if map is already initialized (prevent re-initialization on location updates)
+    // On first load, lastLocationCoordsRef.current will be null, so we allow initialization
     const lastCoords = lastLocationCoordsRef.current
-    if (lastCoords && Math.abs(lastCoords.lat - lat) < 0.0001 && Math.abs(lastCoords.lng - lng) < 0.0001) {
-      // Location hasn't changed significantly, don't re-initialize
-      return
+    if (lastCoords && isMapInitializedRef.current) {
+      // Map is already initialized and location hasn't changed significantly, don't re-initialize
+      const distance = Math.sqrt(
+        Math.pow((lastCoords.lat - lat) * 111000, 2) + 
+        Math.pow((lastCoords.lng - lng) * 111000 * Math.cos(lat * Math.PI / 180), 2)
+      )
+      if (distance < 100) {
+        // Location hasn't changed significantly (less than 100m), don't re-initialize
+        return
+      }
     }
     
-    // Store current coordinates
+    // Store current coordinates before initialization
     lastLocationCoordsRef.current = { lat, lng }
     
     const isTomTom = MAP_PROVIDER === "tomtom"
@@ -1551,7 +1559,7 @@ export default function AIRecommendationsHub({
         lastLocationCoordsRef.current = null
       }
     }
-  }, [viewMode]) // Only depend on viewMode, not location or updateRecommendationMarkers
+  }, [viewMode, location?.latitude, location?.longitude, location?.lat, location?.lng]) // Depend on location coordinates to initialize when location becomes available
 
   // Update map center when location changes significantly (without re-initializing)
   useEffect(() => {
