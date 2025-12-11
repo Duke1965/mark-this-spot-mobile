@@ -57,6 +57,24 @@ export default function TomTomMap({
   const markersRef = useRef<Map<string, any>>(new Map())
   const draggableMarkerRef = useRef<any>(null)
 
+  // Load TomTom CSS dynamically
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    // Check if CSS is already loaded
+    const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+    if (existingLink) return
+    
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+    document.head.appendChild(link)
+    
+    return () => {
+      // Don't remove on cleanup - let it persist for other map instances
+    }
+  }, [])
+
   // Initialize TomTom map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return
