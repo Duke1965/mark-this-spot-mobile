@@ -622,28 +622,49 @@ function InteractiveMainMapTomTom({
   useEffect(() => {
     if (!mapRef.current || isInitializedRef.current) return
 
-    // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
-    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-      if (!mapRef.current || mapInstanceRef.current) return
-
-      const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-      if (!apiKey) {
-        console.error('❌ TomTom API key is missing')
-        return
-      }
-
-      // TomTom SDK can be imported as default or named export
-      const tt = ttModule.default || ttModule
-
-      // Initialize TomTom map (same pattern as Mapbox)
-      const map = tt.map({
-        key: apiKey,
-        container: mapRef.current,
-        center: [lng, lat], // TomTom uses [lng, lat]
-        zoom: 16,
-        style: 'main', // TomTom's main style
-        interactive: false // Disable interaction for the circle map
+    // Ensure CSS is loaded before initializing
+    const ensureCSSLoaded = () => {
+      if (typeof window === 'undefined') return Promise.resolve()
+      
+      const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+      if (existingLink) return Promise.resolve()
+      
+      return new Promise<void>((resolve) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+        link.onload = () => resolve()
+        link.onerror = () => resolve() // Continue even if CSS fails
+        document.head.appendChild(link)
       })
+    }
+
+    // Ensure CSS is loaded, then initialize map
+    ensureCSSLoaded().then(() => {
+      // Small delay to ensure CSS is applied
+      setTimeout(() => {
+        // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
+        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+          if (!mapRef.current || mapInstanceRef.current) return
+
+          const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+          if (!apiKey) {
+            console.error('❌ TomTom API key is missing')
+            return
+          }
+
+          // TomTom SDK can be imported as default or named export
+          const tt = ttModule.default || ttModule
+
+          // Initialize TomTom map (same pattern as Mapbox)
+          const map = tt.map({
+            key: apiKey,
+            container: mapRef.current,
+            center: [lng, lat], // TomTom uses [lng, lat]
+            zoom: 16,
+            style: `https://api.tomtom.com/map/1/style/6.25.0/main`, // Use full style URL
+            interactive: false // Disable interaction for the circle map
+          })
 
       mapInstanceRef.current = map
       isInitializedRef.current = true
@@ -670,28 +691,30 @@ function InteractiveMainMapTomTom({
       
       carMarkerRef.current = carMarker
 
-      // Wait for map to load, then fetch and display POIs
-      map.on('load', async () => {
-        console.log('🗺️ TomTom main map loaded, fetching nearby POIs...')
-        await updatePOIs(lat, lng, tt, map)
-      })
-
-      // Cleanup on unmount
-      return () => {
-        if (mapInstanceRef.current) {
-          poiMarkersRef.current.forEach(marker => marker.remove())
-          if (carMarkerRef.current) {
-            carMarkerRef.current.remove()
-            carMarkerRef.current = null
-          }
-          mapInstanceRef.current.remove()
-          mapInstanceRef.current = null
-          isInitializedRef.current = false
-        }
-      }
-    }).catch((error) => {
-      console.error('❌ Failed to load TomTom Maps SDK:', error)
+          // Wait for map to load, then fetch and display POIs
+          map.on('load', async () => {
+            console.log('🗺️ TomTom main map loaded, fetching nearby POIs...')
+            await updatePOIs(lat, lng, tt, map)
+          })
+        }).catch((error) => {
+          console.error('❌ Failed to load TomTom Maps SDK:', error)
+        })
+      }, 100) // Small delay to ensure CSS is applied
     })
+
+    // Cleanup on unmount
+    return () => {
+      if (mapInstanceRef.current) {
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        if (carMarkerRef.current) {
+          carMarkerRef.current.remove()
+          carMarkerRef.current = null
+        }
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        isInitializedRef.current = false
+      }
+    }
 
     return () => {
       if (mapInstanceRef.current) {
