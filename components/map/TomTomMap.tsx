@@ -49,7 +49,8 @@ export default function TomTomMap({
   onPinClick,
   interactive = true,
   className = "",
-  style = {}
+  style = {},
+  draggableMarker
 }: TomTomMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -149,7 +150,7 @@ export default function TomTomMap({
 
   // Handle draggable marker (for editing use case)
   useEffect(() => {
-    if (!mapInstanceRef.current || !props.draggableMarker) return
+    if (!mapInstanceRef.current || !draggableMarker) return
 
     import('@tomtom-international/web-sdk-maps').then((tt) => {
       // Remove existing draggable marker if it exists
@@ -173,20 +174,20 @@ export default function TomTomMap({
         anchor: 'center',
         draggable: true
       })
-        .setLngLat([props.draggableMarker.lng, props.draggableMarker.lat])
+        .setLngLat([draggableMarker.lng, draggableMarker.lat])
         .addTo(mapInstanceRef.current)
 
       // Listen for drag end event
       marker.on('dragend', () => {
         const lngLat = marker.getLngLat()
-        props.draggableMarker!.onDragEnd(lngLat.lat, lngLat.lng)
+        draggableMarker.onDragEnd(lngLat.lat, lngLat.lng)
       })
 
       draggableMarkerRef.current = marker
     }).catch((error) => {
       console.error('❌ Failed to load TomTom SDK for draggable marker:', error)
     })
-  }, [props.draggableMarker?.lat, props.draggableMarker?.lng])
+  }, [draggableMarker?.lat, draggableMarker?.lng])
 
   // Update markers when pins change
   useEffect(() => {
