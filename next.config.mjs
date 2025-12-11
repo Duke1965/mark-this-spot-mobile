@@ -4,18 +4,17 @@ const nextConfig = {
     domains: ['placeholder.svg'],
     unoptimized: true,
   },
-  // Skip ESLint during Vercel builds (we can re-enable later if needed)
-  eslint: { ignoreDuringBuilds: true },
-
-  // Add PWA routing support to prevent refresh redirects
-  async rewrites() {
-    return [
-      {
-        source: '/(.*)',
-        destination: '/',
-      },
-    ]
-  },
+  // Transpile TomTom Maps SDK for Next.js
+  transpilePackages: ['@tomtom-international/web-sdk-maps'],
+  // Removed PWA routing support to eliminate splash screen behavior
+  // async rewrites() {
+  //   return [
+  //     {
+  //       source: '/(.*)',
+  //       destination: '/',
+  //     },
+  //   ]
+  // },
 }
 
 export default nextConfig
