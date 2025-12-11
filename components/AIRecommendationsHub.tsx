@@ -1384,27 +1384,48 @@ export default function AIRecommendationsHub({
     const isTomTom = MAP_PROVIDER === "tomtom"
     
     if (isTomTom) {
-      // Initialize TomTom map (matching Mapbox pattern)
-      import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-        if (!mapRef.current || mapInstanceRef.current) return
+      // Ensure CSS is loaded before initializing
+      const ensureCSSLoaded = () => {
+        if (typeof window === 'undefined') return Promise.resolve()
         
-        const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-        if (!apiKey) {
-          console.error('❌ TomTom API key is missing')
-          return
-        }
+        const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+        if (existingLink) return Promise.resolve()
         
-        // TomTom SDK can be imported as default or named export
-        const tt = ttModule.default || ttModule
-        
-        const map = tt.map({
-          key: apiKey,
-          container: mapRef.current,
-          center: [lng, lat],
-          zoom: 13,
-          style: 'main',
-          interactive: true
+        return new Promise<void>((resolve) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+          link.onload = () => resolve()
+          link.onerror = () => resolve() // Continue even if CSS fails
+          document.head.appendChild(link)
         })
+      }
+
+      // Ensure CSS is loaded, then initialize map
+      ensureCSSLoaded().then(() => {
+        // Small delay to ensure CSS is applied
+        setTimeout(() => {
+          // Initialize TomTom map (matching Mapbox pattern)
+          import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+            if (!mapRef.current || mapInstanceRef.current) return
+            
+            const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+            if (!apiKey) {
+              console.error('❌ TomTom API key is missing')
+              return
+            }
+            
+            // TomTom SDK can be imported as default or named export
+            const tt = ttModule.default || ttModule
+            
+            const map = tt.map({
+              key: apiKey,
+              container: mapRef.current,
+              center: [lng, lat],
+              zoom: 13,
+              style: `https://api.tomtom.com/map/1/style/6.25.0/main`, // Use full style URL
+              interactive: true
+            })
             
             mapInstanceRef.current = map
             isMapInitializedRef.current = true
@@ -1438,6 +1459,8 @@ export default function AIRecommendationsHub({
           }).catch((error) => {
             console.error('❌ Failed to load TomTom Maps SDK:', error)
           })
+        }, 100) // Small delay to ensure CSS is applied
+      })
     } else {
       // Initialize Mapbox map (existing code)
       import('mapbox-gl').then((mapboxgl) => {
