@@ -150,107 +150,107 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", position: "relative" }}>
         {/* Image Carousel - Full Width, Scrollable */}
         {allPhotos.length > 0 ? (
-          <div style={{
-            height: "280px",
-            width: "100%",
-            overflowX: "auto",
-            overflowY: "hidden",
-            display: "flex",
-            scrollSnapType: "x mandatory",
-            WebkitOverflowScrolling: "touch",
-            background: "rgba(0,0,0,0.3)"
-          }}>
-            {allPhotos.map((photoUrl, index) => (
-              <div 
-                key={`photo-${index}-${photoUrl}`} 
-                style={{
-                  minWidth: "100%",
-                  width: "100%",
-                  height: "100%",
-                  scrollSnapAlign: "start",
-                  position: "relative",
-                  flexShrink: 0
-                }}
-              >
-                <img
-                  src={photoUrl}
-                  alt={pin.title || pin.locationName}
+          <>
+            <div style={{
+              height: "280px",
+              width: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              display: "flex",
+              scrollSnapType: "x mandatory",
+              WebkitOverflowScrolling: "touch",
+              background: "rgba(0,0,0,0.3)"
+            }}>
+              {allPhotos.map((photoUrl, index) => (
+                <div 
+                  key={`photo-${index}-${photoUrl}`} 
                   style={{
+                    minWidth: "100%",
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
-                    display: "block"
-                  }}
-                  onError={(e) => {
-                    console.error("❌ Failed to load image:", photoUrl)
-                    const target = e.target as HTMLImageElement
-                    target.style.display = 'none'
-                    const fallback = target.nextElementSibling as HTMLElement
-                    if (fallback) fallback.style.display = 'flex'
-                  }}
-                  onLoad={() => {
-                    console.log("✅ Image loaded:", photoUrl.substring(0, 50))
-                  }}
-                />
-                {/* Fallback if image fails to load */}
-                <div 
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: "none",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "rgba(30, 58, 138, 0.5)"
+                    scrollSnapAlign: "start",
+                    position: "relative",
+                    flexShrink: 0
                   }}
                 >
-                  <span style={{ fontSize: "3rem" }}>📍</span>
+                  <img
+                    src={photoUrl}
+                    alt={pin.title || pin.locationName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block"
+                    }}
+                    onError={(e) => {
+                      console.error("❌ Failed to load image:", photoUrl)
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const fallback = target.nextElementSibling as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                    onLoad={() => {
+                      console.log("✅ Image loaded:", photoUrl.substring(0, 50))
+                    }}
+                  />
+                  {/* Fallback if image fails to load */}
+                  <div 
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "none",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(30, 58, 138, 0.5)"
+                    }}
+                  >
+                    <span style={{ fontSize: "3rem" }}>📍</span>
+                  </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Unsplash Attribution - Show below carousel if Unsplash image is present */}
+            {pin.unsplashImageAttribution && (
+              <div style={{
+                padding: "0.5rem 1rem",
+                fontSize: "0.75rem",
+                color: "rgba(255,255,255,0.7)",
+                textAlign: "center",
+                background: "rgba(0,0,0,0.2)",
+                borderTop: "1px solid rgba(255,255,255,0.1)"
+              }}>
+                Photo by{" "}
+                <a
+                  href={`${pin.unsplashImageAttribution.photographerProfileUrl}?utm_source=pinit&utm_medium=referral`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: "rgba(255,255,255,0.9)",
+                    textDecoration: "underline"
+                  }}
+                >
+                  {pin.unsplashImageAttribution.photographerName}
+                </a>
+                {" "}on{" "}
+                <a
+                  href={`${pin.unsplashImageAttribution.unsplashPhotoLink}?utm_source=pinit&utm_medium=referral`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: "rgba(255,255,255,0.9)",
+                    textDecoration: "underline"
+                  }}
+                >
+                  Unsplash
+                </a>
               </div>
-            ))}
-          </div>
-        ) : null}
-        
-        {/* Unsplash Attribution - Show below carousel if Unsplash image is present */}
-        {pin.unsplashImageAttribution && (
-          <div style={{
-            padding: "0.5rem 1rem",
-            fontSize: "0.75rem",
-            color: "rgba(255,255,255,0.7)",
-            textAlign: "center",
-            background: "rgba(0,0,0,0.2)",
-            borderTop: "1px solid rgba(255,255,255,0.1)"
-          }}>
-            Photo by{" "}
-            <a
-              href={`${pin.unsplashImageAttribution.photographerProfileUrl}?utm_source=pinit&utm_medium=referral`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                color: "rgba(255,255,255,0.9)",
-                textDecoration: "underline"
-              }}
-            >
-              {pin.unsplashImageAttribution.photographerName}
-            </a>
-            {" "}on{" "}
-            <a
-              href={`${pin.unsplashImageAttribution.unsplashPhotoLink}?utm_source=pinit&utm_medium=referral`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                color: "rgba(255,255,255,0.9)",
-                textDecoration: "underline"
-              }}
-            >
-              Unsplash
-            </a>
-          </div>
-        )}
-        
-        {allPhotos.length === 0 ? (
+            )}
+          </>
+        ) : (
           <div style={{
             height: "280px",
             background: "rgba(0,0,0,0.3)",
