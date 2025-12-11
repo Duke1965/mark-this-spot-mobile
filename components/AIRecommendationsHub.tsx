@@ -7,9 +7,10 @@ import { usePinStorage } from '../hooks/usePinStorage'
 import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
 import type { PinData } from '../lib/types'
+import { MAP_PROVIDER } from '../lib/mapConfig'
 import "mapbox-gl/dist/mapbox-gl.css"
 
-// Google Maps removed - migrating to Mapbox
+// Google Maps removed - migrating to Mapbox/TomTom
 
 interface Recommendation {
   id: string
@@ -1238,7 +1239,8 @@ export default function AIRecommendationsHub({
   const lastRecommendationsCountRef = useRef<number>(0)
 
   // Function to update recommendation markers on map
-  const updateRecommendationMarkers = useCallback((map: any, mapboxgl: any, shouldFitBounds: boolean = false) => {
+  // Update recommendation markers (works with both Mapbox and TomTom)
+  const updateRecommendationMarkers = useCallback((map: any, mapLib: any, shouldFitBounds: boolean = false, isTomTom: boolean = false) => {
     // Clear existing markers
     recommendationMarkersRef.current.forEach(marker => marker.remove())
     recommendationMarkersRef.current = []
@@ -1259,9 +1261,11 @@ export default function AIRecommendationsHub({
     lastRecommendationsCountRef.current = currentCount
     
     // Calculate bounds to fit all recommendations
-    const bounds = new mapboxgl.default.LngLatBounds()
     const lat = location?.latitude || location?.lat
     const lng = location?.longitude || location?.lng
+    
+    // Both Mapbox and TomTom use LngLatBounds
+    const bounds = new mapLib.default.LngLatBounds()
     
     if (lat && lng) {
       bounds.extend([lng, lat]) // Add user location
@@ -1303,29 +1307,38 @@ export default function AIRecommendationsHub({
       }
       el.textContent = icon
       
-      // Create popup with recommendation info
-      const popup = new mapboxgl.default.Popup({ 
-        offset: 25,
-        closeButton: true,
-        className: 'recommendation-popup'
-      }).setHTML(`
-        <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
-          ${rec.title}
-        </div>
-        ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
-        <div style="font-size: 11px; color: #999; margin-top: 4px;">
-          ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
-        </div>
-      `)
+      // Create marker (TomTom doesn't have popups like Mapbox, so we'll use title attribute)
+      const marker = isTomTom 
+        ? new mapLib.default.Marker({
+            element: el,
+            anchor: 'bottom'
+          })
+            .setLngLat([recLng, recLat])
+            .addTo(map)
+        : new mapLib.default.Marker({
+            element: el,
+            anchor: 'bottom'
+          })
+            .setLngLat([recLng, recLat])
+            .setPopup(new mapLib.default.Popup({ 
+              offset: 25,
+              closeButton: true,
+              className: 'recommendation-popup'
+            }).setHTML(`
+              <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
+                ${rec.title}
+              </div>
+              ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
+              <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
+              </div>
+            `))
+            .addTo(map)
       
-      // Create marker
-      const marker = new mapboxgl.default.Marker({
-        element: el,
-        anchor: 'bottom'
-      })
-        .setLngLat([recLng, recLat])
-        .setPopup(popup)
-        .addTo(map)
+      // Add tooltip for TomTom (since it doesn't have popups)
+      if (isTomTom) {
+        el.title = `${rec.title}${rec.description ? ` - ${rec.description.substring(0, 50)}...` : ''}`
+      }
       
       // Click handler to select recommendation
       el.addEventListener('click', () => {
@@ -1337,7 +1350,7 @@ export default function AIRecommendationsHub({
     })
     
     // Only fit bounds once on initial load, or when explicitly requested
-    if (shouldFitBounds && bounds.isEmpty() === false && !hasFittedBoundsRef.current) {
+    if (shouldFitBounds && bounds && !bounds.isEmpty() && !hasFittedBoundsRef.current) {
       map.fitBounds(bounds, {
         padding: { top: 50, bottom: 50, left: 50, right: 50 },
         maxZoom: 15
@@ -1345,10 +1358,10 @@ export default function AIRecommendationsHub({
       hasFittedBoundsRef.current = true
     }
     
-    console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to map`)
+    console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to ${isTomTom ? 'TomTom' : 'Mapbox'} map`)
   }, [recommendations, location])
 
-  // Initialize Mapbox map when map view is active
+  // Initialize map when map view is active (supports both Mapbox and TomTom)
   useEffect(() => {
     if (viewMode !== "map" || !mapRef.current || !location || isMapInitializedRef.current) return
     
@@ -1357,53 +1370,107 @@ export default function AIRecommendationsHub({
     
     if (!lat || !lng) return
     
-    // Dynamically import Mapbox GL
-    import('mapbox-gl').then((mapboxgl) => {
-      if (!mapRef.current || mapInstanceRef.current) return
-      
-      // Set Mapbox access token
-      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
-      
-      // Initialize Mapbox map
-      const map = new mapboxgl.default.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [lng, lat],
-        zoom: 13, // Good zoom for seeing multiple recommendations
-        attributionControl: true,
-        interactive: true, // Enable interaction for recommendations map
+    const isTomTom = MAP_PROVIDER === "tomtom"
+    
+    if (isTomTom) {
+      // Initialize TomTom map
+      import('@tomtom-international/web-sdk-maps').then((tt) => {
+        if (!mapRef.current || mapInstanceRef.current) return
+        
+        const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+        if (!apiKey) {
+          console.error('❌ TomTom API key is missing')
+          return
+        }
+        
+        const map = tt.default.map({
+          key: apiKey,
+          container: mapRef.current,
+          center: [lng, lat],
+          zoom: 13,
+          style: 'main',
+          interactive: true
+        })
+        
+        mapInstanceRef.current = map
+        isMapInitializedRef.current = true
+        
+        // Add user location marker
+        const userEl = document.createElement('div')
+        userEl.style.width = '20px'
+        userEl.style.height = '20px'
+        userEl.style.borderRadius = '50%'
+        userEl.style.backgroundColor = '#22C55E'
+        userEl.style.border = '3px solid white'
+        userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+        userEl.style.cursor = 'pointer'
+        userEl.title = '📍 Your Location'
+        
+        const userMarker = new tt.default.Marker({
+          element: userEl,
+          anchor: 'center'
+        })
+          .setLngLat([lng, lat])
+          .addTo(map)
+        
+        userMarkerRef.current = userMarker
+        
+        // Wait for map to load, then add recommendation markers
+        map.on('load', () => {
+          console.log('🗺️ TomTom recommendations map loaded')
+          hasFittedBoundsRef.current = false
+          updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
+        })
+      }).catch((error) => {
+        console.error('❌ Failed to load TomTom Maps SDK:', error)
       })
-      
-      mapInstanceRef.current = map
-      isMapInitializedRef.current = true
-      
-      // Add user location marker
-      const userEl = document.createElement('div')
-      userEl.style.width = '20px'
-      userEl.style.height = '20px'
-      userEl.style.borderRadius = '50%'
-      userEl.style.backgroundColor = '#22C55E'
-      userEl.style.border = '3px solid white'
-      userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-      userEl.style.cursor = 'pointer'
-      
-      const userMarker = new mapboxgl.default.Marker({
-        element: userEl,
-        anchor: 'center'
+    } else {
+      // Initialize Mapbox map (existing code)
+      import('mapbox-gl').then((mapboxgl) => {
+        if (!mapRef.current || mapInstanceRef.current) return
+        
+        mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
+        
+        const map = new mapboxgl.default.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [lng, lat],
+          zoom: 13,
+          attributionControl: true,
+          interactive: true,
+        })
+        
+        mapInstanceRef.current = map
+        isMapInitializedRef.current = true
+        
+        // Add user location marker
+        const userEl = document.createElement('div')
+        userEl.style.width = '20px'
+        userEl.style.height = '20px'
+        userEl.style.borderRadius = '50%'
+        userEl.style.backgroundColor = '#22C55E'
+        userEl.style.border = '3px solid white'
+        userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+        userEl.style.cursor = 'pointer'
+        
+        const userMarker = new mapboxgl.default.Marker({
+          element: userEl,
+          anchor: 'center'
+        })
+          .setLngLat([lng, lat])
+          .setPopup(new mapboxgl.default.Popup().setHTML('<div style="font-weight: 600; color: #1e3a8a;">📍 Your Location</div>'))
+          .addTo(map)
+        
+        userMarkerRef.current = userMarker
+        
+        // Wait for map to load, then add recommendation markers
+        map.on('load', () => {
+          console.log('🗺️ Mapbox recommendations map loaded')
+          hasFittedBoundsRef.current = false
+          updateRecommendationMarkers(map, mapboxgl, true, false) // Fit bounds on initial load
+        })
       })
-        .setLngLat([lng, lat])
-        .setPopup(new mapboxgl.default.Popup().setHTML('<div style="font-weight: 600; color: #1e3a8a;">📍 Your Location</div>'))
-        .addTo(map)
-      
-      userMarkerRef.current = userMarker
-      
-      // Wait for map to load, then add recommendation markers
-      map.on('load', () => {
-        console.log('🗺️ Recommendations map loaded')
-        hasFittedBoundsRef.current = false // Reset on new map load
-        updateRecommendationMarkers(map, mapboxgl, true) // Fit bounds on initial load
-      })
-    })
+    }
     
     // Cleanup
     return () => {
@@ -1420,17 +1487,24 @@ export default function AIRecommendationsHub({
         lastRecommendationsCountRef.current = 0
       }
     }
-  }, [viewMode, location]) // Removed updateRecommendationMarkers from deps to prevent re-init
+  }, [viewMode, location, updateRecommendationMarkers])
 
   // Update markers when recommendations change (but don't fit bounds again)
   useEffect(() => {
     if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
-      import('mapbox-gl').then((mapboxgl) => {
-        // Only update markers, don't fit bounds (prevents zooming out)
-        updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false)
-      })
+      const isTomTom = MAP_PROVIDER === "tomtom"
+      
+      if (isTomTom) {
+        import('@tomtom-international/web-sdk-maps').then((tt) => {
+          updateRecommendationMarkers(mapInstanceRef.current, tt, false, true)
+        })
+      } else {
+        import('mapbox-gl').then((mapboxgl) => {
+          updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false, false)
+        })
+      }
     }
-  }, [recommendations.length, viewMode]) // Only depend on count, not the full array
+  }, [recommendations.length, viewMode, updateRecommendationMarkers]) // Only depend on count, not the full array
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
