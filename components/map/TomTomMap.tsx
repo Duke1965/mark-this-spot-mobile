@@ -56,6 +56,47 @@ export default function TomTomMap({
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
   const draggableMarkerRef = useRef<any>(null)
+  const isMapLoadedRef = useRef<boolean>(false)
+
+  // Helper function to add draggable marker
+  const addDraggableMarker = (map: any, tt: any, markerData: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) => {
+    try {
+      // Remove existing draggable marker if it exists
+      if (draggableMarkerRef.current) {
+        draggableMarkerRef.current.remove()
+        draggableMarkerRef.current = null
+      }
+
+      // Create draggable marker
+      const markerElement = document.createElement('div')
+      markerElement.style.width = '32px'
+      markerElement.style.height = '32px'
+      markerElement.style.borderRadius = '50%'
+      markerElement.style.backgroundColor = '#3B82F6'
+      markerElement.style.border = '3px solid white'
+      markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+      markerElement.style.cursor = 'move'
+
+      const marker = new tt.Marker({
+        element: markerElement,
+        anchor: 'center',
+        draggable: true
+      })
+        .setLngLat([markerData.lng, markerData.lat])
+        .addTo(map)
+
+      // Listen for drag end event
+      marker.on('dragend', () => {
+        const lngLat = marker.getLngLat()
+        markerData.onDragEnd(lngLat.lat, lngLat.lng)
+      })
+
+      draggableMarkerRef.current = marker
+      console.log('📍 Draggable marker added to TomTom map:', { lat: markerData.lat, lng: markerData.lng })
+    } catch (error) {
+      console.error('❌ Failed to add draggable marker:', error)
+    }
+  }
 
   // Initialize TomTom map (matching Mapbox pattern - simple and direct)
   useEffect(() => {
@@ -118,6 +159,7 @@ export default function TomTomMap({
             // Wait for map to load before adding event handlers
             map.on('load', () => {
               console.log('🗺️ TomTom map loaded successfully')
+              isMapLoadedRef.current = true
               
               // Add click handler for map clicks (pin creation)
               if (onMapClick && interactive) {
@@ -128,6 +170,13 @@ export default function TomTomMap({
                     lng: coords.lng
                   })
                 })
+              }
+              
+              // Add draggable marker if provided (after map is loaded)
+              // Use the current draggableMarker prop value
+              const currentDraggableMarker = draggableMarker
+              if (currentDraggableMarker) {
+                addDraggableMarker(map, tt, currentDraggableMarker)
               }
             })
 
@@ -193,44 +242,20 @@ export default function TomTomMap({
     if (!mapInstanceRef.current || !draggableMarker) return
 
     import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-      // TomTom SDK can be imported as default or named export
       const tt = ttModule.default || ttModule
       
-      // Remove existing draggable marker if it exists
-      if (draggableMarkerRef.current) {
-        draggableMarkerRef.current.remove()
-        draggableMarkerRef.current = null
+      // If map is already loaded, add marker immediately
+      if (isMapLoadedRef.current) {
+        addDraggableMarker(mapInstanceRef.current, tt, draggableMarker)
+      } else {
+        // If map is not loaded yet, wait for it to load
+        // The marker will be added in the 'load' event handler
+        console.log('⏳ Waiting for map to load before adding draggable marker...')
       }
-
-      // Create draggable marker
-      const markerElement = document.createElement('div')
-      markerElement.style.width = '32px'
-      markerElement.style.height = '32px'
-      markerElement.style.borderRadius = '50%'
-      markerElement.style.backgroundColor = '#3B82F6'
-      markerElement.style.border = '3px solid white'
-      markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-      markerElement.style.cursor = 'move'
-
-      const marker = new tt.Marker({
-        element: markerElement,
-        anchor: 'center',
-        draggable: true
-      })
-        .setLngLat([draggableMarker.lng, draggableMarker.lat])
-        .addTo(mapInstanceRef.current)
-
-      // Listen for drag end event
-      marker.on('dragend', () => {
-        const lngLat = marker.getLngLat()
-        draggableMarker.onDragEnd(lngLat.lat, lngLat.lng)
-      })
-
-      draggableMarkerRef.current = marker
     }).catch((error) => {
       console.error('❌ Failed to load TomTom SDK for draggable marker:', error)
     })
-  }, [draggableMarker?.lat, draggableMarker?.lng])
+  }, [draggableMarker?.lat, draggableMarker?.lng, draggableMarker?.onDragEnd])
 
   // Update markers when pins change
   useEffect(() => {
