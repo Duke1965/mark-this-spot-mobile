@@ -33,6 +33,17 @@ import { MAP_PROVIDER } from "@/lib/mapConfig"
 import TomTomMap from "@/components/map/TomTomMap"
 import "mapbox-gl/dist/mapbox-gl.css"
 
+// Load TomTom CSS early (similar to Mapbox CSS import)
+if (typeof window !== 'undefined' && MAP_PROVIDER === "tomtom") {
+  const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+  if (!existingLink) {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+    document.head.appendChild(link)
+  }
+}
+
 
 
 interface GooglePlace {
@@ -607,30 +618,25 @@ function InteractiveMainMapTomTom({
     }
   }, [])
 
-  // Initialize TomTom map only once on mount
+  // Initialize TomTom map only once on mount (matching Mapbox pattern)
   useEffect(() => {
     if (!mapRef.current || isInitializedRef.current) return
 
-      import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-        if (!mapRef.current || mapInstanceRef.current) return
+    // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
+    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+      if (!mapRef.current || mapInstanceRef.current) return
 
-        const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-        if (!apiKey) {
-          console.error('❌ TomTom API key is missing')
-          return
-        }
+      const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+      if (!apiKey) {
+        console.error('❌ TomTom API key is missing')
+        return
+      }
 
-        // TomTom SDK can be imported as default or named export
-        const tt = ttModule.default || ttModule
+      // TomTom SDK can be imported as default or named export
+      const tt = ttModule.default || ttModule
 
-        console.log('🔧 TomTom SDK loaded for main map, initializing...', { 
-          hasContainer: !!mapRef.current,
-          apiKey: apiKey ? 'present' : 'missing',
-          center: [lng, lat]
-        })
-
-        // Initialize TomTom map
-        const map = tt.map({
+      // Initialize TomTom map (same pattern as Mapbox)
+      const map = tt.map({
         key: apiKey,
         container: mapRef.current,
         center: [lng, lat], // TomTom uses [lng, lat]
