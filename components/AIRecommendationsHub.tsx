@@ -117,6 +117,7 @@ export default function AIRecommendationsHub({
   const recommendationMarkersRef = useRef<any[]>([])
   const userMarkerRef = useRef<any>(null)
   const isMapInitializedRef = useRef<boolean>(false)
+  const lastLocationCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
   
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
@@ -1391,6 +1392,16 @@ export default function AIRecommendationsHub({
     
     if (!lat || !lng) return
     
+    // Check if location coordinates have actually changed (prevent unnecessary re-initialization)
+    const lastCoords = lastLocationCoordsRef.current
+    if (lastCoords && Math.abs(lastCoords.lat - lat) < 0.0001 && Math.abs(lastCoords.lng - lng) < 0.0001) {
+      // Location hasn't changed significantly, don't re-initialize
+      return
+    }
+    
+    // Store current coordinates
+    lastLocationCoordsRef.current = { lat, lng }
+    
     const isTomTom = MAP_PROVIDER === "tomtom"
     
     if (isTomTom) {
@@ -1523,9 +1534,10 @@ export default function AIRecommendationsHub({
       })
     }
     
-    // Cleanup
+    // Cleanup only when viewMode changes or component unmounts
     return () => {
-      if (mapInstanceRef.current) {
+      // Only cleanup if viewMode is changing away from map
+      if (viewMode !== "map" && mapInstanceRef.current) {
         recommendationMarkersRef.current.forEach(marker => marker.remove())
         if (userMarkerRef.current) {
           userMarkerRef.current.remove()
@@ -1536,9 +1548,48 @@ export default function AIRecommendationsHub({
         isMapInitializedRef.current = false
         hasFittedBoundsRef.current = false
         lastRecommendationsCountRef.current = 0
+        lastLocationCoordsRef.current = null
       }
     }
-  }, [viewMode, location, updateRecommendationMarkers])
+  }, [viewMode]) // Only depend on viewMode, not location or updateRecommendationMarkers
+
+  // Update map center when location changes significantly (without re-initializing)
+  useEffect(() => {
+    if (viewMode !== "map" || !mapInstanceRef.current || !isMapInitializedRef.current || !location) return
+    
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    
+    if (!lat || !lng) return
+    
+    // Only update if location has changed significantly (more than 100m)
+    const lastCoords = lastLocationCoordsRef.current
+    if (lastCoords) {
+      const distance = Math.sqrt(
+        Math.pow((lastCoords.lat - lat) * 111000, 2) + 
+        Math.pow((lastCoords.lng - lng) * 111000 * Math.cos(lat * Math.PI / 180), 2)
+      )
+      if (distance < 100) {
+        // Location hasn't changed significantly, don't update
+        return
+      }
+    }
+    
+    // Update map center
+    try {
+      mapInstanceRef.current.setCenter([lng, lat])
+      
+      // Update user marker position
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLngLat([lng, lat])
+      }
+      
+      // Update stored coordinates
+      lastLocationCoordsRef.current = { lat, lng }
+    } catch (error) {
+      console.warn('⚠️ Error updating map center:', error)
+    }
+  }, [location?.latitude, location?.longitude, location?.lat, location?.lng, viewMode])
 
   // Update markers when recommendations change (but don't fit bounds again)
   useEffect(() => {
