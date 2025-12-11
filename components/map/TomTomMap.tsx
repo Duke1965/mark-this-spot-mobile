@@ -191,7 +191,7 @@ export default function TomTomMap({
 
   // Update markers when pins change
   useEffect(() => {
-    if (!mapInstanceRef.current || props.draggableMarker) return // Skip if using draggable marker
+    if (!mapInstanceRef.current || draggableMarker) return // Skip if using draggable marker
 
     import('@tomtom-international/web-sdk-maps').then((tt) => {
       // Remove old markers that are no longer in the pins array
