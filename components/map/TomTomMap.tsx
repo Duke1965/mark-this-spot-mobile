@@ -67,50 +67,80 @@ export default function TomTomMap({
       return
     }
 
-    // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
-    import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-      if (!mapContainerRef.current || mapInstanceRef.current) return
+    // Ensure CSS is loaded before initializing (check if link exists)
+    const ensureCSSLoaded = () => {
+      if (typeof window === 'undefined') return Promise.resolve()
+      
+      const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+      if (existingLink) return Promise.resolve()
+      
+      return new Promise<void>((resolve) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+        link.onload = () => resolve()
+        link.onerror = () => resolve() // Continue even if CSS fails
+        document.head.appendChild(link)
+      })
+    }
 
-      try {
-        // TomTom SDK can be imported as default or named export
-        const tt = ttModule.default || ttModule
+    // Ensure CSS is loaded, then initialize map
+    ensureCSSLoaded().then(() => {
+      // Small delay to ensure CSS is applied
+      setTimeout(() => {
+        // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
+        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+          if (!mapContainerRef.current || mapInstanceRef.current) return
 
-        // Initialize TomTom map (same pattern as Mapbox)
-        const map = tt.map({
-          key: TOMTOM_API_KEY,
-          container: mapContainerRef.current,
-          center: [center.lng, center.lat], // TomTom uses [lng, lat] format
-          zoom: zoom,
-          style: 'main', // TomTom's main style (similar to streets-v12)
-          interactive: interactive
-        })
+          try {
+            // TomTom SDK can be imported as default or named export
+            const tt = ttModule.default || ttModule
 
-        mapInstanceRef.current = map
-
-        // Wait for map to load before adding event handlers
-        map.on('load', () => {
-          console.log('🗺️ TomTom map loaded successfully')
-          
-          // Add click handler for map clicks (pin creation)
-          if (onMapClick && interactive) {
-            map.on('click', (e: any) => {
-              const coords = e.lngLat
-              onMapClick({
-                lat: coords.lat,
-                lng: coords.lng
-              })
+            console.log('🔧 Initializing TomTom map...', {
+              hasContainer: !!mapContainerRef.current,
+              apiKey: TOMTOM_API_KEY ? 'present' : 'missing',
+              center: [center.lng, center.lat]
             })
-          }
-        })
 
-        map.on('error', (e: any) => {
-          console.error('❌ TomTom map error:', e)
+            // Initialize TomTom map - try without style first, or use full style URL
+            const map = tt.map({
+              key: TOMTOM_API_KEY,
+              container: mapContainerRef.current,
+              center: [center.lng, center.lat], // TomTom uses [lng, lat] format
+              zoom: zoom,
+              // Use style URL format instead of string
+              style: `https://api.tomtom.com/map/1/style/6.25.0/main`,
+              interactive: interactive
+            })
+
+            mapInstanceRef.current = map
+
+            // Wait for map to load before adding event handlers
+            map.on('load', () => {
+              console.log('🗺️ TomTom map loaded successfully')
+              
+              // Add click handler for map clicks (pin creation)
+              if (onMapClick && interactive) {
+                map.on('click', (e: any) => {
+                  const coords = e.lngLat
+                  onMapClick({
+                    lat: coords.lat,
+                    lng: coords.lng
+                  })
+                })
+              }
+            })
+
+            map.on('error', (e: any) => {
+              console.error('❌ TomTom map error:', e)
+            })
+          } catch (error) {
+            console.error('❌ Failed to initialize TomTom map:', error)
+          }
+        }).catch((error) => {
+          console.error('❌ Failed to load TomTom Maps SDK:', error)
         })
-      } catch (error) {
-        console.error('❌ Failed to initialize TomTom map:', error)
-      }
-    }).catch((error) => {
-      console.error('❌ Failed to load TomTom Maps SDK:', error)
+      }, 100) // Small delay to ensure CSS is applied
     })
 
     // Cleanup on unmount
