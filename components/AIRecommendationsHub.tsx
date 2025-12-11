@@ -1453,7 +1453,7 @@ export default function AIRecommendationsHub({
               key: apiKey,
               container: mapRef.current,
               center: [lng, lat],
-              zoom: 17, // Zoom level to show approximately 1km
+              zoom: 16, // Zoom level to show approximately 1km (street level)
               // style: 'main', // Try omitting style to use default
               interactive: true
             })
@@ -1780,6 +1780,99 @@ export default function AIRecommendationsHub({
                 overflow: 'hidden'
               }}
             />
+            
+            {/* User Recommendations and AI Recommendations buttons - centered on map */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              gap: '12px',
+              zIndex: 5,
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <button 
+                onClick={async () => {
+                  console.log('👥 Switching to User Recommendations')
+                  setRecommendationFilter('user')
+                  // Load user recommendations
+                  try {
+                    const userRecs = await getUserRecommendations()
+                    setFilteredRecommendations(userRecs)
+                    console.log(`👥 Loaded ${userRecs.length} user recommendations`)
+                  } catch (error) {
+                    console.error('Error loading user recommendations:', error)
+                  }
+                  // Switch to list view to show filtered recommendations
+                  setViewMode('list')
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  color: '#1e3a8a',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  backdropFilter: 'blur(10px)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,1)'
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
+                  e.currentTarget.style.transform = 'scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                }}
+              >
+                👥 User Recommendations
+              </button>
+              
+              <button 
+                onClick={() => {
+                  console.log('🤖 Switching to AI Recommendations')
+                  setRecommendationFilter('ai')
+                  // Filter AI recommendations
+                  const aiRecs = recommendations.filter(rec => rec.isAISuggestion === true)
+                  setFilteredRecommendations(aiRecs)
+                  console.log(`🤖 Loaded ${aiRecs.length} AI recommendations`)
+                  // Switch to list view to show filtered recommendations
+                  setViewMode('list')
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  color: '#1e3a8a',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  backdropFilter: 'blur(10px)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,1)'
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
+                  e.currentTarget.style.transform = 'scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                }}
+              >
+                🤖 AI Recommendations
+              </button>
+            </div>
           </div>
         )}
 
