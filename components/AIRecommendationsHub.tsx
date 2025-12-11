@@ -1371,7 +1371,8 @@ export default function AIRecommendationsHub({
         try {
           map.fitBounds(bounds, {
             padding: { top: 50, bottom: 50, left: 50, right: 50 },
-            maxZoom: 16 // Increased max zoom for better detail
+            maxZoom: 18, // Max zoom to show approximately 1km
+            minZoom: 16 // Min zoom to prevent zooming out too much
           })
           hasFittedBoundsRef.current = true
         } catch (error) {
@@ -1452,7 +1453,7 @@ export default function AIRecommendationsHub({
               key: apiKey,
               container: mapRef.current,
               center: [lng, lat],
-              zoom: 15, // Increased zoom level for better detail
+              zoom: 17, // Zoom level to show approximately 1km
               // style: 'main', // Try omitting style to use default
               interactive: true
             })
