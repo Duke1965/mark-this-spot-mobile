@@ -657,12 +657,13 @@ function InteractiveMainMapTomTom({
           const tt = ttModule.default || ttModule
 
           // Initialize TomTom map (same pattern as Mapbox)
+          // Note: Omitting style parameter uses default style
           const map = tt.map({
             key: apiKey,
             container: mapRef.current,
             center: [lng, lat], // TomTom uses [lng, lat]
             zoom: 16,
-            style: `https://api.tomtom.com/map/1/style/6.25.0/main`, // Use full style URL
+            // style: 'main', // Try omitting style to use default
             interactive: false // Disable interaction for the circle map
           })
 
