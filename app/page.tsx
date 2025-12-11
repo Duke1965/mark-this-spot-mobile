@@ -586,7 +586,7 @@ function InteractiveMainMapTomTom({
             el.textContent = icon
             
             // Create marker using TomTom API
-            const marker = new tt.default.Marker({
+            const marker = new tt.Marker({
               element: el,
               anchor: 'bottom'
             })
@@ -611,17 +611,26 @@ function InteractiveMainMapTomTom({
   useEffect(() => {
     if (!mapRef.current || isInitializedRef.current) return
 
-    import('@tomtom-international/web-sdk-maps').then((tt) => {
-      if (!mapRef.current || mapInstanceRef.current) return
+      import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+        if (!mapRef.current || mapInstanceRef.current) return
 
-      const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-      if (!apiKey) {
-        console.error('❌ TomTom API key is missing')
-        return
-      }
+        const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+        if (!apiKey) {
+          console.error('❌ TomTom API key is missing')
+          return
+        }
 
-      // Initialize TomTom map
-      const map = tt.default.map({
+        // TomTom SDK can be imported as default or named export
+        const tt = ttModule.default || ttModule
+
+        console.log('🔧 TomTom SDK loaded for main map, initializing...', { 
+          hasContainer: !!mapRef.current,
+          apiKey: apiKey ? 'present' : 'missing',
+          center: [lng, lat]
+        })
+
+        // Initialize TomTom map
+        const map = tt.map({
         key: apiKey,
         container: mapRef.current,
         center: [lng, lat], // TomTom uses [lng, lat]
@@ -646,7 +655,7 @@ function InteractiveMainMapTomTom({
       carEl.style.transition = 'transform 0.3s ease'
       carEl.textContent = '🚗'
       
-      const carMarker = new tt.default.Marker({
+      const carMarker = new tt.Marker({
         element: carEl,
         anchor: 'center'
       })
