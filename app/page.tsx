@@ -1682,6 +1682,48 @@ export default function PINITApp() {
       // Only generate AI content as fallback if OSM data is missing
       const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
       
+      // Extract category from place description or AI content for Unsplash search
+      let placeCategory: string | undefined = undefined
+      if (placeDescription) {
+        // Try to infer category from description
+        const descLower = placeDescription.toLowerCase()
+        if (descLower.includes('restaurant') || descLower.includes('cafe') || descLower.includes('food')) {
+          placeCategory = 'restaurant'
+        } else if (descLower.includes('beach') || descLower.includes('coast')) {
+          placeCategory = 'beach'
+        } else if (descLower.includes('mountain') || descLower.includes('hill')) {
+          placeCategory = 'mountain'
+        } else if (descLower.includes('museum') || descLower.includes('gallery')) {
+          placeCategory = 'museum'
+        } else if (descLower.includes('park') || descLower.includes('garden')) {
+          placeCategory = 'park'
+        }
+      }
+      
+      // Fetch Unsplash image for this location (non-blocking - don't fail pin creation if this fails)
+      let unsplashImageData = null
+      try {
+        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
+        // Extract city from locationName if available (format: "Place Name, City")
+        const cityMatch = (placeName || locationDescription || '').match(/,\s*([^,]+)$/)
+        const city = cityMatch ? cityMatch[1].trim() : undefined
+        
+        unsplashImageData = await fetchLocationImageForPlace({
+          name: placeName || locationDescription || '',
+          city: city,
+          category: placeCategory
+        })
+        
+        if (unsplashImageData) {
+          console.log("🖼️ Unsplash image fetched successfully:", unsplashImageData.photographerName)
+        } else {
+          console.log("🖼️ No Unsplash image found for this location")
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch Unsplash image (non-critical):", error)
+        // Continue with pin creation even if Unsplash fails
+      }
+      
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
@@ -1700,7 +1742,15 @@ export default function PINITApp() {
         // NEW: Store all photos for the carousel
         additionalPhotos: locationPhotos,
         // NEW: Mark as pending - needs location confirmation via edit mode
-        isPending: true
+        isPending: true,
+        // Unsplash image data (if available)
+        unsplashImageUrl: unsplashImageData?.imageUrl,
+        unsplashImageUrlLarge: unsplashImageData?.imageUrlLarge,
+        unsplashImageAttribution: unsplashImageData ? {
+          photographerName: unsplashImageData.photographerName,
+          photographerProfileUrl: unsplashImageData.photographerProfileUrl,
+          unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
+        } : undefined
       }
 
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
@@ -2440,6 +2490,43 @@ export default function PINITApp() {
         }
       }
       
+      // Extract category for Unsplash search
+      let placeCategory: string | undefined = undefined
+      if (placeDescription) {
+        const descLower = placeDescription.toLowerCase()
+        if (descLower.includes('restaurant') || descLower.includes('cafe') || descLower.includes('food')) {
+          placeCategory = 'restaurant'
+        } else if (descLower.includes('beach') || descLower.includes('coast')) {
+          placeCategory = 'beach'
+        } else if (descLower.includes('mountain') || descLower.includes('hill')) {
+          placeCategory = 'mountain'
+        } else if (descLower.includes('museum') || descLower.includes('gallery')) {
+          placeCategory = 'museum'
+        } else if (descLower.includes('park') || descLower.includes('garden')) {
+          placeCategory = 'park'
+        }
+      }
+      
+      // Fetch Unsplash image for this location (non-blocking)
+      let unsplashImageData = null
+      try {
+        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
+        const cityMatch = (placeName || editingPin.locationName || '').match(/,\s*([^,]+)$/)
+        const city = cityMatch ? cityMatch[1].trim() : undefined
+        
+        unsplashImageData = await fetchLocationImageForPlace({
+          name: placeName || editingPin.locationName || '',
+          city: city,
+          category: placeCategory
+        })
+        
+        if (unsplashImageData) {
+          console.log("🖼️ Unsplash image fetched for edited pin:", unsplashImageData.photographerName)
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch Unsplash image for edited pin (non-critical):", error)
+      }
+      
       // Update the pin with new location and data
       // PRIORITIZE Foursquare data over AI-generated content
       const updatedPin: PinData = {
@@ -2456,7 +2543,15 @@ export default function PINITApp() {
         additionalPhotos: locationPhotos.length > 0 ? locationPhotos : (editingPin.additionalPhotos || []),
         tags: aiGeneratedContent.tags || editingPin.tags || [],
         // Mark as completed (no longer pending) - user can edit again later if needed
-        isPending: false
+        isPending: false,
+        // Unsplash image data (if available)
+        unsplashImageUrl: unsplashImageData?.imageUrl,
+        unsplashImageUrlLarge: unsplashImageData?.imageUrlLarge,
+        unsplashImageAttribution: unsplashImageData ? {
+          photographerName: unsplashImageData.photographerName,
+          photographerProfileUrl: unsplashImageData.photographerProfileUrl,
+          unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
+        } : editingPin.unsplashImageAttribution // Keep existing attribution if new fetch fails
       }
       
       console.log("✅ Pin updated with new location and data:", {
