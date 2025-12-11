@@ -287,20 +287,57 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
       return R * c
     }
     
-    return data.items.map((place: any) => {
-      const placeLat = place.location?.lat || place.latitude || lat
-      const placeLng = place.location?.lng || place.longitude || lng
-      const distance = calculateDistance(lat, lng, placeLat, placeLng)
-      
-      return {
-        id: place.fsq_id || place.id || `place-${Math.random().toString(36).substr(2, 9)}`,
-        name: place.title || place.name,
-        categories: place.category ? [place.category] : (place.categories || []),
-        distance_m: Math.round(distance),
-        lat: placeLat,
-        lng: placeLng
-      }
-    })
+    // Filter to only travel-related places (restaurants, cafes, museums, galleries, tourism, monuments)
+    // Exclude: supermarkets, gas stations, convenience stores, banks, ATMs, etc.
+    const travelCategories = [
+      'restaurant', 'cafe', 'coffee', 'food', 'dining', 'catering',
+      'museum', 'art_gallery', 'gallery', 'art', 'cultural',
+      'tourism', 'tourist', 'attraction', 'sightseeing',
+      'monument', 'memorial', 'landmark', 'historic',
+      'theater', 'cinema', 'entertainment', 'venue',
+      'park', 'garden', 'beach', 'nature', 'outdoor',
+      'hotel', 'lodging', 'accommodation',
+      'place_of_worship', 'church', 'temple', 'mosque', 'synagogue'
+    ]
+    
+    const excludeCategories = [
+      'supermarket', 'grocery', 'convenience', 'store', 'shop',
+      'gas_station', 'fuel', 'petrol', 'gas',
+      'bank', 'atm', 'financial',
+      'pharmacy', 'drugstore',
+      'post_office', 'postal',
+      'car_rental', 'car_dealer', 'automotive',
+      'hardware', 'home_garden', 'furniture'
+    ]
+    
+    return data.items
+      .map((place: any) => {
+        const placeLat = place.location?.lat || place.latitude || lat
+        const placeLng = place.location?.lng || place.longitude || lng
+        const distance = calculateDistance(lat, lng, placeLat, placeLng)
+        
+        const placeCategories = place.category ? [place.category] : (place.categories || [])
+        const categoryStr = placeCategories.join(' ').toLowerCase()
+        
+        // Check if place matches travel categories
+        const isTravelRelated = travelCategories.some(cat => categoryStr.includes(cat))
+        // Check if place should be excluded
+        const shouldExclude = excludeCategories.some(cat => categoryStr.includes(cat))
+        
+        if (!isTravelRelated || shouldExclude) {
+          return null // Filter out non-travel places
+        }
+        
+        return {
+          id: place.fsq_id || place.id || `place-${Math.random().toString(36).substr(2, 9)}`,
+          name: place.title || place.name,
+          categories: placeCategories,
+          distance_m: Math.round(distance),
+          lat: placeLat,
+          lng: placeLng
+        }
+      })
+      .filter((place: any) => place !== null) // Remove filtered out places
   } catch (error) {
     console.error('❌ Foursquare places error:', error)
     throw error
