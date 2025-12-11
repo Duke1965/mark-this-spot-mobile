@@ -1364,22 +1364,9 @@ export default function AIRecommendationsHub({
       recommendationMarkersRef.current.push(marker)
     })
     
-    // Only fit bounds once on initial load, or when explicitly requested
-    if (shouldFitBounds && bounds && !bounds.isEmpty() && !hasFittedBoundsRef.current) {
-      // Use requestAnimationFrame to ensure map is ready before fitting bounds
-      requestAnimationFrame(() => {
-        try {
-          map.fitBounds(bounds, {
-            padding: { top: 50, bottom: 50, left: 50, right: 50 },
-            maxZoom: 18, // Max zoom to show approximately 1km
-            minZoom: 16 // Min zoom to prevent zooming out too much
-          })
-          hasFittedBoundsRef.current = true
-        } catch (error) {
-          console.warn('⚠️ Error fitting bounds:', error)
-        }
-      })
-    }
+    // Don't use fitBounds - keep fixed zoom level to match main page circle map (zoom: 16)
+    // This ensures consistent view between main page and recommendations page
+    // The map is already initialized with zoom: 16, matching the main page
     
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to ${isTomTom ? 'TomTom' : 'Mapbox'} map`)
   }, [recommendations, location])
@@ -1486,8 +1473,7 @@ export default function AIRecommendationsHub({
               console.log('🗺️ TomTom recommendations map loaded')
               // Small delay to ensure map is fully rendered before adding markers
               setTimeout(() => {
-                hasFittedBoundsRef.current = false
-                updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
+                updateRecommendationMarkers(map, tt, false, true) // Don't fit bounds - use fixed zoom to match main page
               }, 100)
             })
           }).catch((error) => {
@@ -1537,8 +1523,7 @@ export default function AIRecommendationsHub({
         // Wait for map to load, then add recommendation markers
         map.on('load', () => {
           console.log('🗺️ Mapbox recommendations map loaded')
-          hasFittedBoundsRef.current = false
-          updateRecommendationMarkers(map, mapboxgl, true, false) // Fit bounds on initial load
+          updateRecommendationMarkers(map, mapboxgl, false, false) // Don't fit bounds - use fixed zoom to match main page
         })
       })
     }
