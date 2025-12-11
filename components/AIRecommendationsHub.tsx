@@ -1374,7 +1374,7 @@ export default function AIRecommendationsHub({
     
     if (isTomTom) {
       // Initialize TomTom map
-      import('@tomtom-international/web-sdk-maps').then((tt) => {
+      import('@tomtom-international/web-sdk-maps').then((ttModule) => {
         if (!mapRef.current || mapInstanceRef.current) return
         
         const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
@@ -1383,7 +1383,16 @@ export default function AIRecommendationsHub({
           return
         }
         
-        const map = tt.default.map({
+        // TomTom SDK can be imported as default or named export
+        const tt = ttModule.default || ttModule
+
+        console.log('🔧 TomTom SDK loaded for recommendations map, initializing...', { 
+          hasContainer: !!mapRef.current,
+          apiKey: apiKey ? 'present' : 'missing',
+          center: [lng, lat]
+        })
+        
+        const map = tt.map({
           key: apiKey,
           container: mapRef.current,
           center: [lng, lat],
@@ -1406,7 +1415,7 @@ export default function AIRecommendationsHub({
         userEl.style.cursor = 'pointer'
         userEl.title = '📍 Your Location'
         
-        const userMarker = new tt.default.Marker({
+        const userMarker = new tt.Marker({
           element: userEl,
           anchor: 'center'
         })
