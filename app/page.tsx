@@ -830,6 +830,18 @@ export default function PINITApp() {
   const [showStoryBuilder, setShowStoryBuilder] = useState(false)
   const [lastActivity, setLastActivity] = useState<string>("app-start")
   
+  // Animation state - ensure Shazam pulse animation starts on mount
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Ensure animation starts on mount - use small delay to ensure styles are loaded
+  useEffect(() => {
+    // Force animation to start after a tiny delay to ensure CSS is loaded
+    const timer = setTimeout(() => {
+      setIsMounted(true)
+    }, 10)
+    return () => clearTimeout(timer)
+  }, [])
+  
   // Pin editing state
   const [editingPin, setEditingPin] = useState<PinData | null>(null)
   const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
@@ -3465,6 +3477,7 @@ export default function PINITApp() {
       >
         {/* Multiple Pulsing Glow Rings - ENHANCED VISIBILITY */}
         <div
+          key={isMounted ? "pulse-1-active" : "pulse-1"}
           style={{
             position: "absolute",
             top: "50%",
@@ -3474,11 +3487,13 @@ export default function PINITApp() {
             height: "320px",
             borderRadius: "50%",
             background: "radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
-            animation: "shazamPulse 1.2s ease-out infinite",
+            animation: isMounted ? "shazamPulse 1.2s ease-out infinite" : "none",
+            willChange: "transform, opacity",
             zIndex: 1,
           }}
         />
         <div
+          key={isMounted ? "pulse-2-active" : "pulse-2"}
           style={{
             position: "absolute",
             top: "50%",
@@ -3489,11 +3504,13 @@ export default function PINITApp() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.5) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
-            animation: "shazamPulse 1.2s ease-out infinite 0.4s",
+            animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.4s" : "none",
+            willChange: "transform, opacity",
             zIndex: 1,
           }}
         />
         <div
+          key={isMounted ? "pulse-3-active" : "pulse-3"}
           style={{
             position: "absolute",
             top: "50%",
@@ -3504,7 +3521,8 @@ export default function PINITApp() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 15%, rgba(255,255,255,0.1) 35%, transparent 50%)",
-            animation: "shazamPulse 1.2s ease-out infinite 0.8s",
+            animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.8s" : "none",
+            willChange: "transform, opacity",
             zIndex: 1,
           }}
         />
