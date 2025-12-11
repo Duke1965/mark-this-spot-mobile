@@ -1276,7 +1276,9 @@ export default function AIRecommendationsHub({
     const lng = location?.longitude || location?.lng
     
     // Both Mapbox and TomTom use LngLatBounds
-    const bounds = new mapLib.default.LngLatBounds()
+    // For TomTom, mapLib is already the SDK object (tt), for Mapbox it's the module (mapboxgl)
+    const SDK = isTomTom ? mapLib : mapLib.default
+    const bounds = new SDK.LngLatBounds()
     
     if (lat && lng) {
       bounds.extend([lng, lat]) // Add user location
@@ -1319,19 +1321,20 @@ export default function AIRecommendationsHub({
       el.textContent = icon
       
       // Create marker (TomTom doesn't have popups like Mapbox, so we'll use title attribute)
+      // SDK is already defined above for bounds calculation
       const marker = isTomTom 
-        ? new mapLib.default.Marker({
+        ? new SDK.Marker({
             element: el,
             anchor: 'bottom'
           })
             .setLngLat([recLng, recLat])
             .addTo(map)
-        : new mapLib.default.Marker({
+        : new SDK.Marker({
             element: el,
             anchor: 'bottom'
           })
             .setLngLat([recLng, recLat])
-            .setPopup(new mapLib.default.Popup({ 
+            .setPopup(new SDK.Popup({ 
               offset: 25,
               closeButton: true,
               className: 'recommendation-popup'
@@ -1362,11 +1365,18 @@ export default function AIRecommendationsHub({
     
     // Only fit bounds once on initial load, or when explicitly requested
     if (shouldFitBounds && bounds && !bounds.isEmpty() && !hasFittedBoundsRef.current) {
-      map.fitBounds(bounds, {
-        padding: { top: 50, bottom: 50, left: 50, right: 50 },
-        maxZoom: 15
+      // Use requestAnimationFrame to ensure map is ready before fitting bounds
+      requestAnimationFrame(() => {
+        try {
+          map.fitBounds(bounds, {
+            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+            maxZoom: 16 // Increased max zoom for better detail
+          })
+          hasFittedBoundsRef.current = true
+        } catch (error) {
+          console.warn('⚠️ Error fitting bounds:', error)
+        }
       })
-      hasFittedBoundsRef.current = true
     }
     
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to ${isTomTom ? 'TomTom' : 'Mapbox'} map`)
@@ -1423,7 +1433,7 @@ export default function AIRecommendationsHub({
               key: apiKey,
               container: mapRef.current,
               center: [lng, lat],
-              zoom: 13,
+              zoom: 15, // Increased zoom level for better detail
               // style: 'main', // Try omitting style to use default
               interactive: true
             })
@@ -1454,8 +1464,11 @@ export default function AIRecommendationsHub({
             // Wait for map to load, then add recommendation markers
             map.on('load', () => {
               console.log('🗺️ TomTom recommendations map loaded')
-              hasFittedBoundsRef.current = false
-              updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
+              // Small delay to ensure map is fully rendered before adding markers
+              setTimeout(() => {
+                hasFittedBoundsRef.current = false
+                updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
+              }, 100)
             })
           }).catch((error) => {
             console.error('❌ Failed to load TomTom Maps SDK:', error)
@@ -1533,7 +1546,9 @@ export default function AIRecommendationsHub({
       const isTomTom = MAP_PROVIDER === "tomtom"
       
       if (isTomTom) {
-        import('@tomtom-international/web-sdk-maps').then((tt) => {
+        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+          // TomTom SDK can be imported as default or named export
+          const tt = ttModule.default || ttModule
           updateRecommendationMarkers(mapInstanceRef.current, tt, false, true)
         })
       } else {
