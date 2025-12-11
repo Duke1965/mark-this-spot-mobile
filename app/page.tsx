@@ -141,7 +141,7 @@ function InteractiveMapEditor({
       }}>
         <TomTomMap
           center={{ lat: initialLat, lng: initialLng }}
-          zoom={17}
+          zoom={18}
           interactive={true}
           draggableMarker={{
             lat: initialLat,
@@ -176,7 +176,7 @@ function InteractiveMapEditor({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/streets-v12',
         center: [initialLng, initialLat], // Mapbox uses [lng, lat]
-        zoom: 17, // Higher zoom for more detail
+        zoom: 18, // Higher zoom for more detail and visible place names
         attributionControl: false
       })
 
