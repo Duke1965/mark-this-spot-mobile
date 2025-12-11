@@ -10,6 +10,17 @@ import type { PinData } from '../lib/types'
 import { MAP_PROVIDER } from '../lib/mapConfig'
 import "mapbox-gl/dist/mapbox-gl.css"
 
+// Load TomTom CSS early (similar to Mapbox CSS import)
+if (typeof window !== 'undefined' && MAP_PROVIDER === "tomtom") {
+  const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+  if (!existingLink) {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+    document.head.appendChild(link)
+  }
+}
+
 // Google Maps removed - migrating to Mapbox/TomTom
 
 interface Recommendation {
@@ -1373,7 +1384,7 @@ export default function AIRecommendationsHub({
     const isTomTom = MAP_PROVIDER === "tomtom"
     
     if (isTomTom) {
-      // Initialize TomTom map
+      // Initialize TomTom map (matching Mapbox pattern)
       import('@tomtom-international/web-sdk-maps').then((ttModule) => {
         if (!mapRef.current || mapInstanceRef.current) return
         
@@ -1385,12 +1396,6 @@ export default function AIRecommendationsHub({
         
         // TomTom SDK can be imported as default or named export
         const tt = ttModule.default || ttModule
-
-        console.log('🔧 TomTom SDK loaded for recommendations map, initializing...', { 
-          hasContainer: !!mapRef.current,
-          apiKey: apiKey ? 'present' : 'missing',
-          center: [lng, lat]
-        })
         
         const map = tt.map({
           key: apiKey,
@@ -1400,39 +1405,39 @@ export default function AIRecommendationsHub({
           style: 'main',
           interactive: true
         })
-        
-        mapInstanceRef.current = map
-        isMapInitializedRef.current = true
-        
-        // Add user location marker
-        const userEl = document.createElement('div')
-        userEl.style.width = '20px'
-        userEl.style.height = '20px'
-        userEl.style.borderRadius = '50%'
-        userEl.style.backgroundColor = '#22C55E'
-        userEl.style.border = '3px solid white'
-        userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-        userEl.style.cursor = 'pointer'
-        userEl.title = '📍 Your Location'
-        
-        const userMarker = new tt.Marker({
-          element: userEl,
-          anchor: 'center'
-        })
-          .setLngLat([lng, lat])
-          .addTo(map)
-        
-        userMarkerRef.current = userMarker
-        
-        // Wait for map to load, then add recommendation markers
-        map.on('load', () => {
-          console.log('🗺️ TomTom recommendations map loaded')
-          hasFittedBoundsRef.current = false
-          updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
-        })
-      }).catch((error) => {
-        console.error('❌ Failed to load TomTom Maps SDK:', error)
-      })
+            
+            mapInstanceRef.current = map
+            isMapInitializedRef.current = true
+            
+            // Add user location marker
+            const userEl = document.createElement('div')
+            userEl.style.width = '20px'
+            userEl.style.height = '20px'
+            userEl.style.borderRadius = '50%'
+            userEl.style.backgroundColor = '#22C55E'
+            userEl.style.border = '3px solid white'
+            userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+            userEl.style.cursor = 'pointer'
+            userEl.title = '📍 Your Location'
+            
+            const userMarker = new tt.Marker({
+              element: userEl,
+              anchor: 'center'
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+            
+            userMarkerRef.current = userMarker
+            
+            // Wait for map to load, then add recommendation markers
+            map.on('load', () => {
+              console.log('🗺️ TomTom recommendations map loaded')
+              hasFittedBoundsRef.current = false
+              updateRecommendationMarkers(map, tt, true, true) // Fit bounds on initial load
+            })
+          }).catch((error) => {
+            console.error('❌ Failed to load TomTom Maps SDK:', error)
+          })
     } else {
       // Initialize Mapbox map (existing code)
       import('mapbox-gl').then((mapboxgl) => {
