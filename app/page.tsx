@@ -1703,6 +1703,10 @@ export default function PINITApp() {
       // Fetch Unsplash image for this location (non-blocking - don't fail pin creation if this fails)
       let unsplashImageData = null
       try {
+        console.log("🖼️ Fetching Unsplash image for:", { 
+          name: placeName || locationDescription || '', 
+          category: placeCategory 
+        })
         const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
         // Extract city from locationName if available (format: "Place Name, City")
         const cityMatch = (placeName || locationDescription || '').match(/,\s*([^,]+)$/)
@@ -1715,14 +1719,31 @@ export default function PINITApp() {
         })
         
         if (unsplashImageData) {
-          console.log("🖼️ Unsplash image fetched successfully:", unsplashImageData.photographerName)
+          console.log("✅ Unsplash image fetched successfully:", {
+            photographer: unsplashImageData.photographerName,
+            imageUrl: unsplashImageData.imageUrl?.substring(0, 50) + "...",
+            imageUrlLarge: unsplashImageData.imageUrlLarge?.substring(0, 50) + "..."
+          })
         } else {
-          console.log("🖼️ No Unsplash image found for this location")
+          console.warn("⚠️ No Unsplash image found for this location")
         }
       } catch (error) {
-        console.warn("⚠️ Failed to fetch Unsplash image (non-critical):", error)
+        console.error("❌ Failed to fetch Unsplash image (non-critical):", error)
         // Continue with pin creation even if Unsplash fails
       }
+      
+      // Filter out Mapbox static images from locationPhotos (they're aerial/map views, not real photos)
+      // Only keep real photos (not Mapbox static images which have mapbox.com in the URL)
+      const realPhotos = locationPhotos.filter(photo => 
+        photo.url && 
+        !photo.url.includes('mapbox.com') && 
+        !photo.url.includes('api.mapbox.com')
+      )
+      
+      // Prioritize Unsplash image for mediaUrl, fallback to real photos, then null
+      const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
+                              unsplashImageData?.imageUrl || 
+                              (realPhotos.length > 0 ? realPhotos[0].url : null)
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -1730,7 +1751,7 @@ export default function PINITApp() {
         longitude: pinLongitude,
         // PRIORITIZE Foursquare data over AI-generated content
         locationName: placeName || aiGeneratedContent.locationName || locationDescription,
-        mediaUrl: locationPhotos[0]?.url || null, // Use the first photo as primary
+        mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
@@ -1739,8 +1760,8 @@ export default function PINITApp() {
         // Use Foursquare description first, then AI, then fallback
         description: placeDescription || aiGeneratedContent.description || "",
         tags: aiGeneratedContent.tags,
-        // NEW: Store all photos for the carousel
-        additionalPhotos: locationPhotos,
+        // NEW: Store only real photos for the carousel (exclude Mapbox static images)
+        additionalPhotos: realPhotos,
         // NEW: Mark as pending - needs location confirmation via edit mode
         isPending: true,
         // Unsplash image data (if available)
@@ -2141,33 +2162,11 @@ export default function PINITApp() {
         }
       }
       
-      // STEP 3: Fetch static image via Mapbox Static Images API
-      // Note: Mapbox doesn't provide true street-level photos, but streets-v12 shows buildings better than satellite
-      console.log("📸 Step 3: Fetching building image via Mapbox Static Images API...")
-      let imageUrl: string | null = null
+      // STEP 3: Skip Mapbox Static Images API - we now use Unsplash for location images
+      // Mapbox static images are aerial/map views, not real photos, so we skip them entirely
+      console.log("📸 Step 3: Skipping Mapbox Static Images (using Unsplash instead)...")
       
-      try {
-        // Lower zoom (17) for less aerial view - Mapbox Static Images doesn't provide true street-level photos
-        const staticImageResponse = await fetch(`/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=17&style=streets-v12`, { signal })
-        
-        if (staticImageResponse.ok) {
-          const staticImageData = await staticImageResponse.json()
-          if (staticImageData.imageUrl) {
-            imageUrl = staticImageData.imageUrl
-            console.log(`✅ Mapbox Static Image: Generated image URL`)
-          }
-        } else {
-          console.warn("⚠️ Mapbox Static Images API failed")
-        }
-      } catch (imageError: any) {
-        if (imageError.name === 'AbortError') {
-          console.log("📸 Static image request was aborted")
-          throw imageError
-        }
-        console.warn("⚠️ Mapbox Static Images API failed:", imageError.message)
-      }
-      
-      // STEP 4: Return place data with image (or placeholder if none found)
+      // STEP 4: Return place data without Mapbox static images
       // Always return placeName and description if we have them, even without image
       // CRITICAL: Ensure description is always meaningful, not empty or undefined
       const finalDescription = placeDescription && placeDescription.trim() ? placeDescription : undefined
@@ -2176,46 +2175,25 @@ export default function PINITApp() {
         placeName,
         hasDescription: !!finalDescription,
         description: finalDescription?.substring(0, 50),
-        hasImage: !!imageUrl
+        note: "Images will come from Unsplash (handled separately in pin creation)"
       })
       
       if (placeName && placeName !== "Location") {
-        if (imageUrl) {
-          // Use Mapbox static image
-          console.log(`✅ Returning Mapbox place data with static image`)
-          const result = [{
-            url: imageUrl,
-            placeName: placeName,
-            description: finalDescription
-          }]
-          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
-          return result
-        } else {
-          // No image found, but we have place data - use placeholder
-          console.log(`✅ Returning Mapbox place data with placeholder (no image found)`)
-          const result = [{
-            url: "/pinit-placeholder.jpg",
-            placeName: placeName,
-            description: finalDescription
-          }]
-          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
-          return result
-        }
-      }
-      
-      // STEP 5: Ultimate fallback - no place data available
-      if (imageUrl) {
-        // We have image but no place data
-        console.log("⚠️ No Mapbox place data, but found image")
+        // Return place data without images - Unsplash images are fetched separately in pin creation
+        console.log(`✅ Returning Mapbox place data (images from Unsplash)`)
         const result = [{
-          url: imageUrl,
-          placeName: "Location"
+          url: "/pinit-placeholder.jpg", // Placeholder - will be replaced by Unsplash image
+          placeName: placeName,
+          description: finalDescription
         }]
         photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
         return result
       }
       
-      console.log("⚠️ No Mapbox place data and no image available")
+      // STEP 5: Ultimate fallback - no place data available
+      // Skip Mapbox static images - use placeholder instead
+      // Images will come from Unsplash (handled separately in pin creation)
+      console.log("⚠️ No Mapbox place data available - using placeholder (images from Unsplash)")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
@@ -2527,6 +2505,18 @@ export default function PINITApp() {
         console.warn("⚠️ Failed to fetch Unsplash image for edited pin (non-critical):", error)
       }
       
+      // Filter out Mapbox static images from locationPhotos (they're aerial/map views, not real photos)
+      const realPhotos = locationPhotos.filter(photo => 
+        photo.url && 
+        !photo.url.includes('mapbox.com') && 
+        !photo.url.includes('api.mapbox.com')
+      )
+      
+      // Prioritize Unsplash image for mediaUrl, fallback to real photos, then existing mediaUrl
+      const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
+                              unsplashImageData?.imageUrl || 
+                              (realPhotos.length > 0 ? realPhotos[0].url : editingPin.mediaUrl)
+      
       // Update the pin with new location and data
       // PRIORITIZE Foursquare data over AI-generated content
       const updatedPin: PinData = {
@@ -2539,8 +2529,8 @@ export default function PINITApp() {
         title: placeName || aiGeneratedContent.title || editingPin.title,
         // Use Foursquare description first, then AI, then fallback
         description: placeDescription || aiGeneratedContent.description || editingPin.description,
-        mediaUrl: locationPhotos[0]?.url || editingPin.mediaUrl,
-        additionalPhotos: locationPhotos.length > 0 ? locationPhotos : (editingPin.additionalPhotos || []),
+        mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
+        additionalPhotos: realPhotos.length > 0 ? realPhotos : (editingPin.additionalPhotos || []),
         tags: aiGeneratedContent.tags || editingPin.tags || [],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
