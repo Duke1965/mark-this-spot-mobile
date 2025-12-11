@@ -1418,12 +1418,13 @@ export default function AIRecommendationsHub({
             // TomTom SDK can be imported as default or named export
             const tt = ttModule.default || ttModule
             
+            // Note: Omitting style parameter uses default style
             const map = tt.map({
               key: apiKey,
               container: mapRef.current,
               center: [lng, lat],
               zoom: 13,
-              style: `https://api.tomtom.com/map/1/style/6.25.0/main`, // Use full style URL
+              // style: 'main', // Try omitting style to use default
               interactive: true
             })
             
