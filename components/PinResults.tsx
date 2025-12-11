@@ -38,10 +38,12 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
     onShare(updatedPin)
   }
 
-  // Combine all photos for carousel - filter out invalid URLs
+  // Combine all photos for carousel - prioritize Unsplash image, then filter out invalid URLs
+  // Priority: 1. Unsplash image, 2. primaryPhoto (mediaUrl), 3. additionalPhotos
   const allPhotos = [
-    ...(primaryPhoto ? [primaryPhoto] : []),
-    ...photos.map(p => p.url).filter(url => url && url !== '/pinit-placeholder.jpg' && !url.includes('placeholder'))
+    ...(pin.unsplashImageUrlLarge ? [pin.unsplashImageUrlLarge] : []), // Unsplash image first
+    ...(primaryPhoto && primaryPhoto !== pin.unsplashImageUrlLarge ? [primaryPhoto] : []), // Primary photo if not Unsplash
+    ...photos.map(p => p.url).filter(url => url && url !== '/pinit-placeholder.jpg' && !url.includes('placeholder') && url !== pin.unsplashImageUrlLarge)
   ].filter(Boolean)
   
   // Format date/time
@@ -209,7 +211,46 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
               </div>
             ))}
           </div>
-        ) : (
+        ) : null}
+        
+        {/* Unsplash Attribution - Show below carousel if Unsplash image is present */}
+        {pin.unsplashImageAttribution && (
+          <div style={{
+            padding: "0.5rem 1rem",
+            fontSize: "0.75rem",
+            color: "rgba(255,255,255,0.7)",
+            textAlign: "center",
+            background: "rgba(0,0,0,0.2)",
+            borderTop: "1px solid rgba(255,255,255,0.1)"
+          }}>
+            Photo by{" "}
+            <a
+              href={`${pin.unsplashImageAttribution.photographerProfileUrl}?utm_source=pinit&utm_medium=referral`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                textDecoration: "underline"
+              }}
+            >
+              {pin.unsplashImageAttribution.photographerName}
+            </a>
+            {" "}on{" "}
+            <a
+              href={`${pin.unsplashImageAttribution.unsplashPhotoLink}?utm_source=pinit&utm_medium=referral`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                textDecoration: "underline"
+              }}
+            >
+              Unsplash
+            </a>
+          </div>
+        )}
+        
+        {allPhotos.length === 0 ? (
           <div style={{
             height: "280px",
             background: "rgba(0,0,0,0.3)",
