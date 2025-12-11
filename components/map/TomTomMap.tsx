@@ -102,14 +102,14 @@ export default function TomTomMap({
               center: [center.lng, center.lat]
             })
 
-            // Initialize TomTom map - try without style first, or use full style URL
+            // Initialize TomTom map
+            // Note: Omitting style parameter uses default style
             const map = tt.map({
               key: TOMTOM_API_KEY,
               container: mapContainerRef.current,
               center: [center.lng, center.lat], // TomTom uses [lng, lat] format
               zoom: zoom,
-              // Use style URL format instead of string
-              style: `https://api.tomtom.com/map/1/style/6.25.0/main`,
+              // style: 'main', // Try omitting style to use default
               interactive: interactive
             })
 
