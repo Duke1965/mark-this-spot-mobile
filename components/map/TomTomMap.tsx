@@ -67,15 +67,17 @@ export default function TomTomMap({
         draggableMarkerRef.current = null
       }
 
-      // Create draggable marker
+      // Create draggable marker with pin icon
       const markerElement = document.createElement('div')
-      markerElement.style.width = '32px'
-      markerElement.style.height = '32px'
-      markerElement.style.borderRadius = '50%'
-      markerElement.style.backgroundColor = '#3B82F6'
-      markerElement.style.border = '3px solid white'
-      markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+      markerElement.style.width = '40px'
+      markerElement.style.height = '40px'
+      markerElement.style.display = 'flex'
+      markerElement.style.alignItems = 'center'
+      markerElement.style.justifyContent = 'center'
+      markerElement.style.fontSize = '32px'
       markerElement.style.cursor = 'move'
+      markerElement.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      markerElement.textContent = '📍'
 
       const marker = new tt.Marker({
         element: markerElement,
