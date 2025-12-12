@@ -82,9 +82,11 @@ export async function GET(request: NextRequest) {
       url.searchParams.set("per_page", "1")
 
       try {
+        // Trim the key to remove any accidental whitespace
+        const trimmedKey = UNSPLASH_ACCESS_KEY.trim()
         const response = await fetch(url.toString(), {
           headers: {
-            Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
+            Authorization: `Client-ID ${trimmedKey}`,
             "Accept-Version": "v1",
           },
           next: { revalidate: 3600 } // Cache for 1 hour
