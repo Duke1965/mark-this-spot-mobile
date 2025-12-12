@@ -186,6 +186,25 @@ export async function GET(request: NextRequest) {
         details: "Missing UNSPLASH_ACCESS_KEY (server-side only)"
       }
     } else {
+      // Validate key format
+      const trimmedKey = unsplashKey.trim()
+      const keyLength = trimmedKey.length
+      
+      // Unsplash Access Keys are typically 43 characters, but can vary
+      // Check for common issues
+      let keyFormatIssue = null
+      if (keyLength < 20) {
+        keyFormatIssue = "Key appears too short (less than 20 characters)"
+      } else if (keyLength > 200) {
+        keyFormatIssue = "Key appears too long (more than 200 characters)"
+      } else if (trimmedKey.includes(' ')) {
+        keyFormatIssue = "Key contains spaces (should be trimmed)"
+      } else if (trimmedKey.startsWith('"') || trimmedKey.endsWith('"')) {
+        keyFormatIssue = "Key appears to have quotes around it (remove quotes)"
+      } else if (trimmedKey.startsWith("'") || trimmedKey.endsWith("'")) {
+        keyFormatIssue = "Key appears to have single quotes around it (remove quotes)"
+      }
+      
       // Test Unsplash Search API with a travel-related query
       const unsplashUrl = new URL('https://api.unsplash.com/search/photos')
       unsplashUrl.searchParams.set('query', 'cape town restaurant')
@@ -193,7 +212,8 @@ export async function GET(request: NextRequest) {
       
       const unsplashResponse = await fetch(unsplashUrl.toString(), {
         headers: {
-          'Authorization': `Client-ID ${unsplashKey}`
+          'Authorization': `Client-ID ${trimmedKey}`,
+          'Accept-Version': 'v1'
         }
       })
       
@@ -204,7 +224,8 @@ export async function GET(request: NextRequest) {
           status: "OK",
           photos_found: results.length,
           total_results: unsplashData.total || 0,
-          sample_photo_id: results[0]?.id || "No photos found"
+          sample_photo_id: results[0]?.id || "No photos found",
+          key_length: keyLength
         }
       } else {
         const errorText = await unsplashResponse.text()
@@ -212,7 +233,10 @@ export async function GET(request: NextRequest) {
         
         // Provide helpful error message based on status code
         if (unsplashResponse.status === 401) {
-          errorMessage = "Invalid API key. Please verify UNSPLASH_ACCESS_KEY in Vercel environment variables. The key should be your Unsplash Access Key (not OAuth token). Get it from: https://unsplash.com/developers"
+          errorMessage = `Invalid API key (HTTP 401). Key length: ${keyLength} chars. Verify the key is correct in Vercel environment variables. Get a new Access Key from: https://unsplash.com/developers`
+          if (keyFormatIssue) {
+            errorMessage += ` | Format issue: ${keyFormatIssue}`
+          }
         } else if (unsplashResponse.status === 403) {
           errorMessage = "API key does not have required permissions or rate limit exceeded."
         }
@@ -221,7 +245,10 @@ export async function GET(request: NextRequest) {
           status: "ERROR",
           http_status: unsplashResponse.status,
           error: errorMessage,
-          note: "Check that UNSPLASH_ACCESS_KEY is set correctly in Vercel environment variables. It should be an Access Key, not an OAuth token."
+          key_length: keyLength,
+          key_format_issue: keyFormatIssue || null,
+          key_preview: keyLength > 0 ? `${trimmedKey.substring(0, 4)}...${trimmedKey.substring(keyLength - 4)}` : "N/A",
+          note: "In Vercel: Settings → Environment Variables → Check UNSPLASH_ACCESS_KEY. Make sure: 1) No quotes around value, 2) No spaces, 3) It's an Access Key (not OAuth token), 4) Redeploy after changes"
         }
       }
     }
