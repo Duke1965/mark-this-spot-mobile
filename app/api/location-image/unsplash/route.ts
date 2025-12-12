@@ -84,6 +84,16 @@ export async function GET(request: NextRequest) {
       try {
         // Trim the key to remove any accidental whitespace
         const trimmedKey = UNSPLASH_ACCESS_KEY.trim()
+        
+        // Log key info for debugging (first 4 and last 4 chars only, never full key)
+        const keyLength = trimmedKey.length
+        const keyPreview = keyLength > 8 ? `${trimmedKey.substring(0, 4)}...${trimmedKey.substring(keyLength - 4)}` : "too short"
+        console.log(`🔑 Unsplash key info: length=${keyLength}, preview=${keyPreview}`)
+        
+        if (keyLength !== 43) {
+          console.warn(`⚠️ Unsplash key length is ${keyLength}, expected 43 characters`)
+        }
+        
         const response = await fetch(url.toString(), {
           headers: {
             Authorization: `Client-ID ${trimmedKey}`,
