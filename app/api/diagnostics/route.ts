@@ -210,6 +210,9 @@ export async function GET(request: NextRequest) {
       unsplashUrl.searchParams.set('query', 'cape town restaurant')
       unsplashUrl.searchParams.set('per_page', '1')
       
+      // Log key info for debugging (first 4 and last 4 chars only)
+      console.log(`🔑 Diagnostics: Unsplash key length=${keyLength}, preview=${keyLength > 8 ? `${trimmedKey.substring(0, 4)}...${trimmedKey.substring(keyLength - 4)}` : 'too short'}`)
+      
       const unsplashResponse = await fetch(unsplashUrl.toString(), {
         headers: {
           'Authorization': `Client-ID ${trimmedKey}`,
