@@ -208,10 +208,20 @@ export async function GET(request: NextRequest) {
         }
       } else {
         const errorText = await unsplashResponse.text()
+        let errorMessage = errorText.substring(0, 200)
+        
+        // Provide helpful error message based on status code
+        if (unsplashResponse.status === 401) {
+          errorMessage = "Invalid API key. Please verify UNSPLASH_ACCESS_KEY in Vercel environment variables. The key should be your Unsplash Access Key (not OAuth token). Get it from: https://unsplash.com/developers"
+        } else if (unsplashResponse.status === 403) {
+          errorMessage = "API key does not have required permissions or rate limit exceeded."
+        }
+        
         diagnostics.apis.unsplash = {
           status: "ERROR",
           http_status: unsplashResponse.status,
-          error: errorText.substring(0, 200)
+          error: errorMessage,
+          note: "Check that UNSPLASH_ACCESS_KEY is set correctly in Vercel environment variables. It should be an Access Key, not an OAuth token."
         }
       }
     }
@@ -226,20 +236,31 @@ export async function GET(request: NextRequest) {
   try {
     const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
     
-    if (unsplashKey) {
-      const locationImageResponse = await fetch(`${request.nextUrl.origin}/api/location-image/unsplash?name=Cape Town Restaurant&city=Cape Town&category=restaurant`)
+    if (!unsplashKey) {
+      diagnostics.apis.unsplash_location_image = {
+        status: "WARNING",
+        error: "Skipped - Unsplash API key not configured"
+      }
+    } else {
+      // Test the internal route - this will use the same authentication as the main Unsplash API
+      const locationImageUrl = `${request.nextUrl.origin}/api/location-image/unsplash?name=Cape Town Restaurant&city=Cape Town&category=restaurant`
+      const locationImageResponse = await fetch(locationImageUrl)
       
       if (locationImageResponse.ok) {
         const locationImageData = await locationImageResponse.json()
         diagnostics.apis.unsplash_location_image = {
           status: locationImageData.imageUrl ? "OK" : "WARNING",
           has_image_url: !!locationImageData.imageUrl,
-          has_attribution: !!locationImageData.photographerName
+          has_attribution: !!locationImageData.photographerName,
+          sample_photographer: locationImageData.photographerName || "N/A"
         }
       } else {
+        const errorData = await locationImageResponse.json().catch(() => ({ error: "Unknown error" }))
         diagnostics.apis.unsplash_location_image = {
           status: "ERROR",
-          http_status: locationImageResponse.status
+          http_status: locationImageResponse.status,
+          error: errorData.error || `HTTP ${locationImageResponse.status}`,
+          note: locationImageResponse.status === 404 ? "Route not found - check that the route exists" : "Check server logs for details"
         }
       }
     }
