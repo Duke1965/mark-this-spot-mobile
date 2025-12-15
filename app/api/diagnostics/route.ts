@@ -27,14 +27,15 @@ export async function GET(request: NextRequest) {
     NEXT_PUBLIC_TOMTOM_API_KEY: !!process.env.NEXT_PUBLIC_TOMTOM_API_KEY,
     UNSPLASH_ACCESS_KEY: !!process.env.UNSPLASH_ACCESS_KEY,
     NODE_ENV: process.env.NODE_ENV,
-    VERCEL_ENV: process.env.VERCEL_ENV,
-    // Debug info: show if keys exist and their lengths
-    _debug: {
-      unsplash_key_length: rawUnsplash.length,
-      tomtom_key_length: rawTomtom.length,
-      unsplash_key_preview: rawUnsplash.length > 8 ? `${rawUnsplash.substring(0, 4)}...${rawUnsplash.substring(rawUnsplash.length - 4)}` : "empty",
-      tomtom_key_preview: rawTomtom.length > 8 ? `${rawTomtom.substring(0, 4)}...${rawTomtom.substring(rawTomtom.length - 4)}` : "empty"
-    }
+    VERCEL_ENV: process.env.VERCEL_ENV
+  }
+  
+  // Add debug info at top level (not in environment to avoid React rendering issues)
+  diagnostics.key_debug = {
+    unsplash_key_length: rawUnsplash.length,
+    tomtom_key_length: rawTomtom.length,
+    unsplash_key_preview: rawUnsplash.length > 8 ? `${rawUnsplash.substring(0, 4)}...${rawUnsplash.substring(rawUnsplash.length - 4)}` : "empty",
+    tomtom_key_preview: rawTomtom.length > 8 ? `${rawTomtom.substring(0, 4)}...${rawTomtom.substring(rawTomtom.length - 4)}` : "empty"
   }
 
   // Get test coordinates from query params or use defaults (Cape Town)
