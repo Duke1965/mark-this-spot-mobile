@@ -17,13 +17,24 @@ export async function GET(request: NextRequest) {
   }
 
   // Check environment variables (Mapbox, TomTom, Unsplash, and Map Provider)
+  // Also capture raw values for debugging (first/last chars only for security)
+  const rawUnsplash = process.env.UNSPLASH_ACCESS_KEY || ""
+  const rawTomtom = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ""
+  
   diagnostics.environment = {
     NEXT_PUBLIC_MAP_PROVIDER: process.env.NEXT_PUBLIC_MAP_PROVIDER || "mapbox",
     NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
     NEXT_PUBLIC_TOMTOM_API_KEY: !!process.env.NEXT_PUBLIC_TOMTOM_API_KEY,
     UNSPLASH_ACCESS_KEY: !!process.env.UNSPLASH_ACCESS_KEY,
     NODE_ENV: process.env.NODE_ENV,
-    VERCEL_ENV: process.env.VERCEL_ENV
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    // Debug info: show if keys exist and their lengths
+    _debug: {
+      unsplash_key_length: rawUnsplash.length,
+      tomtom_key_length: rawTomtom.length,
+      unsplash_key_preview: rawUnsplash.length > 8 ? `${rawUnsplash.substring(0, 4)}...${rawUnsplash.substring(rawUnsplash.length - 4)}` : "empty",
+      tomtom_key_preview: rawTomtom.length > 8 ? `${rawTomtom.substring(0, 4)}...${rawTomtom.substring(rawTomtom.length - 4)}` : "empty"
+    }
   }
 
   // Get test coordinates from query params or use defaults (Cape Town)
@@ -319,7 +330,27 @@ export async function GET(request: NextRequest) {
   // Check if Unsplash and TomTom keys are accidentally the same (crossed values)
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY?.trim() || ""
   const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY?.trim() || ""
-  diagnostics.same_value_unsplash_tomtom = unsplashKey && tomtomKey && unsplashKey === tomtomKey
+  const areSame = unsplashKey && tomtomKey && unsplashKey === tomtomKey
+  
+  diagnostics.same_value_unsplash_tomtom = areSame
+  
+  // Add detailed key comparison for debugging
+  if (unsplashKey && tomtomKey) {
+    diagnostics.key_comparison = {
+      unsplash_length: unsplashKey.length,
+      tomtom_length: tomtomKey.length,
+      unsplash_preview: unsplashKey.length > 8 ? `${unsplashKey.substring(0, 4)}...${unsplashKey.substring(unsplashKey.length - 4)}` : "too short",
+      tomtom_preview: tomtomKey.length > 8 ? `${tomtomKey.substring(0, 4)}...${tomtomKey.substring(tomtomKey.length - 4)}` : "too short",
+      are_identical: areSame,
+      note: areSame ? "⚠️ Keys are identical - they are crossed in Vercel environment variables!" : "Keys are different (correct)"
+    }
+  } else {
+    diagnostics.key_comparison = {
+      unsplash_exists: !!unsplashKey,
+      tomtom_exists: !!tomtomKey,
+      note: "One or both keys are missing"
+    }
+  }
 
   // Overall status - Check critical APIs based on configured provider
   const allChecks: boolean[] = []
