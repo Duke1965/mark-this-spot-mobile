@@ -160,6 +160,8 @@ function InteractiveMapEditor({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
+  const isDraggingRef = useRef<boolean>(false)
+  const lastDraggedPositionRef = useRef<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     if (!mapRef.current) return
@@ -193,10 +195,18 @@ function InteractiveMapEditor({
       markerRef.current = marker
 
       // Listen for marker drag events
+      marker.on('dragstart', () => {
+        isDraggingRef.current = true
+        console.log("📍 Drag started")
+      })
+
       marker.on('dragend', () => {
         const lngLat = marker.getLngLat()
-        console.log("📍 Marker dragged to:", { lat: lngLat.lat, lng: lngLat.lng })
-        onLocationChange(lngLat.lat, lngLat.lng)
+        const newPosition = { lat: lngLat.lat, lng: lngLat.lng }
+        lastDraggedPositionRef.current = newPosition
+        isDraggingRef.current = false
+        console.log("📍 Marker dragged to:", newPosition)
+        onLocationChange(newPosition.lat, newPosition.lng)
       })
 
       // Cleanup
@@ -216,7 +226,29 @@ function InteractiveMapEditor({
 
   // Update marker position when initial location changes (but not during drag)
   useEffect(() => {
-    if (markerRef.current && mapInstanceRef.current) {
+    if (!markerRef.current || !mapInstanceRef.current) return
+    
+    // Don't update marker if we're currently dragging
+    if (isDraggingRef.current) {
+      console.log('📍 Skipping marker update - drag in progress')
+      return
+    }
+
+    // If the new position matches the last dragged position, it means the state update came from the drag
+    // In this case, update the marker position to match the dragged position
+    if (lastDraggedPositionRef.current && 
+        Math.abs(lastDraggedPositionRef.current.lat - initialLat) < 0.0001 &&
+        Math.abs(lastDraggedPositionRef.current.lng - initialLng) < 0.0001) {
+      console.log('📍 Position matches last drag - updating marker position')
+      markerRef.current.setLngLat([initialLng, initialLat])
+      lastDraggedPositionRef.current = null // Clear after update
+      return
+    }
+
+    // Only update if position actually changed (not just a state update from drag)
+    const currentPos = markerRef.current.getLngLat()
+    if (Math.abs(currentPos.lat - initialLat) > 0.0001 || Math.abs(currentPos.lng - initialLng) > 0.0001) {
+      console.log('📍 Updating marker position:', { lat: initialLat, lng: initialLng })
       markerRef.current.setLngLat([initialLng, initialLat])
       mapInstanceRef.current.setCenter([initialLng, initialLat])
     }
