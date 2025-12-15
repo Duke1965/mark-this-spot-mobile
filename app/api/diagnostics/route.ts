@@ -316,6 +316,11 @@ export async function GET(request: NextRequest) {
     error: unsplashConfig.error
   }
 
+  // Check if Unsplash and TomTom keys are accidentally the same (crossed values)
+  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY?.trim() || ""
+  const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY?.trim() || ""
+  diagnostics.same_value_unsplash_tomtom = unsplashKey && tomtomKey && unsplashKey === tomtomKey
+
   // Overall status - Check critical APIs based on configured provider
   const allChecks: boolean[] = []
   
