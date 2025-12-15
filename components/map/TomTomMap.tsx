@@ -57,6 +57,8 @@ export default function TomTomMap({
   const markersRef = useRef<Map<string, any>>(new Map())
   const draggableMarkerRef = useRef<any>(null)
   const isMapLoadedRef = useRef<boolean>(false)
+  const isDraggingRef = useRef<boolean>(false)
+  const lastDraggedPositionRef = useRef<{ lat: number; lng: number } | null>(null)
 
   // Helper function to add draggable marker
   const addDraggableMarker = (map: any, tt: any, markerData: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) => {
@@ -87,10 +89,19 @@ export default function TomTomMap({
         .setLngLat([markerData.lng, markerData.lat])
         .addTo(map)
 
-      // Listen for drag end event
+      // Listen for drag events
+      marker.on('dragstart', () => {
+        isDraggingRef.current = true
+        console.log('📍 Drag started')
+      })
+      
       marker.on('dragend', () => {
         const lngLat = marker.getLngLat()
-        markerData.onDragEnd(lngLat.lat, lngLat.lng)
+        const newPosition = { lat: lngLat.lat, lng: lngLat.lng }
+        lastDraggedPositionRef.current = newPosition
+        isDraggingRef.current = false
+        console.log('📍 Drag ended at:', newPosition)
+        markerData.onDragEnd(newPosition.lat, newPosition.lng)
       })
 
       draggableMarkerRef.current = marker
@@ -243,12 +254,43 @@ export default function TomTomMap({
   useEffect(() => {
     if (!mapInstanceRef.current || !draggableMarker) return
 
+    // Don't update marker if we're currently dragging or if the new position matches the last dragged position
+    if (isDraggingRef.current) {
+      console.log('📍 Skipping marker update - drag in progress')
+      return
+    }
+
+    // If the new position matches the last dragged position, it means the state update came from the drag
+    // In this case, update the marker position to match the dragged position
+    if (lastDraggedPositionRef.current && 
+        Math.abs(lastDraggedPositionRef.current.lat - draggableMarker.lat) < 0.0001 &&
+        Math.abs(lastDraggedPositionRef.current.lng - draggableMarker.lng) < 0.0001) {
+      console.log('📍 Position matches last drag - updating marker position')
+      if (draggableMarkerRef.current) {
+        draggableMarkerRef.current.setLngLat([draggableMarker.lng, draggableMarker.lat])
+        lastDraggedPositionRef.current = null // Clear after update
+        return
+      }
+    }
+
     import('@tomtom-international/web-sdk-maps').then((ttModule) => {
       const tt = ttModule.default || ttModule
       
-      // If map is already loaded, add marker immediately
+      // If map is already loaded, add or update marker
       if (isMapLoadedRef.current) {
-        addDraggableMarker(mapInstanceRef.current, tt, draggableMarker)
+        // If marker already exists, just update its position instead of recreating
+        if (draggableMarkerRef.current) {
+          const currentPos = draggableMarkerRef.current.getLngLat()
+          const newPos = { lat: draggableMarker.lat, lng: draggableMarker.lng }
+          // Only update if position actually changed
+          if (Math.abs(currentPos.lat - newPos.lat) > 0.0001 || Math.abs(currentPos.lng - newPos.lng) > 0.0001) {
+            console.log('📍 Updating existing marker position:', newPos)
+            draggableMarkerRef.current.setLngLat([newPos.lng, newPos.lat])
+          }
+        } else {
+          // Marker doesn't exist yet, create it
+          addDraggableMarker(mapInstanceRef.current, tt, draggableMarker)
+        }
       } else {
         // If map is not loaded yet, wait for it to load
         // The marker will be added in the 'load' event handler
