@@ -30,6 +30,7 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { MAP_PROVIDER } from "@/lib/mapConfig"
+import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import TomTomMap from "@/components/map/TomTomMap"
 import "mapbox-gl/dist/mapbox-gl.css"
 
@@ -1705,14 +1706,81 @@ export default function PINITApp() {
       console.log("📸 Fetching location photos for speed-based pin...")
       const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       
-      // Get OSM place data (prioritize over AI-generated content)
+      // Get place data from photos (prioritize over AI-generated content)
       const placeName = locationPhotos[0]?.placeName
       const placeDescription = locationPhotos[0]?.description
       
-      console.log("📍 OSM (OpenStreetMap) API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
+      console.log("📍 Place data from photos:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Only generate AI content as fallback if OSM data is missing
-      const aiGeneratedContent = generateAIContent(pinLatitude, pinLongitude, motionData, locationPhotos, placeName, placeDescription)
+      // Fetch pin-intel data for better context (geocode + POI)
+      let pinIntelData: any = null
+      try {
+        const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: pinLatitude, lng: pinLongitude, precision: 5 })
+        })
+        if (pinIntelResponse.ok) {
+          pinIntelData = await pinIntelResponse.json()
+          console.log("📍 Pin-intel data fetched:", { 
+            hasGeocode: !!pinIntelData.geocode, 
+            placesCount: pinIntelData.places?.length || 0 
+          })
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch pin-intel data (non-critical):", error)
+      }
+      
+      // Build context for AI generation from pin-intel data or photo data
+      const aiContext = pinIntelData ? {
+        lat: pinLatitude,
+        lng: pinLongitude,
+        name: pinIntelData.places?.[0]?.name || placeName,
+        category: pinIntelData.places?.[0]?.categories?.[0] || pinIntelData.places?.[0]?.category,
+        address: pinIntelData.geocode?.formatted || pinIntelData.geocode?.components?.address,
+        suburb: pinIntelData.geocode?.components?.suburb || pinIntelData.geocode?.components?.neighbourhood,
+        city: pinIntelData.geocode?.components?.city || pinIntelData.geocode?.components?.town,
+        region: pinIntelData.geocode?.components?.state || pinIntelData.geocode?.components?.county,
+        country: pinIntelData.geocode?.components?.country,
+        provider: 'foursquare'
+      } : {
+        lat: pinLatitude,
+        lng: pinLongitude,
+        name: placeName,
+        address: undefined,
+        suburb: undefined,
+        city: undefined,
+        region: undefined,
+        country: undefined,
+        provider: 'mapbox'
+      }
+      
+      // Generate AI title and description using new system
+      // Only use AI if we don't have a good place name, otherwise use place name as title
+      let aiTextResult: any = null
+      if (!placeName || placeName === "Location" || placeName === "PINIT Placeholder" || placeName === "Unknown Place") {
+        console.log("🧠 Generating AI text (no good place name available)...")
+        aiTextResult = await generatePinTextForPlace(aiContext)
+      } else {
+        // We have a good place name, use it as title, but still generate description if needed
+        console.log("✅ Using place name as title:", placeName)
+        if (!placeDescription) {
+          // Generate description only
+          aiTextResult = await generatePinTextForPlace(aiContext)
+          // Override title with place name
+          if (aiTextResult) {
+            aiTextResult.title = placeName
+          }
+        } else {
+          // We have both name and description, no AI needed
+          aiTextResult = {
+            title: placeName,
+            description: placeDescription,
+            confidence: "high" as const,
+            used_fallback: false
+          }
+        }
+      }
       
       // Extract category from place description or AI content for Unsplash search
       let placeCategory: string | undefined = undefined
@@ -1781,17 +1849,17 @@ export default function PINITApp() {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
-        // PRIORITIZE Foursquare data over AI-generated content
-        locationName: placeName || aiGeneratedContent.locationName || locationDescription,
+        // Use place name or AI-generated location name
+        locationName: placeName || aiTextResult?.title || locationDescription,
         mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
-        // Use Foursquare placeName as title first, then AI, then fallback
-        title: placeName || aiGeneratedContent.title || "Untitled Location",
-        // Use Foursquare description first, then AI, then fallback
-        description: placeDescription || aiGeneratedContent.description || "",
-        tags: aiGeneratedContent.tags,
+        // Use AI-generated title (which prioritizes place name if available)
+        title: aiTextResult?.title || placeName || "Untitled Location",
+        // Use AI-generated description or place description
+        description: aiTextResult?.description || placeDescription || "",
+        tags: ["pinit", "travel"],
         // NEW: Store only real photos for the carousel (exclude Mapbox static images)
         additionalPhotos: realPhotos,
         // NEW: Mark as pending - needs location confirmation via edit mode
@@ -1803,7 +1871,11 @@ export default function PINITApp() {
           photographerName: unsplashImageData.photographerName,
           photographerProfileUrl: unsplashImageData.photographerProfileUrl,
           unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
-        } : undefined
+        } : undefined,
+        // AI generation metadata
+        aiConfidence: aiTextResult?.confidence,
+        aiUsedFallback: aiTextResult?.used_fallback,
+        aiGeneratedAt: new Date().toISOString()
       }
 
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
@@ -2466,38 +2538,88 @@ export default function PINITApp() {
         photos: locationPhotos.map(p => ({ url: p.url?.substring(0, 50), placeName: p.placeName }))
       })
       
-      // Get place name and description from Foursquare API data (prioritize over AI)
+      // Get place name and description from photos
       placeName = locationPhotos[0]?.placeName || editingPin.locationName
       placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
       
-      console.log("📍 OSM (OpenStreetMap) API results:", { placeName, placeDescription, photoCount: locationPhotos.length })
+      console.log("📍 Place data from photos:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Only generate AI content as fallback if Mapbox data is missing
-      // Prioritize actual Mapbox place data over AI-generated content
-      if (!placeName || placeName === "Unknown Place" || !placeDescription) {
-        console.log("📸 Mapbox data incomplete, generating AI content as fallback...")
-        aiGeneratedContent = generateAIContent(
-          editingPinLocation.lat, 
-          editingPinLocation.lng, 
-          motionData, 
-          locationPhotos, 
-          placeName, 
-          placeDescription
-        )
-        console.log("📸 Generated AI content as fallback:", { 
-          title: aiGeneratedContent.title,
-          description: aiGeneratedContent.description?.substring(0, 100),
-          locationName: aiGeneratedContent.locationName
+      // Fetch pin-intel data for better context (geocode + POI)
+      let pinIntelData: any = null
+      try {
+        const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: editingPinLocation.lat, lng: editingPinLocation.lng, precision: 5 })
         })
-      } else {
-        console.log("✅ Using Foursquare API data (title and description) - skipping AI generation")
-        // Use Foursquare data directly, no AI needed
-        aiGeneratedContent = {
-          title: placeName,
-          description: placeDescription,
-          locationName: placeName,
-          tags: editingPin.tags || []
+        if (pinIntelResponse.ok) {
+          pinIntelData = await pinIntelResponse.json()
+          console.log("📍 Pin-intel data fetched:", { 
+            hasGeocode: !!pinIntelData.geocode, 
+            placesCount: pinIntelData.places?.length || 0 
+          })
         }
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch pin-intel data (non-critical):", error)
+      }
+      
+      // Build context for AI generation from pin-intel data or photo data
+      const aiContext = pinIntelData ? {
+        lat: editingPinLocation.lat,
+        lng: editingPinLocation.lng,
+        name: pinIntelData.places?.[0]?.name || placeName,
+        category: pinIntelData.places?.[0]?.categories?.[0] || pinIntelData.places?.[0]?.category,
+        address: pinIntelData.geocode?.formatted || pinIntelData.geocode?.components?.address,
+        suburb: pinIntelData.geocode?.components?.suburb || pinIntelData.geocode?.components?.neighbourhood,
+        city: pinIntelData.geocode?.components?.city || pinIntelData.geocode?.components?.town,
+        region: pinIntelData.geocode?.components?.state || pinIntelData.geocode?.components?.county,
+        country: pinIntelData.geocode?.components?.country,
+        provider: 'foursquare'
+      } : {
+        lat: editingPinLocation.lat,
+        lng: editingPinLocation.lng,
+        name: placeName,
+        address: undefined,
+        suburb: undefined,
+        city: undefined,
+        region: undefined,
+        country: undefined,
+        provider: 'mapbox'
+      }
+      
+      // Generate AI title and description using new system
+      // Only use AI if we don't have a good place name, otherwise use place name as title
+      let aiTextResult: any = null
+      if (!placeName || placeName === "Location" || placeName === "PINIT Placeholder" || placeName === "Unknown Place") {
+        console.log("🧠 Generating AI text (no good place name available)...")
+        aiTextResult = await generatePinTextForPlace(aiContext)
+      } else {
+        // We have a good place name, use it as title, but still generate description if needed
+        console.log("✅ Using place name as title:", placeName)
+        if (!placeDescription) {
+          // Generate description only
+          aiTextResult = await generatePinTextForPlace(aiContext)
+          // Override title with place name
+          if (aiTextResult) {
+            aiTextResult.title = placeName
+          }
+        } else {
+          // We have both name and description, no AI needed
+          aiTextResult = {
+            title: placeName,
+            description: placeDescription,
+            confidence: "high" as const,
+            used_fallback: false
+          }
+        }
+      }
+      
+      // Map to old format for compatibility
+      aiGeneratedContent = {
+        title: aiTextResult?.title || placeName || editingPin.title,
+        description: aiTextResult?.description || placeDescription || editingPin.description || "",
+        locationName: placeName || aiTextResult?.title || editingPin.locationName,
+        tags: editingPin.tags || []
       }
       
       // Extract category for Unsplash search
@@ -2550,20 +2672,19 @@ export default function PINITApp() {
                               (realPhotos.length > 0 ? realPhotos[0].url : editingPin.mediaUrl)
       
       // Update the pin with new location and data
-      // PRIORITIZE Foursquare data over AI-generated content
       const updatedPin: PinData = {
         ...editingPin,
         latitude: editingPinLocation.lat,
         longitude: editingPinLocation.lng,
-        // Use Foursquare placeName first, then AI, then fallback
-        locationName: placeName || aiGeneratedContent.locationName || editingPin.locationName,
-        // Use Foursquare placeName as title first, then AI, then fallback
-        title: placeName || aiGeneratedContent.title || editingPin.title,
-        // Use Foursquare description first, then AI, then fallback
-        description: placeDescription || aiGeneratedContent.description || editingPin.description,
+        // Use AI-generated or place name
+        locationName: placeName || aiTextResult?.title || editingPin.locationName,
+        // Use AI-generated title (which prioritizes place name if available)
+        title: aiTextResult?.title || placeName || editingPin.title,
+        // Use AI-generated description or place description
+        description: aiTextResult?.description || placeDescription || editingPin.description || "",
         mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
         additionalPhotos: realPhotos.length > 0 ? realPhotos : (editingPin.additionalPhotos || []),
-        tags: aiGeneratedContent.tags || editingPin.tags || [],
+        tags: editingPin.tags || ["pinit", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
         // Unsplash image data (if available)
@@ -2573,7 +2694,11 @@ export default function PINITApp() {
           photographerName: unsplashImageData.photographerName,
           photographerProfileUrl: unsplashImageData.photographerProfileUrl,
           unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
-        } : editingPin.unsplashImageAttribution // Keep existing attribution if new fetch fails
+        } : editingPin.unsplashImageAttribution, // Keep existing attribution if new fetch fails
+        // AI generation metadata
+        aiConfidence: aiTextResult?.confidence,
+        aiUsedFallback: aiTextResult?.used_fallback,
+        aiGeneratedAt: new Date().toISOString()
       }
       
       console.log("✅ Pin updated with new location and data:", {
