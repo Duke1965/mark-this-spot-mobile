@@ -84,7 +84,7 @@ async function callAi(system: string, user: string): Promise<string> {
   }
 }
 
-export async function generatePinText(ctx: PinContext): Promise<PinAiResult> {
+async function generatePinText(ctx: PinContext): Promise<PinAiResult> {
   const name = normalizeText(ctx.name);
   const fallbackTitle = resolveTitleFallback(ctx);
   const usedFallback = !name;
