@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react"
 import { PinData } from "@/lib/types"
 import { ArrowLeft, Share2, Save, Calendar, MapPin, Bot, MessageSquare, Star } from "lucide-react"
+import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
+
+// Helper to get display title with fallback
+function getDisplayTitle(pin: PinData): string {
+  const title = pin.title?.trim()
+  if (title && title !== "Location" && title !== "Untitled Location") {
+    return title
+  }
+  // Use fallback from pin context
+  const ctx = resolvePinContext(pin)
+  return resolveTitleFallback(ctx)
+}
 
 interface PinResultsProps {
   pin: PinData
@@ -293,7 +305,7 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
                 margin: 0,
                 color: "white"
               }}>
-                {pin.title || pin.locationName || "Untitled Location"}
+                {getDisplayTitle(pin)}
               </h3>
             </div>
             
