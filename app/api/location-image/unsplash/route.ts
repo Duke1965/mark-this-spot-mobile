@@ -51,9 +51,26 @@ export async function GET(request: NextRequest) {
     // Build search queries with fallback strategy
     const queries: string[] = []
 
-    // Primary: "<name> <city>" (joined with a space, skipping empty parts)
-    const primary = [name, city].filter(Boolean).join(" ")
-    if (primary) queries.push(primary)
+    // Filter out generic/placeholder names
+    const meaningfulName = name && 
+      name.trim() !== "" &&
+      name !== "Location" &&
+      name !== "PINIT Placeholder" &&
+      name !== "Unknown Place" &&
+      name !== "Quick Pin Location" &&
+      !name.startsWith("Speed-based pin") &&
+      !name.startsWith("Camera")
+      ? name.trim()
+      : null
+
+    // Primary: "<name> <city>" (only if name is meaningful)
+    if (meaningfulName) {
+      if (city) {
+        queries.push(`${meaningfulName} ${city}`)
+      } else {
+        queries.push(meaningfulName)
+      }
+    }
 
     // Fallback #1: "<category> <city>" if category exists
     if (category && city) {
@@ -65,8 +82,8 @@ export async function GET(request: NextRequest) {
       queries.push(city)
     }
 
-    // Fallback #3: just "<category>" (if city is missing)
-    if (category && !city) {
+    // Fallback #3: just "<category>" (if city is missing and no meaningful name)
+    if (category && !city && !meaningfulName) {
       queries.push(category)
     }
 
