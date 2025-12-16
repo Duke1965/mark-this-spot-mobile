@@ -1803,17 +1803,37 @@ export default function PINITApp() {
       // Fetch Unsplash image for this location (non-blocking - don't fail pin creation if this fails)
       let unsplashImageData = null
       try {
+        // Only use meaningful place names - filter out generic placeholders
+        const meaningfulName = placeName && 
+          placeName !== "Location" && 
+          placeName !== "PINIT Placeholder" && 
+          placeName !== "Unknown Place" &&
+          placeName !== "Quick Pin Location" &&
+          !placeName.startsWith("Speed-based pin") &&
+          !placeName.startsWith("Camera")
+          ? placeName 
+          : undefined
+        
+        // Extract city from pin-intel data or place name
+        let city: string | undefined = undefined
+        if (pinIntelData?.geocode?.components?.city || pinIntelData?.geocode?.components?.town) {
+          city = pinIntelData.geocode.components.city || pinIntelData.geocode.components.town
+        } else if (meaningfulName) {
+          const cityMatch = meaningfulName.match(/,\s*([^,]+)$/)
+          city = cityMatch ? cityMatch[1].trim() : undefined
+        }
+        
         console.log("🖼️ Fetching Unsplash image for:", { 
-          name: placeName || locationDescription || '', 
+          name: meaningfulName || '(none - using city/category only)', 
+          city: city,
           category: placeCategory 
         })
-        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
-        // Extract city from locationName if available (format: "Place Name, City")
-        const cityMatch = (placeName || locationDescription || '').match(/,\s*([^,]+)$/)
-        const city = cityMatch ? cityMatch[1].trim() : undefined
         
+        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
+        
+        // Only pass name if it's meaningful, otherwise rely on city/category
         unsplashImageData = await fetchLocationImageForPlace({
-          name: placeName || locationDescription || '',
+          name: meaningfulName || '', // Empty string if no meaningful name
           city: city,
           category: placeCategory
         })
@@ -2642,12 +2662,42 @@ export default function PINITApp() {
       // Fetch Unsplash image for this location (non-blocking)
       let unsplashImageData = null
       try {
-        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
-        const cityMatch = (placeName || editingPin.locationName || '').match(/,\s*([^,]+)$/)
-        const city = cityMatch ? cityMatch[1].trim() : undefined
+        // Only use meaningful place names - filter out generic placeholders
+        const meaningfulName = placeName && 
+          placeName !== "Location" && 
+          placeName !== "PINIT Placeholder" && 
+          placeName !== "Unknown Place" &&
+          placeName !== "Quick Pin Location" &&
+          !placeName.startsWith("Speed-based pin") &&
+          !placeName.startsWith("Camera")
+          ? placeName 
+          : (editingPin.locationName && 
+             editingPin.locationName !== "Location" && 
+             editingPin.locationName !== "PINIT Placeholder" && 
+             editingPin.locationName !== "Unknown Place"
+             ? editingPin.locationName 
+             : undefined)
         
+        // Extract city from pin-intel data or place name
+        let city: string | undefined = undefined
+        if (pinIntelData?.geocode?.components?.city || pinIntelData?.geocode?.components?.town) {
+          city = pinIntelData.geocode.components.city || pinIntelData.geocode.components.town
+        } else if (meaningfulName) {
+          const cityMatch = meaningfulName.match(/,\s*([^,]+)$/)
+          city = cityMatch ? cityMatch[1].trim() : undefined
+        }
+        
+        console.log("🖼️ Fetching Unsplash image for edited pin:", { 
+          name: meaningfulName || '(none - using city/category only)', 
+          city: city,
+          category: placeCategory 
+        })
+        
+        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
+        
+        // Only pass name if it's meaningful, otherwise rely on city/category
         unsplashImageData = await fetchLocationImageForPlace({
-          name: placeName || editingPin.locationName || '',
+          name: meaningfulName || '', // Empty string if no meaningful name
           city: city,
           category: placeCategory
         })
