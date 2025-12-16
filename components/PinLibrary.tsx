@@ -3,6 +3,18 @@
 import { useState } from "react"
 import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
 import type { PinData } from "@/lib/types"
+import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
+
+// Helper to get display title with fallback
+function getDisplayTitle(pin: PinData): string {
+  const title = pin.title?.trim()
+  if (title && title !== "Location" && title !== "Untitled Location") {
+    return title
+  }
+  // Use fallback from pin context
+  const ctx = resolvePinContext(pin)
+  return resolveTitleFallback(ctx)
+}
 
 interface PinLibraryProps {
   pins: PinData[]
@@ -43,7 +55,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
   }
 
   const filteredData = getTabData().filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const displayTitle = getDisplayTitle(item)
+    const matchesSearch = displayTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.locationName.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
@@ -362,7 +375,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             {/* Top section - Title */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
               <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', flex: 1 }}>
-                {item.title}
+                {getDisplayTitle(item)}
               </h4>
             </div>
             
