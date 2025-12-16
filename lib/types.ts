@@ -49,6 +49,10 @@ export interface PinData {
     photographerProfileUrl: string
     unsplashPhotoLink: string
   }
+  // AI generation metadata
+  aiConfidence?: "high" | "medium" | "low"
+  aiUsedFallback?: boolean
+  aiGeneratedAt?: string
 }
 
 export interface GooglePlace {
