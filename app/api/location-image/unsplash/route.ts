@@ -63,22 +63,27 @@ export async function GET(request: NextRequest) {
       ? name.trim()
       : null
 
-    // Primary: "<name> <city>" (only if name is meaningful)
+    // Primary: Exact place name with city for most specific results
     if (meaningfulName) {
       if (city) {
+        // Most specific: "Restaurant Name, City" format
+        queries.push(`${meaningfulName}, ${city}`)
+        // Also try without comma
         queries.push(`${meaningfulName} ${city}`)
+        // Try just the name (in case it's very specific)
+        queries.push(meaningfulName)
       } else {
         queries.push(meaningfulName)
       }
     }
 
-    // Fallback #1: "<category> <city>" if category exists
+    // Fallback #1: "<category> <city>" if category exists (less specific)
     if (category && city) {
       queries.push(`${category} ${city}`)
     }
 
-    // Fallback #2: "<city>" alone
-    if (city) {
+    // Fallback #2: "<city>" alone (least specific - only if no name/category)
+    if (city && !meaningfulName && !category) {
       queries.push(city)
     }
 
@@ -96,7 +101,9 @@ export async function GET(request: NextRequest) {
       const url = new URL("https://api.unsplash.com/search/photos")
       url.searchParams.set("query", query)
       url.searchParams.set("orientation", "landscape")
-      url.searchParams.set("per_page", "1")
+      url.searchParams.set("per_page", "5") // Get more results to find better matches
+      // Add relevance sorting to prioritize more relevant photos
+      url.searchParams.set("order_by", "relevance")
 
       try {
         // Trim the key to remove any accidental whitespace
@@ -126,8 +133,32 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await response.json()
-        const first = data.results?.[0]
-        return first ?? null
+        const results = data.results || []
+        
+        // Try to find a more relevant photo by checking descriptions/tags
+        // Look for photos that might be of the actual place (not just generic stock photos)
+        for (const photo of results) {
+          const description = (photo.description || photo.alt_description || "").toLowerCase()
+          const tags = (photo.tags || []).map((tag: any) => tag.title?.toLowerCase() || "").join(" ")
+          const searchText = `${description} ${tags}`
+          
+          // If query contains a specific place name, prefer photos that mention it
+          const queryLower = query.toLowerCase()
+          if (queryLower.includes(",") || queryLower.split(" ").length <= 3) {
+            // This looks like a specific place query - prefer photos that might be of the place
+            // Check if description/tags mention the place name or location
+            const placeWords = queryLower.split(/[,\s]+/).filter(w => w.length > 3)
+            const hasPlaceMention = placeWords.some(word => searchText.includes(word))
+            
+            if (hasPlaceMention) {
+              console.log(`✅ Found potentially relevant Unsplash photo for "${query}" (matches place name)`)
+              return photo
+            }
+          }
+        }
+        
+        // If no specific match found, return the first result
+        return results[0] ?? null
       } catch (error) {
         console.error(`❌ Unsplash fetch error for query "${query}":`, error)
         return null
