@@ -7,11 +7,8 @@ import { usePinStorage } from '../hooks/usePinStorage'
 import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
 import type { PinData } from '../lib/types'
-import { MAP_PROVIDER } from '../lib/mapConfig'
-import "mapbox-gl/dist/mapbox-gl.css"
-
-// Load TomTom CSS early (similar to Mapbox CSS import)
-if (typeof window !== 'undefined' && MAP_PROVIDER === "tomtom") {
+// Load TomTom CSS early
+if (typeof window !== 'undefined') {
   const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
   if (!existingLink) {
     const link = document.createElement('link')
@@ -349,7 +346,7 @@ export default function AIRecommendationsHub({
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
       // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
         signal
       })
 
@@ -498,7 +495,7 @@ export default function AIRecommendationsHub({
   const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
       // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const response = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
         signal
       })
 
@@ -733,7 +730,7 @@ export default function AIRecommendationsHub({
               try {
                 console.log('🧠 Fetching travel places from Mapbox for all categories in one request...')
                 // Focus on travel-related POIs: restaurants, cafes, monuments, museums, art galleries, churches, tourism
-                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal // Add abort signal
                 })
                 
@@ -846,7 +843,7 @@ export default function AIRecommendationsHub({
                   console.log('🧠 Fetching local places for new user...')
                   
                   // Use Mapbox Search API with safeguards - focus on travel POIs
-                  const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                  const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                     signal // Add abort signal
                   })
                   
@@ -1036,7 +1033,7 @@ export default function AIRecommendationsHub({
               // We already have places from the category fetch above - reuse them
               try {
                 // Focus on travel-related POIs for discovery recommendations
-                const response = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
@@ -1054,7 +1051,7 @@ export default function AIRecommendationsHub({
               // For new users, fetch discovery places separately
               try {
                 // Focus on travel-related POIs for discovery
-                const discoveryResponse = await fetch(`/api/mapbox/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                const discoveryResponse = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
@@ -1336,19 +1333,19 @@ export default function AIRecommendationsHub({
           })
             .setLngLat([recLng, recLat])
             .setPopup(new SDK.Popup({ 
-              offset: 25,
-              closeButton: true,
-              className: 'recommendation-popup'
-            }).setHTML(`
-              <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
-                ${rec.title}
-              </div>
-              ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
-              <div style="font-size: 11px; color: #999; margin-top: 4px;">
-                ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
-              </div>
+        offset: 25,
+        closeButton: true,
+        className: 'recommendation-popup'
+      }).setHTML(`
+        <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
+          ${rec.title}
+        </div>
+        ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
+        <div style="font-size: 11px; color: #999; margin-top: 4px;">
+          ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
+        </div>
             `))
-            .addTo(map)
+        .addTo(map)
       
       // Add tooltip for TomTom (since it doesn't have popups)
       if (isTomTom) {
@@ -1398,135 +1395,86 @@ export default function AIRecommendationsHub({
     // Store current coordinates before initialization
     lastLocationCoordsRef.current = { lat, lng }
     
-    const isTomTom = MAP_PROVIDER === "tomtom"
-    
-    if (isTomTom) {
-      // Ensure CSS is loaded before initializing
-      const ensureCSSLoaded = () => {
-        if (typeof window === 'undefined') return Promise.resolve()
-        
-        const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
-        if (existingLink) return Promise.resolve()
-        
-        return new Promise<void>((resolve) => {
-          const link = document.createElement('link')
-          link.rel = 'stylesheet'
-          link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
-          link.onload = () => resolve()
-          link.onerror = () => resolve() // Continue even if CSS fails
-          document.head.appendChild(link)
-        })
-      }
-
-      // Ensure CSS is loaded, then initialize map
-      ensureCSSLoaded().then(() => {
-        // Small delay to ensure CSS is applied
-        setTimeout(() => {
-          // Initialize TomTom map (matching Mapbox pattern)
-          import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-            if (!mapRef.current || mapInstanceRef.current) return
-            
-            const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-            if (!apiKey) {
-              console.error('❌ TomTom API key is missing')
-              return
-            }
-            
-            // TomTom SDK can be imported as default or named export
-            const tt = ttModule.default || ttModule
-            
-            // Note: Omitting style parameter uses default style
-            const map = tt.map({
-              key: apiKey,
-              container: mapRef.current,
-              center: [lng, lat],
-              zoom: 16, // Zoom level to show approximately 1km (street level)
-              // style: 'main', // Try omitting style to use default
-              interactive: true
-            })
-            
-            mapInstanceRef.current = map
-            isMapInitializedRef.current = true
-            
-            // Add user location marker
-            const userEl = document.createElement('div')
-            userEl.style.width = '20px'
-            userEl.style.height = '20px'
-            userEl.style.borderRadius = '50%'
-            userEl.style.backgroundColor = '#22C55E'
-            userEl.style.border = '3px solid white'
-            userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-            userEl.style.cursor = 'pointer'
-            userEl.title = '📍 Your Location'
-            
-            const userMarker = new tt.Marker({
-              element: userEl,
-              anchor: 'center'
-            })
-              .setLngLat([lng, lat])
-              .addTo(map)
-            
-            userMarkerRef.current = userMarker
-            
-            // Wait for map to load, then add recommendation markers
-            map.on('load', () => {
-              console.log('🗺️ TomTom recommendations map loaded')
-              // Small delay to ensure map is fully rendered before adding markers
-              setTimeout(() => {
-                updateRecommendationMarkers(map, tt, false, true) // Don't fit bounds - use fixed zoom to match main page
-              }, 100)
-            })
-          }).catch((error) => {
-            console.error('❌ Failed to load TomTom Maps SDK:', error)
-          })
-        }, 100) // Small delay to ensure CSS is applied
-      })
-    } else {
-      // Initialize Mapbox map (existing code)
-      import('mapbox-gl').then((mapboxgl) => {
-        if (!mapRef.current || mapInstanceRef.current) return
-        
-        mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
-        
-        const map = new mapboxgl.default.Map({
-          container: mapRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: [lng, lat],
-          zoom: 13,
-          attributionControl: true,
-          interactive: true,
-        })
-        
-        mapInstanceRef.current = map
-        isMapInitializedRef.current = true
-        
-        // Add user location marker
-        const userEl = document.createElement('div')
-        userEl.style.width = '20px'
-        userEl.style.height = '20px'
-        userEl.style.borderRadius = '50%'
-        userEl.style.backgroundColor = '#22C55E'
-        userEl.style.border = '3px solid white'
-        userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-        userEl.style.cursor = 'pointer'
-        
-        const userMarker = new mapboxgl.default.Marker({
-          element: userEl,
-          anchor: 'center'
-        })
-          .setLngLat([lng, lat])
-          .setPopup(new mapboxgl.default.Popup().setHTML('<div style="font-weight: 600; color: #1e3a8a;">📍 Your Location</div>'))
-          .addTo(map)
-        
-        userMarkerRef.current = userMarker
-        
-        // Wait for map to load, then add recommendation markers
-        map.on('load', () => {
-          console.log('🗺️ Mapbox recommendations map loaded')
-          updateRecommendationMarkers(map, mapboxgl, false, false) // Don't fit bounds - use fixed zoom to match main page
-        })
+    // Always use TomTom (Mapbox has been removed)
+    // Ensure CSS is loaded before initializing
+    const ensureCSSLoaded = () => {
+      if (typeof window === 'undefined') return Promise.resolve()
+      
+      const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
+      if (existingLink) return Promise.resolve()
+      
+      return new Promise<void>((resolve) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
+        link.onload = () => resolve()
+        link.onerror = () => resolve() // Continue even if CSS fails
+        document.head.appendChild(link)
       })
     }
+
+    // Ensure CSS is loaded, then initialize map
+    ensureCSSLoaded().then(() => {
+      // Small delay to ensure CSS is applied
+      setTimeout(() => {
+        // Initialize TomTom map
+        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+          if (!mapRef.current || mapInstanceRef.current) return
+          
+          const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
+          if (!apiKey) {
+            console.error('❌ TomTom API key is missing')
+            return
+          }
+          
+          // TomTom SDK can be imported as default or named export
+          const tt = ttModule.default || ttModule
+          
+          // Note: Omitting style parameter uses default style
+          const map = tt.map({
+            key: apiKey,
+            container: mapRef.current,
+            center: [lng, lat],
+            zoom: 16, // Zoom level to show approximately 1km (street level)
+            interactive: true
+          })
+          
+          mapInstanceRef.current = map
+          isMapInitializedRef.current = true
+          
+          // Add user location marker
+          const userEl = document.createElement('div')
+          userEl.style.width = '20px'
+          userEl.style.height = '20px'
+          userEl.style.borderRadius = '50%'
+          userEl.style.backgroundColor = '#22C55E'
+          userEl.style.border = '3px solid white'
+          userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
+          userEl.style.cursor = 'pointer'
+          userEl.title = '📍 Your Location'
+          
+          const userMarker = new tt.Marker({
+            element: userEl,
+            anchor: 'center'
+          })
+            .setLngLat([lng, lat])
+            .addTo(map)
+          
+          userMarkerRef.current = userMarker
+          
+          // Wait for map to load, then add recommendation markers
+          map.on('load', () => {
+            console.log('🗺️ TomTom recommendations map loaded')
+            // Small delay to ensure map is fully rendered before adding markers
+            setTimeout(() => {
+              updateRecommendationMarkers(map, tt, false, true) // Don't fit bounds - use fixed zoom to match main page
+            }, 100)
+          })
+        }).catch((error) => {
+          console.error('❌ Failed to load TomTom Maps SDK:', error)
+        })
+      }, 100) // Small delay to ensure CSS is applied
+    })
     
     // Cleanup only when viewMode changes or component unmounts
     return () => {
@@ -1588,19 +1536,12 @@ export default function AIRecommendationsHub({
   // Update markers when recommendations change (but don't fit bounds again)
   useEffect(() => {
     if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
-      const isTomTom = MAP_PROVIDER === "tomtom"
-      
-      if (isTomTom) {
-        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-          // TomTom SDK can be imported as default or named export
-          const tt = ttModule.default || ttModule
-          updateRecommendationMarkers(mapInstanceRef.current, tt, false, true)
-        })
-      } else {
-        import('mapbox-gl').then((mapboxgl) => {
-          updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false, false)
-        })
-      }
+      // Always use TomTom (Mapbox has been removed)
+      import('@tomtom-international/web-sdk-maps').then((ttModule) => {
+        // TomTom SDK can be imported as default or named export
+        const tt = ttModule.default || ttModule
+        updateRecommendationMarkers(mapInstanceRef.current, tt, false, true)
+      })
     }
   }, [recommendations.length, viewMode, updateRecommendationMarkers]) // Only depend on count, not the full array
 
