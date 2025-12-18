@@ -1,30 +1,23 @@
 /**
  * Map Provider Configuration
- * Supports switching between Mapbox and TomTom map providers
+ * PINIT uses TomTom as the primary map provider
  */
 
-export type MapProvider = "mapbox" | "tomtom"
+export type MapProvider = "tomtom"
 
-// Get map provider from environment variable, default to "mapbox" for backward compatibility
-export const MAP_PROVIDER: MapProvider = 
-  (process.env.NEXT_PUBLIC_MAP_PROVIDER as MapProvider) || "mapbox"
+// Map provider is always TomTom (Mapbox has been removed)
+export const MAP_PROVIDER: MapProvider = "tomtom"
 
 // API Keys
-export const MAPBOX_API_KEY = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
 export const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ""
 
 // Validate configuration
 export function validateMapConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  if (MAP_PROVIDER === "tomtom" && !TOMTOM_API_KEY) {
-    errors.push("TomTom API key is required when MAP_PROVIDER=tomtom")
+  if (!TOMTOM_API_KEY) {
+    errors.push("TomTom API key is required. Set NEXT_PUBLIC_TOMTOM_API_KEY in your environment variables.")
     console.warn("⚠️ TomTom API key missing. Set NEXT_PUBLIC_TOMTOM_API_KEY in your environment variables.")
-  }
-
-  if (MAP_PROVIDER === "mapbox" && !MAPBOX_API_KEY) {
-    errors.push("Mapbox API key is required when MAP_PROVIDER=mapbox")
-    console.warn("⚠️ Mapbox API key missing. Set NEXT_PUBLIC_MAPBOX_API_KEY in your environment variables.")
   }
 
   return {
