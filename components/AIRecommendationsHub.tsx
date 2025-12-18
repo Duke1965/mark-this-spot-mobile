@@ -1430,13 +1430,12 @@ export default function AIRecommendationsHub({
           // TomTom SDK can be imported as default or named export
           const tt = ttModule.default || ttModule
           
-          // Use 'main' style for latest map data
+          // Initialize TomTom map (omitting style uses default/latest style)
           const map = tt.map({
             key: apiKey,
             container: mapRef.current,
             center: [lng, lat],
             zoom: 16, // Zoom level to show approximately 1km (street level)
-            style: 'main', // Use 'main' style for latest map data
             interactive: true
           })
           
