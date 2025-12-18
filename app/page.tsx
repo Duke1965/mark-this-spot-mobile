@@ -1409,10 +1409,11 @@ export default function PINITApp() {
         }
       }
       
-      // Fetch Unsplash image for this location (non-blocking - don't fail pin creation if this fails)
+      // Fetch Unsplash image using exact place name for specific results
       let unsplashImageData = null
       try {
-        // Only use meaningful place names - filter out generic placeholders
+        // Use the EXACT place name for most specific search results
+        // This ensures we get photos of the actual place, not random images
         const meaningfulName = placeName && 
           placeName !== "Location" && 
           placeName !== "PINIT Placeholder" && 
@@ -1432,7 +1433,7 @@ export default function PINITApp() {
           city = cityMatch ? cityMatch[1].trim() : undefined
         }
         
-        console.log("🖼️ Fetching Unsplash image for:", { 
+        console.log("🖼️ Fetching Unsplash image with exact place name:", { 
           name: meaningfulName || '(none - using city/category only)', 
           city: city,
           category: placeCategory 
@@ -1440,18 +1441,17 @@ export default function PINITApp() {
         
         const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
         
-        // Only pass name if it's meaningful, otherwise rely on city/category
+        // Pass the exact place name to get specific photos of the actual place
         unsplashImageData = await fetchLocationImageForPlace({
-          name: meaningfulName || '', // Empty string if no meaningful name
+          name: meaningfulName || '', // Exact place name for specific results
           city: city,
           category: placeCategory
         })
         
         if (unsplashImageData) {
-          console.log("✅ Unsplash image fetched successfully:", {
+          console.log("✅ Unsplash image fetched:", {
             photographer: unsplashImageData.photographerName,
-            imageUrl: unsplashImageData.imageUrl?.substring(0, 50) + "...",
-            imageUrlLarge: unsplashImageData.imageUrlLarge?.substring(0, 50) + "..."
+            imageUrl: unsplashImageData.imageUrl?.substring(0, 50) + "..."
           })
         } else {
           console.warn("⚠️ No Unsplash image found for this location")
@@ -1461,18 +1461,10 @@ export default function PINITApp() {
         // Continue with pin creation even if Unsplash fails
       }
       
-      // Filter out Mapbox static images from locationPhotos (they're aerial/map views, not real photos)
-      // Only keep real photos (not Mapbox static images which have mapbox.com in the URL)
-      const realPhotos = locationPhotos.filter(photo => 
-        photo.url && 
-        !photo.url.includes('mapbox.com') && 
-        !photo.url.includes('api.mapbox.com')
-      )
-      
-      // Prioritize Unsplash image for mediaUrl, fallback to real photos, then null
+      // Use Unsplash image (prioritized for place-specific photos)
       const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
                               unsplashImageData?.imageUrl || 
-                              (realPhotos.length > 0 ? realPhotos[0].url : null)
+                              null
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -1489,8 +1481,8 @@ export default function PINITApp() {
         // Use AI-generated description or place description
         description: aiTextResult?.description || placeDescription || "",
         tags: ["pinit", "travel"],
-        // NEW: Store only real photos for the carousel (exclude Mapbox static images)
-        additionalPhotos: realPhotos,
+        // Additional photos (empty for now - only using Unsplash)
+        additionalPhotos: [],
         // NEW: Mark as pending - needs location confirmation via edit mode
         isPending: true,
         // Unsplash image data (if available)
@@ -2268,10 +2260,10 @@ export default function PINITApp() {
         }
       }
       
-      // Fetch Unsplash image for this location (non-blocking)
+      // Fetch Unsplash image using exact place name for specific results
       let unsplashImageData = null
       try {
-        // Only use meaningful place names - filter out generic placeholders
+        // Use the EXACT place name for most specific search results
         const meaningfulName = placeName && 
           placeName !== "Location" && 
           placeName !== "PINIT Placeholder" && 
@@ -2296,7 +2288,7 @@ export default function PINITApp() {
           city = cityMatch ? cityMatch[1].trim() : undefined
         }
         
-        console.log("🖼️ Fetching Unsplash image for edited pin:", { 
+        console.log("🖼️ Fetching Unsplash image with exact place name for edited pin:", { 
           name: meaningfulName || '(none - using city/category only)', 
           city: city,
           category: placeCategory 
@@ -2304,9 +2296,9 @@ export default function PINITApp() {
         
         const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
         
-        // Only pass name if it's meaningful, otherwise rely on city/category
+        // Pass the exact place name to get specific photos of the actual place
         unsplashImageData = await fetchLocationImageForPlace({
-          name: meaningfulName || '', // Empty string if no meaningful name
+          name: meaningfulName || '', // Exact place name for specific results
           city: city,
           category: placeCategory
         })
@@ -2318,17 +2310,10 @@ export default function PINITApp() {
         console.warn("⚠️ Failed to fetch Unsplash image for edited pin (non-critical):", error)
       }
       
-      // Filter out Mapbox static images from locationPhotos (they're aerial/map views, not real photos)
-      const realPhotos = locationPhotos.filter(photo => 
-        photo.url && 
-        !photo.url.includes('mapbox.com') && 
-        !photo.url.includes('api.mapbox.com')
-      )
-      
-      // Prioritize Unsplash image for mediaUrl, fallback to real photos, then existing mediaUrl
+      // Use Unsplash image (prioritized for place-specific photos), fallback to existing mediaUrl
       const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
                               unsplashImageData?.imageUrl || 
-                              (realPhotos.length > 0 ? realPhotos[0].url : editingPin.mediaUrl)
+                              editingPin.mediaUrl
       
       // Update the pin with new location and data
       const updatedPin: PinData = {
@@ -2341,8 +2326,8 @@ export default function PINITApp() {
         title: aiTextResult?.title || placeName || editingPin.title,
         // Use AI-generated description or place description
         description: aiTextResult?.description || placeDescription || editingPin.description || "",
-        mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
-        additionalPhotos: realPhotos.length > 0 ? realPhotos : (editingPin.additionalPhotos || []),
+        mediaUrl: primaryImageUrl, // Use Unsplash image
+        additionalPhotos: editingPin.additionalPhotos || [],
         tags: editingPin.tags || ["pinit", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
