@@ -208,8 +208,48 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
         formatted = address
       }
     } else if (placeName) {
-      // No address, use place name
-      formatted = placeName
+      // No address from Foursquare, try TomTom reverse geocoding for street-level data
+      try {
+        const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
+        if (tomtomKey) {
+          const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json`)
+          tomtomUrl.searchParams.set('key', tomtomKey)
+          
+          const tomtomResponse = await fetch(tomtomUrl.toString())
+          if (tomtomResponse.ok) {
+            const tomtomData = await tomtomResponse.json()
+            const addresses = tomtomData.addresses || []
+            
+            if (addresses.length > 0) {
+              const tomtomAddress = addresses[0].address || {}
+              const streetNumber = tomtomAddress.streetNumber || ""
+              const streetName = tomtomAddress.streetName || ""
+              const street = streetNumber && streetName ? `${streetNumber} ${streetName}` : (streetName || streetNumber || "")
+              const municipality = tomtomAddress.municipality || tomtomAddress.municipalitySubdivision || ""
+              
+              // Format: "Street, Town" or "Street, Suburb, City"
+              if (street && municipality) {
+                formatted = `${street}, ${municipality}`
+              } else if (street) {
+                formatted = `${street}, ${placeName}`
+              } else if (municipality) {
+                formatted = `${placeName}, ${municipality}`
+              } else {
+                formatted = placeName
+              }
+            } else {
+              formatted = placeName
+            }
+          } else {
+            formatted = placeName
+          }
+        } else {
+          formatted = placeName
+        }
+      } catch (tomtomError) {
+        console.log('⚠️ TomTom fallback error, using place name:', tomtomError)
+        formatted = placeName
+      }
     } else {
       // Fallback to coordinates (but we'll try to avoid this)
       formatted = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
@@ -225,6 +265,53 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
     }
   } catch (error) {
     console.error('❌ Foursquare geocoding error:', error)
+    
+    // Try TomTom as fallback before returning coordinates
+    try {
+      const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
+      if (tomtomKey) {
+        const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json`)
+        tomtomUrl.searchParams.set('key', tomtomKey)
+        
+        const tomtomResponse = await fetch(tomtomUrl.toString())
+        if (tomtomResponse.ok) {
+          const tomtomData = await tomtomResponse.json()
+          const addresses = tomtomData.addresses || []
+          
+          if (addresses.length > 0) {
+            const tomtomAddress = addresses[0].address || {}
+            const streetNumber = tomtomAddress.streetNumber || ""
+            const streetName = tomtomAddress.streetName || ""
+            const street = streetNumber && streetName ? `${streetNumber} ${streetName}` : (streetName || streetNumber || "")
+            const municipality = tomtomAddress.municipality || tomtomAddress.municipalitySubdivision || ""
+            const freeformAddress = tomtomAddress.freeformAddress || ""
+            
+            if (street && municipality) {
+              return {
+                formatted: `${street}, ${municipality}`,
+                components: {
+                  name: municipality,
+                  address: street,
+                  category: ""
+                }
+              }
+            } else if (freeformAddress) {
+              return {
+                formatted: freeformAddress,
+                components: {
+                  name: municipality || "",
+                  address: street || "",
+                  category: ""
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (tomtomError) {
+      console.log('⚠️ TomTom fallback also failed:', tomtomError)
+    }
+    
     // Return coordinate-based fallback on error
     return {
       formatted: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
