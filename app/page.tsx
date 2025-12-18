@@ -345,10 +345,10 @@ function InteractiveMainMapTomTom({
       
       carMarkerRef.current = carMarker
 
-          // Wait for map to load, then fetch and display POIs
-          map.on('load', async () => {
-            console.log('🗺️ TomTom main map loaded, fetching nearby POIs...')
-            await updatePOIs(lat, lng, tt, map)
+          // Wait for map to load (POI markers disabled for main circle map)
+          map.on('load', () => {
+            console.log('🗺️ TomTom main map loaded')
+            // POI markers removed - only showing user position (car icon)
           })
         }).catch((error) => {
           console.error('❌ Failed to load TomTom Maps SDK:', error)
@@ -414,8 +414,8 @@ function InteractiveMainMapTomTom({
           }
         }
         
-        // Update POIs
-        updatePOIs(lat, lng, tt, mapInstanceRef.current)
+        // POI markers disabled for main circle map
+        // updatePOIs(lat, lng, tt, mapInstanceRef.current)
       })
 
       lastLatRef.current = lat
