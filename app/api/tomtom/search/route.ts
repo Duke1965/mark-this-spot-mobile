@@ -9,8 +9,9 @@ import { type NextRequest, NextResponse } from "next/server"
 const TOMTOM_SEARCH_BASE = 'https://api.tomtom.com/search/2/nearbySearch/.json'
 
 // In-memory cache to prevent duplicate requests
+// Reduced cache TTL to 5 minutes for fresher POI data
 const searchCache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_TTL = 3600000 // 1 hour
+const CACHE_TTL = 300000 // 5 minutes (reduced from 1 hour for fresher data)
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
     console.log('✅ Using cached TomTom Search result')
     return NextResponse.json(cached.data, {
       headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600', // 5 min cache, 10 min stale
         'X-Cache': 'HIT'
       }
     })
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
     console.log('🔗 TomTom Search URL:', searchUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
 
     const response = await fetch(searchUrl.toString(), {
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 300 } // Cache for 5 minutes (reduced for fresher POI data)
     })
 
     console.log('📡 TomTom Search response status:', response.status)
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result, {
       headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600', // 5 min cache, 10 min stale
         'X-Cache': 'MISS'
       }
     })
