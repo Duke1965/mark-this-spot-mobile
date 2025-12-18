@@ -156,15 +156,17 @@ export default function TomTomMap({
               center: [center.lng, center.lat]
             })
 
-            // Initialize TomTom map
-            // Note: Omitting style parameter uses default style
+            // Initialize TomTom map with latest style for fresh data
+            // Using 'main' style ensures we get the latest map tiles and POI data
             const map = tt.map({
               key: TOMTOM_API_KEY,
               container: mapContainerRef.current,
               center: [center.lng, center.lat], // TomTom uses [lng, lat] format
               zoom: zoom,
-              // style: 'main', // Try omitting style to use default
-              interactive: interactive
+              style: 'main', // Use 'main' style for latest map data
+              interactive: interactive,
+              // Disable map tile caching to ensure fresh data
+              preserveDrawingBuffer: false
             })
 
             mapInstanceRef.current = map
