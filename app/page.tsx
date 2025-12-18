@@ -310,14 +310,13 @@ function InteractiveMainMapTomTom({
           // TomTom SDK can be imported as default or named export
           const tt = ttModule.default || ttModule
 
-          // Initialize TomTom map (same pattern as Mapbox)
-          // Note: Omitting style parameter uses default style
+          // Initialize TomTom map with latest style for fresh data
           const map = tt.map({
             key: apiKey,
             container: mapRef.current,
             center: [lng, lat], // TomTom uses [lng, lat]
             zoom: 16,
-            // style: 'main', // Try omitting style to use default
+            style: 'main', // Use 'main' style for latest map data
             interactive: false // Disable interaction for the circle map
           })
 
