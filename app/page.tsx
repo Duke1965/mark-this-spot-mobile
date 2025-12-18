@@ -1029,6 +1029,7 @@ export default function PINITApp() {
   const locationFallbackCacheRef = useRef<Map<string, { result: string; timestamp: number }>>(new Map())
   
   // Helper function for location fallback (no coordinates shown)
+  // Uses TomTom reverse geocoding for better street-level data
   const getLocationFallback = async (lat: number, lng: number): Promise<string> => {
     // Check cache first (5 minute cache)
     const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`
@@ -1038,28 +1039,31 @@ export default function PINITApp() {
       return cached.result
     }
     
-    // Try to get location from Mapbox API directly as fallback
-    // Request both address and place to get street + city information
+    // Try to get location from TomTom reverse geocoding API
     try {
-      const response = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place&limit=5`)
+      const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
+      if (!tomtomKey) {
+        throw new Error('TomTom API key missing')
+      }
+      
+      const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json`)
+      tomtomUrl.searchParams.set('key', tomtomKey)
+      
+      const response = await fetch(tomtomUrl.toString())
       if (response.ok) {
         const data = await response.json()
-        if (data.places && data.places.length > 0) {
-          // Find address result (for street) and place result (for city/town)
-          const addressResult = data.places.find((p: any) => {
-            const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
-            return types.includes('address') || p.context?.street
-          })
-          const placeResult = data.places.find((p: any) => {
-            const types = Array.isArray(p.place_type) ? p.place_type : [p.place_type]
-            return types.includes('place') || p.context?.city
-          }) || data.places[0]
+        const addresses = data.addresses || []
+        
+        if (addresses.length > 0) {
+          const address = addresses[0].address || {}
           
-          // Use address result for street, place result for city/town
-          const street = addressResult?.context?.street || addressResult?.address || addressResult?.name || ""
-          const neighborhood = placeResult?.context?.neighborhood || addressResult?.context?.neighborhood || ""
-          const city = placeResult?.context?.city || placeResult?.name || ""
-          const placeName = placeResult?.name || placeResult?.place_name || ""
+          // Extract address components from TomTom response
+          const streetNumber = address.streetNumber || ""
+          const streetName = address.streetName || ""
+          const street = streetNumber && streetName ? `${streetNumber} ${streetName}` : (streetName || streetNumber || "")
+          const municipality = address.municipality || address.municipalitySubdivision || ""
+          const countrySubdivision = address.countrySubdivision || ""
+          const freeformAddress = address.freeformAddress || ""
           
           // Format location name according to user requirements:
           // - For rural/town: "Street Town" (e.g., "Eikenhof street Riebeek west")
@@ -1067,24 +1071,23 @@ export default function PINITApp() {
           
           let result = ""
           
-          if (city && neighborhood) {
+          if (municipality && countrySubdivision && municipality !== countrySubdivision) {
             // City location: "Street Suburb City"
             const parts = []
             if (street) parts.push(street)
-            if (neighborhood) parts.push(neighborhood)
-            if (city) parts.push(city)
+            if (municipality) parts.push(municipality)
+            if (countrySubdivision) parts.push(countrySubdivision)
             result = parts.join(" ")
-          } else if (city || placeName) {
+          } else if (municipality || freeformAddress) {
             // Rural/town location: "Street Town"
             const parts = []
             if (street) parts.push(street)
-            // Use city if available, otherwise use placeName
-            const town = city || placeName
+            const town = municipality || freeformAddress.split(',')[0] || ""
             if (town) parts.push(town)
             result = parts.join(" ")
-          } else {
-            // Fallback to place name
-            result = placeName
+          } else if (freeformAddress) {
+            // Use freeform address as fallback
+            result = freeformAddress
           }
           
           // Ensure "street" is lowercase (as per user examples)
@@ -1097,7 +1100,7 @@ export default function PINITApp() {
         }
       }
     } catch (error) {
-      console.log(`⚠️ Mapbox fallback error:`, error)
+      console.log(`⚠️ TomTom fallback error:`, error)
     }
     
     // Regional fallbacks (no coordinates)
