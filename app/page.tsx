@@ -310,13 +310,12 @@ function InteractiveMainMapTomTom({
           // TomTom SDK can be imported as default or named export
           const tt = ttModule.default || ttModule
 
-          // Initialize TomTom map with latest style for fresh data
+          // Initialize TomTom map (omitting style uses default/latest style)
           const map = tt.map({
             key: apiKey,
             container: mapRef.current,
             center: [lng, lat], // TomTom uses [lng, lat]
             zoom: 16,
-            style: 'main', // Use 'main' style for latest map data
             interactive: false // Disable interaction for the circle map
           })
 
@@ -357,19 +356,6 @@ function InteractiveMainMapTomTom({
     })
 
     // Cleanup on unmount
-    return () => {
-      if (mapInstanceRef.current) {
-        poiMarkersRef.current.forEach(marker => marker.remove())
-        if (carMarkerRef.current) {
-          carMarkerRef.current.remove()
-          carMarkerRef.current = null
-        }
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-        isInitializedRef.current = false
-      }
-    }
-
     return () => {
       if (mapInstanceRef.current) {
         poiMarkersRef.current.forEach(marker => marker.remove())
