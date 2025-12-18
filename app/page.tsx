@@ -29,13 +29,11 @@ import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
-import { MAP_PROVIDER } from "@/lib/mapConfig"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import TomTomMap from "@/components/map/TomTomMap"
-import "mapbox-gl/dist/mapbox-gl.css"
 
-// Load TomTom CSS early (similar to Mapbox CSS import)
-if (typeof window !== 'undefined' && MAP_PROVIDER === "tomtom") {
+// Load TomTom CSS early
+if (typeof window !== 'undefined') {
   const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
   if (!existingLink) {
     const link = document.createElement('link')
@@ -120,7 +118,7 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker (Mapbox or TomTom)
+// Interactive Map Editor Component with Draggable Marker (TomTom)
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -130,142 +128,28 @@ function InteractiveMapEditor({
   initialLng: number
   onLocationChange: (lat: number, lng: number) => void
 }) {
-  // Use TomTom if configured, otherwise fall back to Mapbox
-  if (MAP_PROVIDER === "tomtom") {
-    return (
-      <div style={{
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0
-      }}>
-        <TomTomMap
-          center={{ lat: initialLat, lng: initialLng }}
-          zoom={18}
-          interactive={true}
-          draggableMarker={{
-            lat: initialLat,
-            lng: initialLng,
-            onDragEnd: (lat, lng) => {
-              console.log("📍 Marker dragged to:", { lat, lng })
-              onLocationChange(lat, lng)
-            }
-          }}
-        />
-      </div>
-    )
-  }
-
-  // Mapbox implementation (existing code)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const markerRef = useRef<any>(null)
-  const isDraggingRef = useRef<boolean>(false)
-  const lastDraggedPositionRef = useRef<{ lat: number; lng: number } | null>(null)
-
-  useEffect(() => {
-    if (!mapRef.current) return
-
-    // Dynamically import Mapbox GL
-    import('mapbox-gl').then((mapboxgl) => {
-      if (!mapRef.current || mapInstanceRef.current) return
-
-      // Set Mapbox access token
-      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
-
-      // Initialize Mapbox map - Changed to streets-v12 (normal map view)
-      const map = new mapboxgl.default.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [initialLng, initialLat], // Mapbox uses [lng, lat]
-        zoom: 18, // Higher zoom for more detail and visible place names
-        attributionControl: false
-      })
-
-      mapInstanceRef.current = map
-
-      // Create draggable marker
-      const marker = new mapboxgl.default.Marker({
-        draggable: true,
-        color: '#3B82F6'
-      })
-        .setLngLat([initialLng, initialLat])
-        .addTo(map)
-
-      markerRef.current = marker
-
-      // Listen for marker drag events
-      marker.on('dragstart', () => {
-        isDraggingRef.current = true
-        console.log("📍 Drag started")
-      })
-
-      marker.on('dragend', () => {
-        const lngLat = marker.getLngLat()
-        const newPosition = { lat: lngLat.lat, lng: lngLat.lng }
-        lastDraggedPositionRef.current = newPosition
-        isDraggingRef.current = false
-        console.log("📍 Marker dragged to:", newPosition)
-        onLocationChange(newPosition.lat, newPosition.lng)
-      })
-
-      // Cleanup
-      return () => {
-        marker.remove()
-        map.remove()
-      }
-    })
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-      }
-    }
-  }, []) // Only run once on mount
-
-  // Update marker position when initial location changes (but not during drag)
-  useEffect(() => {
-    if (!markerRef.current || !mapInstanceRef.current) return
-    
-    // Don't update marker if we're currently dragging
-    if (isDraggingRef.current) {
-      console.log('📍 Skipping marker update - drag in progress')
-      return
-    }
-
-    // If the new position matches the last dragged position, it means the state update came from the drag
-    // In this case, update the marker position to match the dragged position
-    if (lastDraggedPositionRef.current && 
-        Math.abs(lastDraggedPositionRef.current.lat - initialLat) < 0.0001 &&
-        Math.abs(lastDraggedPositionRef.current.lng - initialLng) < 0.0001) {
-      console.log('📍 Position matches last drag - updating marker position')
-      markerRef.current.setLngLat([initialLng, initialLat])
-      lastDraggedPositionRef.current = null // Clear after update
-      return
-    }
-
-    // Only update if position actually changed (not just a state update from drag)
-    const currentPos = markerRef.current.getLngLat()
-    if (Math.abs(currentPos.lat - initialLat) > 0.0001 || Math.abs(currentPos.lng - initialLng) > 0.0001) {
-      console.log('📍 Updating marker position:', { lat: initialLat, lng: initialLng })
-      markerRef.current.setLngLat([initialLng, initialLat])
-      mapInstanceRef.current.setCenter([initialLng, initialLat])
-    }
-  }, [initialLat, initialLng])
-
   return (
-    <div
-      ref={mapRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0
-      }}
-    />
+    <div style={{
+      width: "100%",
+      height: "100%",
+      position: "absolute",
+      top: 0,
+      left: 0
+    }}>
+      <TomTomMap
+        center={{ lat: initialLat, lng: initialLng }}
+        zoom={18}
+        interactive={true}
+        draggableMarker={{
+          lat: initialLat,
+          lng: initialLng,
+          onDragEnd: (lat, lng) => {
+            console.log("📍 Marker dragged to:", { lat, lng })
+            onLocationChange(lat, lng)
+          }
+        }}
+      />
+    </div>
   )
 }
 
@@ -277,271 +161,8 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
-  // Use TomTom if configured, otherwise use Mapbox
-  if (MAP_PROVIDER === "tomtom") {
-    return <InteractiveMainMapTomTom lat={lat} lng={lng} />
-  }
-
-  // Mapbox implementation (existing code)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const poiMarkersRef = useRef<any[]>([])
-  const carMarkerRef = useRef<any>(null)
-  const lastLatRef = useRef<number | null>(null)
-  const lastLngRef = useRef<number | null>(null)
-  const isInitializedRef = useRef<boolean>(false)
-
-  // Helper function to calculate bearing (direction) between two points
-  const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const dLng = (lng2 - lng1) * Math.PI / 180
-    const lat1Rad = lat1 * Math.PI / 180
-    const lat2Rad = lat2 * Math.PI / 180
-    
-    const y = Math.sin(dLng) * Math.cos(lat2Rad)
-    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng)
-    
-    const bearing = Math.atan2(y, x) * 180 / Math.PI
-    return (bearing + 360) % 360 // Normalize to 0-360
-  }
-
-  // Helper function to fetch and update POIs
-  const updatePOIs = useCallback(async (currentLat: number, currentLng: number, mapboxgl: any, map: any) => {
-    try {
-      // Fetch nearby travel POIs from Mapbox Search API (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json()
-        const pois = searchData.pois || []
-        
-        console.log(`📍 Found ${pois.length} POIs to display on map`)
-        
-        // Clear existing markers
-        poiMarkersRef.current.forEach(marker => marker.remove())
-        poiMarkersRef.current = []
-        
-        // Add markers for each POI
-        pois.forEach((poi: any) => {
-          if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
-            // Create a custom marker element with icon
-            const el = document.createElement('div')
-            el.className = 'poi-marker'
-            el.style.width = '24px'
-            el.style.height = '24px'
-            el.style.borderRadius = '50%'
-            el.style.backgroundColor = '#3B82F6'
-            el.style.border = '3px solid white'
-            el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-            el.style.cursor = 'pointer'
-            el.style.display = 'flex'
-            el.style.alignItems = 'center'
-            el.style.justifyContent = 'center'
-            el.style.fontSize = '12px'
-            el.style.color = 'white'
-            el.style.fontWeight = 'bold'
-            
-            // Add icon based on travel category
-            let icon = '📍'
-            if (poi.category) {
-              if (poi.category.includes('restaurant') || poi.category.includes('food')) {
-                icon = '🍽️'
-              } else if (poi.category.includes('cafe') || poi.category.includes('coffee')) {
-                icon = '☕'
-              } else if (poi.category.includes('monument') || poi.category.includes('memorial')) {
-                icon = '🗿'
-              } else if (poi.category.includes('museum')) {
-                icon = '🏛️'
-              } else if (poi.category.includes('art_gallery') || poi.category.includes('gallery')) {
-                icon = '🎨'
-              } else if (poi.category.includes('place_of_worship') || poi.category.includes('church')) {
-                icon = '⛪'
-              } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
-                icon = '🎯'
-              }
-            }
-            el.textContent = icon
-            
-            // Create marker with popup
-            const popup = new mapboxgl.default.Popup({ 
-              offset: 25, 
-              closeButton: false,
-              className: 'poi-popup'
-            }).setHTML(`
-              <div style="font-weight: 600; font-size: 13px; color: #1e3a8a; margin-bottom: 4px;">
-                ${poi.name}
-              </div>
-              ${poi.category ? `<div style="font-size: 11px; color: #666; text-transform: capitalize;">${poi.category.replace(/_/g, ' ')}</div>` : ''}
-            `)
-            
-            const marker = new mapboxgl.default.Marker({
-              element: el,
-              anchor: 'bottom'
-            })
-              .setLngLat([poi.location.lng, poi.location.lat])
-              .setPopup(popup)
-              .addTo(map)
-            
-            // Show popup on hover (for better UX in the circle)
-            el.addEventListener('mouseenter', () => {
-              popup.addTo(map)
-            })
-            el.addEventListener('mouseleave', () => {
-              popup.remove()
-            })
-            
-            poiMarkersRef.current.push(marker)
-          }
-        })
-        
-        console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to map`)
-      }
-    } catch (error) {
-      console.error('❌ Error fetching POIs for map:', error)
-    }
-  }, [])
-
-  // Initialize map only once on mount
-  useEffect(() => {
-    if (!mapRef.current || isInitializedRef.current) return
-
-    // Dynamically import Mapbox GL
-    import('mapbox-gl').then((mapboxgl) => {
-      if (!mapRef.current || mapInstanceRef.current) return
-
-      // Set Mapbox access token
-      mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ''
-
-      // Initialize Mapbox map - Using streets-v12 (normal map view)
-      const map = new mapboxgl.default.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [lng, lat], // Mapbox uses [lng, lat]
-        zoom: 16, // Good zoom level for POI visibility
-        attributionControl: false,
-        interactive: false, // Disable interaction for the circle map
-        pitch: 0,
-        bearing: 0 // Always keep map north-up
-      })
-
-      mapInstanceRef.current = map
-      isInitializedRef.current = true
-      lastLatRef.current = lat
-      lastLngRef.current = lng
-
-      // Create car icon marker for user position
-      const carEl = document.createElement('div')
-      carEl.style.width = '32px'
-      carEl.style.height = '32px'
-      carEl.style.fontSize = '24px'
-      carEl.style.display = 'flex'
-      carEl.style.alignItems = 'center'
-      carEl.style.justifyContent = 'center'
-      carEl.style.transition = 'transform 0.3s ease'
-      carEl.textContent = '🚗'
-      
-      const carMarker = new mapboxgl.default.Marker({
-        element: carEl,
-        anchor: 'center'
-      })
-        .setLngLat([lng, lat])
-        .addTo(map)
-      
-      carMarkerRef.current = carMarker
-
-      // Wait for map to load, then fetch and display POIs
-      map.on('load', async () => {
-        console.log('🗺️ Main map loaded, fetching nearby POIs...')
-        await updatePOIs(lat, lng, mapboxgl, map)
-      })
-
-      // Cleanup on unmount
-      return () => {
-        if (mapInstanceRef.current) {
-          poiMarkersRef.current.forEach(marker => marker.remove())
-          if (carMarkerRef.current) {
-            carMarkerRef.current.remove()
-            carMarkerRef.current = null
-          }
-          mapInstanceRef.current.remove()
-          mapInstanceRef.current = null
-          isInitializedRef.current = false
-        }
-      }
-    })
-
-    return () => {
-      if (mapInstanceRef.current) {
-        poiMarkersRef.current.forEach(marker => marker.remove())
-        if (carMarkerRef.current) {
-          carMarkerRef.current.remove()
-          carMarkerRef.current = null
-        }
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-        isInitializedRef.current = false
-      }
-    }
-  }, []) // Only run once on mount
-
-  // Update map center and POIs when location changes significantly (without re-initializing)
-  useEffect(() => {
-    if (!mapInstanceRef.current || !isInitializedRef.current) return
-
-    // Check if location has changed significantly (more than ~50 meters)
-    const hasChangedSignificantly = 
-      lastLatRef.current === null || 
-      lastLngRef.current === null ||
-      Math.abs(lat - lastLatRef.current) > 0.0005 || // ~50 meters
-      Math.abs(lng - lastLngRef.current) > 0.0005
-
-    if (hasChangedSignificantly) {
-      // CRITICAL: Always keep map bearing at 0 (north-up) - never rotate the map
-      mapInstanceRef.current.setBearing(0)
-      
-      // Update map center smoothly
-      mapInstanceRef.current.setCenter([lng, lat])
-      
-      // Calculate bearing for car icon rotation (direction of travel)
-      let carBearing = 0
-      if (lastLatRef.current !== null && lastLngRef.current !== null) {
-        carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
-      }
-      
-      // Update car marker position and rotation
-      if (carMarkerRef.current) {
-        carMarkerRef.current.setLngLat([lng, lat])
-        // Rotate the car icon element to show direction of travel
-        const carEl = carMarkerRef.current.getElement()
-        if (carEl) {
-          carEl.style.transform = `rotate(${carBearing}deg)`
-        }
-      }
-      
-      // Update POIs
-      import('mapbox-gl').then((mapboxgl) => {
-        if (mapInstanceRef.current) {
-          updatePOIs(lat, lng, mapboxgl, mapInstanceRef.current)
-        }
-      })
-
-      lastLatRef.current = lat
-      lastLngRef.current = lng
-    }
-  }, [lat, lng, updatePOIs])
-
-  return (
-    <div
-      ref={mapRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        borderRadius: "50%",
-        overflow: "hidden"
-      }}
-    />
-  )
+  // Always use TomTom (Mapbox has been removed)
+  return <InteractiveMainMapTomTom lat={lat} lng={lng} />
 }
 
 // TomTom version of InteractiveMainMap
@@ -576,8 +197,8 @@ function InteractiveMainMapTomTom({
   // Helper function to fetch and update POIs (works with any map provider)
   const updatePOIs = useCallback(async (currentLat: number, currentLng: number, tt: any, map: any) => {
     try {
-      // Fetch nearby travel POIs from Mapbox Search API (can be replaced with TomTom Search later)
-      const searchResponse = await fetch(`/api/mapbox/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
+      // Fetch nearby travel POIs from TomTom Search API
+      const searchResponse = await fetch(`/api/tomtom/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
       if (searchResponse.ok) {
         const searchData = await searchResponse.json()
         const pois = searchData.pois || []
@@ -2188,7 +1809,7 @@ export default function PINITApp() {
       try {
         console.log("📍 Step 1: Fetching nearby travel POIs via Mapbox Search API...")
         // Focus on travel-related categories: restaurants, cafes, monuments, museums, art galleries, churches, tourism
-        const searchResponse = await fetch(`/api/mapbox/search?lat=${lat}&lng=${lng}&radius=150&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, { signal })
+        const searchResponse = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=150&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, { signal })
         
         if (searchResponse.ok) {
           const searchData = await searchResponse.json()
@@ -2305,13 +1926,13 @@ export default function PINITApp() {
       if (placeName && placeName !== "Location") {
         // Return place data without images - Unsplash images are fetched separately in pin creation
         console.log(`✅ Returning Mapbox place data (images from Unsplash)`)
-        const result = [{
+          const result = [{
           url: "/pinit-placeholder.jpg", // Placeholder - will be replaced by Unsplash image
-          placeName: placeName,
-          description: finalDescription
-        }]
-        photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
-        return result
+            placeName: placeName,
+            description: finalDescription
+          }]
+          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
+          return result
       }
       
       // STEP 5: Ultimate fallback - no place data available
@@ -2626,8 +2247,8 @@ export default function PINITApp() {
         } else {
           // We have both name and description, no AI needed
           aiTextResult = {
-            title: placeName,
-            description: placeDescription,
+          title: placeName,
+          description: placeDescription,
             confidence: "high" as const,
             used_fallback: false
           }
@@ -2639,7 +2260,7 @@ export default function PINITApp() {
         title: aiTextResult?.title || placeName || editingPin.title,
         description: aiTextResult?.description || placeDescription || editingPin.description || "",
         locationName: placeName || aiTextResult?.title || editingPin.locationName,
-        tags: editingPin.tags || []
+          tags: editingPin.tags || []
       }
       
       // Extract category for Unsplash search
