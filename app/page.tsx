@@ -1622,47 +1622,49 @@ export default function PINITApp() {
       let placeData: any = null
       
       try {
-        console.log("📍 Step 1: Fetching nearby travel POIs via Mapbox Search API...")
-        // Focus on travel-related categories: restaurants, cafes, monuments, museums, art galleries, churches, tourism
-        const searchResponse = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=150&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, { signal })
+        console.log("📍 Step 1: Fetching nearby travel POIs via Mapbox Geocoding API...")
+        // Use Mapbox Geocoding API route to search for nearby POIs
+        const searchResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
         
         if (searchResponse.ok) {
           const searchData = await searchResponse.json()
-          console.log(`📍 Mapbox Search returned ${searchData.pois?.length || 0} POIs`)
+          const places = searchData.places || []
+          console.log(`📍 Mapbox Geocoding returned ${places.length} POIs`)
           
-          if (searchData.pois && searchData.pois.length > 0) {
-            // Find closest POI within 150m
-            const closestPOI = searchData.pois[0]
-            console.log(`✅ Found closest Mapbox POI: ${closestPOI.name} at ${closestPOI.distance.toFixed(1)}m`)
+          if (places.length > 0) {
+            // Find closest POI (results are sorted by relevance)
+            const closestPOI = places[0]
+            const poiName = closestPOI.name || "Location"
             
-            if (closestPOI.distance <= 150) {
-              // Use POI data (most specific and reliable)
-              placeData = closestPOI
-              placeName = closestPOI.name || "Location"
+            console.log(`✅ Found closest Mapbox POI: ${poiName}`)
+            
+            // Use POI data (most specific and reliable)
+            placeData = closestPOI
+            placeName = poiName
+            
+            // Build meaningful description from POI data
+            if (closestPOI.category) {
+              const categoryName = closestPOI.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+              const city = closestPOI.context?.city
               
-              // Build meaningful description from POI data
-              if (closestPOI.description && closestPOI.description.trim()) {
-                placeDescription = closestPOI.description
-              } else if (closestPOI.category) {
-                // Create description from category and address context
-                const categoryName = closestPOI.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-                if (closestPOI.address) {
-                  placeDescription = `${categoryName} located at ${closestPOI.address}`
-                } else if (closestPOI.city) {
-                  placeDescription = `${categoryName} in ${closestPOI.city}`
-                } else {
-                  placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
-                }
+              if (city) {
+                placeDescription = `${categoryName} in ${city}`
+              } else if (closestPOI.address) {
+                placeDescription = `${categoryName} located at ${closestPOI.address}`
+              } else {
+                placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
               }
-              
-              console.log(`✅ Using Mapbox Search POI data: ${placeName}`, { 
-                hasDescription: !!placeDescription,
-                description: placeDescription?.substring(0, 50)
-              })
+            } else if (closestPOI.address) {
+              placeDescription = `Located at ${closestPOI.address}`
             }
+            
+            console.log(`✅ Using Mapbox Geocoding POI data: ${placeName}`, { 
+              hasDescription: !!placeDescription,
+              description: placeDescription?.substring(0, 50)
+            })
           }
         } else {
-          console.warn("⚠️ Mapbox Search API failed")
+          console.warn("⚠️ Mapbox Geocoding API failed")
         }
       } catch (searchError: any) {
         if (searchError.name === 'AbortError') {
@@ -1722,11 +1724,11 @@ export default function PINITApp() {
         }
       }
       
-      // STEP 3: Skip Mapbox Static Images API - we now use Unsplash for location images
-      // Mapbox static images are aerial/map views, not real photos, so we skip them entirely
-      console.log("📸 Step 3: Skipping Mapbox Static Images (using Unsplash instead)...")
+      // STEP 3: Skip image fetching for now - will be handled by image resolver (Step B-F)
+      // Images will come from Wikimedia/paid provider via image resolver
+      console.log("📸 Step 3: Skipping image fetch - will use image resolver (Step B-F)...")
       
-      // STEP 4: Return place data without Mapbox static images
+      // STEP 4: Return place data without images (images will come from image resolver)
       // Always return placeName and description if we have them, even without image
       // CRITICAL: Ensure description is always meaningful, not empty or undefined
       const finalDescription = placeDescription && placeDescription.trim() ? placeDescription : undefined
@@ -1735,14 +1737,14 @@ export default function PINITApp() {
         placeName,
         hasDescription: !!finalDescription,
         description: finalDescription?.substring(0, 50),
-        note: "Images will come from Unsplash (handled separately in pin creation)"
+        note: "Images will come from image resolver (Step B-F: Wikimedia/paid provider)"
       })
       
       if (placeName && placeName !== "Location") {
-        // Return place data without images - Unsplash images are fetched separately in pin creation
-        console.log(`✅ Returning Mapbox place data (images from Unsplash)`)
+        // Return place data without images - images will be fetched by image resolver
+        console.log(`✅ Returning Mapbox place data (images from image resolver)`)
           const result = [{
-          url: "/pinit-placeholder.jpg", // Placeholder - will be replaced by Unsplash image
+          url: "/pinit-placeholder.jpg", // Placeholder - will be replaced by image resolver
             placeName: placeName,
             description: finalDescription
           }]
@@ -1751,9 +1753,8 @@ export default function PINITApp() {
       }
       
       // STEP 5: Ultimate fallback - no place data available
-      // Skip Mapbox static images - use placeholder instead
-      // Images will come from Unsplash (handled separately in pin creation)
-      console.log("⚠️ No Mapbox place data available - using placeholder (images from Unsplash)")
+      // Use placeholder - images will come from image resolver
+      console.log("⚠️ No Mapbox place data available - using placeholder (images from image resolver)")
       const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
