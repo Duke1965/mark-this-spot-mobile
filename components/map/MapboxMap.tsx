@@ -55,15 +55,15 @@ export default function MapboxMap({
   draggableMarker
 }: MapboxMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
-  const draggableMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markersRef = useRef<Map<string, any>>(new Map())
+  const draggableMarkerRef = useRef<any>(null)
   const isMapLoadedRef = useRef<boolean>(false)
   const isDraggingRef = useRef<boolean>(false)
   const lastDraggedPositionRef = useRef<{ lat: number; lng: number } | null>(null)
 
   // Helper function to add draggable marker
-  const addDraggableMarker = (map: mapboxgl.Map, markerData: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) => {
+  const addDraggableMarker = (map: any, markerData: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) => {
     try {
       // Remove existing draggable marker if it exists
       if (draggableMarkerRef.current) {
