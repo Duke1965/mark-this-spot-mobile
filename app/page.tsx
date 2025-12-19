@@ -34,6 +34,7 @@ import MapboxMap from "@/components/map/MapboxMap"
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
+import { resolvePlaceImage } from "@/lib/images/imageResolver"
 
 
 
@@ -1305,9 +1306,15 @@ export default function PINITApp() {
         }
       }
       
-      // TODO: Step B-F - Image resolver will be implemented here
-      // For now, no image fetching (Unsplash removed, Wikimedia coming next)
-      const primaryImageUrl = null
+      // Get image URL from location photos (resolved via image resolver: Wikimedia → Paid → Placeholder)
+      const primaryImageUrl = locationPhotos[0]?.url || null
+      const imageSource = (locationPhotos[0] as any)?.imageSource // For debugging (optional field)
+      
+      if (imageSource) {
+        console.log(`🖼️ Using resolved image: ${imageSource} - ${primaryImageUrl?.substring(0, 60)}...`)
+      } else {
+        console.log(`🖼️ Using image: ${primaryImageUrl?.substring(0, 60)}...`)
+      }
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -1315,7 +1322,7 @@ export default function PINITApp() {
         longitude: pinLongitude,
         // Use place name or AI-generated location name
         locationName: placeName || aiTextResult?.title || locationDescription,
-        mediaUrl: primaryImageUrl, // Use Unsplash image first, then real photos, skip Mapbox static images
+        mediaUrl: primaryImageUrl, // Resolved via image resolver (Wikimedia/paid/placeholder)
         mediaType: "photo",
         audioUrl: null,
         timestamp: new Date().toISOString(),
@@ -1690,12 +1697,39 @@ export default function PINITApp() {
         console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
       }
       
-      // STEP 3: Skip image fetching for now - will be handled by image resolver (Step B-F)
-      // Images will come from Wikimedia/paid provider via image resolver
-      console.log("📸 Step 3: Skipping image fetch - will use image resolver (Step B-F)...")
+      // STEP 3: Resolve image using image resolver (Wikimedia → Paid → Placeholder)
+      console.log("📸 Step 3: Resolving image via image resolver...")
       
-      // STEP 4: Return place data without images (images will come from image resolver)
-      // Always return placeName and description if we have them, even without image
+      // Generate a placeId for caching (use coordinates rounded to ~100m precision)
+      const placeId = `place:${lat.toFixed(4)},${lng.toFixed(4)}`
+      
+      // Resolve image using the unified image resolver
+      let imageUrl = "/pinit-placeholder.jpg"
+      let imageSource = "placeholder"
+      
+      try {
+        const imageResult = await resolvePlaceImage({
+          placeId,
+          name: placeName !== "Location" ? placeName : undefined,
+          lat,
+          lng,
+          address: placeData?.address || placeData?.place_name
+        })
+        
+        if (imageResult.imageUrl) {
+          imageUrl = imageResult.imageUrl
+          imageSource = imageResult.source
+          console.log(`✅ Image resolved: ${imageSource} - ${imageUrl.substring(0, 60)}...`)
+        } else {
+          console.log(`⚠️ Image resolver returned no image, using placeholder`)
+        }
+      } catch (imageError) {
+        console.warn("⚠️ Image resolver error:", imageError)
+        // Continue with placeholder
+      }
+      
+      // STEP 4: Return place data with resolved image
+      // Always return placeName and description if we have them
       // CRITICAL: Ensure description is always meaningful, not empty or undefined
       const finalDescription = placeDescription && placeDescription.trim() ? placeDescription : undefined
       
@@ -1703,25 +1737,28 @@ export default function PINITApp() {
         placeName,
         hasDescription: !!finalDescription,
         description: finalDescription?.substring(0, 50),
-        note: "Images will come from image resolver (Step B-F: Wikimedia/paid provider)"
+        imageSource,
+        imageUrl: imageUrl.substring(0, 60)
       })
       
       if (placeName && placeName !== "Location") {
-        // Return place data without images - images will be fetched by image resolver
-        console.log(`✅ Returning Mapbox place data (images from image resolver)`)
-          const result = [{
-          url: "/pinit-placeholder.jpg", // Placeholder - will be replaced by image resolver
-            placeName: placeName,
-            description: finalDescription
-          }]
-          photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
-          return result
+        const result = [{
+          url: imageUrl,
+          placeName: placeName,
+          description: finalDescription,
+          imageSource // For debugging in dev mode
+        }]
+        photoFetchCacheRef.current.set(cacheKey, { data: result, timestamp: Date.now() })
+        return result
       }
       
       // STEP 5: Ultimate fallback - no place data available
-      // Use placeholder - images will come from image resolver
-      console.log("⚠️ No Mapbox place data available - using placeholder (images from image resolver)")
-      const finalFallback = [{url: "/pinit-placeholder.jpg", placeName: "Location"}]
+      console.log("⚠️ No Mapbox place data available - using placeholder")
+      const finalFallback = [{
+        url: imageUrl,
+        placeName: "Location",
+        imageSource
+      }]
       photoFetchCacheRef.current.set(cacheKey, { data: finalFallback, timestamp: Date.now() })
       return finalFallback
     } catch (error: any) {
