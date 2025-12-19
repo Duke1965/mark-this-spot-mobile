@@ -166,8 +166,8 @@ function InteractiveMainMapMapbox({
   lng: number
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
-  const carMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const carMarkerRef = useRef<any>(null)
   const lastLatRef = useRef<number | null>(null)
   const lastLngRef = useRef<number | null>(null)
   const isInitializedRef = useRef<boolean>(false)
