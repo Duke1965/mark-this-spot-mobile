@@ -1418,10 +1418,10 @@ export default function AIRecommendationsHub({
         
         userMarkerRef.current = userMarker
         
-        // Small delay to ensure map is fully rendered before adding markers
-        setTimeout(() => {
-          updateRecommendationMarkers(map, mapboxgl, false, false) // Don't fit bounds - use fixed zoom to match main page
-        }, 100)
+          // Small delay to ensure map is fully rendered before adding markers
+          setTimeout(() => {
+            updateRecommendationMarkers(map, mapboxgl, false) // Don't fit bounds - use fixed zoom to match main page
+          }, 100)
       })
 
       map.on('error', (e) => {
