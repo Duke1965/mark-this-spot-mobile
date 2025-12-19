@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { MAP_PROVIDER, TOMTOM_API_KEY, validateMapConfig } from "@/lib/mapConfig"
+import { MAP_PROVIDER, MAPBOX_API_KEY, validateMapConfig } from "@/lib/mapConfig"
 import { UNSPLASH_ACCESS_KEY, validateUnsplashConfig } from "@/lib/externalServices"
 
 /**
  * Diagnostics API Route
  * Tests all API connections and environment variables
  * Helps identify why photos and content aren't loading
- * Tests TomTom and Unsplash APIs (Mapbox has been removed)
+ * Tests Mapbox and Unsplash APIs (TomTom has been removed)
  */
 
 export async function GET(request: NextRequest) {
@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
     apis: {}
   }
 
-  // Check environment variables (TomTom, Unsplash)
+  // Check environment variables (Mapbox, Unsplash)
   // Also capture raw values for debugging (first/last chars only for security)
   const rawUnsplash = process.env.UNSPLASH_ACCESS_KEY || ""
-  const rawTomtom = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ""
+  const rawMapbox = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
   
   diagnostics.environment = {
     NEXT_PUBLIC_MAP_PROVIDER: MAP_PROVIDER,
-    NEXT_PUBLIC_TOMTOM_API_KEY: !!process.env.NEXT_PUBLIC_TOMTOM_API_KEY,
+    NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
     UNSPLASH_ACCESS_KEY: !!process.env.UNSPLASH_ACCESS_KEY,
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
   // Add debug info at top level (not in environment to avoid React rendering issues)
   diagnostics.key_debug = {
     unsplash_key_length: rawUnsplash.length,
-    tomtom_key_length: rawTomtom.length,
+    mapbox_key_length: rawMapbox.length,
     unsplash_key_preview: rawUnsplash.length > 8 ? `${rawUnsplash.substring(0, 4)}...${rawUnsplash.substring(rawUnsplash.length - 4)}` : "empty",
-    tomtom_key_preview: rawTomtom.length > 8 ? `${rawTomtom.substring(0, 4)}...${rawTomtom.substring(rawTomtom.length - 4)}` : "empty"
+    mapbox_key_preview: rawMapbox.length > 8 ? `${rawMapbox.substring(0, 4)}...${rawMapbox.substring(rawMapbox.length - 4)}` : "empty"
   }
 
   // Get test coordinates from query params or use defaults (Cape Town)
@@ -44,66 +44,68 @@ export async function GET(request: NextRequest) {
 
   console.log(`🔍 Running diagnostics for location: ${testLat}, ${testLng}`)
 
-  // Test TomTom Maps API (always used now, Mapbox has been removed)
+  // Test Mapbox Maps API (always used now, TomTom has been removed)
   try {
-    const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
+    const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
     
-    if (!tomtomKey) {
-      diagnostics.apis.tomtom = {
+    if (!mapboxKey) {
+      diagnostics.apis.mapbox = {
         status: "ERROR",
         error: "No API key found",
-        details: "Missing NEXT_PUBLIC_TOMTOM_API_KEY"
+        details: "Missing NEXT_PUBLIC_MAPBOX_API_KEY"
       }
     } else {
-      // Test TomTom Geocoding API (reverse geocoding)
-      const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${testLat},${testLng}.json`)
-      tomtomUrl.searchParams.set('key', tomtomKey)
+      // Test Mapbox Geocoding API (reverse geocoding)
+      const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${testLng},${testLat}.json`)
+      mapboxUrl.searchParams.set('access_token', mapboxKey)
       
-      const tomtomResponse = await fetch(tomtomUrl.toString())
+      const mapboxResponse = await fetch(mapboxUrl.toString())
       
-      if (tomtomResponse.ok) {
-        const tomtomData = await tomtomResponse.json()
-        const addresses = tomtomData.addresses || []
-        diagnostics.apis.tomtom = {
+      if (mapboxResponse.ok) {
+        const mapboxData = await mapboxResponse.json()
+        const features = mapboxData.features || []
+        diagnostics.apis.mapbox = {
           status: "OK",
-          addresses_found: addresses.length,
-          sample_address: addresses[0]?.address?.freeformAddress || addresses[0]?.address?.municipality || "No address found"
+          places_found: features.length,
+          sample_place: features[0]?.place_name || features[0]?.text || "No place found"
         }
       } else {
-        const errorText = await tomtomResponse.text()
-        diagnostics.apis.tomtom = {
+        const errorText = await mapboxResponse.text()
+        diagnostics.apis.mapbox = {
           status: "ERROR",
-          http_status: tomtomResponse.status,
+          http_status: mapboxResponse.status,
           error: errorText.substring(0, 200)
         }
       }
       
-      // Test TomTom Search API (for POI data)
+      // Test Mapbox Static Images API
       try {
-        const searchResponse = await fetch(`${request.nextUrl.origin}/api/tomtom/search?lat=${testLat}&lng=${testLng}&radius=200&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
+        const staticImageUrl = new URL(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${testLng},${testLat},14,0/400x400`)
+        staticImageUrl.searchParams.set('access_token', mapboxKey)
         
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json()
-          diagnostics.apis.tomtom_search = {
-            status: searchData.status === "OK" ? "OK" : searchData.status,
-            pois_found: searchData.pois?.length || 0,
-            sample_poi: searchData.pois?.[0]?.name || "No POIs found"
+        const staticImageResponse = await fetch(staticImageUrl.toString())
+        
+        if (staticImageResponse.ok) {
+          diagnostics.apis.mapbox_static_image = {
+            status: "OK",
+            has_image_url: true,
+            style: "streets-v12"
           }
         } else {
-          diagnostics.apis.tomtom_search = {
+          diagnostics.apis.mapbox_static_image = {
             status: "ERROR",
-            http_status: searchResponse.status
+            http_status: staticImageResponse.status
           }
         }
       } catch (error) {
-        diagnostics.apis.tomtom_search = {
+        diagnostics.apis.mapbox_static_image = {
           status: "ERROR",
           error: error instanceof Error ? error.message : String(error)
         }
       }
     }
   } catch (error) {
-    diagnostics.apis.tomtom = {
+    diagnostics.apis.mapbox = {
       status: "ERROR",
       error: error instanceof Error ? error.message : String(error)
     }
@@ -250,37 +252,37 @@ export async function GET(request: NextRequest) {
     error: unsplashConfig.error
   }
 
-  // Check if Unsplash and TomTom keys are accidentally the same (crossed values)
+  // Check if Unsplash and Mapbox keys are accidentally the same (crossed values)
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY?.trim() || ""
-  const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY?.trim() || ""
-  const areSame = unsplashKey && tomtomKey && unsplashKey === tomtomKey
+  const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY?.trim() || ""
+  const areSame = unsplashKey && mapboxKey && unsplashKey === mapboxKey
   
-  diagnostics.same_value_unsplash_tomtom = areSame
+  diagnostics.same_value_unsplash_mapbox = areSame
   
   // Add detailed key comparison for debugging
-  if (unsplashKey && tomtomKey) {
+  if (unsplashKey && mapboxKey) {
     diagnostics.key_comparison = {
       unsplash_length: unsplashKey.length,
-      tomtom_length: tomtomKey.length,
+      mapbox_length: mapboxKey.length,
       unsplash_preview: unsplashKey.length > 8 ? `${unsplashKey.substring(0, 4)}...${unsplashKey.substring(unsplashKey.length - 4)}` : "too short",
-      tomtom_preview: tomtomKey.length > 8 ? `${tomtomKey.substring(0, 4)}...${tomtomKey.substring(tomtomKey.length - 4)}` : "too short",
+      mapbox_preview: mapboxKey.length > 8 ? `${mapboxKey.substring(0, 4)}...${mapboxKey.substring(mapboxKey.length - 4)}` : "too short",
       are_identical: areSame,
       note: areSame ? "⚠️ Keys are identical - they are crossed in Vercel environment variables!" : "Keys are different (correct)"
     }
   } else {
     diagnostics.key_comparison = {
       unsplash_exists: !!unsplashKey,
-      tomtom_exists: !!tomtomKey,
+      mapbox_exists: !!mapboxKey,
       note: "One or both keys are missing"
     }
   }
 
-  // Overall status - Check critical APIs (TomTom and Unsplash)
+  // Overall status - Check critical APIs (Mapbox and Unsplash)
   const allChecks: boolean[] = []
   
-  // Check TomTom API (required)
-  allChecks.push(!!diagnostics.environment.NEXT_PUBLIC_TOMTOM_API_KEY)
-  allChecks.push(diagnostics.apis.tomtom?.status === "OK")
+  // Check Mapbox API (required)
+  allChecks.push(!!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY)
+  allChecks.push(diagnostics.apis.mapbox?.status === "OK")
   
   // Unsplash is optional but recommended
   if (diagnostics.environment.UNSPLASH_ACCESS_KEY) {
@@ -291,19 +293,19 @@ export async function GET(request: NextRequest) {
   
   // Build issues summary arrays
   const missingEnvVars: string[] = []
-  if (!diagnostics.environment.NEXT_PUBLIC_TOMTOM_API_KEY) {
-    missingEnvVars.push("TomTom API Key")
+  if (!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
+    missingEnvVars.push("Mapbox API Key")
   }
   if (!diagnostics.environment.UNSPLASH_ACCESS_KEY) {
     missingEnvVars.push("Unsplash Access Key (optional but recommended)")
   }
   
   const failingApis: string[] = []
-  if (diagnostics.apis.tomtom?.status !== "OK") {
-    failingApis.push("TomTom Geocoding")
+  if (diagnostics.apis.mapbox?.status !== "OK") {
+    failingApis.push("Mapbox Geocoding")
   }
-  if (diagnostics.apis.tomtom_search?.status && diagnostics.apis.tomtom_search?.status !== "OK") {
-    failingApis.push("TomTom Search")
+  if (diagnostics.apis.mapbox_static_image?.status && diagnostics.apis.mapbox_static_image?.status !== "OK") {
+    failingApis.push("Mapbox Static Image")
   }
   if (diagnostics.environment.UNSPLASH_ACCESS_KEY && diagnostics.apis.unsplash?.status === "ERROR") {
     failingApis.push("Unsplash API")
