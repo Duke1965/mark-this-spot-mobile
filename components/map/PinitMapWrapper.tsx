@@ -1,21 +1,21 @@
 "use client"
 
 import React from 'react'
-import TomTomMap, { Pin as TomTomPin, TomTomMapProps } from './TomTomMap'
+import MapboxMap, { Pin as MapboxPin, MapboxMapProps } from './MapboxMap'
 
 /**
  * PINIT Map Wrapper Component
  * 
- * Uses TomTom as the map provider (Mapbox has been removed)
+ * Uses Mapbox as the map provider (TomTom has been removed)
  */
 
-// Re-export TomTom types for convenience
-export type { TomTomPin as Pin }
+// Re-export Mapbox types for convenience
+export type { MapboxPin as Pin }
 
 export interface PinitMapWrapperProps {
   center: { lat: number; lng: number }
   zoom?: number
-  pins?: TomTomPin[]
+  pins?: MapboxPin[]
   onMapClick?: (coords: { lat: number; lng: number }) => void
   onPinClick?: (pinId: string) => void
   interactive?: boolean
@@ -29,9 +29,9 @@ export interface PinitMapWrapperProps {
 
 /**
  * Main Wrapper Component
- * Always uses TomTom (Mapbox has been removed)
+ * Always uses Mapbox (TomTom has been removed)
  */
 export default function PinitMapWrapper(props: PinitMapWrapperProps) {
-  return <TomTomMap {...props} />
+  return <MapboxMap {...props} />
 }
 
