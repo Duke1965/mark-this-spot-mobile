@@ -30,18 +30,10 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
-import TomTomMap from "@/components/map/TomTomMap"
-
-// Load TomTom CSS early
-if (typeof window !== 'undefined') {
-  const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
-  if (!existingLink) {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
-    document.head.appendChild(link)
-  }
-}
+import MapboxMap from "@/components/map/MapboxMap"
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
+import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 
 
 
@@ -118,7 +110,7 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker (TomTom)
+// Interactive Map Editor Component with Draggable Marker (Mapbox)
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -136,7 +128,7 @@ function InteractiveMapEditor({
       top: 0,
       left: 0
     }}>
-      <TomTomMap
+      <MapboxMap
         center={{ lat: initialLat, lng: initialLng }}
         zoom={18}
         interactive={true}
@@ -161,12 +153,12 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
-  // Always use TomTom (Mapbox has been removed)
-  return <InteractiveMainMapTomTom lat={lat} lng={lng} />
+  // Always use Mapbox (TomTom has been removed)
+  return <InteractiveMainMapMapbox lat={lat} lng={lng} />
 }
 
-// TomTom version of InteractiveMainMap
-function InteractiveMainMapTomTom({ 
+// Mapbox version of InteractiveMainMap
+function InteractiveMainMapMapbox({ 
   lat, 
   lng 
 }: { 
@@ -174,9 +166,8 @@ function InteractiveMainMapTomTom({
   lng: number
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const poiMarkersRef = useRef<any[]>([])
-  const carMarkerRef = useRef<any>(null)
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
+  const carMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const lastLatRef = useRef<number | null>(null)
   const lastLngRef = useRef<number | null>(null)
   const isInitializedRef = useRef<boolean>(false)
@@ -194,171 +185,73 @@ function InteractiveMainMapTomTom({
     return (bearing + 360) % 360 // Normalize to 0-360
   }
 
-  // Helper function to fetch and update POIs (works with any map provider)
-  const updatePOIs = useCallback(async (currentLat: number, currentLng: number, tt: any, map: any) => {
-    try {
-      // Fetch nearby travel POIs from TomTom Search API
-      const searchResponse = await fetch(`/api/tomtom/search?lat=${currentLat}&lng=${currentLng}&radius=200&limit=20&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`)
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json()
-        const pois = searchData.pois || []
-        
-        console.log(`📍 Found ${pois.length} POIs to display on TomTom map`)
-        
-        // Clear existing markers
-        poiMarkersRef.current.forEach(marker => marker.remove())
-        poiMarkersRef.current = []
-        
-        // Add markers for each POI using TomTom API
-        pois.forEach((poi: any) => {
-          if (poi.name && poi.name !== 'Unknown Place' && poi.distance <= 200) {
-            // Create a custom marker element with icon
-            const el = document.createElement('div')
-            el.className = 'poi-marker'
-            el.style.width = '24px'
-            el.style.height = '24px'
-            el.style.borderRadius = '50%'
-            el.style.backgroundColor = '#3B82F6'
-            el.style.border = '3px solid white'
-            el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-            el.style.cursor = 'pointer'
-            el.style.display = 'flex'
-            el.style.alignItems = 'center'
-            el.style.justifyContent = 'center'
-            el.style.fontSize = '12px'
-            el.style.color = 'white'
-            el.style.fontWeight = 'bold'
-            
-            // Add icon based on travel category
-            let icon = '📍'
-            if (poi.category) {
-              if (poi.category.includes('restaurant') || poi.category.includes('food')) {
-                icon = '🍽️'
-              } else if (poi.category.includes('cafe') || poi.category.includes('coffee')) {
-                icon = '☕'
-              } else if (poi.category.includes('monument') || poi.category.includes('memorial')) {
-                icon = '🗿'
-              } else if (poi.category.includes('museum')) {
-                icon = '🏛️'
-              } else if (poi.category.includes('art_gallery') || poi.category.includes('gallery')) {
-                icon = '🎨'
-              } else if (poi.category.includes('place_of_worship') || poi.category.includes('church')) {
-                icon = '⛪'
-              } else if (poi.category.includes('tourism') || poi.category.includes('attraction')) {
-                icon = '🎯'
-              }
-            }
-            el.textContent = icon
-            
-            // Create marker using TomTom API
-            const marker = new tt.Marker({
-              element: el,
-              anchor: 'bottom'
-            })
-              .setLngLat([poi.location.lng, poi.location.lat])
-              .addTo(map)
-            
-            // Add hover tooltip (TomTom doesn't have built-in popups like Mapbox, so we'll use title attribute)
-            el.title = `${poi.name}${poi.category ? ` - ${poi.category.replace(/_/g, ' ')}` : ''}`
-            
-            poiMarkersRef.current.push(marker)
-          }
-        })
-        
-        console.log(`✅ Added ${poiMarkersRef.current.length} POI markers to TomTom map`)
-      }
-    } catch (error) {
-      console.error('❌ Error fetching POIs for TomTom map:', error)
-    }
-  }, [])
-
-  // Initialize TomTom map only once on mount (matching Mapbox pattern)
+  // Initialize Mapbox map only once on mount
   useEffect(() => {
     if (!mapRef.current || isInitializedRef.current) return
 
-    // Ensure CSS is loaded before initializing
-    const ensureCSSLoaded = () => {
-      if (typeof window === 'undefined') return Promise.resolve()
-      
-      const existingLink = document.querySelector('link[href*="tomtom.com/maps-sdk"]')
-      if (existingLink) return Promise.resolve()
-      
-      return new Promise<void>((resolve) => {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = 'https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css'
-        link.onload = () => resolve()
-        link.onerror = () => resolve() // Continue even if CSS fails
-        document.head.appendChild(link)
-      })
+    if (!MAPBOX_API_KEY) {
+      console.error('❌ Mapbox API key is missing')
+      return
     }
 
-    // Ensure CSS is loaded, then initialize map
-    ensureCSSLoaded().then(() => {
-      // Small delay to ensure CSS is applied
-      setTimeout(() => {
-        // Dynamically import TomTom Maps SDK (same pattern as Mapbox)
-        import('@tomtom-international/web-sdk-maps').then((ttModule) => {
-          if (!mapRef.current || mapInstanceRef.current) return
+    // Set Mapbox access token
+    mapboxgl.accessToken = MAPBOX_API_KEY
 
-          const apiKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || ''
-          if (!apiKey) {
-            console.error('❌ TomTom API key is missing')
-            return
-          }
+    console.log('🔧 Initializing Mapbox main map...', {
+      hasContainer: !!mapRef.current,
+      apiKey: MAPBOX_API_KEY ? 'present' : 'missing',
+      center: [lng, lat]
+    })
 
-          // TomTom SDK can be imported as default or named export
-          const tt = ttModule.default || ttModule
-
-          // Initialize TomTom map (omitting style uses default/latest style)
-          const map = tt.map({
-            key: apiKey,
-            container: mapRef.current,
-            center: [lng, lat], // TomTom uses [lng, lat]
-            zoom: 16,
-            interactive: false // Disable interaction for the circle map
-          })
+    try {
+      // Initialize Mapbox map
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lng, lat], // Mapbox uses [lng, lat]
+        zoom: 16,
+        interactive: false // Disable interaction for the circle map
+      })
 
       mapInstanceRef.current = map
       isInitializedRef.current = true
       lastLatRef.current = lat
       lastLngRef.current = lng
 
-      // Create car icon marker for user position
-      const carEl = document.createElement('div')
-      carEl.style.width = '32px'
-      carEl.style.height = '32px'
-      carEl.style.fontSize = '24px'
-      carEl.style.display = 'flex'
-      carEl.style.alignItems = 'center'
-      carEl.style.justifyContent = 'center'
-      carEl.style.transition = 'transform 0.3s ease'
-      carEl.textContent = '🚗'
-      
-      const carMarker = new tt.Marker({
-        element: carEl,
-        anchor: 'center'
-      })
-        .setLngLat([lng, lat])
-        .addTo(map)
-      
-      carMarkerRef.current = carMarker
-
-          // Wait for map to load (POI markers disabled for main circle map)
-          map.on('load', () => {
-            console.log('🗺️ TomTom main map loaded')
-            // POI markers removed - only showing user position (car icon)
-          })
-        }).catch((error) => {
-          console.error('❌ Failed to load TomTom Maps SDK:', error)
+      // Wait for map to load, then add car marker
+      map.on('load', () => {
+        console.log('🗺️ Mapbox main map loaded')
+        
+        // Create car icon marker for user position
+        const carEl = document.createElement('div')
+        carEl.style.width = '32px'
+        carEl.style.height = '32px'
+        carEl.style.fontSize = '24px'
+        carEl.style.display = 'flex'
+        carEl.style.alignItems = 'center'
+        carEl.style.justifyContent = 'center'
+        carEl.style.transition = 'transform 0.3s ease'
+        carEl.textContent = '🚗'
+        
+        const carMarker = new mapboxgl.Marker({
+          element: carEl
         })
-      }, 100) // Small delay to ensure CSS is applied
-    })
+          .setLngLat([lng, lat])
+          .addTo(map)
+        
+        carMarkerRef.current = carMarker
+      })
+
+      map.on('error', (e) => {
+        console.error('❌ Mapbox map error:', e)
+      })
+    } catch (error) {
+      console.error('❌ Failed to initialize Mapbox map:', error)
+    }
 
     // Cleanup on unmount
     return () => {
       if (mapInstanceRef.current) {
-        poiMarkersRef.current.forEach(marker => marker.remove())
         if (carMarkerRef.current) {
           carMarkerRef.current.remove()
           carMarkerRef.current = null
@@ -370,7 +263,7 @@ function InteractiveMainMapTomTom({
     }
   }, []) // Only run once on mount
 
-  // Update map center and POIs when location changes significantly
+  // Update map center when location changes significantly
   useEffect(() => {
     if (!mapInstanceRef.current || !isInitializedRef.current) return
 
@@ -381,33 +274,28 @@ function InteractiveMainMapTomTom({
       Math.abs(lng - lastLngRef.current) > 0.0005
 
     if (hasChangedSignificantly) {
-      import('@tomtom-international/web-sdk-maps').then((tt) => {
-        // Update map center
-        mapInstanceRef.current.setCenter([lng, lat])
-        
-        // Calculate bearing for car icon rotation
-        let carBearing = 0
-        if (lastLatRef.current !== null && lastLngRef.current !== null) {
-          carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
+      // Update map center
+      mapInstanceRef.current.setCenter([lng, lat])
+      
+      // Calculate bearing for car icon rotation
+      let carBearing = 0
+      if (lastLatRef.current !== null && lastLngRef.current !== null) {
+        carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
+      }
+      
+      // Update car marker position and rotation
+      if (carMarkerRef.current) {
+        carMarkerRef.current.setLngLat([lng, lat])
+        const carEl = carMarkerRef.current.getElement()
+        if (carEl) {
+          carEl.style.transform = `rotate(${carBearing}deg)`
         }
-        
-        // Update car marker position and rotation
-        if (carMarkerRef.current) {
-          carMarkerRef.current.setLngLat([lng, lat])
-          const carEl = carMarkerRef.current.getElement()
-          if (carEl) {
-            carEl.style.transform = `rotate(${carBearing}deg)`
-          }
-        }
-        
-        // POI markers disabled for main circle map
-        // updatePOIs(lat, lng, tt, mapInstanceRef.current)
-      })
+      }
 
       lastLatRef.current = lat
       lastLngRef.current = lng
     }
-  }, [lat, lng, updatePOIs])
+  }, [lat, lng])
 
   return (
     <div
@@ -1409,62 +1297,9 @@ export default function PINITApp() {
         }
       }
       
-      // Fetch Unsplash image using exact place name for specific results
-      let unsplashImageData = null
-      try {
-        // Use the EXACT place name for most specific search results
-        // This ensures we get photos of the actual place, not random images
-        const meaningfulName = placeName && 
-          placeName !== "Location" && 
-          placeName !== "PINIT Placeholder" && 
-          placeName !== "Unknown Place" &&
-          placeName !== "Quick Pin Location" &&
-          !placeName.startsWith("Speed-based pin") &&
-          !placeName.startsWith("Camera")
-          ? placeName 
-          : undefined
-        
-        // Extract city from pin-intel data or place name
-        let city: string | undefined = undefined
-        if (pinIntelData?.geocode?.components?.city || pinIntelData?.geocode?.components?.town) {
-          city = pinIntelData.geocode.components.city || pinIntelData.geocode.components.town
-        } else if (meaningfulName) {
-          const cityMatch = meaningfulName.match(/,\s*([^,]+)$/)
-          city = cityMatch ? cityMatch[1].trim() : undefined
-        }
-        
-        console.log("🖼️ Fetching Unsplash image with exact place name:", { 
-          name: meaningfulName || '(none - using city/category only)', 
-          city: city,
-          category: placeCategory 
-        })
-        
-        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
-        
-        // Pass the exact place name to get specific photos of the actual place
-        unsplashImageData = await fetchLocationImageForPlace({
-          name: meaningfulName || '', // Exact place name for specific results
-          city: city,
-          category: placeCategory
-        })
-        
-        if (unsplashImageData) {
-          console.log("✅ Unsplash image fetched:", {
-            photographer: unsplashImageData.photographerName,
-            imageUrl: unsplashImageData.imageUrl?.substring(0, 50) + "..."
-          })
-        } else {
-          console.warn("⚠️ No Unsplash image found for this location")
-        }
-      } catch (error) {
-        console.error("❌ Failed to fetch Unsplash image (non-critical):", error)
-        // Continue with pin creation even if Unsplash fails
-      }
-      
-      // Use Unsplash image (prioritized for place-specific photos)
-      const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
-                              unsplashImageData?.imageUrl || 
-                              null
+      // TODO: Step B-F - Image resolver will be implemented here
+      // For now, no image fetching (Unsplash removed, Wikimedia coming next)
+      const primaryImageUrl = null
       
       const newPin: PinData = {
         id: Date.now().toString(),
@@ -1481,18 +1316,10 @@ export default function PINITApp() {
         // Use AI-generated description or place description
         description: aiTextResult?.description || placeDescription || "",
         tags: ["pinit", "travel"],
-        // Additional photos (empty for now - only using Unsplash)
+        // Additional photos (empty for now - image resolver coming in Step B-F)
         additionalPhotos: [],
         // NEW: Mark as pending - needs location confirmation via edit mode
         isPending: true,
-        // Unsplash image data (if available)
-        unsplashImageUrl: unsplashImageData?.imageUrl,
-        unsplashImageUrlLarge: unsplashImageData?.imageUrlLarge,
-        unsplashImageAttribution: unsplashImageData ? {
-          photographerName: unsplashImageData.photographerName,
-          photographerProfileUrl: unsplashImageData.photographerProfileUrl,
-          unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
-        } : undefined,
         // AI generation metadata
         aiConfidence: aiTextResult?.confidence,
         aiUsedFallback: aiTextResult?.used_fallback,
@@ -2260,60 +2087,9 @@ export default function PINITApp() {
         }
       }
       
-      // Fetch Unsplash image using exact place name for specific results
-      let unsplashImageData = null
-      try {
-        // Use the EXACT place name for most specific search results
-        const meaningfulName = placeName && 
-          placeName !== "Location" && 
-          placeName !== "PINIT Placeholder" && 
-          placeName !== "Unknown Place" &&
-          placeName !== "Quick Pin Location" &&
-          !placeName.startsWith("Speed-based pin") &&
-          !placeName.startsWith("Camera")
-          ? placeName 
-          : (editingPin.locationName && 
-             editingPin.locationName !== "Location" && 
-             editingPin.locationName !== "PINIT Placeholder" && 
-             editingPin.locationName !== "Unknown Place"
-             ? editingPin.locationName 
-             : undefined)
-        
-        // Extract city from pin-intel data or place name
-        let city: string | undefined = undefined
-        if (pinIntelData?.geocode?.components?.city || pinIntelData?.geocode?.components?.town) {
-          city = pinIntelData.geocode.components.city || pinIntelData.geocode.components.town
-        } else if (meaningfulName) {
-          const cityMatch = meaningfulName.match(/,\s*([^,]+)$/)
-          city = cityMatch ? cityMatch[1].trim() : undefined
-        }
-        
-        console.log("🖼️ Fetching Unsplash image with exact place name for edited pin:", { 
-          name: meaningfulName || '(none - using city/category only)', 
-          city: city,
-          category: placeCategory 
-        })
-        
-        const { fetchLocationImageForPlace } = await import('@/lib/locationImage')
-        
-        // Pass the exact place name to get specific photos of the actual place
-        unsplashImageData = await fetchLocationImageForPlace({
-          name: meaningfulName || '', // Exact place name for specific results
-          city: city,
-          category: placeCategory
-        })
-        
-        if (unsplashImageData) {
-          console.log("🖼️ Unsplash image fetched for edited pin:", unsplashImageData.photographerName)
-        }
-      } catch (error) {
-        console.warn("⚠️ Failed to fetch Unsplash image for edited pin (non-critical):", error)
-      }
-      
-      // Use Unsplash image (prioritized for place-specific photos), fallback to existing mediaUrl
-      const primaryImageUrl = unsplashImageData?.imageUrlLarge || 
-                              unsplashImageData?.imageUrl || 
-                              editingPin.mediaUrl
+      // TODO: Step B-F - Image resolver will be implemented here
+      // For now, keep existing image or use null (Unsplash removed, Wikimedia coming next)
+      const primaryImageUrl = editingPin.mediaUrl || null
       
       // Update the pin with new location and data
       const updatedPin: PinData = {
@@ -2331,14 +2107,6 @@ export default function PINITApp() {
         tags: editingPin.tags || ["pinit", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
-        // Unsplash image data (if available)
-        unsplashImageUrl: unsplashImageData?.imageUrl,
-        unsplashImageUrlLarge: unsplashImageData?.imageUrlLarge,
-        unsplashImageAttribution: unsplashImageData ? {
-          photographerName: unsplashImageData.photographerName,
-          photographerProfileUrl: unsplashImageData.photographerProfileUrl,
-          unsplashPhotoLink: unsplashImageData.unsplashPhotoLink
-        } : editingPin.unsplashImageAttribution, // Keep existing attribution if new fetch fails
         // AI generation metadata
         aiConfidence: aiTextResult?.confidence,
         aiUsedFallback: aiTextResult?.used_fallback,
