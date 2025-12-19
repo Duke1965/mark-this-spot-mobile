@@ -61,44 +61,86 @@ export async function GET(request: NextRequest) {
     // Add query parameters
     geocodingUrl.searchParams.set('access_token', accessToken)
     
-    // For reverse geocoding, only use 'types' parameter without 'limit' to avoid Mapbox 422 error
+    // For reverse geocoding, handle multiple types by making separate calls if needed
     // For forward geocoding, we can use both 'types' and 'limit'
+    let features: any[] = []
+    
     if (query) {
       // Forward geocoding: can use multiple types and limit
       geocodingUrl.searchParams.set('types', types)
       geocodingUrl.searchParams.set('limit', '10')
+      
+      console.log('🔗 Mapbox Geocoding URL:', geocodingUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
+
+      const response = await fetch(geocodingUrl.toString(), {
+        next: { revalidate: 3600 } // Cache for 1 hour
+      })
+
+      console.log('📡 Mapbox Geocoding response status:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ Mapbox Geocoding API error: ${response.status}`, errorText.substring(0, 500))
+
+        return NextResponse.json({
+          error: 'Mapbox Geocoding API error',
+          status: response.status,
+          message: response.status === 401
+            ? 'Mapbox authentication failed. Check API key.'
+            : 'Mapbox Geocoding API error'
+        }, { status: response.status })
+      }
+
+      const data = await response.json()
+      console.log('📦 Mapbox Geocoding response data keys:', Object.keys(data))
+      features = Array.isArray(data?.features) ? data.features : []
     } else {
-      // Reverse geocoding: use single type, no limit parameter
+      // Reverse geocoding: handle multiple types by making separate calls
       // Mapbox requires: "limit must be combined with a single type parameter when reverse geocoding"
-      geocodingUrl.searchParams.set('types', types.split(',')[0]) // Use only first type
+      const typeList = types.split(',').map(t => t.trim())
+      const allFeatures: any[] = []
+      const seenIds = new Set<string>()
+      
+      // Make separate calls for each type and combine results
+      for (const type of typeList) {
+        const typeUrl = new URL(geocodingUrl.toString())
+        typeUrl.searchParams.set('types', type)
+        
+        console.log(`🔗 Mapbox Geocoding URL (${type}):`, typeUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
+
+        try {
+          const response = await fetch(typeUrl.toString(), {
+            next: { revalidate: 3600 } // Cache for 1 hour
+          })
+
+          console.log(`📡 Mapbox Geocoding response status (${type}):`, response.status, response.statusText)
+
+          if (response.ok) {
+            const data = await response.json()
+            const typeFeatures = Array.isArray(data?.features) ? data.features : []
+            
+            // Add features, avoiding duplicates by ID
+            for (const feature of typeFeatures) {
+              if (feature.id && !seenIds.has(feature.id)) {
+                allFeatures.push(feature)
+                seenIds.add(feature.id)
+              }
+            }
+            
+            console.log(`📦 Found ${typeFeatures.length} features for type ${type} (${allFeatures.length} total unique)`)
+          } else {
+            const errorText = await response.text()
+            console.warn(`⚠️ Mapbox Geocoding API error for type ${type}: ${response.status}`, errorText.substring(0, 200))
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error fetching type ${type}:`, error)
+        }
+      }
+      
+      features = allFeatures
     }
 
-    console.log('🔗 Mapbox Geocoding URL:', geocodingUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
-
-    const response = await fetch(geocodingUrl.toString(), {
-      next: { revalidate: 3600 } // Cache for 1 hour
-    })
-
-    console.log('📡 Mapbox Geocoding response status:', response.status, response.statusText)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`❌ Mapbox Geocoding API error: ${response.status}`, errorText.substring(0, 500))
-
-      return NextResponse.json({
-        error: 'Mapbox Geocoding API error',
-        status: response.status,
-        message: response.status === 401
-          ? 'Mapbox authentication failed. Check API key.'
-          : 'Mapbox Geocoding API error'
-      }, { status: response.status })
-    }
-
-    const data = await response.json()
-    console.log('📦 Mapbox Geocoding response data keys:', Object.keys(data))
-
-    const features = Array.isArray(data?.features) ? data.features : []
-    console.log('📦 Features count:', features.length)
+    console.log('📦 Total features count:', features.length)
 
     if (features.length === 0) {
       console.log('📍 No places found for this location')
