@@ -1621,107 +1621,73 @@ export default function PINITApp() {
       let placeDescription: string | undefined = undefined
       let placeData: any = null
       
+      // STEP 1: Get location name and address via reverse geocoding
+      // Mapbox reverse geocoding works best with address,place types (not poi)
       try {
-        console.log("📍 Step 1: Fetching nearby travel POIs via Mapbox Geocoding API...")
-        // Use Mapbox Geocoding API route to search for nearby POIs
-        const searchResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
+        console.log("📍 Step 1: Fetching location name via Mapbox Geocoding API...")
+        // Use address and place types for reverse geocoding (this works reliably)
+        const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place`, { signal })
         
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json()
-          const places = searchData.places || []
-          console.log(`📍 Mapbox Geocoding returned ${places.length} POIs`)
+        if (geocodingResponse.ok) {
+          const geocodingData = await geocodingResponse.json()
+          const places = geocodingData.places || []
+          console.log(`📍 Mapbox Geocoding returned ${places.length} places`)
           
           if (places.length > 0) {
-            // Find closest POI (results are sorted by relevance)
-            const closestPOI = places[0]
-            const poiName = closestPOI.name || "Location"
+            // Find the best result: prefer address (has street name), then place (city/town)
+            const addressResult = places.find((p: any) => p.place_type === 'address' || p.context?.street)
+            const placeResult = places.find((p: any) => p.place_type === 'place' || p.context?.city)
+            const bestPlace = addressResult || placeResult || places[0]
             
-            console.log(`✅ Found closest Mapbox POI: ${poiName}`)
-            
-            // Use POI data (most specific and reliable)
-            placeData = closestPOI
-            placeName = poiName
-            
-            // Build meaningful description from POI data
-            if (closestPOI.category) {
-              const categoryName = closestPOI.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-              const city = closestPOI.context?.city
+            if (bestPlace) {
+              placeData = bestPlace
               
-              if (city) {
-                placeDescription = `${categoryName} in ${city}`
-              } else if (closestPOI.address) {
-                placeDescription = `${categoryName} located at ${closestPOI.address}`
+              // Extract name: prefer short name (text) over full address (place_name)
+              // For addresses, use street name; for places, use place name
+              if (bestPlace.place_type === 'address' && bestPlace.context?.street) {
+                placeName = bestPlace.context.street
+              } else if (bestPlace.name) {
+                placeName = bestPlace.name
+              } else if (bestPlace.place_name) {
+                // Extract first part of place_name (before first comma)
+                placeName = bestPlace.place_name.split(',')[0].trim()
               } else {
-                placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
+                placeName = "Location"
               }
-            } else if (closestPOI.address) {
-              placeDescription = `Located at ${closestPOI.address}`
+              
+              // Build description from geocoding data
+              if (!placeDescription) {
+                const city = bestPlace.context?.city || bestPlace.context?.neighborhood
+                const street = bestPlace.context?.street || bestPlace.address
+                
+                if (city && street) {
+                  placeDescription = `${street}, ${city}`
+                } else if (city) {
+                  placeDescription = `Located in ${city}`
+                } else if (street) {
+                  placeDescription = `Located at ${street}`
+                } else if (bestPlace.place_name) {
+                  // Use full address as description if available
+                  placeDescription = bestPlace.place_name
+                }
+              }
+              
+              console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
+                placeType: bestPlace.place_type,
+                hasDescription: !!placeDescription,
+                description: placeDescription?.substring(0, 50)
+              })
             }
-            
-            console.log(`✅ Using Mapbox Geocoding POI data: ${placeName}`, { 
-              hasDescription: !!placeDescription,
-              description: placeDescription?.substring(0, 50)
-            })
           }
         } else {
           console.warn("⚠️ Mapbox Geocoding API failed")
         }
-      } catch (searchError: any) {
-        if (searchError.name === 'AbortError') {
-          console.log("📍 Search request was aborted")
-          throw searchError
+      } catch (geocodingError: any) {
+        if (geocodingError.name === 'AbortError') {
+          console.log("📍 Geocoding request was aborted")
+          throw geocodingError
         }
-        console.warn("⚠️ Mapbox Search API failed:", searchError.message)
-      }
-      
-      // STEP 2: Fallback to Mapbox Geocoding if no POI found (for place names)
-      if (!placeData || placeName === "Location") {
-        try {
-          console.log("📍 Step 2: Fallback - Fetching place name via Mapbox Geocoding API...")
-          // Try POI first, then address, then place
-          const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=poi`, { signal })
-          
-          if (geocodingResponse.ok) {
-            const geocodingData = await geocodingResponse.json()
-            console.log(`📍 Mapbox Geocoding returned ${geocodingData.places?.length || 0} places`)
-            
-            if (geocodingData.places && geocodingData.places.length > 0) {
-              // Find the best result (prefer POI, then address with name)
-              const poiResult = geocodingData.places.find((p: any) => p.place_type === 'poi' || p.category)
-              const bestPlace = poiResult || geocodingData.places[0]
-              
-              if (bestPlace) {
-                placeData = bestPlace
-                // Extract name - prefer text (short name) over place_name (full address)
-                placeName = bestPlace.name || bestPlace.place_name?.split(',')[0] || "Location"
-                
-                // Build description from geocoding data
-                if (!placeDescription) {
-                  if (bestPlace.category) {
-                    const categoryName = bestPlace.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-                    if (bestPlace.context?.city) {
-                      placeDescription = `${categoryName} in ${bestPlace.context.city}`
-                    } else {
-                      placeDescription = `A ${categoryName.toLowerCase()} worth exploring`
-                    }
-                  } else if (bestPlace.context?.neighborhood) {
-                    placeDescription = `Located in ${bestPlace.context.neighborhood}`
-                  }
-                }
-                
-                console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
-                  hasDescription: !!placeDescription
-                })
-              }
-            }
-          }
-        } catch (geocodingError: any) {
-          if (geocodingError.name === 'AbortError') {
-            console.log("📍 Geocoding request was aborted")
-            throw geocodingError
-          }
-          console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
-        }
+        console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
       }
       
       // STEP 3: Skip image fetching for now - will be handled by image resolver (Step B-F)
