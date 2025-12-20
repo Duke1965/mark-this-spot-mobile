@@ -46,15 +46,26 @@ export async function resolvePlaceImage(
   // }
 
   // STEP 2: Try Wikimedia (via Wikidata)
-  if (name) {
+  // Only skip if name is explicitly "Location" or empty
+  const shouldTryWikimedia = name && name.trim() && name !== "Location" && name !== "Unknown Place"
+  
+  if (shouldTryWikimedia) {
     try {
-      console.log(`🖼️ Attempting Wikimedia lookup for: ${name}`)
-      const wikimediaResponse = await fetch(
-        `/api/wikimedia/resolve?name=${encodeURIComponent(name)}${lat && lng ? `&lat=${lat}&lng=${lng}` : ''}`
-      )
+      console.log(`🖼️ Attempting Wikimedia lookup for: "${name}"`)
+      const wikimediaUrl = `/api/wikimedia/resolve?name=${encodeURIComponent(name)}${lat && lng ? `&lat=${lat}&lng=${lng}` : ''}`
+      console.log(`🖼️ Wikimedia API URL: ${wikimediaUrl}`)
+      
+      const wikimediaResponse = await fetch(wikimediaUrl)
 
       if (wikimediaResponse.ok) {
         const wikimediaData = await wikimediaResponse.json()
+        console.log(`🖼️ Wikimedia API response:`, { 
+          hasImageUrl: !!wikimediaData.imageUrl,
+          source: wikimediaData.source,
+          qid: wikimediaData.qid,
+          error: wikimediaData.error
+        })
+        
         if (wikimediaData.imageUrl) {
           console.log(`✅ Wikimedia image found: ${wikimediaData.imageUrl.substring(0, 50)}...`)
           
@@ -71,13 +82,22 @@ export async function resolvePlaceImage(
             source: 'wikimedia',
             qid: wikimediaData.qid
           }
+        } else {
+          console.log(`⚠️ Wikimedia API returned no imageUrl for "${name}"`)
         }
       } else {
-        console.warn(`⚠️ Wikimedia API failed: ${wikimediaResponse.status}`)
+        const errorText = await wikimediaResponse.text().catch(() => 'Unknown error')
+        console.warn(`⚠️ Wikimedia API failed: ${wikimediaResponse.status} - ${errorText.substring(0, 200)}`)
       }
     } catch (error) {
-      console.warn(`⚠️ Wikimedia lookup error:`, error)
+      console.error(`❌ Wikimedia lookup error:`, error)
+      if (error instanceof Error) {
+        console.error(`❌ Error message: ${error.message}`)
+        console.error(`❌ Error stack: ${error.stack?.substring(0, 300)}`)
+      }
     }
+  } else {
+    console.log(`⚠️ Skipping Wikimedia lookup - invalid name: "${name}"`)
   }
 
   // STEP 3: Fallback to paid provider (ONLY if Wikimedia fails)
