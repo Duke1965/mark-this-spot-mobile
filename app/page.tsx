@@ -1708,12 +1708,26 @@ export default function PINITApp() {
       let imageSource = "placeholder"
       
       try {
-        const imageResult = await resolvePlaceImage({
+        console.log(`🖼️ Calling image resolver with:`, {
           placeId,
-          name: placeName !== "Location" ? placeName : undefined,
+          name: placeName,
           lat,
           lng,
           address: placeData?.address || placeData?.place_name
+        })
+        
+        const imageResult = await resolvePlaceImage({
+          placeId,
+          name: placeName, // Pass the actual name, let resolver decide if it's valid
+          lat,
+          lng,
+          address: placeData?.address || placeData?.place_name
+        })
+        
+        console.log(`🖼️ Image resolver result:`, {
+          hasImageUrl: !!imageResult.imageUrl,
+          source: imageResult.source,
+          imageUrl: imageResult.imageUrl?.substring(0, 60)
         })
         
         if (imageResult.imageUrl) {
@@ -1721,10 +1735,14 @@ export default function PINITApp() {
           imageSource = imageResult.source
           console.log(`✅ Image resolved: ${imageSource} - ${imageUrl.substring(0, 60)}...`)
         } else {
-          console.log(`⚠️ Image resolver returned no image, using placeholder`)
+          console.log(`⚠️ Image resolver returned no imageUrl, using placeholder`)
         }
       } catch (imageError) {
-        console.warn("⚠️ Image resolver error:", imageError)
+        console.error("❌ Image resolver error:", imageError)
+        if (imageError instanceof Error) {
+          console.error("❌ Error message:", imageError.message)
+          console.error("❌ Error stack:", imageError.stack?.substring(0, 300))
+        }
         // Continue with placeholder
       }
       
