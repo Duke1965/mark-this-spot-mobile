@@ -376,15 +376,27 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
     
     // Filter to only travel-related places (restaurants, cafes, museums, galleries, tourism, monuments)
     // Exclude: supermarkets, gas stations, convenience stores, banks, ATMs, etc.
+    // TRAVEL-RELATED CATEGORIES ONLY
+    // Filter to show only places relevant to travel and tourism
+    // Includes: restaurants, coffee shops, historical buildings, tourist attractions, etc.
     const travelCategories = [
-      'restaurant', 'cafe', 'coffee', 'food', 'dining', 'catering',
-      'museum', 'art_gallery', 'gallery', 'art', 'cultural',
-      'tourism', 'tourist', 'attraction', 'sightseeing',
-      'monument', 'memorial', 'landmark', 'historic',
-      'theater', 'cinema', 'entertainment', 'venue',
-      'park', 'garden', 'beach', 'nature', 'outdoor',
-      'hotel', 'lodging', 'accommodation',
-      'place_of_worship', 'church', 'temple', 'mosque', 'synagogue'
+      // Food & Dining
+      'restaurant', 'cafe', 'coffee', 'food', 'dining', 'catering', 'bistro', 'bakery', 'bar', 'pub',
+      // Cultural & Historical
+      'museum', 'art_gallery', 'gallery', 'art', 'cultural', 'historical', 'history',
+      'monument', 'memorial', 'landmark', 'historic', 'heritage', 'castle', 'palace', 'fort',
+      // Tourism & Attractions
+      'tourism', 'tourist', 'attraction', 'sightseeing', 'viewpoint', 'lookout', 'observation',
+      // Entertainment & Venues
+      'theater', 'cinema', 'entertainment', 'venue', 'concert', 'music', 'festival',
+      // Nature & Outdoor
+      'park', 'garden', 'beach', 'nature', 'outdoor', 'hiking', 'trail', 'waterfall', 'cave',
+      // Accommodation
+      'hotel', 'lodging', 'accommodation', 'hostel', 'resort',
+      // Religious Sites
+      'place_of_worship', 'church', 'temple', 'mosque', 'synagogue', 'cathedral', 'basilica',
+      // Shopping (travel-related only)
+      'souvenir', 'market', 'bazaar'
     ]
     
     const excludeCategories = [
