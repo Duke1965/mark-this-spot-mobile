@@ -337,9 +337,13 @@ export default function AIRecommendationsHub({
   // Generate mock USER recommendations using REAL places from Mapbox API (different from AI mocks)
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Using TomTom Search API for nearby travel POIs
+      // Using pin-intel gateway (Foursquare) for nearby travel POIs
       // Categories: restaurants, coffee shops, historical buildings, tourist attractions, etc.
-      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism,historic,landmark,attraction`, {
+      // Already filtered for travel-related places only
+      const response = await fetch(`/api/pinit/pin-intel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, precision: 5 }),
         signal
       })
 
@@ -349,8 +353,8 @@ export default function AIRecommendationsHub({
 
       if (response.ok) {
         const data = await response.json()
-        // Mapbox Search returns {pois: [...]}
-        const places = data.pois || []
+        // pin-intel gateway returns {places: [...]}
+        const places = data.places || []
         
         if (places.length === 0) {
           return []
@@ -365,20 +369,20 @@ export default function AIRecommendationsHub({
         }).slice(4, 8) // Take different places than AI mocks
 
         return sortedPlaces.map((place: any, index: number) => {
-          const placeLat = place.location?.lat || lat
-          const placeLng = place.location?.lng || lng
+          // Foursquare format: { lat, lng } directly on the place object
+          const placeLat = place.lat || place.location?.lat || lat
+          const placeLng = place.lng || place.location?.lng || lng
           
-          // Mapbox doesn't provide photos, so no photoUrl
+          // Foursquare doesn't provide photos in pin-intel response
           const photoUrl = undefined
 
-          const category = place.category || "general"
+          const placeCategories = place.categories || []
+          const category = placeCategories.join(', ') || place.category || "general"
 
           return {
             id: `mock-user-${place.id || index}`,
             title: place.name || "Local Place",
-            description: place.description || 
-              (place.category ? `A great ${place.category.toLowerCase()} spot recommended by the community` : 
-               "A recommended location nearby"),
+            description: `${category} • ${place.distance_m ? `${place.distance_m}m away` : 'Nearby'}`,
             category: category,
             location: {
               lat: placeLat,
@@ -721,9 +725,17 @@ export default function AIRecommendationsHub({
               
               // OPTIMIZED: Make a SINGLE API call for all categories instead of one per category
               try {
-                console.log('🧠 Fetching travel places from Mapbox for all categories in one request...')
-                // Focus on travel-related POIs: restaurants, cafes, monuments, museums, art galleries, churches, tourism
-                const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                console.log('🧠 Fetching travel places from pin-intel gateway (Foursquare) for all categories in one request...')
+                // Use pin-intel gateway which already filters for travel-related POIs
+                // Categories: restaurants, cafes, monuments, museums, art galleries, churches, tourism, etc.
+                const response = await fetch(`/api/pinit/pin-intel`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    lat: location.latitude || location.lat,
+                    lng: location.longitude || location.lng,
+                    precision: 5
+                  }),
                   signal // Add abort signal
                 })
                 
@@ -734,8 +746,8 @@ export default function AIRecommendationsHub({
                 
                 if (response.ok) {
                   const data = await response.json()
-                  const allPlaces = data.pois || []
-                  console.log(`🧠 Fetched ${allPlaces.length} places from Mapbox`)
+                  const allPlaces = data.places || [] // pin-intel returns 'places', not 'pois'
+                  console.log(`🧠 Fetched ${allPlaces.length} travel places from pin-intel gateway`)
                   
                   // Process each category from the same API response
                   // DETERMINISTIC: Sort places by ID for consistent selection (same region = same places)
@@ -748,17 +760,18 @@ export default function AIRecommendationsHub({
                   for (const category of shuffledCategories) {
                     if (signal.aborted) break
                     
-                    // Filter places by category preference - match category names from Mapbox
+                    // Filter places by category preference - match category names from Foursquare
                     const categoryPlaces = sortedPlaces.filter((place: any) => {
-                      const placeCategory = place.category?.toLowerCase() || ''
+                      const placeCategories = place.categories || []
+                      const categoryStr = placeCategories.join(' ').toLowerCase() || place.category?.toLowerCase() || ''
                       const categoryLower = category.toLowerCase()
                       
                       return (
-                        placeCategory.includes(categoryLower) ||
-                        (categoryLower === 'food' && ['restaurant', 'cafe', 'food', 'dining', 'catering'].some(c => placeCategory.includes(c))) ||
-                        (categoryLower === 'adventure' && ['activity', 'leisure', 'tourism', 'outdoor', 'sport'].some(c => placeCategory.includes(c))) ||
-                        (categoryLower === 'culture' && ['entertainment', 'art', 'museum', 'theater', 'gallery', 'cultural'].some(c => placeCategory.includes(c))) ||
-                        (categoryLower === 'nature' && ['park', 'natural', 'outdoor', 'garden', 'beach', 'hiking'].some(c => placeCategory.includes(c)))
+                        categoryStr.includes(categoryLower) ||
+                        (categoryLower === 'food' && ['restaurant', 'cafe', 'food', 'dining', 'catering', 'coffee'].some(c => categoryStr.includes(c))) ||
+                        (categoryLower === 'adventure' && ['activity', 'leisure', 'tourism', 'outdoor', 'sport'].some(c => categoryStr.includes(c))) ||
+                        (categoryLower === 'culture' && ['entertainment', 'art', 'museum', 'theater', 'gallery', 'cultural', 'monument', 'historic'].some(c => categoryStr.includes(c))) ||
+                        (categoryLower === 'nature' && ['park', 'natural', 'outdoor', 'garden', 'beach', 'hiking'].some(c => categoryStr.includes(c)))
                       )
                     })
                     
@@ -768,36 +781,37 @@ export default function AIRecommendationsHub({
                       const selectedPlace = categoryPlaces[0]
                       
                       // CRITICAL: Validate coordinates before adding recommendation
-                      const placeLat = selectedPlace.location?.lat || selectedPlace.geometry?.location?.lat
-                      const placeLng = selectedPlace.location?.lng || selectedPlace.geometry?.location?.lng
+                      // Foursquare format: { lat, lng } directly on the place object
+                      const placeLat = selectedPlace.lat || selectedPlace.location?.lat || selectedPlace.geometry?.location?.lat
+                      const placeLng = selectedPlace.lng || selectedPlace.location?.lng || selectedPlace.geometry?.location?.lng
                       
                       // Skip places without valid coordinates
                       if (!placeLat || !placeLng || !isFinite(placeLat) || !isFinite(placeLng)) {
-                        console.warn('🧠 Skipping place without valid coordinates:', selectedPlace.title || selectedPlace.name)
+                        console.warn('🧠 Skipping place without valid coordinates:', selectedPlace.name)
                         continue
                       }
                       
-                    // OSM doesn't provide photos
+                    // Foursquare doesn't provide photos in pin-intel response
                     const photoUrl = undefined
                       
-                      // Use Foursquare's real title and description
-                      const placeTitle = selectedPlace.title || selectedPlace.name || 'Interesting Place'
-                      const placeDescription = selectedPlace.description || 
-                        (selectedPlace.category ? `A great ${selectedPlace.category.toLowerCase()} spot` : 
-                         `A recommended ${category} location`)
+                      // Use Foursquare's real name and categories
+                      const placeTitle = selectedPlace.name || 'Interesting Place'
+                      const placeCategories = selectedPlace.categories || []
+                      const categoryStr = placeCategories.join(', ') || selectedPlace.category || category
+                      const placeDescription = `${categoryStr} • ${selectedPlace.distance_m ? `${selectedPlace.distance_m}m away` : 'Nearby'}`
                       
                       console.log(`🧠 AI Recommendation using Foursquare data for ${placeTitle}:`, {
-                        hasDescription: !!selectedPlace.description,
-                        description: selectedPlace.description?.substring(0, 50) + '...',
-                        category: selectedPlace.category,
+                        categories: placeCategories,
+                        category: categoryStr,
+                        distance: selectedPlace.distance_m,
                         hasPhoto: !!photoUrl
                       })
                       
                       aiRecs.push({
                         id: `ai-${category}-${selectedPlace.id || Date.now()}`,
                         title: placeTitle,
-                        description: placeDescription, // Use real Mapbox description
-                        category: selectedPlace.category || category,
+                        description: placeDescription,
+                        category: categoryStr,
                         location: {
                           lat: placeLat,
                           lng: placeLng,
