@@ -6,7 +6,7 @@ import { UNSPLASH_ACCESS_KEY, validateUnsplashConfig } from "@/lib/externalServi
  * Diagnostics API Route
  * Tests all API connections and environment variables
  * Helps identify why photos and content aren't loading
- * Tests Mapbox and Unsplash APIs (TomTom has been removed)
+ * Tests Mapbox and Wikimedia APIs (Unsplash has been removed)
  */
 
 export async function GET(request: NextRequest) {
@@ -111,15 +111,44 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Test Unsplash API
+  // Test Wikimedia API (replaces Unsplash)
+  try {
+    const testWikimediaUrl = `${request.nextUrl.origin}/api/wikimedia/resolve?name=Cape Town&lat=-33.9249&lng=18.4241`
+    const wikimediaResponse = await fetch(testWikimediaUrl)
+    
+    if (wikimediaResponse.ok) {
+      const wikimediaData = await wikimediaResponse.json()
+      diagnostics.apis.wikimedia = {
+        status: wikimediaData.imageUrl ? "OK" : "WARNING",
+        has_image_url: !!wikimediaData.imageUrl,
+        source: wikimediaData.source || "none",
+        qid: wikimediaData.qid || null,
+        message: wikimediaData.imageUrl ? "Wikimedia image found" : "No image found for test location"
+      }
+    } else {
+      const errorText = await wikimediaResponse.text().catch(() => 'Unknown error')
+      diagnostics.apis.wikimedia = {
+        status: "ERROR",
+        http_status: wikimediaResponse.status,
+        error: errorText.substring(0, 200)
+      }
+    }
+  } catch (error) {
+    diagnostics.apis.wikimedia = {
+      status: "ERROR",
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  // Legacy Unsplash check (deprecated - kept for backward compatibility)
   try {
     const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
     
     if (!unsplashKey) {
       diagnostics.apis.unsplash = {
         status: "WARNING",
-        error: "No API key found",
-        details: "Missing UNSPLASH_ACCESS_KEY (server-side only)"
+        error: "No API key found (deprecated - using Wikimedia instead)",
+        details: "Missing UNSPLASH_ACCESS_KEY (server-side only) - Unsplash is no longer used"
       }
     } else {
       // Validate key format
@@ -198,14 +227,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Test Unsplash location image API route (internal)
+  // Legacy Unsplash location image API route (deprecated)
   try {
     const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
     
     if (!unsplashKey) {
       diagnostics.apis.unsplash_location_image = {
         status: "WARNING",
-        error: "Skipped - Unsplash API key not configured"
+        error: "Skipped - Unsplash API key not configured (deprecated - using Wikimedia instead)"
       }
     } else {
       // Test the internal route - this will use the same authentication as the main Unsplash API
@@ -218,7 +247,8 @@ export async function GET(request: NextRequest) {
           status: locationImageData.imageUrl ? "OK" : "WARNING",
           has_image_url: !!locationImageData.imageUrl,
           has_attribution: !!locationImageData.photographerName,
-          sample_photographer: locationImageData.photographerName || "N/A"
+          sample_photographer: locationImageData.photographerName || "N/A",
+          note: "Deprecated - using Wikimedia instead"
         }
       } else {
         const errorData = await locationImageResponse.json().catch(() => ({ error: "Unknown error" }))
@@ -226,14 +256,15 @@ export async function GET(request: NextRequest) {
           status: "ERROR",
           http_status: locationImageResponse.status,
           error: errorData.error || `HTTP ${locationImageResponse.status}`,
-          note: locationImageResponse.status === 404 ? "Route not found - check that the route exists" : "Check server logs for details"
+          note: "Deprecated - using Wikimedia instead"
         }
       }
     }
   } catch (error) {
     diagnostics.apis.unsplash_location_image = {
       status: "ERROR",
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      note: "Deprecated - using Wikimedia instead"
     }
   }
 
@@ -245,11 +276,11 @@ export async function GET(request: NextRequest) {
     errors: mapConfig.errors
   }
 
-  // Validate Unsplash configuration
+  // Validate Unsplash configuration (deprecated - kept for backward compatibility)
   const unsplashConfig = validateUnsplashConfig()
   diagnostics.unsplash_config = {
-    valid: unsplashConfig.valid,
-    error: unsplashConfig.error
+    valid: false, // Always false since we're not using Unsplash
+    error: "Deprecated - using Wikimedia instead"
   }
 
   // Check if Unsplash and Mapbox keys are accidentally the same (crossed values)
