@@ -337,8 +337,9 @@ export default function AIRecommendationsHub({
   // Generate mock USER recommendations using REAL places from Mapbox API (different from AI mocks)
   const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
-      // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+      // Using TomTom Search API for nearby travel POIs
+      // Categories: restaurants, coffee shops, historical buildings, tourist attractions, etc.
+      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=12&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism,historic,landmark,attraction`, {
         signal
       })
 
