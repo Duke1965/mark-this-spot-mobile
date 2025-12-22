@@ -249,8 +249,14 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
   }
   
   try {
-    // Use Mapbox Geocoding API with POI type to find nearby places
-    // Search within ~5km radius (approximately 0.045 degrees)
+    // Use Mapbox Geocoding API to find nearby POIs
+    // Strategy: Use reverse geocoding with POI type and bbox (bounding box) for better results
+    // Calculate bounding box for ~5km radius around the location
+    const radiusKm = 5
+    const radiusDegrees = radiusKm / 111 // Approximate: 1 degree ≈ 111km
+    const bbox = `${lng - radiusDegrees},${lat - radiusDegrees},${lng + radiusDegrees},${lat + radiusDegrees}`
+    
+    // Try reverse geocoding with POI type first (most efficient)
     const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`)
     mapboxUrl.searchParams.set('access_token', MAPBOX_API_KEY)
     mapboxUrl.searchParams.set('types', 'poi')
@@ -264,9 +270,60 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
     }
     
     const data = await response.json()
-    const features = data.features || []
+    let features = data.features || []
+    
+    // If we got few results, try a broader search with common POI terms
+    if (features.length < 5) {
+      console.log(`📍 Only found ${features.length} POIs, trying broader search...`)
+      
+      // Try searching for common POI types with proximity
+      const commonTerms = ['restaurant', 'cafe', 'museum']
+      const seenIds = new Set(features.map((f: any) => f.id).filter(Boolean))
+      
+      for (const term of commonTerms) {
+        try {
+          const searchUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(term)}.json`)
+          searchUrl.searchParams.set('access_token', MAPBOX_API_KEY)
+          searchUrl.searchParams.set('types', 'poi')
+          searchUrl.searchParams.set('limit', '10')
+          searchUrl.searchParams.set('proximity', `${lng},${lat}`)
+          
+          const searchResponse = await fetchWithTimeout(searchUrl.toString(), {}, 3000, 0)
+          
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json()
+            const searchFeatures = searchData.features || []
+            
+            // Add features within 5km that we haven't seen
+            for (const feature of searchFeatures) {
+              if (feature.id && !seenIds.has(feature.id)) {
+                const coords = feature.geometry?.coordinates || []
+                if (coords.length >= 2) {
+                  const placeLng = coords[0]
+                  const placeLat = coords[1]
+                  
+                  // Quick distance check (rough approximation)
+                  const latDiff = Math.abs(placeLat - lat)
+                  const lngDiff = Math.abs(placeLng - lng)
+                  const distanceKm = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 111
+                  
+                  if (distanceKm <= 5) {
+                    seenIds.add(feature.id)
+                    features.push(feature)
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // Continue with next term
+          console.warn(`⚠️ Error searching for "${term}":`, error)
+        }
+      }
+    }
     
     if (features.length === 0) {
+      console.log('📍 No POIs found via Mapbox search')
       return []
     }
     
