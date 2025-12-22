@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useLocationServices } from "@/hooks/useLocationServices"
 
 interface DiagnosticResult {
   timestamp: string
@@ -27,43 +26,68 @@ interface DiagnosticResult {
 
 export default function DiagnosticsPage() {
   const router = useRouter()
-  const { location } = useLocationServices()
   const [diagnostics, setDiagnostics] = useState<DiagnosticResult | null>(null)
   const [loading, setLoading] = useState(false)
-  const [testLocation, setTestLocation] = useState({ lat: "", lng: "" })
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true)
-  const [locationStatus, setLocationStatus] = useState<"loading" | "success" | "error">("loading")
+  const [testLocation, setTestLocation] = useState({ lat: "-33.9249", lng: "18.4241" }) // Default to Cape Town
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const [gettingLocation, setGettingLocation] = useState(false)
 
-  // Get current location when component mounts
-  useEffect(() => {
-    if (location && (location.latitude || location.lat) && (location.longitude || location.lng)) {
-      const lat = location.latitude || location.lat
-      const lng = location.longitude || location.lng
-      setTestLocation({ lat: lat.toString(), lng: lng.toString() })
-      setLocationStatus("success")
-      console.log("📍 Current location detected:", { lat, lng })
-    } else {
-      setLocationStatus("error")
-      // Fallback to Cape Town if location not available
-      setTestLocation({ lat: "-33.9249", lng: "18.4241" })
+  // Get current location using navigator.geolocation
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser")
+      return
     }
-  }, [location])
+
+    setGettingLocation(true)
+    setLocationError(null)
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toString()
+        const lng = position.coords.longitude.toString()
+        setTestLocation({ lat, lng })
+        setGettingLocation(false)
+        console.log("📍 Current location obtained:", { lat, lng })
+      },
+      (error) => {
+        setGettingLocation(false)
+        let errorMessage = "Failed to get location: "
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += "Permission denied. Please enable location access in your browser settings."
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Location information unavailable."
+            break
+          case error.TIMEOUT:
+            errorMessage += "Location request timed out."
+            break
+          default:
+            errorMessage += error.message || "Unknown error"
+        }
+        setLocationError(errorMessage)
+        console.error("❌ Geolocation error:", error)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    )
+  }
 
   const runDiagnostics = async () => {
+    if (!testLocation.lat || !testLocation.lng) {
+      setLocationError("Please enter coordinates or use current location")
+      return
+    }
+
     setLoading(true)
+    setLocationError(null)
     try {
-      let url = "/api/diagnostics"
-      
-      if (useCurrentLocation && testLocation.lat && testLocation.lng) {
-        // Use current location
-        url += `?lat=${testLocation.lat}&lng=${testLocation.lng}`
-        console.log("📍 Running diagnostics with current location:", { lat: testLocation.lat, lng: testLocation.lng })
-      } else if (!useCurrentLocation && testLocation.lat && testLocation.lng) {
-        // Use custom location
-        url += `?lat=${testLocation.lat}&lng=${testLocation.lng}`
-        console.log("📍 Running diagnostics with custom location:", { lat: testLocation.lat, lng: testLocation.lng })
-      }
-      // If no location provided, API will use default (Cape Town)
+      const url = `/api/diagnostics?lat=${testLocation.lat}&lng=${testLocation.lng}`
+      console.log("📍 Running diagnostics with location:", { lat: testLocation.lat, lng: testLocation.lng })
       
       const response = await fetch(url)
       const data = await response.json()
@@ -71,18 +95,17 @@ export default function DiagnosticsPage() {
       console.log("📊 Diagnostics results:", data)
     } catch (error) {
       console.error("❌ Failed to run diagnostics:", error)
+      setLocationError("Failed to run diagnostics. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
+  // Run diagnostics on mount with default location
   useEffect(() => {
-    // Wait for location to be available before running diagnostics
-    if (locationStatus !== "loading") {
-      runDiagnostics()
-    }
+    runDiagnostics()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationStatus])
+  }, [])
 
   const getStatusIcon = (status: string) => {
     if (status === "OK") return <CheckCircle className="w-5 h-5 text-green-500" />
@@ -166,13 +189,33 @@ export default function DiagnosticsPage() {
         marginBottom: "20px"
       }}>
         <h3 style={{ color: "white", margin: "0 0 15px 0", fontSize: "16px" }}>Test Location</h3>
-        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+        
+        {/* Always display current test coordinates */}
+        <div style={{
+          background: "rgba(255, 255, 255, 0.1)",
+          borderRadius: "8px",
+          padding: "12px",
+          marginBottom: "15px",
+          border: "1px solid rgba(255, 255, 255, 0.2)"
+        }}>
+          <div style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: "12px", marginBottom: "5px" }}>
+            Testing coordinates:
+          </div>
+          <div style={{ color: "white", fontSize: "16px", fontWeight: "600", fontFamily: "monospace" }}>
+            {testLocation.lat}, {testLocation.lng}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
           <input
             type="number"
+            step="any"
             placeholder="Latitude"
             value={testLocation.lat}
-            onChange={(e) => setTestLocation({ ...testLocation, lat: e.target.value })}
-            disabled={useCurrentLocation}
+            onChange={(e) => {
+              setTestLocation({ ...testLocation, lat: e.target.value })
+              setLocationError(null)
+            }}
             style={{
               flex: 1,
               padding: "10px",
@@ -180,15 +223,18 @@ export default function DiagnosticsPage() {
               border: "1px solid rgba(255, 255, 255, 0.3)",
               background: "rgba(255, 255, 255, 0.2)",
               color: "white",
-              opacity: useCurrentLocation ? 0.5 : 1
+              fontSize: "14px"
             }}
           />
           <input
             type="number"
+            step="any"
             placeholder="Longitude"
             value={testLocation.lng}
-            onChange={(e) => setTestLocation({ ...testLocation, lng: e.target.value })}
-            disabled={useCurrentLocation}
+            onChange={(e) => {
+              setTestLocation({ ...testLocation, lng: e.target.value })
+              setLocationError(null)
+            }}
             style={{
               flex: 1,
               padding: "10px",
@@ -196,35 +242,115 @@ export default function DiagnosticsPage() {
               border: "1px solid rgba(255, 255, 255, 0.3)",
               background: "rgba(255, 255, 255, 0.2)",
               color: "white",
-              opacity: useCurrentLocation ? 0.5 : 1
+              fontSize: "14px"
             }}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "white", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={useCurrentLocation}
-              onChange={(e) => setUseCurrentLocation(e.target.checked)}
-            />
-            Use my current location
-          </label>
-          {locationStatus === "loading" && (
-            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
-              📍 Getting your location...
-            </span>
+
+        {/* Use Current Location Button */}
+        <button
+          onClick={getCurrentLocation}
+          disabled={gettingLocation}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            background: gettingLocation 
+              ? "rgba(255, 255, 255, 0.1)" 
+              : "rgba(255, 255, 255, 0.2)",
+            color: "white",
+            fontSize: "14px",
+            fontWeight: "600",
+            cursor: gettingLocation ? "not-allowed" : "pointer",
+            marginBottom: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!gettingLocation) {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)"
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!gettingLocation) {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)"
+            }
+          }}
+        >
+          {gettingLocation ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Getting location...
+            </>
+          ) : (
+            <>
+              📍 Use my current location
+            </>
           )}
-          {locationStatus === "success" && useCurrentLocation && (
-            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
-              📍 Using: {testLocation.lat}, {testLocation.lng}
-            </span>
+        </button>
+
+        {/* Error Display */}
+        {locationError && (
+          <div style={{
+            background: "rgba(239, 68, 68, 0.2)",
+            border: "1px solid rgba(239, 68, 68, 0.4)",
+            borderRadius: "8px",
+            padding: "12px",
+            marginTop: "10px",
+            color: "#fca5a5",
+            fontSize: "13px"
+          }}>
+            ⚠️ {locationError}
+          </div>
+        )}
+
+        {/* Run Diagnostics Button */}
+        <button
+          onClick={runDiagnostics}
+          disabled={loading || !testLocation.lat || !testLocation.lng}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            background: (loading || !testLocation.lat || !testLocation.lng)
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(34, 197, 94, 0.3)",
+            color: "white",
+            fontSize: "14px",
+            fontWeight: "600",
+            cursor: (loading || !testLocation.lat || !testLocation.lng) ? "not-allowed" : "pointer",
+            marginTop: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!loading && testLocation.lat && testLocation.lng) {
+              e.currentTarget.style.background = "rgba(34, 197, 94, 0.4)"
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading && testLocation.lat && testLocation.lng) {
+              e.currentTarget.style.background = "rgba(34, 197, 94, 0.3)"
+            }
+          }}
+        >
+          {loading ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Running diagnostics...
+            </>
+          ) : (
+            "▶ Run Diagnostics"
           )}
-          {locationStatus === "error" && (
-            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
-              ⚠️ Location not available, using default (Cape Town)
-            </span>
-          )}
-        </div>
+        </button>
       </div>
 
       {loading && (
