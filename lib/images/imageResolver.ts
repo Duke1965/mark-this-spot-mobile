@@ -109,28 +109,10 @@ export async function resolvePlaceImage(
     }
   }
 
-  // STEP 2.5: Try Mapbox Static Images API for street addresses or when Wikimedia fails
-  if (lat && lng) {
-    try {
-      console.log(`🖼️ Attempting Mapbox Static Image for coordinates: ${lat}, ${lng}`)
-      const mapboxImageUrl = `/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=16`
-      
-      const mapboxResponse = await fetch(mapboxImageUrl)
-      
-      if (mapboxResponse.ok) {
-        const mapboxData = await mapboxResponse.json()
-        if (mapboxData.imageUrl) {
-          console.log(`✅ Mapbox Static Image found: ${mapboxData.imageUrl.substring(0, 50)}...`)
-          return {
-            imageUrl: mapboxData.imageUrl,
-            source: 'mapbox'
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ Mapbox Static Image failed:`, error)
-    }
-  }
+  // STEP 2.5: Try Mapbox Static Images API ONLY if Wikimedia didn't find an image
+  // Mapbox static map should be a fallback, not used in photo carousel if Wikimedia has a photo
+  // We skip this step entirely - Mapbox static images should only be used as a last resort
+  // and should not appear in the photo carousel when Wikimedia images exist
 
   // STEP 3: Fallback to paid provider (ONLY if Wikimedia fails)
   // TODO: Implement paid provider (Step D)
