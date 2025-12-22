@@ -1288,7 +1288,7 @@ export default function PINITApp() {
         }
       }
       
-      // Extract category from place description or AI content for Unsplash search
+      // Category extraction (removed Unsplash dependency)
       let placeCategory: string | undefined = undefined
       if (placeDescription) {
         // Try to infer category from description
@@ -2100,7 +2100,7 @@ export default function PINITApp() {
           tags: editingPin.tags || []
       }
       
-      // Extract category for Unsplash search
+      // Category extraction (removed Unsplash dependency)
       let placeCategory: string | undefined = undefined
       if (placeDescription) {
         const descLower = placeDescription.toLowerCase()
@@ -2117,8 +2117,7 @@ export default function PINITApp() {
         }
       }
       
-      // TODO: Step B-F - Image resolver will be implemented here
-      // For now, keep existing image or use null (Unsplash removed, Wikimedia coming next)
+      // Image resolver will use Wikimedia (via resolvePlaceImage)
       const primaryImageUrl = editingPin.mediaUrl || null
       
       // Update the pin with new location and data
@@ -2132,7 +2131,7 @@ export default function PINITApp() {
         title: aiTextResult?.title || placeName || editingPin.title,
         // Use AI-generated description or place description
         description: aiTextResult?.description || placeDescription || editingPin.description || "",
-        mediaUrl: primaryImageUrl, // Use Unsplash image
+        mediaUrl: primaryImageUrl, // Use existing image or placeholder
         additionalPhotos: editingPin.additionalPhotos || [],
         tags: editingPin.tags || ["pinit", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
