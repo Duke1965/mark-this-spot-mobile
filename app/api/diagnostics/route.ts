@@ -106,8 +106,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Test Wikimedia API (replaces Unsplash)
+  // Use a generic test name since we're testing the API, not a specific place
   try {
-    const testWikimediaUrl = `${request.nextUrl.origin}/api/wikimedia/resolve?name=Cape Town&lat=-33.9249&lng=18.4241`
+    // Try to get a place name from Mapbox geocoding for better Wikimedia test
+    let testPlaceName = "Cape Town" // Fallback
+    if (diagnostics.apis.mapbox?.sample_place) {
+      // Extract first part of place name (before comma) for Wikimedia search
+      testPlaceName = diagnostics.apis.mapbox.sample_place.split(',')[0].trim()
+    }
+    
+    const testWikimediaUrl = `${request.nextUrl.origin}/api/wikimedia/resolve?name=${encodeURIComponent(testPlaceName)}&lat=${testLat}&lng=${testLng}`
     const wikimediaResponse = await fetch(testWikimediaUrl)
     
     if (wikimediaResponse.ok) {
