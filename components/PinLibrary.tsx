@@ -245,35 +245,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             position: 'relative',
             minHeight: '60px' // Ensure minimum height for image container
           }}>
-            {/* Priority 1: Unsplash image (highest priority), 2: Direct mediaUrl from pin, 3: First photo from additionalPhotos */}
-            {item.unsplashImageUrlLarge ? (
-              <img
-                src={item.unsplashImageUrlLarge}
-                alt={item.title}
-                loading="lazy"
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-                onError={(e) => {
-                  console.log('📚 Library Unsplash image failed to load:', item.unsplashImageUrlLarge?.substring(0, 50))
-                  const target = e.target as HTMLImageElement
-                  if (target) {
-                    target.style.display = 'none'
-                    const container = target.parentElement
-                    if (container) {
-                      const fallback = container.querySelector('.image-fallback') as HTMLElement
-                      if (fallback) fallback.style.display = 'flex'
-                    }
-                  }
-                }}
-                onLoad={() => {
-                  console.log('📚 Library Unsplash image loaded successfully:', item.title)
-                }}
-              />
-            ) : item.mediaUrl ? (
+            {/* Priority: Direct mediaUrl from pin, then first photo from additionalPhotos */}
+            {item.mediaUrl ? (
               <img
                 src={item.mediaUrl}
                 alt={item.title}
