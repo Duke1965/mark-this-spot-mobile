@@ -197,6 +197,25 @@ export async function GET(request: NextRequest) {
           }
         }
       }
+      
+      // Add debug info from pin-intel if available (test pin-intel to get POI info)
+      try {
+        const pinIntelResponse = await fetch(`${request.nextUrl.origin}/api/pinit/pin-intel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: parseFloat(testLat), lng: parseFloat(testLng), precision: 5 })
+        })
+        
+        if (pinIntelResponse.ok) {
+          const pinIntelData = await pinIntelResponse.json()
+          if (pinIntelData.meta?.debug) {
+            diagnostics.pin_intel_debug = pinIntelData.meta.debug
+          }
+        }
+      } catch (error) {
+        // Non-critical - just log
+        console.warn('⚠️ Could not fetch pin-intel debug info:', error)
+      }
     } else {
       const errorText = await wikimediaResponse.text().catch(() => 'Unknown error')
       diagnostics.apis.wikimedia = {
