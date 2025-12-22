@@ -251,7 +251,9 @@ export async function GET(request: NextRequest) {
     const result = {
       imageUrl,
       source: 'wikimedia',
-      qid: bestResult.id
+      qid: bestResult.id,
+      label: bestResult.label || bestResult.display?.label?.value || name, // Wikidata label
+      filename: imageFilename // Wikimedia Commons filename
     }
 
     // Cache the result
