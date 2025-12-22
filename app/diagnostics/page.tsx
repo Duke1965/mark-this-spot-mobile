@@ -17,10 +17,6 @@ interface DiagnosticResult {
     valid: boolean
     errors: string[]
   }
-  unsplash_config?: {
-    valid: boolean
-    error?: string
-  }
   overall_status: "OK" | "ISSUES_FOUND"
   issues_summary: {
     missing_env_vars: string[]
@@ -274,26 +270,6 @@ export default function DiagnosticsPage() {
             </div>
           )}
 
-          {diagnostics.unsplash_config && (
-            <div style={{
-              background: diagnostics.unsplash_config.valid 
-                ? "rgba(34, 197, 94, 0.1)" 
-                : "rgba(255, 193, 7, 0.1)",
-              backdropFilter: "blur(10px)",
-              border: `1px solid ${diagnostics.unsplash_config.valid ? "rgba(34, 197, 94, 0.3)" : "rgba(255, 193, 7, 0.3)"}`,
-              borderRadius: "15px",
-              padding: "20px",
-              marginBottom: "20px"
-            }}>
-              <h3 style={{ color: "white", margin: "0 0 15px 0", fontSize: "16px" }}>Unsplash Configuration</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                {getStatusIcon(diagnostics.unsplash_config.valid ? "OK" : "WARNING")}
-                <span style={{ color: "white", fontSize: "14px" }}>
-                  {diagnostics.unsplash_config.valid ? "Configured" : diagnostics.unsplash_config.error || "Not configured (optional)"}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Environment Variables */}
           <div style={{
