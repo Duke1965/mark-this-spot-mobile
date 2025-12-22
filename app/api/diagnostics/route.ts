@@ -38,6 +38,12 @@ export async function GET(request: NextRequest) {
 
   console.log(`🔍 Running diagnostics for location: ${testLat}, ${testLng}`)
 
+  // Store input coordinates in diagnostics
+  diagnostics.input_coords = {
+    lat: parseFloat(testLat),
+    lng: parseFloat(testLng)
+  }
+
   // Test Mapbox Maps API (always used now, TomTom has been removed)
   try {
     const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
@@ -58,10 +64,42 @@ export async function GET(request: NextRequest) {
       if (mapboxResponse.ok) {
         const mapboxData = await mapboxResponse.json()
         const features = mapboxData.features || []
+        
+        // Find best feature (prefer address, then place)
+        const addressFeature = features.find((f: any) => f.place_type?.includes('address'))
+        const placeFeature = features.find((f: any) => f.place_type?.includes('place'))
+        const selectedFeature = addressFeature || placeFeature || features[0]
+        
+        // Calculate distance from input coordinates to selected feature
+        let distance_km: number | null = null
+        if (selectedFeature?.geometry?.coordinates) {
+          const [featureLng, featureLat] = selectedFeature.geometry.coordinates
+          const inputLat = parseFloat(testLat)
+          const inputLng = parseFloat(testLng)
+          
+          // Haversine formula
+          const R = 6371 // Earth radius in km
+          const dLat = (featureLat - inputLat) * Math.PI / 180
+          const dLng = (featureLng - inputLng) * Math.PI / 180
+          const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(inputLat * Math.PI / 180) * Math.cos(featureLat * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2)
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          distance_km = R * c
+        }
+        
         diagnostics.apis.mapbox = {
           status: "OK",
           places_found: features.length,
-          sample_place: features[0]?.place_name || features[0]?.text || "No place found"
+          sample_place: selectedFeature?.place_name || selectedFeature?.text || "No place found"
+        }
+        
+        // Store selected Mapbox feature details
+        diagnostics.selected_mapbox_feature = {
+          name: selectedFeature?.place_name || selectedFeature?.text || null,
+          place_type: selectedFeature?.place_type?.[0] || null,
+          distance_km: distance_km !== null ? parseFloat(distance_km.toFixed(4)) : null
         }
       } else {
         const errorText = await mapboxResponse.text()
@@ -126,6 +164,32 @@ export async function GET(request: NextRequest) {
         source: wikimediaData.source || "none",
         qid: wikimediaData.qid || null,
         message: wikimediaData.imageUrl ? "Wikimedia image found" : "No image found for test location"
+      }
+      
+      // Store chosen Wikidata and Wikimedia details
+      if (wikimediaData.qid) {
+        diagnostics.chosen_wikidata = {
+          qid: wikimediaData.qid,
+          label: wikimediaData.label || testPlaceName // Use label from API if available
+        }
+      }
+      
+      // Store Wikimedia filename (from API response if available, otherwise extract from URL)
+      if (wikimediaData.filename) {
+        diagnostics.chosen_wikimedia_filename = wikimediaData.filename
+      } else if (wikimediaData.imageUrl) {
+        try {
+          const url = new URL(wikimediaData.imageUrl)
+          const pathParts = url.pathname.split('/')
+          const filename = pathParts[pathParts.length - 1]
+          diagnostics.chosen_wikimedia_filename = decodeURIComponent(filename.split('?')[0])
+        } catch (e) {
+          // If URL parsing fails, try to extract from string
+          const match = wikimediaData.imageUrl.match(/Special:FilePath\/([^?]+)/)
+          if (match) {
+            diagnostics.chosen_wikimedia_filename = decodeURIComponent(match[1])
+          }
+        }
       }
     } else {
       const errorText = await wikimediaResponse.text().catch(() => 'Unknown error')
