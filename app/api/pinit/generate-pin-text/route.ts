@@ -89,16 +89,18 @@ async function generatePinText(ctx: PinContext): Promise<PinAiResult> {
   const fallbackTitle = resolveTitleFallback(ctx);
   const usedFallback = !name;
 
-  const system = `You generate concise, useful pin titles and descriptions for a travel app. Be specific, avoid generic filler.`;
+  const system = `You generate concise, useful pin titles and descriptions for a travel app. Be specific, descriptive, and helpful. Use the category to create meaningful titles like "Roadside Farm Stall", "Cozy Coffee Shop", "Historic Monument", etc.`;
 
   const user = `Create a title and description for a pinned location using ONLY the facts provided below.
 Rules:
 - Never output the word "Location" as the title.
-- Title must be 2–6 words, no date/time, no emoji.
-- Description must be 1–2 sentences, max 240 characters.
-- If the place name is unknown, use a meaningful fallback like: "{street/suburb}, {city}" or "{suburb} spot".
-- Do NOT use generic phrases like "special place", "diverse landscapes", "wonderful location".
-- If you lack facts, write a neutral description referencing what you do know (area + address).
+- Title must be 2–6 words, descriptive and specific. Examples: "Roadside Farm Stall", "Cozy Coffee Shop", "Historic Monument", "Scenic Viewpoint".
+- If category is provided, use it to create a descriptive title (e.g., if category is "restaurant" and name is unknown, use "Local Restaurant" or "Roadside Diner").
+- Description must be 1–2 sentences, max 240 characters, describing what makes this place interesting or notable.
+- Be specific: Instead of "A nice place", say "This looks like an interesting farm stall" or "A cozy roadside cafe worth stopping at".
+- If the place name is known, use it as the title. If unknown but category exists, create a descriptive title based on category.
+- Do NOT use generic phrases like "special place", "diverse landscapes", "wonderful location", "A pinned location".
+- If you lack facts, write a neutral but descriptive description referencing what you do know (area + address + category if available).
 Return valid JSON exactly in this format:
 {"title":"...","description":"...","confidence":"high|medium|low","used_fallback":true|false}
 
