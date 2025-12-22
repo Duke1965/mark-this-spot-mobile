@@ -2022,7 +2022,7 @@ export default function PINITApp() {
       
       console.log("📍 Place data from photos:", { placeName, placeDescription, photoCount: locationPhotos.length })
       
-      // Fetch pin-intel data for better context (geocode + POI)
+      // Fetch pin-intel data for better context (geocode + POI) - CRITICAL for images and AI
       let pinIntelData: any = null
       try {
         const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
@@ -2034,63 +2034,70 @@ export default function PINITApp() {
           pinIntelData = await pinIntelResponse.json()
           console.log("📍 Pin-intel data fetched:", { 
             hasGeocode: !!pinIntelData.geocode, 
-            placesCount: pinIntelData.places?.length || 0 
+            placesCount: pinIntelData.places?.length || 0,
+            nearestPlace: pinIntelData.places?.[0]?.name
           })
+          
+          // If we found a nearby POI, use it for better place name and image
+          if (pinIntelData.places && pinIntelData.places.length > 0) {
+            const nearestPOI = pinIntelData.places[0]
+            // Use POI name if it's closer than 100m and we don't have a good place name
+            const distance = nearestPOI.distance_m || 999
+            if (distance < 100 && (!placeName || placeName === "Location" || placeName.includes("Street"))) {
+              placeName = nearestPOI.name || placeName
+              console.log(`✅ Using nearby POI name: ${placeName} (${distance}m away)`)
+            }
+          }
         }
       } catch (error) {
         console.warn("⚠️ Failed to fetch pin-intel data (non-critical):", error)
       }
       
-      // Build context for AI generation from pin-intel data or photo data
-      const aiContext = pinIntelData ? {
+      // Build rich context for AI generation - prioritize POI data
+      const nearestPOI = pinIntelData?.places?.[0]
+      const geocodeComponents = pinIntelData?.geocode?.components || {}
+      const aiContext = {
         lat: editingPinLocation.lat,
         lng: editingPinLocation.lng,
-        name: pinIntelData.places?.[0]?.name || placeName,
-        category: pinIntelData.places?.[0]?.categories?.[0] || pinIntelData.places?.[0]?.category,
-        address: pinIntelData.geocode?.formatted || pinIntelData.geocode?.components?.address,
-        suburb: pinIntelData.geocode?.components?.suburb || pinIntelData.geocode?.components?.neighbourhood,
-        city: pinIntelData.geocode?.components?.city || pinIntelData.geocode?.components?.town,
-        region: pinIntelData.geocode?.components?.state || pinIntelData.geocode?.components?.county,
-        country: pinIntelData.geocode?.components?.country,
-        provider: 'foursquare'
-      } : {
-        lat: editingPinLocation.lat,
-        lng: editingPinLocation.lng,
-        name: placeName,
-        address: undefined,
-        suburb: undefined,
-        city: undefined,
-        region: undefined,
-        country: undefined,
-        provider: 'mapbox'
+        name: nearestPOI?.name || placeName, // Use POI name if available
+        category: nearestPOI?.categories?.[0] || nearestPOI?.category || undefined,
+        address: pinIntelData?.geocode?.formatted || geocodeComponents.address || undefined,
+        suburb: geocodeComponents.suburb || geocodeComponents.neighbourhood || undefined,
+        city: geocodeComponents.city || geocodeComponents.town || undefined,
+        region: geocodeComponents.state || geocodeComponents.county || undefined,
+        country: geocodeComponents.country || undefined,
+        provider: nearestPOI ? 'mapbox' : 'mapbox'
       }
       
-      // Generate AI title and description using new system
-      // Only use AI if we don't have a good place name, otherwise use place name as title
-      let aiTextResult: any = null
-      if (!placeName || placeName === "Location" || placeName === "PINIT Placeholder" || placeName === "Unknown Place") {
-        console.log("🧠 Generating AI text (no good place name available)...")
-        aiTextResult = await generatePinTextForPlace(aiContext)
-      } else {
-        // We have a good place name, use it as title, but still generate description if needed
-        console.log("✅ Using place name as title:", placeName)
-        if (!placeDescription) {
-          // Generate description only
-          aiTextResult = await generatePinTextForPlace(aiContext)
-          // Override title with place name
-          if (aiTextResult) {
-            aiTextResult.title = placeName
-          }
-        } else {
-          // We have both name and description, no AI needed
+      console.log("🧠 AI Context:", {
+        name: aiContext.name,
+        category: aiContext.category,
+        address: aiContext.address,
+        city: aiContext.city,
+        hasPOI: !!nearestPOI
+      })
+      
+      // ALWAYS generate AI title and description for better results
+      // Even if we have a place name, AI can create a better title like "Roadside Farm Stall"
+      console.log("🧠 Generating AI title and description...")
+      let aiTextResult = await generatePinTextForPlace(aiContext)
+      
+      // If AI didn't generate a good title, use place name as fallback
+      if (!aiTextResult || !aiTextResult.title || aiTextResult.title === "Location" || aiTextResult.used_fallback) {
+        if (placeName && placeName !== "Location") {
           aiTextResult = {
-          title: placeName,
-          description: placeDescription,
-            confidence: "high" as const,
-            used_fallback: false
+            ...aiTextResult,
+            title: placeName,
+            description: aiTextResult?.description || placeDescription || `A location worth exploring in ${aiContext.city || aiContext.region || 'this area'}.`
           }
         }
       }
+      
+      console.log("✅ AI Generated:", {
+        title: aiTextResult?.title,
+        description: aiTextResult?.description?.substring(0, 80),
+        confidence: aiTextResult?.confidence
+      })
       
       // Map to old format for compatibility
       aiGeneratedContent = {
@@ -2117,8 +2124,50 @@ export default function PINITApp() {
         }
       }
       
-      // Image resolver will use Wikimedia (via resolvePlaceImage)
-      const primaryImageUrl = editingPin.mediaUrl || null
+      // Get image for the location - prioritize POI images if available
+      let primaryImageUrl = editingPin.mediaUrl || null
+      
+      // If we have a nearby POI, try to get its image
+      if (nearestPOI && nearestPOI.name) {
+        try {
+          console.log(`🖼️ Attempting to get image for POI: ${nearestPOI.name}`)
+          const poiImageResult = await resolvePlaceImage({
+            placeId: `poi:${nearestPOI.id}`,
+            name: nearestPOI.name,
+            lat: editingPinLocation.lat,
+            lng: editingPinLocation.lng,
+            address: aiContext.address
+          })
+          
+          if (poiImageResult.imageUrl && poiImageResult.imageUrl !== '/pinit-placeholder.jpg') {
+            primaryImageUrl = poiImageResult.imageUrl
+            console.log(`✅ Using POI image: ${primaryImageUrl.substring(0, 60)}...`)
+          } else {
+            // Fallback: Try to get image using the resolved image from fetchLocationPhotos
+            if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
+              primaryImageUrl = locationPhotos[0].url
+              console.log(`✅ Using location photo: ${primaryImageUrl.substring(0, 60)}...`)
+            }
+          }
+        } catch (error) {
+          console.warn("⚠️ Error getting POI image:", error)
+          // Fallback to location photos
+          if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
+            primaryImageUrl = locationPhotos[0].url
+          }
+        }
+      } else {
+        // No POI, use image from location photos
+        if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
+          primaryImageUrl = locationPhotos[0].url
+        }
+      }
+      
+      // Final fallback: if still no image, use placeholder
+      if (!primaryImageUrl || primaryImageUrl === '/pinit-placeholder.jpg') {
+        primaryImageUrl = '/pinit-placeholder.jpg'
+        console.log("⚠️ No image found, using placeholder")
+      }
       
       // Update the pin with new location and data
       const updatedPin: PinData = {
