@@ -41,14 +41,6 @@ export interface PinData {
   platform?: string
   isPending?: boolean // NEW: True if pin needs location confirmation (created while traveling)
   isViewed?: boolean // NEW: True if pending pin has been viewed/opened by user
-  // Unsplash image fields
-  unsplashImageUrl?: string // Small image URL from Unsplash
-  unsplashImageUrlLarge?: string // Large image URL from Unsplash
-  unsplashImageAttribution?: {
-    photographerName: string
-    photographerProfileUrl: string
-    unsplashPhotoLink: string
-  }
   // AI generation metadata
   aiConfidence?: "high" | "medium" | "low"
   aiUsedFallback?: boolean
