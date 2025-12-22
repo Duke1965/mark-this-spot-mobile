@@ -26,6 +26,14 @@ export interface Pin {
   onDragEnd?: (lat: number, lng: number) => void
 }
 
+export interface POI {
+  id: string
+  lat: number
+  lng: number
+  name?: string
+  category?: string
+}
+
 export interface MapboxMapProps {
   center: { lat: number; lng: number }
   zoom?: number
@@ -41,6 +49,9 @@ export interface MapboxMapProps {
     lng: number
     onDragEnd: (lat: number, lng: number) => void
   }
+  // Optional: Show nearby POIs on the map
+  showPOIs?: boolean
+  onPOIClick?: (poi: POI) => void
 }
 
 export default function MapboxMap({
@@ -52,15 +63,128 @@ export default function MapboxMap({
   interactive = true,
   className = "",
   style = {},
-  draggableMarker
+  draggableMarker,
+  showPOIs = false,
+  onPOIClick
 }: MapboxMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
+  const poiMarkersRef = useRef<Map<string, any>>(new Map())
   const draggableMarkerRef = useRef<any>(null)
   const isMapLoadedRef = useRef<boolean>(false)
   const isDraggingRef = useRef<boolean>(false)
   const lastDraggedPositionRef = useRef<{ lat: number; lng: number } | null>(null)
+  const poiDataRef = useRef<POI[]>([])
+
+  // Helper function to get POI icon based on category
+  const getPOIIcon = (category: string = ''): string => {
+    const cat = category.toLowerCase()
+    if (cat.includes('restaurant') || cat.includes('food') || cat.includes('dining')) return '🍽️'
+    if (cat.includes('cafe') || cat.includes('coffee')) return '☕'
+    if (cat.includes('museum') || cat.includes('gallery') || cat.includes('art')) return '🎨'
+    if (cat.includes('monument') || cat.includes('memorial') || cat.includes('landmark')) return '🏛️'
+    if (cat.includes('park') || cat.includes('garden')) return '🌳'
+    if (cat.includes('beach') || cat.includes('nature')) return '🏖️'
+    if (cat.includes('hotel') || cat.includes('lodging')) return '🏨'
+    if (cat.includes('church') || cat.includes('temple') || cat.includes('worship')) return '⛪'
+    return '📍' // Default icon
+  }
+
+  // Fetch POIs from pin-intel and display them on the map
+  const fetchAndDisplayPOIs = useCallback(async (map: any) => {
+    if (!center.lat || !center.lng) return
+    
+    try {
+      console.log('🏪 Fetching POIs for map display...')
+      const response = await fetch('/api/pinit/pin-intel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat: center.lat,
+          lng: center.lng,
+          precision: 5
+        })
+      })
+      
+      if (!response.ok) {
+        console.warn('⚠️ Failed to fetch POIs:', response.status)
+        return
+      }
+      
+      const data = await response.json()
+      const places = data.places || []
+      
+      console.log(`✅ Found ${places.length} POIs to display on map`)
+      
+      // Clear existing POI markers
+      poiMarkersRef.current.forEach(marker => marker.remove())
+      poiMarkersRef.current.clear()
+      
+      // Add markers for each POI
+      places.slice(0, 20).forEach((place: any) => { // Limit to 20 POIs to avoid clutter
+        const poi: POI = {
+          id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
+          lat: place.lat,
+          lng: place.lng,
+          name: place.name,
+          category: place.categories?.[0] || ''
+        }
+        
+        const icon = getPOIIcon(poi.category)
+        
+        // Create POI marker element
+        const poiElement = document.createElement('div')
+        poiElement.style.width = '28px'
+        poiElement.style.height = '28px'
+        poiElement.style.fontSize = '20px'
+        poiElement.style.display = 'flex'
+        poiElement.style.alignItems = 'center'
+        poiElement.style.justifyContent = 'center'
+        poiElement.style.cursor = 'pointer'
+        poiElement.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+        poiElement.style.transition = 'transform 0.2s ease'
+        poiElement.textContent = icon
+        poiElement.title = poi.name || poi.category || 'POI'
+        
+        // Add hover effect
+        poiElement.addEventListener('mouseenter', () => {
+          poiElement.style.transform = 'scale(1.3)'
+        })
+        poiElement.addEventListener('mouseleave', () => {
+          poiElement.style.transform = 'scale(1)'
+        })
+        
+        // Add click handler
+        if (onPOIClick) {
+          poiElement.addEventListener('click', () => {
+            onPOIClick(poi)
+          })
+        }
+        
+        const marker = new mapboxgl.Marker({
+          element: poiElement
+        })
+          .setLngLat([poi.lng, poi.lat])
+          .addTo(map)
+        
+        poiMarkersRef.current.set(poi.id, marker)
+      })
+      
+      poiDataRef.current = places.slice(0, 20).map((place: any) => ({
+        id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
+        lat: place.lat,
+        lng: place.lng,
+        name: place.name,
+        category: place.categories?.[0] || ''
+      }))
+      
+    } catch (error) {
+      console.error('❌ Error fetching POIs for map:', error)
+    }
+  }, [center.lat, center.lng, onPOIClick])
 
   // Helper function to add draggable marker
   const addDraggableMarker = (map: any, markerData: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) => {
@@ -163,6 +287,11 @@ export default function MapboxMap({
         if (currentDraggableMarker) {
           addDraggableMarker(map, currentDraggableMarker)
         }
+        
+        // Fetch and display POIs if enabled
+        if (showPOIs) {
+          fetchAndDisplayPOIs(map)
+        }
       })
 
       map.on('error', (e) => {
@@ -192,6 +321,8 @@ export default function MapboxMap({
       }
       // Clear all markers
       markersRef.current.clear()
+      poiMarkersRef.current.forEach(marker => marker.remove())
+      poiMarkersRef.current.clear()
     }
   }, []) // Only run once on mount
 
@@ -200,11 +331,16 @@ export default function MapboxMap({
     if (mapInstanceRef.current && center) {
       try {
         mapInstanceRef.current.setCenter([center.lng, center.lat])
+        
+        // Refresh POIs if enabled and map is loaded
+        if (showPOIs && isMapLoadedRef.current) {
+          fetchAndDisplayPOIs(mapInstanceRef.current)
+        }
       } catch (error) {
         console.warn('⚠️ Error updating Mapbox map center:', error)
       }
     }
-  }, [center.lat, center.lng])
+  }, [center.lat, center.lng, showPOIs, fetchAndDisplayPOIs])
 
   // Update map zoom when zoom prop changes
   useEffect(() => {
