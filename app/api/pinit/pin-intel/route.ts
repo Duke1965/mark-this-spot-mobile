@@ -2,9 +2,8 @@
  * PINIT Pin Intelligence Gateway
  * 
  * Single endpoint for location enrichment:
- * - OpenCage reverse geocoding
- * - Geoapify POI lookup
- * - Optional Mapillary imagery
+ * - Mapbox reverse geocoding
+ * - Mapbox POI lookup
  * 
  * Features:
  * - Rate limiting (5 req/min burst, 60/hour)
@@ -23,14 +22,11 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 // Environment variables
-const OPENCAGE_KEY = process.env.OPENCAGE_KEY
-const GEOAPIFY_KEY = process.env.GEOAPIFY_KEY
-const MAPILLARY_TOKEN = process.env.MAPILLARY_TOKEN
+const MAPBOX_API_KEY = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
 
 // Cache instances
 const geocodeCache = new LRUCache<any>(500)
 const poiCache = new LRUCache<any>(500)
-const imageryCache = new LRUCache<any>(200)
 
 // Rate limiting
 interface RateLimitEntry {
@@ -45,7 +41,6 @@ const rateLimits = new Map<string, RateLimitEntry>()
 // TTLs in milliseconds
 const GEOCODE_TTL = 6 * 60 * 60 * 1000 // 6 hours
 const POI_TTL = 2 * 60 * 60 * 1000 // 2 hours
-const IMAGERY_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
 /**
  * Extract client IP from request
@@ -144,34 +139,31 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 /**
- * Call Foursquare Places API for reverse geocoding (get place name)
+ * Call Mapbox Geocoding API for reverse geocoding (get place name)
  */
 async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: string; components: Record<string, string> | null }> {
-  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
-  
-  if (!foursquareServiceKey) {
-    throw new Error('Foursquare API key not configured')
+  if (!MAPBOX_API_KEY) {
+    throw new Error('Mapbox API key not configured')
   }
   
-  // Use internal Foursquare Places API endpoint
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
-    : process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000'
-  
-  const url = `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=50&limit=1`
-  
   try {
-    const response = await fetchWithTimeout(url)
+    // Use Mapbox Geocoding API for reverse geocoding
+    // Request both address and place types for best results
+    const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`)
+    mapboxUrl.searchParams.set('access_token', MAPBOX_API_KEY)
+    mapboxUrl.searchParams.set('types', 'address,place')
+    mapboxUrl.searchParams.set('limit', '5')
+    
+    const response = await fetchWithTimeout(mapboxUrl.toString())
     
     if (!response.ok) {
-      throw new Error(`Foursquare API error: ${response.status}`)
+      throw new Error(`Mapbox Geocoding API error: ${response.status}`)
     }
     
     const data = await response.json()
+    const features = data.features || []
     
-    if (!data.items || data.items.length === 0) {
+    if (features.length === 0) {
       // Return coordinate-based fallback
       return {
         formatted: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
@@ -179,138 +171,59 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
       }
     }
     
-    const place = data.items[0]
-    const placeName = place.title || place.name || ""
-    const address = place.address || place.location?.address || ""
+    // Find best result: prefer address (has street name), then place (city/town)
+    const addressResult = features.find((f: any) => {
+      const types = Array.isArray(f.place_type) ? f.place_type : [f.place_type]
+      return types.includes('address')
+    })
+    const placeResult = features.find((f: any) => {
+      const types = Array.isArray(f.place_type) ? f.place_type : [f.place_type]
+      return types.includes('place')
+    })
+    const bestFeature = addressResult || placeResult || features[0]
     
-    // Format as "Street Name, Town" - extract street and locality from address
-    // Foursquare address format is typically: "Street Number Street Name, Locality, City, Country"
-    // We want: "Street Name, Locality/City" (concise format)
-    let formatted = ""
+    // Extract address components from context
+    const context = bestFeature.context || []
+    let street = ''
+    let city = ''
+    let neighborhood = ''
     
-    if (address) {
-      // Split address by comma to get components
-      const addressParts = address.split(',').map((part: string) => part.trim()).filter((part: string) => part.length > 0)
-      
-      if (addressParts.length >= 2) {
-        // First part is usually street, second is usually locality/town
-        const street = addressParts[0]
-        const town = addressParts[1]
-        formatted = `${street}, ${town}`
-      } else if (addressParts.length === 1) {
-        // Only one part - use it as street, try to get town from place name or use place name
-        formatted = addressParts[0]
-        if (placeName && placeName !== addressParts[0]) {
-          // If place name is different, add it as town
-          formatted = `${addressParts[0]}, ${placeName}`
-        }
-      } else {
-        formatted = address
-      }
+    context.forEach((ctx: any) => {
+      if (ctx.id?.startsWith('address')) street = ctx.text || ''
+      if (ctx.id?.startsWith('place')) city = ctx.text || ''
+      if (ctx.id?.startsWith('neighborhood')) neighborhood = ctx.text || ''
+    })
+    
+    // Extract place name
+    const placeName = bestFeature.text || bestFeature.place_name?.split(',')[0] || ''
+    
+    // Build formatted address: "Street, City" or "Place Name, City"
+    let formatted = ''
+    if (street && city) {
+      formatted = `${street}, ${city}`
+    } else if (street && neighborhood) {
+      formatted = `${street}, ${neighborhood}`
+    } else if (placeName && city) {
+      formatted = `${placeName}, ${city}`
+    } else if (bestFeature.place_name) {
+      // Use full place_name as fallback
+      formatted = bestFeature.place_name.split(',')[0] + (bestFeature.place_name.includes(',') ? `, ${bestFeature.place_name.split(',')[1]?.trim() || ''}` : '')
     } else if (placeName) {
-      // No address from Foursquare, try TomTom reverse geocoding for street-level data
-      try {
-        const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
-        if (tomtomKey) {
-          const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json`)
-          tomtomUrl.searchParams.set('key', tomtomKey)
-          
-          const tomtomResponse = await fetch(tomtomUrl.toString())
-          if (tomtomResponse.ok) {
-            const tomtomData = await tomtomResponse.json()
-            const addresses = tomtomData.addresses || []
-            
-            if (addresses.length > 0) {
-              const tomtomAddress = addresses[0].address || {}
-              const streetNumber = tomtomAddress.streetNumber || ""
-              const streetName = tomtomAddress.streetName || ""
-              const street = streetNumber && streetName ? `${streetNumber} ${streetName}` : (streetName || streetNumber || "")
-              const municipality = tomtomAddress.municipality || tomtomAddress.municipalitySubdivision || ""
-              
-              // Format: "Street, Town" or "Street, Suburb, City"
-              if (street && municipality) {
-                formatted = `${street}, ${municipality}`
-              } else if (street) {
-                formatted = `${street}, ${placeName}`
-              } else if (municipality) {
-                formatted = `${placeName}, ${municipality}`
-              } else {
-                formatted = placeName
-              }
-            } else {
-              formatted = placeName
-            }
-          } else {
-            formatted = placeName
-          }
-        } else {
-          formatted = placeName
-        }
-      } catch (tomtomError) {
-        console.log('⚠️ TomTom fallback error, using place name:', tomtomError)
-        formatted = placeName
-      }
+      formatted = placeName
     } else {
-      // Fallback to coordinates (but we'll try to avoid this)
       formatted = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     }
     
     return {
-      formatted: formatted,
+      formatted: formatted.trim(),
       components: {
-        name: placeName,
-        address: address,
-        category: place.category || ""
+        name: placeName || city || '',
+        address: street || bestFeature.properties?.address || '',
+        category: bestFeature.properties?.category || bestFeature.place_type?.[0] || ''
       }
     }
   } catch (error) {
-    console.error('❌ Foursquare geocoding error:', error)
-    
-    // Try TomTom as fallback before returning coordinates
-    try {
-      const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY
-      if (tomtomKey) {
-        const tomtomUrl = new URL(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lng}.json`)
-        tomtomUrl.searchParams.set('key', tomtomKey)
-        
-        const tomtomResponse = await fetch(tomtomUrl.toString())
-        if (tomtomResponse.ok) {
-          const tomtomData = await tomtomResponse.json()
-          const addresses = tomtomData.addresses || []
-          
-          if (addresses.length > 0) {
-            const tomtomAddress = addresses[0].address || {}
-            const streetNumber = tomtomAddress.streetNumber || ""
-            const streetName = tomtomAddress.streetName || ""
-            const street = streetNumber && streetName ? `${streetNumber} ${streetName}` : (streetName || streetNumber || "")
-            const municipality = tomtomAddress.municipality || tomtomAddress.municipalitySubdivision || ""
-            const freeformAddress = tomtomAddress.freeformAddress || ""
-            
-            if (street && municipality) {
-              return {
-                formatted: `${street}, ${municipality}`,
-                components: {
-                  name: municipality,
-                  address: street,
-                  category: ""
-                }
-              }
-            } else if (freeformAddress) {
-              return {
-                formatted: freeformAddress,
-                components: {
-                  name: municipality || "",
-                  address: street || "",
-                  category: ""
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (tomtomError) {
-      console.log('⚠️ TomTom fallback also failed:', tomtomError)
-    }
+    console.error('❌ Mapbox geocoding error:', error)
     
     // Return coordinate-based fallback on error
     return {
@@ -321,7 +234,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
 }
 
 /**
- * Call Foursquare Places API for nearby places
+ * Call Mapbox Geocoding API for nearby POIs
  */
 async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
   id: string
@@ -331,31 +244,29 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
   lat: number
   lng: number
 }>> {
-  const foursquareServiceKey = process.env.FSQ_PLACES_SERVICE_KEY || process.env.FOURSQUARE_API_KEY || process.env.NEXT_PUBLIC_FOURSQUARE_API_KEY
-  
-  if (!foursquareServiceKey) {
-    throw new Error('Foursquare API key not configured')
+  if (!MAPBOX_API_KEY) {
+    throw new Error('Mapbox API key not configured')
   }
   
-  // Use internal Foursquare Places API endpoint
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
-    : process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000'
-  
-  const url = `${baseUrl}/api/foursquare-places?lat=${lat}&lng=${lng}&radius=5000&limit=20`
-  
   try {
-    const response = await fetchWithTimeout(url)
+    // Use Mapbox Geocoding API with POI type to find nearby places
+    // Search within ~5km radius (approximately 0.045 degrees)
+    const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`)
+    mapboxUrl.searchParams.set('access_token', MAPBOX_API_KEY)
+    mapboxUrl.searchParams.set('types', 'poi')
+    mapboxUrl.searchParams.set('limit', '20')
+    mapboxUrl.searchParams.set('proximity', `${lng},${lat}`)
+    
+    const response = await fetchWithTimeout(mapboxUrl.toString())
     
     if (!response.ok) {
-      throw new Error(`Foursquare API error: ${response.status}`)
+      throw new Error(`Mapbox Geocoding API error: ${response.status}`)
     }
     
     const data = await response.json()
+    const features = data.features || []
     
-    if (!data.items || !Array.isArray(data.items)) {
+    if (features.length === 0) {
       return []
     }
     
@@ -375,10 +286,7 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
     }
     
     // Filter to only travel-related places (restaurants, cafes, museums, galleries, tourism, monuments)
-    // Exclude: supermarkets, gas stations, convenience stores, banks, ATMs, etc.
-    // TRAVEL-RELATED CATEGORIES ONLY
-    // Filter to show only places relevant to travel and tourism
-    // Includes: restaurants, coffee shops, historical buildings, tourist attractions, etc.
+    // Mapbox POI categories are in properties.category
     const travelCategories = [
       // Food & Dining
       'restaurant', 'cafe', 'coffee', 'food', 'dining', 'catering', 'bistro', 'bakery', 'bar', 'pub',
@@ -409,14 +317,25 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
       'hardware', 'home_garden', 'furniture'
     ]
     
-    return data.items
-      .map((place: any) => {
-        const placeLat = place.location?.lat || place.latitude || lat
-        const placeLng = place.location?.lng || place.longitude || lng
+    return features
+      .map((feature: any) => {
+        const coordinates = feature.geometry?.coordinates || []
+        const placeLng = coordinates[0]
+        const placeLat = coordinates[1]
+        
+        if (!placeLat || !placeLng) {
+          return null
+        }
+        
         const distance = calculateDistance(lat, lng, placeLat, placeLng)
         
-        const placeCategories = place.category ? [place.category] : (place.categories || [])
-        const categoryStr = placeCategories.join(' ').toLowerCase()
+        // Filter to within 5km
+        if (distance > 5000) {
+          return null
+        }
+        
+        const category = feature.properties?.category || ''
+        const categoryStr = category.toLowerCase()
         
         // Check if place matches travel categories
         const isTravelRelated = travelCategories.some(cat => categoryStr.includes(cat))
@@ -428,59 +347,22 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
         }
         
         return {
-          id: place.fsq_id || place.id || `place-${Math.random().toString(36).substr(2, 9)}`,
-          name: place.title || place.name,
-          categories: placeCategories,
+          id: feature.id || `place-${Math.random().toString(36).substr(2, 9)}`,
+          name: feature.text || feature.properties?.name || '',
+          categories: category ? [category] : [],
           distance_m: Math.round(distance),
           lat: placeLat,
           lng: placeLng
         }
       })
       .filter((place: any) => place !== null) // Remove filtered out places
+      .sort((a: any, b: any) => (a.distance_m || 0) - (b.distance_m || 0)) // Sort by distance
   } catch (error) {
-    console.error('❌ Foursquare places error:', error)
+    console.error('❌ Mapbox places error:', error)
     throw error
   }
 }
 
-/**
- * Optional: Fetch Mapillary imagery (multiple images for carousel)
- */
-async function fetchMapillaryImagery(lat: number, lng: number): Promise<Array<{ image_url: string; thumb_url?: string; bearing?: number }> | null> {
-  if (!MAPILLARY_TOKEN) {
-    return null // Skip if token not configured
-  }
-  
-  try {
-    // Mapillary API v4: search for images near location - get multiple images for carousel
-    const url = `https://graph.mapillary.com/images?access_token=${MAPILLARY_TOKEN}&fields=id,thumb_2048_url,thumb_256_url,compass_angle&bbox=${lng - 0.001},${lat - 0.001},${lng + 0.001},${lat + 0.001}&limit=4`
-    
-    const response = await fetchWithTimeout(url, {}, 5000, 0) // No retry for imagery
-    
-    if (!response.ok) {
-      return null
-    }
-    
-    const data = await response.json()
-    
-    if (!data.data || data.data.length === 0) {
-      return null
-    }
-    
-    // Return array of images for carousel
-    return data.data.map((image: any) => ({
-      image_url: image.thumb_2048_url || image.thumb_256_url,
-      thumb_url: image.thumb_256_url,
-      bearing: image.compass_angle
-    }))
-  } catch (error) {
-    console.error('❌ Mapillary error:', error)
-    return null
-  }
-}
-
-// Wikimedia Commons integration removed - unreliable filenames caused nature/insect photos
-// Now using Mapillary only for street-level imagery, with PINIT placeholder as fallback
 
 /**
  * Main POST handler
@@ -531,9 +413,8 @@ export async function POST(request: NextRequest) {
     }
     
     // Generate cache keys
-    const geocodeKey = `foursquare-geocode:${coarseKey(lat, lng, precision)}`
-    const poiKey = `foursquare-places:${coarseKey(lat, lng, precision)}`
-    const imageryKey = `mapillary:${coarseKey(lat, lng, precision)}`
+    const geocodeKey = `mapbox-geocode:${coarseKey(lat, lng, precision)}`
+    const poiKey = `mapbox-places:${coarseKey(lat, lng, precision)}`
     
     // Try to get from cache (Redis first, then in-memory)
     let geocodeData: any = null
@@ -557,7 +438,7 @@ export async function POST(request: NextRequest) {
     
     // Fetch geocode if not cached
     if (!geocodeData) {
-      console.log(`🌍 Fetching geocode from Foursquare...`)
+      console.log(`🌍 Fetching geocode from Mapbox...`)
       try {
         geocodeData = await reverseGeocode(lat, lng)
         
@@ -600,7 +481,7 @@ export async function POST(request: NextRequest) {
     
     // Fetch POI if not cached
     if (!poiData) {
-      console.log(`🏪 Fetching POI from Foursquare...`)
+      console.log(`🏪 Fetching POI from Mapbox...`)
       try {
         poiData = await fetchNearbyPlaces(lat, lng)
         
@@ -617,69 +498,16 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Try to get imagery from cache (optional)
-    let imageryData: any = null
-    let imageryCached = false
-    let imagerySource = 'none'
-    
-    // Check cache first
-    if (isRedisConfigured) {
-      imageryData = await redisGet(imageryKey)
-      if (imageryData) {
-        imageryCached = true
-        imagerySource = imageryData[0]?.source || 'cached'
-        console.log(`✅ Imagery cache hit (Redis): ${imageryKey}`)
-      }
-    }
-    
-    if (!imageryData) {
-      imageryData = imageryCache.get(imageryKey)
-      if (imageryData) {
-        imageryCached = true
-        imagerySource = imageryData[0]?.source || 'cached'
-        console.log(`✅ Imagery cache hit (Memory): ${imageryKey}`)
-      }
-    }
-    
-    // Fetch imagery if not cached - Mapillary only
-    if (!imageryData && MAPILLARY_TOKEN) {
-      console.log(`📸 Fetching street-level imagery from Mapillary...`)
-      
-      try {
-        imageryData = await fetchMapillaryImagery(lat, lng)
-        
-        if (imageryData && imageryData.length > 0) {
-          imagerySource = 'mapillary'
-          imageryData = imageryData.map((img: any) => ({ ...img, source: 'mapillary' }))
-          
-          // Cache the result
-          imageryCache.set(imageryKey, imageryData, IMAGERY_TTL)
-          if (isRedisConfigured) {
-            await redisSet(imageryKey, imageryData, Math.floor(IMAGERY_TTL / 1000))
-          }
-          
-          console.log(`✅ Mapillary: Found ${imageryData.length} street-level images`)
-        } else {
-          console.log(`📸 No Mapillary imagery available for this location - will use placeholder`)
-        }
-      } catch (error) {
-        console.error('❌ Mapillary fetch failed:', error)
-        imageryData = null
-      }
-    }
-    
-    // Build response
+    // Build response (keeping same shape for compatibility)
     const response = {
       meta: {
         source: {
-          geocode: 'foursquare',
-          places: 'foursquare',
-          ...(imagerySource !== 'none' ? { imagery: imagerySource } : {})
+          geocode: 'mapbox',
+          places: 'mapbox'
         },
         cached: {
           geocode: geocodeCached,
-          places: poiCached,
-          ...(imageryData ? { imagery: imageryCached } : {})
+          places: poiCached
         },
         ...(idempotencyKey ? { idempotencyKey } : {}),
         rate: {
@@ -689,8 +517,7 @@ export async function POST(request: NextRequest) {
         duration_ms: Date.now() - startTime
       },
       geocode: geocodeData,
-      places: poiData,
-      ...(imageryData ? { imagery: imageryData } : {})
+      places: poiData
     }
     
     // Store for idempotency if key provided
