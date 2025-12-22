@@ -153,6 +153,11 @@ export async function GET(request: NextRequest) {
       testPlaceName = diagnostics.apis.mapbox.sample_place.split(',')[0].trim()
     }
     
+    // Initialize chosen_wikidata and chosen_wikimedia_filename (always include in output)
+    diagnostics.chosen_wikidata = null
+    diagnostics.chosen_wikimedia_filename = null
+    diagnostics.wikimedia_search_name = testPlaceName // Store what we searched for
+    
     const testWikimediaUrl = `${request.nextUrl.origin}/api/wikimedia/resolve?name=${encodeURIComponent(testPlaceName)}&lat=${testLat}&lng=${testLng}`
     const wikimediaResponse = await fetch(testWikimediaUrl)
     
@@ -163,10 +168,11 @@ export async function GET(request: NextRequest) {
         has_image_url: !!wikimediaData.imageUrl,
         source: wikimediaData.source || "none",
         qid: wikimediaData.qid || null,
-        message: wikimediaData.imageUrl ? "Wikimedia image found" : "No image found for test location"
+        message: wikimediaData.imageUrl ? "Wikimedia image found" : "No image found for test location",
+        searched_name: testPlaceName // Include what was searched
       }
       
-      // Store chosen Wikidata and Wikimedia details
+      // Store chosen Wikidata and Wikimedia details (even if null)
       if (wikimediaData.qid) {
         diagnostics.chosen_wikidata = {
           qid: wikimediaData.qid,
