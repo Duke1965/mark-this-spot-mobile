@@ -17,7 +17,7 @@ export interface ImageResolverInput {
 
 export interface ImageResolverResult {
   imageUrl: string | null
-  source: 'wikimedia' | 'paid' | 'placeholder' | 'cached' | 'none'
+  source: 'wikimedia' | 'mapbox' | 'paid' | 'placeholder' | 'cached' | 'none'
   qid?: string // Wikidata QID if from Wikimedia
   cached?: boolean // True if retrieved from cache
 }
@@ -45,9 +45,22 @@ export async function resolvePlaceImage(
   //   }
   // }
 
-  // STEP 2: Try Wikimedia (via Wikidata)
-  // Only skip if name is explicitly "Location" or empty
-  const shouldTryWikimedia = name && name.trim() && name !== "Location" && name !== "Unknown Place"
+  // Helper: Check if name is just a street address (not a notable place)
+  const isStreetAddress = (name: string): boolean => {
+    const streetPatterns = [
+      /\b(street|road|avenue|drive|lane|way|boulevard|court|place|terrace|close|grove|park|gardens|square|circle|hill|view|heights|ridge|valley)\b/i,
+      /^\d+\s+[A-Za-z]/i, // Starts with number (e.g., "123 Main Street")
+      /,\s*[A-Za-z]/ // Contains comma (e.g., "Main Street, City")
+    ]
+    return streetPatterns.some(pattern => pattern.test(name))
+  }
+
+  // STEP 2: Try Wikimedia (via Wikidata) - but skip for street addresses
+  // Only try Wikimedia for notable places, not street addresses
+  const shouldTryWikimedia = name && name.trim() && 
+    name !== "Location" && 
+    name !== "Unknown Place" &&
+    !isStreetAddress(name) // Skip street addresses
   
   if (shouldTryWikimedia) {
     try {
@@ -69,14 +82,6 @@ export async function resolvePlaceImage(
         if (wikimediaData.imageUrl) {
           console.log(`✅ Wikimedia image found: ${wikimediaData.imageUrl.substring(0, 50)}...`)
           
-          // TODO: Store in Firebase cache (Step E)
-          // await storeCachedImage(placeId, {
-          //   imageUrl: wikimediaData.imageUrl,
-          //   imageSource: 'wikimedia',
-          //   imageUpdatedAt: new Date().toISOString(),
-          //   qid: wikimediaData.qid
-          // })
-
           return {
             imageUrl: wikimediaData.imageUrl,
             source: 'wikimedia',
@@ -97,7 +102,34 @@ export async function resolvePlaceImage(
       }
     }
   } else {
-    console.log(`⚠️ Skipping Wikimedia lookup - invalid name: "${name}"`)
+    if (name && isStreetAddress(name)) {
+      console.log(`⚠️ Skipping Wikimedia lookup - street address detected: "${name}"`)
+    } else {
+      console.log(`⚠️ Skipping Wikimedia lookup - invalid name: "${name}"`)
+    }
+  }
+
+  // STEP 2.5: Try Mapbox Static Images API for street addresses or when Wikimedia fails
+  if (lat && lng) {
+    try {
+      console.log(`🖼️ Attempting Mapbox Static Image for coordinates: ${lat}, ${lng}`)
+      const mapboxImageUrl = `/api/mapbox/static-image?lat=${lat}&lng=${lng}&width=800&height=600&zoom=16`
+      
+      const mapboxResponse = await fetch(mapboxImageUrl)
+      
+      if (mapboxResponse.ok) {
+        const mapboxData = await mapboxResponse.json()
+        if (mapboxData.imageUrl) {
+          console.log(`✅ Mapbox Static Image found: ${mapboxData.imageUrl.substring(0, 50)}...`)
+          return {
+            imageUrl: mapboxData.imageUrl,
+            source: 'mapbox'
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Mapbox Static Image failed:`, error)
+    }
   }
 
   // STEP 3: Fallback to paid provider (ONLY if Wikimedia fails)
