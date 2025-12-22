@@ -2054,19 +2054,26 @@ export default function PINITApp() {
       }
       
       // Build rich context for AI generation - prioritize POI data
-      const nearestPOI = pinIntelData?.places?.[0]
+      // If pin-intel found a POI for address/street, use it
       const geocodeComponents = pinIntelData?.geocode?.components || {}
+      const poiName = geocodeComponents.poi_name || pinIntelData?.places?.[0]?.name
+      const nearestPOI = poiName ? {
+        name: poiName,
+        distance_m: geocodeComponents.poi_distance_m,
+        categories: pinIntelData?.places?.[0]?.categories || []
+      } : pinIntelData?.places?.[0]
+      
       const aiContext = {
         lat: editingPinLocation.lat,
         lng: editingPinLocation.lng,
-        name: nearestPOI?.name || placeName, // Use POI name if available
-        category: nearestPOI?.categories?.[0] || nearestPOI?.category || undefined,
+        name: poiName || nearestPOI?.name || placeName, // Use POI name if available (from address/street detection)
+        category: geocodeComponents.category || nearestPOI?.categories?.[0] || nearestPOI?.category || undefined,
         address: pinIntelData?.geocode?.formatted || geocodeComponents.address || undefined,
         suburb: geocodeComponents.suburb || geocodeComponents.neighbourhood || undefined,
         city: geocodeComponents.city || geocodeComponents.town || undefined,
         region: geocodeComponents.state || geocodeComponents.county || undefined,
         country: geocodeComponents.country || undefined,
-        provider: nearestPOI ? 'mapbox' : 'mapbox'
+        provider: poiName ? 'mapbox' : 'mapbox'
       }
       
       console.log("🧠 AI Context:", {
@@ -2125,41 +2132,56 @@ export default function PINITApp() {
       }
       
       // Get image for the location - prioritize POI images if available
+      // Use POI name from pin-intel if address/street was detected
       let primaryImageUrl = editingPin.mediaUrl || null
+      const imageSearchName = poiName || nearestPOI?.name || placeName
       
-      // If we have a nearby POI, try to get its image
-      if (nearestPOI && nearestPOI.name) {
+      // If we have a POI name (from address/street detection or nearby POI), try to get its image
+      if (imageSearchName && imageSearchName !== "Location") {
         try {
-          console.log(`🖼️ Attempting to get image for POI: ${nearestPOI.name}`)
+          console.log(`🖼️ Attempting to get image for: ${imageSearchName}`)
           const poiImageResult = await resolvePlaceImage({
-            placeId: `poi:${nearestPOI.id}`,
-            name: nearestPOI.name,
+            placeId: `poi:${nearestPOI?.id || `place-${editingPinLocation.lat},${editingPinLocation.lng}`}`,
+            name: imageSearchName,
             lat: editingPinLocation.lat,
             lng: editingPinLocation.lng,
             address: aiContext.address
           })
           
-          if (poiImageResult.imageUrl && poiImageResult.imageUrl !== '/pinit-placeholder.jpg') {
+          // Only use if it's a Wikimedia image (not Mapbox static map)
+          if (poiImageResult.imageUrl && 
+              poiImageResult.imageUrl !== '/pinit-placeholder.jpg' &&
+              poiImageResult.source === 'wikimedia') {
             primaryImageUrl = poiImageResult.imageUrl
-            console.log(`✅ Using POI image: ${primaryImageUrl.substring(0, 60)}...`)
+            console.log(`✅ Using Wikimedia image: ${primaryImageUrl.substring(0, 60)}...`)
           } else {
             // Fallback: Try to get image using the resolved image from fetchLocationPhotos
             if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
-              primaryImageUrl = locationPhotos[0].url
-              console.log(`✅ Using location photo: ${primaryImageUrl.substring(0, 60)}...`)
+              // Only use if it's not a Mapbox static map
+              const photoUrl = locationPhotos[0].url
+              if (!photoUrl.includes('api.mapbox.com') && photoUrl !== '/pinit-placeholder.jpg') {
+                primaryImageUrl = photoUrl
+                console.log(`✅ Using location photo: ${primaryImageUrl.substring(0, 60)}...`)
+              }
             }
           }
         } catch (error) {
-          console.warn("⚠️ Error getting POI image:", error)
-          // Fallback to location photos
+          console.warn("⚠️ Error getting image:", error)
+          // Fallback to location photos (but not Mapbox static maps)
           if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
-            primaryImageUrl = locationPhotos[0].url
+            const photoUrl = locationPhotos[0].url
+            if (!photoUrl.includes('api.mapbox.com') && photoUrl !== '/pinit-placeholder.jpg') {
+              primaryImageUrl = photoUrl
+            }
           }
         }
       } else {
-        // No POI, use image from location photos
+        // No POI name, use image from location photos (but not Mapbox static maps)
         if (locationPhotos && locationPhotos.length > 0 && locationPhotos[0].url) {
-          primaryImageUrl = locationPhotos[0].url
+          const photoUrl = locationPhotos[0].url
+          if (!photoUrl.includes('api.mapbox.com') && photoUrl !== '/pinit-placeholder.jpg') {
+            primaryImageUrl = photoUrl
+          }
         }
       }
       
