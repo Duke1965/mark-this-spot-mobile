@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useLocationServices } from "@/hooks/useLocationServices"
 
 interface DiagnosticResult {
   timestamp: string
@@ -26,18 +27,43 @@ interface DiagnosticResult {
 
 export default function DiagnosticsPage() {
   const router = useRouter()
+  const { location } = useLocationServices()
   const [diagnostics, setDiagnostics] = useState<DiagnosticResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [testLocation, setTestLocation] = useState({ lat: "", lng: "" })
   const [useCurrentLocation, setUseCurrentLocation] = useState(true)
+  const [locationStatus, setLocationStatus] = useState<"loading" | "success" | "error">("loading")
+
+  // Get current location when component mounts
+  useEffect(() => {
+    if (location && (location.latitude || location.lat) && (location.longitude || location.lng)) {
+      const lat = location.latitude || location.lat
+      const lng = location.longitude || location.lng
+      setTestLocation({ lat: lat.toString(), lng: lng.toString() })
+      setLocationStatus("success")
+      console.log("📍 Current location detected:", { lat, lng })
+    } else {
+      setLocationStatus("error")
+      // Fallback to Cape Town if location not available
+      setTestLocation({ lat: "-33.9249", lng: "18.4241" })
+    }
+  }, [location])
 
   const runDiagnostics = async () => {
     setLoading(true)
     try {
       let url = "/api/diagnostics"
-      if (!useCurrentLocation && testLocation.lat && testLocation.lng) {
+      
+      if (useCurrentLocation && testLocation.lat && testLocation.lng) {
+        // Use current location
         url += `?lat=${testLocation.lat}&lng=${testLocation.lng}`
+        console.log("📍 Running diagnostics with current location:", { lat: testLocation.lat, lng: testLocation.lng })
+      } else if (!useCurrentLocation && testLocation.lat && testLocation.lng) {
+        // Use custom location
+        url += `?lat=${testLocation.lat}&lng=${testLocation.lng}`
+        console.log("📍 Running diagnostics with custom location:", { lat: testLocation.lat, lng: testLocation.lng })
       }
+      // If no location provided, API will use default (Cape Town)
       
       const response = await fetch(url)
       const data = await response.json()
@@ -51,8 +77,12 @@ export default function DiagnosticsPage() {
   }
 
   useEffect(() => {
-    runDiagnostics()
-  }, [])
+    // Wait for location to be available before running diagnostics
+    if (locationStatus !== "loading") {
+      runDiagnostics()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationStatus])
 
   const getStatusIcon = (status: string) => {
     if (status === "OK") return <CheckCircle className="w-5 h-5 text-green-500" />
@@ -170,14 +200,31 @@ export default function DiagnosticsPage() {
             }}
           />
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "white", cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={useCurrentLocation}
-            onChange={(e) => setUseCurrentLocation(e.target.checked)}
-          />
-          Use default test location (Cape Town: -33.9249, 18.4241)
-        </label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "white", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={useCurrentLocation}
+              onChange={(e) => setUseCurrentLocation(e.target.checked)}
+            />
+            Use my current location
+          </label>
+          {locationStatus === "loading" && (
+            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
+              📍 Getting your location...
+            </span>
+          )}
+          {locationStatus === "success" && useCurrentLocation && (
+            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
+              📍 Using: {testLocation.lat}, {testLocation.lng}
+            </span>
+          )}
+          {locationStatus === "error" && (
+            <span style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "12px" }}>
+              ⚠️ Location not available, using default (Cape Town)
+            </span>
+          )}
+        </div>
       </div>
 
       {loading && (
