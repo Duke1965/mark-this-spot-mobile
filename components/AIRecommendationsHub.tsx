@@ -104,6 +104,7 @@ export default function AIRecommendationsHub({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const recommendationMarkersRef = useRef<any[]>([])
+  const poiMarkersRef = useRef<Map<string, any>>(new Map())
   const userMarkerRef = useRef<any>(null)
   const isMapInitializedRef = useRef<boolean>(false)
   const lastLocationCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
@@ -217,6 +218,98 @@ export default function AIRecommendationsHub({
     console.log(`🧠 Clustered ${pins.length} pins into ${clusters.length} clusters`)
     return clusters
   }, [])
+
+  // Helper function to get POI icon based on category
+  const getPOIIcon = useCallback((category: string = ''): string => {
+    const cat = category.toLowerCase()
+    if (cat.includes('restaurant') || cat.includes('food') || cat.includes('dining')) return '🍽️'
+    if (cat.includes('cafe') || cat.includes('coffee')) return '☕'
+    if (cat.includes('museum') || cat.includes('gallery') || cat.includes('art')) return '🎨'
+    if (cat.includes('monument') || cat.includes('memorial') || cat.includes('landmark')) return '🏛️'
+    if (cat.includes('park') || cat.includes('garden')) return '🌳'
+    if (cat.includes('beach') || cat.includes('nature')) return '🏖️'
+    if (cat.includes('hotel') || cat.includes('lodging')) return '🏨'
+    if (cat.includes('church') || cat.includes('temple') || cat.includes('worship')) return '⛪'
+    return '📍' // Default icon
+  }, [])
+
+  // Fetch POIs from pin-intel and display them on the map
+  const fetchAndDisplayPOIs = useCallback(async (map: any, lat: number, lng: number) => {
+    try {
+      console.log('🏪 Fetching POIs for map display...')
+      const response = await fetch('/api/pinit/pin-intel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat: lat,
+          lng: lng,
+          precision: 5
+        })
+      })
+      
+      if (!response.ok) {
+        console.warn('⚠️ Failed to fetch POIs:', response.status)
+        return
+      }
+      
+      const data = await response.json()
+      const places = data.places || []
+      
+      console.log(`✅ Found ${places.length} POIs to display on map`)
+      
+      // Clear existing POI markers
+      poiMarkersRef.current.forEach(marker => marker.remove())
+      poiMarkersRef.current.clear()
+      
+      // Add markers for each POI (limit to 30 to avoid clutter)
+      places.slice(0, 30).forEach((place: any) => {
+        const category = place.categories?.[0] || ''
+        const icon = getPOIIcon(category)
+        
+        // Create POI marker element
+        const poiElement = document.createElement('div')
+        poiElement.style.width = '28px'
+        poiElement.style.height = '28px'
+        poiElement.style.fontSize = '20px'
+        poiElement.style.display = 'flex'
+        poiElement.style.alignItems = 'center'
+        poiElement.style.justifyContent = 'center'
+        poiElement.style.cursor = 'pointer'
+        poiElement.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
+        poiElement.style.transition = 'transform 0.2s ease'
+        poiElement.textContent = icon
+        poiElement.title = place.name || category || 'POI'
+        
+        // Add hover effect
+        poiElement.addEventListener('mouseenter', () => {
+          poiElement.style.transform = 'scale(1.3)'
+        })
+        poiElement.addEventListener('mouseleave', () => {
+          poiElement.style.transform = 'scale(1)'
+        })
+        
+        // Add click handler to show POI details
+        poiElement.addEventListener('click', () => {
+          console.log('📍 POI clicked:', place.name)
+          // Could open a popup or add to recommendations here
+        })
+        
+        const marker = new mapboxgl.Marker({
+          element: poiElement
+        })
+          .setLngLat([place.lng, place.lat])
+          .addTo(map)
+        
+        poiMarkersRef.current.set(place.id || `poi-${Math.random().toString(36).substr(2, 9)}`, marker)
+      })
+      
+      console.log(`✅ Added ${poiMarkersRef.current.size} POI markers to map`)
+    } catch (error) {
+      console.error('❌ Error fetching POIs for map:', error)
+    }
+  }, [getPOIIcon])
 
   // NEW: Function to fetch real place names from pin-intel gateway
   const fetchPlaceName = useCallback(async (lat: number, lng: number): Promise<{name: string, category: string, photoUrl?: string} | null> => {
@@ -1433,10 +1526,13 @@ export default function AIRecommendationsHub({
         
         userMarkerRef.current = userMarker
         
-          // Small delay to ensure map is fully rendered before adding markers
-          setTimeout(() => {
-            updateRecommendationMarkers(map, mapboxgl, false) // Don't fit bounds - use fixed zoom to match main page
-          }, 100)
+        // Fetch and display nearby POIs
+        fetchAndDisplayPOIs(map, lat, lng)
+        
+        // Small delay to ensure map is fully rendered before adding markers
+        setTimeout(() => {
+          updateRecommendationMarkers(map, mapboxgl, false) // Don't fit bounds - use fixed zoom to match main page
+        }, 100)
       })
 
       map.on('error', (e) => {
@@ -1451,6 +1547,8 @@ export default function AIRecommendationsHub({
       // Only cleanup if viewMode is changing away from map
       if (viewMode !== "map" && mapInstanceRef.current) {
         recommendationMarkersRef.current.forEach(marker => marker.remove())
+        poiMarkersRef.current.forEach(marker => marker.remove())
+        poiMarkersRef.current.clear()
         if (userMarkerRef.current) {
           userMarkerRef.current.remove()
           userMarkerRef.current = null
@@ -1494,6 +1592,11 @@ export default function AIRecommendationsHub({
       // Update user marker position
       if (userMarkerRef.current) {
         userMarkerRef.current.setLngLat([lng, lat])
+      }
+      
+      // Refresh POIs when location changes significantly
+      if (mapInstanceRef.current && isMapInitializedRef.current) {
+        fetchAndDisplayPOIs(mapInstanceRef.current, lat, lng)
       }
       
       // Update stored coordinates
