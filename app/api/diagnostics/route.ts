@@ -210,6 +210,11 @@ export async function GET(request: NextRequest) {
           const pinIntelData = await pinIntelResponse.json()
           if (pinIntelData.meta?.debug) {
             diagnostics.pin_intel_debug = pinIntelData.meta.debug
+            // Extract specific debug fields for easier access
+            diagnostics.reverse_geocode_result = pinIntelData.meta.debug.reverse_geocode_result || null
+            diagnostics.poi_candidates = pinIntelData.meta.debug.poi_candidates || []
+            diagnostics.chosen_poi = pinIntelData.meta.debug.chosen_poi || null
+            diagnostics.wikimedia_search_term = pinIntelData.meta.debug.wikimedia_search_term || null
           }
         }
       } catch (error) {
