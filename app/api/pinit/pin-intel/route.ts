@@ -141,7 +141,12 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 /**
  * Call Mapbox Geocoding API for reverse geocoding (get place name)
  */
-async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: string; components: Record<string, string> | null }> {
+async function reverseGeocode(lat: number, lng: number): Promise<{ 
+  formatted: string
+  components: Record<string, string> | null
+  place_type?: string[]
+  feature_name?: string
+}> {
   if (!MAPBOX_API_KEY) {
     throw new Error('Mapbox API key not configured')
   }
@@ -182,6 +187,10 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
     })
     const bestFeature = addressResult || placeResult || features[0]
     
+    // Extract place_type for diagnostics
+    const placeType = Array.isArray(bestFeature.place_type) ? bestFeature.place_type : [bestFeature.place_type]
+    const featureName = bestFeature.text || bestFeature.place_name?.split(',')[0] || ''
+    
     // Extract address components from context
     const context = bestFeature.context || []
     let street = ''
@@ -220,7 +229,9 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ formatted: st
         name: placeName || city || '',
         address: street || bestFeature.properties?.address || '',
         category: bestFeature.properties?.category || bestFeature.place_type?.[0] || ''
-      }
+      },
+      place_type: placeType,
+      feature_name: featureName
     }
   } catch (error) {
     console.error('❌ Mapbox geocoding error:', error)
@@ -473,6 +484,76 @@ export async function POST(request: NextRequest) {
     const geocodeKey = `mapbox-geocode:${coarseKey(lat, lng, precision)}`
     const poiKey = `mapbox-places:${coarseKey(lat, lng, precision)}`
     
+    // ============================================
+    // POI-FIRST APPROACH: Search POIs FIRST
+    // ============================================
+    
+    // Try to get POI from cache
+    let poiData: any = null
+    let poiCached = false
+    
+    if (isRedisConfigured) {
+      poiData = await redisGet(poiKey)
+      if (poiData) {
+        poiCached = true
+        console.log(`✅ POI cache hit (Redis): ${poiKey}`)
+      }
+    }
+    
+    if (!poiData) {
+      poiData = poiCache.get(poiKey)
+      if (poiData) {
+        poiCached = true
+        console.log(`✅ POI cache hit (Memory): ${poiKey}`)
+      }
+    }
+    
+    // Fetch POIs FIRST (POI-first approach)
+    if (!poiData) {
+      console.log(`🏪 [POI-FIRST] Fetching POIs from Mapbox...`)
+      try {
+        const fetchedPOIs = await fetchNearbyPlaces(lat, lng)
+        
+        // Store in cache
+        poiCache.set(poiKey, fetchedPOIs, POI_TTL)
+        if (isRedisConfigured) {
+          await redisSet(poiKey, fetchedPOIs, Math.floor(POI_TTL / 1000))
+        }
+        
+        console.log(`✅ POI fetched and cached: ${fetchedPOIs.length} places`)
+        poiData = fetchedPOIs
+      } catch (error) {
+        console.error('❌ POI fetch failed:', error)
+        poiData = [] // Empty array on failure
+      }
+    }
+    
+    // Choose best POI: distance <= 200m (or 300m in rural areas)
+    // Detect rural: if we have fewer than 3 POIs within 1km, consider it rural
+    const nearbyPOIs = poiData?.filter((poi: any) => poi.distance_m && poi.distance_m <= 1000) || []
+    const isRural = nearbyPOIs.length < 3
+    const maxDistance = isRural ? 300 : 200
+    
+    let bestPOI: any = null
+    let usePOIForMetadata = false
+    
+    if (poiData && poiData.length > 0) {
+      // Find best POI (closest travel-related place within maxDistance)
+      bestPOI = poiData.find((poi: any) => poi.distance_m && poi.distance_m <= maxDistance) || poiData[0]
+      
+      // Use POI if it's within the distance threshold
+      if (bestPOI && bestPOI.distance_m && bestPOI.distance_m <= maxDistance) {
+        usePOIForMetadata = true
+        console.log(`📍 [POI-FIRST] Using POI for metadata: ${bestPOI.name} (${bestPOI.distance_m}m away, ${isRural ? 'rural' : 'urban'} area)`)
+      } else {
+        console.log(`📍 [POI-FIRST] No POI within ${maxDistance}m threshold, will use reverse geocode fallback`)
+      }
+    }
+    
+    // ============================================
+    // REVERSE GEOCODE: For fallback or locality
+    // ============================================
+    
     // Try to get from cache (Redis first, then in-memory)
     let geocodeData: any = null
     let geocodeCached = false
@@ -493,7 +574,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Fetch geocode if not cached
+    // Fetch geocode if not cached (needed for locality fallback or when no POI found)
     if (!geocodeData) {
       console.log(`🌍 Fetching geocode from Mapbox...`)
       try {
@@ -516,46 +597,40 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Try to get POI from cache
-    let poiData: any = null
-    let poiCached = false
-    
-    if (isRedisConfigured) {
-      poiData = await redisGet(poiKey)
-      if (poiData) {
-        poiCached = true
-        console.log(`✅ POI cache hit (Redis): ${poiKey}`)
-      }
-    }
-    
-    if (!poiData) {
-      poiData = poiCache.get(poiKey)
-      if (poiData) {
-        poiCached = true
-        console.log(`✅ POI cache hit (Memory): ${poiKey}`)
-      }
-    }
-    
-    // Fetch POI if not cached
-    if (!poiData) {
-      console.log(`🏪 Fetching POI from Mapbox...`)
-      try {
-        poiData = await fetchNearbyPlaces(lat, lng)
-        
-        // Store in cache
-        poiCache.set(poiKey, poiData, POI_TTL)
-        if (isRedisConfigured) {
-          await redisSet(poiKey, poiData, Math.floor(POI_TTL / 1000))
-        }
-        
-        console.log(`✅ POI fetched and cached: ${poiData.length} places`)
-      } catch (error) {
-        console.error('❌ POI fetch failed:', error)
-        poiData = [] // Empty array on failure
-      }
-    }
+    // Extract locality from geocode for Wikimedia fallback
+    const locality = geocodeData.components?.city || 
+                     geocodeData.components?.town || 
+                     geocodeData.components?.neighbourhood ||
+                     geocodeData.components?.suburb ||
+                     geocodeData.feature_name?.split(',')[1]?.trim() ||
+                     ''
     
     // Build response (keeping same shape for compatibility)
+    // If we found a good POI, use it for title/category/Wikimedia search
+    let finalGeocode = geocodeData
+    let wikimediaSearchTerm = ''
+    
+    if (usePOIForMetadata && bestPOI) {
+      // Use POI for metadata
+      finalGeocode = {
+        ...geocodeData,
+        components: {
+          ...geocodeData.components,
+          name: bestPOI.name || geocodeData.components?.name || '',
+          category: bestPOI.categories?.[0] || geocodeData.components?.category || '',
+          poi_name: bestPOI.name,
+          poi_distance_m: bestPOI.distance_m
+        }
+      }
+      // Use POI name + locality for Wikimedia search
+      wikimediaSearchTerm = bestPOI.name + (locality ? `, ${locality}` : '')
+      console.log(`✅ [POI-FIRST] Using POI "${bestPOI.name}" for title/category/Wikimedia search`)
+    } else {
+      // No POI found or too far - use locality for Wikimedia
+      wikimediaSearchTerm = locality || geocodeData.feature_name || geocodeData.components?.name || ''
+      console.log(`✅ [POI-FIRST] No suitable POI, using locality "${wikimediaSearchTerm}" for Wikimedia search`)
+    }
+    
     const response = {
       meta: {
         source: {
@@ -571,10 +646,35 @@ export async function POST(request: NextRequest) {
           minuteRemaining: rateLimit.minuteRemaining,
           hourRemaining: rateLimit.hourRemaining
         },
-        duration_ms: Date.now() - startTime
+        duration_ms: Date.now() - startTime,
+        // Debug info for diagnostics
+        debug: {
+          reverse_geocode_result: {
+            place_type: geocodeData.place_type || [],
+            name: geocodeData.feature_name || geocodeData.components?.name || ''
+          },
+          poi_candidates: poiData?.slice(0, 5).map((poi: any) => ({
+            name: poi.name,
+            distance_m: poi.distance_m
+          })) || [],
+          chosen_poi: bestPOI && usePOIForMetadata ? {
+            name: bestPOI.name,
+            distance_m: bestPOI.distance_m
+          } : null,
+          wikimedia_search_term: wikimediaSearchTerm
+        }
       },
-      geocode: geocodeData,
-      places: poiData
+      geocode: finalGeocode,
+      places: poiData,
+      // Add POI metadata if we're using a POI (for easier UI access)
+      ...(usePOIForMetadata && bestPOI ? {
+        poi_metadata: {
+          name: bestPOI.name,
+          category: bestPOI.categories?.[0] || bestPOI.category,
+          distance_m: bestPOI.distance_m,
+          id: bestPOI.id
+        }
+      } : {})
     }
     
     // Store for idempotency if key provided
