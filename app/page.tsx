@@ -375,6 +375,10 @@ export default function PINITApp() {
   const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
+  // POI selection modal state
+  const [showPOISelection, setShowPOISelection] = useState(false)
+  const [poiCandidates, setPoiCandidates] = useState<Array<{name: string, distance_m: number, category?: string, id?: string}>>([])
+  const [selectedPOI, setSelectedPOI] = useState<{name: string, distance_m: number, category?: string, id?: string} | null>(null)
   const [isDraggingPin, setIsDraggingPin] = useState(false)
 
   // Add this new state for user location
@@ -1949,7 +1953,7 @@ export default function PINITApp() {
   }, [editingPin])
   
   // Handler for Done button - fetch new data and update pin
-  const handlePinEditDone = useCallback(async () => {
+  const handlePinEditDone = useCallback(async (useSelectedPOI?: {name: string, distance_m: number, category?: string, id?: string}) => {
     if (!editingPin || !editingPinLocation || !originalPinLocation) return
     
     // Request deduplication: Prevent multiple simultaneous calls
@@ -1983,6 +1987,40 @@ export default function PINITApp() {
     const signal = pinEditControllerRef.current.signal
     
     try {
+      // First, check for POI candidates if we haven't already shown the modal
+      if (!useSelectedPOI && !showPOISelection) {
+        try {
+          const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: editingPinLocation.lat, lng: editingPinLocation.lng, precision: 5 })
+          })
+          if (pinIntelResponse.ok) {
+            const pinIntelData = await pinIntelResponse.json()
+            // If we have multiple POIs within 500m, show selection modal
+            const nearbyPOIs = (pinIntelData.places || []).filter((p: any) => p.distance_m && p.distance_m <= 500).slice(0, 5)
+            if (nearbyPOIs.length >= 2) {
+              setPoiCandidates(nearbyPOIs)
+              setSelectedPOI(pinIntelData.poi_metadata ? {
+                name: pinIntelData.poi_metadata.name,
+                distance_m: pinIntelData.poi_metadata.distance_m,
+                category: pinIntelData.poi_metadata.category,
+                id: pinIntelData.poi_metadata.id
+              } : nearbyPOIs[0])
+              setShowPOISelection(true)
+              setIsUpdatingPinLocation(false)
+              isUpdatingPinRef.current = false
+              return // Exit early, wait for user selection
+            }
+          }
+        } catch (error) {
+          console.warn("⚠️ Failed to check POIs (non-critical):", error)
+          // Continue with normal flow
+        }
+      }
+      
+      // Close POI selection modal if open
+      setShowPOISelection(false)
       let locationPhotos = editingPin.additionalPhotos || []
       let placeName = editingPin.locationName
       let placeDescription = editingPin.description
@@ -2054,14 +2092,20 @@ export default function PINITApp() {
       }
       
       // Build rich context for AI generation - prioritize POI data
-      // If pin-intel found a POI for address/street, use it
+      // POI-first approach: Use poi_metadata if available (from POI-first search)
       const geocodeComponents = pinIntelData?.geocode?.components || {}
-      const poiName = geocodeComponents.poi_name || pinIntelData?.places?.[0]?.name
-      const nearestPOI = poiName ? {
+      const poiMetadata = pinIntelData?.poi_metadata
+      const poiName = poiMetadata?.name || geocodeComponents.poi_name || pinIntelData?.places?.[0]?.name
+      const nearestPOI = poiMetadata ? {
+        name: poiMetadata.name,
+        distance_m: poiMetadata.distance_m,
+        categories: poiMetadata.category ? [poiMetadata.category] : [],
+        id: poiMetadata.id
+      } : (poiName ? {
         name: poiName,
         distance_m: geocodeComponents.poi_distance_m,
         categories: pinIntelData?.places?.[0]?.categories || []
-      } : pinIntelData?.places?.[0]
+      } : pinIntelData?.places?.[0])
       
       const aiContext = {
         lat: editingPinLocation.lat,
@@ -2886,7 +2930,7 @@ export default function PINITApp() {
           </div>
           
           <button
-            onClick={handlePinEditDone}
+            onClick={() => handlePinEditDone()}
             disabled={isUpdatingPinLocation}
             style={{
               background: isUpdatingPinLocation ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.15)",
@@ -2939,6 +2983,120 @@ export default function PINITApp() {
           >
             💡 Drag the pin to move it to the exact location
           </div>
+          
+          {/* POI Selection Modal */}
+          {showPOISelection && poiCandidates.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(0, 0, 0, 0.7)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2000,
+                padding: "1rem"
+              }}
+              onClick={(e) => {
+                // Close on backdrop click
+                if (e.target === e.currentTarget) {
+                  setShowPOISelection(false)
+                  handlePinEditDone(selectedPOI || undefined)
+                }
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                  borderRadius: "1.5rem",
+                  padding: "1.5rem",
+                  maxWidth: "90%",
+                  width: "100%",
+                  maxHeight: "80vh",
+                  overflow: "auto",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  backdropFilter: "blur(15px)"
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ 
+                  fontSize: "1.25rem", 
+                  fontWeight: "600", 
+                  marginBottom: "1rem",
+                  textAlign: "center",
+                  color: "white"
+                }}>
+                  We found these nearby places:
+                </h3>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
+                  {poiCandidates.map((poi, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedPOI(poi)
+                        setShowPOISelection(false)
+                        handlePinEditDone(poi)
+                      }}
+                      style={{
+                        background: selectedPOI?.name === poi.name 
+                          ? "rgba(255,255,255,0.25)" 
+                          : "rgba(255,255,255,0.1)",
+                        color: "white",
+                        padding: "1rem",
+                        borderRadius: "0.75rem",
+                        border: selectedPOI?.name === poi.name 
+                          ? "2px solid rgba(255,255,255,0.5)" 
+                          : "1px solid rgba(255,255,255,0.2)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (selectedPOI?.name !== poi.name) {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.15)"
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selectedPOI?.name !== poi.name) {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                        }
+                      }}
+                    >
+                      <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
+                        {poi.name}
+                      </div>
+                      <div style={{ fontSize: "0.875rem", opacity: 0.9 }}>
+                        {poi.distance_m}m away {poi.category ? `• ${poi.category}` : ''}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowPOISelection(false)
+                    handlePinEditDone(selectedPOI || undefined)
+                  }}
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    padding: "0.75rem",
+                    borderRadius: "0.75rem",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    cursor: "pointer",
+                    fontWeight: "600"
+                  }}
+                >
+                  {selectedPOI ? `Use ${selectedPOI.name}` : "Use Auto-Selected"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Edit Mode Indicator */}
