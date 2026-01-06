@@ -472,6 +472,7 @@ export default function MapboxMap({
       style={{
         width: '100%',
         height: '100%',
+        touchAction: 'pan-x pan-y', // Allow map panning but prevent page scrolling
         ...style
       }}
     />
