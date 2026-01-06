@@ -31,7 +31,7 @@ import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelA
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import MapboxMap from "@/components/map/MapboxMap"
-import AppleMap from "@/components/maps/AppleMap"
+import AppleMap from "@/components/map/AppleMap"
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY, MAP_PROVIDER } from '@/lib/mapConfig'
