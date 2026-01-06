@@ -126,7 +126,28 @@ export default function AppleMap({
             draggable: true
           })
 
+          // Track dragging state to prevent map panning during marker drag
+          let isDraggingMarker = false
+
+          annotation.addEventListener('drag-start', () => {
+            isDraggingMarker = true
+            // Temporarily disable map panning while dragging marker
+            if (map) {
+              map.isScrollEnabled = false
+            }
+          })
+
+          annotation.addEventListener('drag', () => {
+            // Marker is being dragged
+            isDraggingMarker = true
+          })
+
           annotation.addEventListener('drag-end', () => {
+            isDraggingMarker = false
+            // Re-enable map panning after drag ends
+            if (map) {
+              map.isScrollEnabled = interactive
+            }
             const coord = annotation.coordinate
             if (draggableMarker.onDragEnd) {
               draggableMarker.onDragEnd(coord.latitude, coord.longitude)
@@ -229,6 +250,7 @@ export default function AppleMap({
       style={{
         width: '100%',
         height: '100%',
+        touchAction: 'pan-x pan-y', // Allow map panning but prevent page scroll
         ...style
       }}
     />
