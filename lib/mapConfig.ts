@@ -1,12 +1,12 @@
 /**
  * Map Provider Configuration
- * PINIT uses Mapbox as the primary map provider
+ * PINIT supports Mapbox and Apple Maps
  */
 
-export type MapProvider = "mapbox"
+export type MapProvider = "mapbox" | "apple"
 
-// Map provider is always Mapbox (TomTom has been removed)
-export const MAP_PROVIDER: MapProvider = "mapbox"
+// Map provider from environment variable, defaults to mapbox
+export const MAP_PROVIDER: MapProvider = (process.env.NEXT_PUBLIC_MAP_PROVIDER as MapProvider) || "mapbox"
 
 // API Keys
 export const MAPBOX_API_KEY = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
@@ -15,9 +15,20 @@ export const MAPBOX_API_KEY = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
 export function validateMapConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  if (!MAPBOX_API_KEY) {
-    errors.push("Mapbox API key is required. Set NEXT_PUBLIC_MAPBOX_API_KEY in your environment variables.")
-    console.warn("⚠️ Mapbox API key missing. Set NEXT_PUBLIC_MAPBOX_API_KEY in your environment variables.")
+  if (MAP_PROVIDER === "mapbox") {
+    if (!MAPBOX_API_KEY) {
+      errors.push("Mapbox API key is required. Set NEXT_PUBLIC_MAPBOX_API_KEY in your environment variables.")
+      console.warn("⚠️ Mapbox API key missing. Set NEXT_PUBLIC_MAPBOX_API_KEY in your environment variables.")
+    }
+  } else if (MAP_PROVIDER === "apple") {
+    const hasTeamId = !!process.env.APPLE_MAPKIT_TEAM_ID
+    const hasKeyId = !!process.env.APPLE_MAPKIT_KEY_ID
+    const hasPrivateKey = !!process.env.APPLE_MAPKIT_PRIVATE_KEY_BASE64
+
+    if (!hasTeamId || !hasKeyId || !hasPrivateKey) {
+      errors.push("Apple MapKit credentials are required. Set APPLE_MAPKIT_TEAM_ID, APPLE_MAPKIT_KEY_ID, and APPLE_MAPKIT_PRIVATE_KEY_BASE64 in your environment variables.")
+      console.warn("⚠️ Apple MapKit credentials missing. Set APPLE_MAPKIT_TEAM_ID, APPLE_MAPKIT_KEY_ID, and APPLE_MAPKIT_PRIVATE_KEY_BASE64 in your environment variables.")
+    }
   }
 
   return {
