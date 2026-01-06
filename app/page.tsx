@@ -31,9 +31,10 @@ import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelA
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import MapboxMap from "@/components/map/MapboxMap"
+import AppleMap from "@/components/maps/AppleMap"
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { MAPBOX_API_KEY } from '@/lib/mapConfig'
+import { MAPBOX_API_KEY, MAP_PROVIDER } from '@/lib/mapConfig'
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 
 
@@ -111,7 +112,7 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker (Mapbox)
+// Interactive Map Editor Component with Draggable Marker (Provider-aware)
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -121,6 +122,20 @@ function InteractiveMapEditor({
   initialLng: number
   onLocationChange: (lat: number, lng: number) => void
 }) {
+  const mapProps = {
+    center: { lat: initialLat, lng: initialLng },
+    zoom: 18,
+    interactive: true,
+    draggableMarker: {
+      lat: initialLat,
+      lng: initialLng,
+      onDragEnd: (lat: number, lng: number) => {
+        console.log("📍 Marker dragged to:", { lat, lng })
+        onLocationChange(lat, lng)
+      }
+    }
+  }
+
   return (
     <div style={{
       width: "100%",
@@ -129,19 +144,11 @@ function InteractiveMapEditor({
       top: 0,
       left: 0
     }}>
-      <MapboxMap
-        center={{ lat: initialLat, lng: initialLng }}
-        zoom={18}
-        interactive={true}
-        draggableMarker={{
-          lat: initialLat,
-          lng: initialLng,
-          onDragEnd: (lat, lng) => {
-            console.log("📍 Marker dragged to:", { lat, lng })
-            onLocationChange(lat, lng)
-          }
-        }}
-      />
+      {MAP_PROVIDER === "apple" ? (
+        <AppleMap {...mapProps} />
+      ) : (
+        <MapboxMap {...mapProps} />
+      )}
     </div>
   )
 }
@@ -154,8 +161,28 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
-  // Always use Mapbox (TomTom has been removed)
+  // Provider-aware: use Apple or Mapbox based on NEXT_PUBLIC_MAP_PROVIDER
+  if (MAP_PROVIDER === "apple") {
+    return <InteractiveMainMapApple lat={lat} lng={lng} />
+  }
   return <InteractiveMainMapMapbox lat={lat} lng={lng} />
+}
+
+// Apple Maps version of InteractiveMainMap
+function InteractiveMainMapApple({ 
+  lat, 
+  lng 
+}: { 
+  lat: number
+  lng: number
+}) {
+  return (
+    <AppleMap
+      center={{ lat, lng }}
+      zoom={13}
+      interactive={true}
+    />
+  )
 }
 
 // Mapbox version of InteractiveMainMap
