@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { loadMapkit } from '@/lib/mapkit/loadMapkit'
 
 declare global {
@@ -49,6 +49,7 @@ export default function AppleMap({
   const draggableMarkerRef = useRef<any>(null)
   const isInitializedRef = useRef(false)
   const isDraggingMarkerRef = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -88,11 +89,12 @@ export default function AppleMap({
         const region = new window.mapkit.CoordinateRegion(coordinate, span)
 
         // Create map
+        // When draggable marker is present, disable map scrolling to prevent conflicts
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: interactive,
-          isScrollEnabled: interactive,
+          isZoomEnabled: interactive && !draggableMarker, // Disable zoom when draggable marker exists
+          isScrollEnabled: interactive && !draggableMarker, // Disable scroll when draggable marker exists
           isRotationEnabled: false
         })
 
@@ -131,6 +133,7 @@ export default function AppleMap({
           // Track dragging state to prevent map panning during marker drag
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
+            setIsDragging(true) // Update state to trigger style update
             // Prevent default to stop page scrolling
             if (e && e.preventDefault) {
               e.preventDefault()
@@ -139,6 +142,10 @@ export default function AppleMap({
             if (map) {
               map.isScrollEnabled = false
               map.isZoomEnabled = false
+            }
+            // Immediately disable touch actions on container
+            if (mapContainerRef.current) {
+              mapContainerRef.current.style.touchAction = 'none'
             }
             console.log('📍 Marker drag started')
           })
@@ -150,10 +157,15 @@ export default function AppleMap({
             if (e && e.preventDefault) {
               e.preventDefault()
             }
+            // Keep touch actions disabled during drag
+            if (mapContainerRef.current) {
+              mapContainerRef.current.style.touchAction = 'none'
+            }
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
+            setIsDragging(false) // Update state to trigger style update
             // Prevent default to stop page scrolling
             if (e && e.preventDefault) {
               e.preventDefault()
@@ -162,6 +174,10 @@ export default function AppleMap({
             if (map) {
               map.isScrollEnabled = interactive
               map.isZoomEnabled = interactive
+            }
+            // Re-enable touch actions after drag ends
+            if (mapContainerRef.current) {
+              mapContainerRef.current.style.touchAction = draggableMarker ? 'pan-x pan-y' : (interactive ? 'pan-x pan-y' : 'none')
             }
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
@@ -259,6 +275,22 @@ export default function AppleMap({
     })
   }, [pins, onPinClick])
 
+  // Update container touch action based on dragging state
+  useEffect(() => {
+    if (mapContainerRef.current) {
+      if (isDragging) {
+        // Disable all touch interactions when dragging marker
+        mapContainerRef.current.style.touchAction = 'none'
+      } else if (draggableMarker) {
+        // When draggable marker exists but not dragging, allow pan but prevent scrolling
+        mapContainerRef.current.style.touchAction = 'pan-x pan-y'
+      } else {
+        // Normal map behavior
+        mapContainerRef.current.style.touchAction = interactive ? 'pan-x pan-y' : 'none'
+      }
+    }
+  }, [isDragging, draggableMarker, interactive])
+
   return (
     <div
       ref={mapContainerRef}
@@ -266,22 +298,28 @@ export default function AppleMap({
       style={{
         width: '100%',
         height: '100%',
-        touchAction: 'pan-x pan-y', // Allow map panning but prevent page scroll
+        touchAction: isDragging ? 'none' : (draggableMarker ? 'pan-x pan-y' : (interactive ? 'pan-x pan-y' : 'none')),
         WebkitTouchCallout: 'none', // Prevent iOS callout menu
         WebkitUserSelect: 'none', // Prevent text selection
         userSelect: 'none',
         ...style
       }}
       onTouchStart={(e) => {
-        // If dragging marker, prevent default to stop page scroll
-        if (isDraggingMarkerRef.current) {
+        // If dragging marker, prevent ALL default behavior to stop map panning
+        if (isDraggingMarkerRef.current || isDragging) {
           e.preventDefault()
+          e.stopPropagation()
+          // Update touch action immediately
+          if (mapContainerRef.current) {
+            mapContainerRef.current.style.touchAction = 'none'
+          }
         }
       }}
       onTouchMove={(e) => {
-        // If dragging marker, prevent default to stop page scroll
-        if (isDraggingMarkerRef.current) {
+        // If dragging marker, prevent ALL default behavior to stop map panning
+        if (isDraggingMarkerRef.current || isDragging) {
           e.preventDefault()
+          e.stopPropagation()
         }
       }}
     />
