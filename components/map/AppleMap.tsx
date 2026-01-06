@@ -89,12 +89,14 @@ export default function AppleMap({
         const region = new window.mapkit.CoordinateRegion(coordinate, span)
 
         // Create map
-        // When draggable marker is present, disable map scrolling to prevent conflicts
+        // If draggable marker exists, disable map scrolling to prevent conflicts with marker dragging
+        // If no draggable marker, use interactive setting
+        const shouldDisableScrolling = !!draggableMarker
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: interactive && !draggableMarker, // Disable zoom when draggable marker exists
-          isScrollEnabled: interactive && !draggableMarker, // Disable scroll when draggable marker exists
+          isZoomEnabled: shouldDisableScrolling ? false : interactive, // Disable zoom when marker is draggable
+          isScrollEnabled: shouldDisableScrolling ? false : interactive, // Disable scroll when marker is draggable
           isRotationEnabled: false
         })
 
@@ -130,54 +132,34 @@ export default function AppleMap({
             title: 'Drag me'
           })
 
-          // Track dragging state to prevent map panning during marker drag
+          // Track dragging state - MapKit handles the drag, we just need to ensure map doesn't pan
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
-            setIsDragging(true) // Update state to trigger style update
-            // Prevent default to stop page scrolling
-            if (e && e.preventDefault) {
-              e.preventDefault()
-            }
-            // Temporarily disable map panning while dragging marker
+            setIsDragging(true)
+            // Ensure map scrolling is disabled (already disabled, but double-check)
             if (map) {
               map.isScrollEnabled = false
               map.isZoomEnabled = false
-            }
-            // Immediately disable touch actions on container
-            if (mapContainerRef.current) {
-              mapContainerRef.current.style.touchAction = 'none'
             }
             console.log('📍 Marker drag started')
           })
 
           annotation.addEventListener('drag', (e: any) => {
-            // Marker is being dragged
+            // Marker is being dragged - MapKit handles this internally
             isDraggingMarkerRef.current = true
-            // Prevent default to stop page scrolling
-            if (e && e.preventDefault) {
-              e.preventDefault()
-            }
-            // Keep touch actions disabled during drag
-            if (mapContainerRef.current) {
-              mapContainerRef.current.style.touchAction = 'none'
+            // Keep map scrolling disabled during drag
+            if (map) {
+              map.isScrollEnabled = false
             }
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
-            setIsDragging(false) // Update state to trigger style update
-            // Prevent default to stop page scrolling
-            if (e && e.preventDefault) {
-              e.preventDefault()
-            }
-            // Re-enable map panning after drag ends
+            setIsDragging(false)
+            // Keep map scrolling disabled after drag (we're in edit mode)
             if (map) {
-              map.isScrollEnabled = interactive
-              map.isZoomEnabled = interactive
-            }
-            // Re-enable touch actions after drag ends
-            if (mapContainerRef.current) {
-              mapContainerRef.current.style.touchAction = draggableMarker ? 'pan-x pan-y' : (interactive ? 'pan-x pan-y' : 'none')
+              map.isScrollEnabled = false
+              map.isZoomEnabled = false
             }
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
@@ -275,22 +257,6 @@ export default function AppleMap({
     })
   }, [pins, onPinClick])
 
-  // Update container touch action based on dragging state
-  useEffect(() => {
-    if (mapContainerRef.current) {
-      if (isDragging) {
-        // Disable all touch interactions when dragging marker
-        mapContainerRef.current.style.touchAction = 'none'
-      } else if (draggableMarker) {
-        // When draggable marker exists but not dragging, allow pan but prevent scrolling
-        mapContainerRef.current.style.touchAction = 'pan-x pan-y'
-      } else {
-        // Normal map behavior
-        mapContainerRef.current.style.touchAction = interactive ? 'pan-x pan-y' : 'none'
-      }
-    }
-  }, [isDragging, draggableMarker, interactive])
-
   return (
     <div
       ref={mapContainerRef}
@@ -298,29 +264,13 @@ export default function AppleMap({
       style={{
         width: '100%',
         height: '100%',
-        touchAction: isDragging ? 'none' : (draggableMarker ? 'pan-x pan-y' : (interactive ? 'pan-x pan-y' : 'none')),
+        // Allow touch events to reach MapKit for marker dragging
+        // Map scrolling is disabled via isScrollEnabled: false in MapKit config
+        touchAction: 'auto', // Allow all touch events - MapKit handles marker dragging internally
         WebkitTouchCallout: 'none', // Prevent iOS callout menu
         WebkitUserSelect: 'none', // Prevent text selection
         userSelect: 'none',
         ...style
-      }}
-      onTouchStart={(e) => {
-        // If dragging marker, prevent ALL default behavior to stop map panning
-        if (isDraggingMarkerRef.current || isDragging) {
-          e.preventDefault()
-          e.stopPropagation()
-          // Update touch action immediately
-          if (mapContainerRef.current) {
-            mapContainerRef.current.style.touchAction = 'none'
-          }
-        }
-      }}
-      onTouchMove={(e) => {
-        // If dragging marker, prevent ALL default behavior to stop map panning
-        if (isDraggingMarkerRef.current || isDragging) {
-          e.preventDefault()
-          e.stopPropagation()
-        }
       }}
     />
   )
