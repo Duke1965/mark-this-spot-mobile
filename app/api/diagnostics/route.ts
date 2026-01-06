@@ -80,15 +80,15 @@ export async function GET(request: NextRequest) {
   // Test Mapbox Maps API (if provider is mapbox)
   if (MAP_PROVIDER === "mapbox") {
     try {
-    const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
-    
-    if (!mapboxKey) {
-      diagnostics.apis.mapbox = {
-        status: "ERROR",
-        error: "No API key found",
-        details: "Missing NEXT_PUBLIC_MAPBOX_API_KEY"
-      }
-    } else {
+      const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
+      
+      if (!mapboxKey) {
+        diagnostics.apis.mapbox = {
+          status: "ERROR",
+          error: "No API key found",
+          details: "Missing NEXT_PUBLIC_MAPBOX_API_KEY"
+        }
+      } else {
       // Test Mapbox Geocoding API (reverse geocoding)
       const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${testLng},${testLat}.json`)
       mapboxUrl.searchParams.set('access_token', mapboxKey)
@@ -168,6 +168,7 @@ export async function GET(request: NextRequest) {
           status: "ERROR",
           error: error instanceof Error ? error.message : String(error)
         }
+      }
       }
     } catch (error) {
       diagnostics.apis.mapbox = {
