@@ -48,6 +48,7 @@ export default function AppleMap({
   const markersRef = useRef<Map<string, any>>(new Map())
   const draggableMarkerRef = useRef<any>(null)
   const isInitializedRef = useRef(false)
+  const isDraggingMarkerRef = useRef(false)
 
   useEffect(() => {
     let isMounted = true
@@ -123,32 +124,47 @@ export default function AppleMap({
           )
 
           const annotation = new window.mapkit.MarkerAnnotation(markerCoordinate, {
-            draggable: true
+            draggable: true,
+            title: 'Drag me'
           })
 
           // Track dragging state to prevent map panning during marker drag
-          let isDraggingMarker = false
-
-          annotation.addEventListener('drag-start', () => {
-            isDraggingMarker = true
+          annotation.addEventListener('drag-start', (e: any) => {
+            isDraggingMarkerRef.current = true
+            // Prevent default to stop page scrolling
+            if (e && e.preventDefault) {
+              e.preventDefault()
+            }
             // Temporarily disable map panning while dragging marker
             if (map) {
               map.isScrollEnabled = false
+              map.isZoomEnabled = false
+            }
+            console.log('📍 Marker drag started')
+          })
+
+          annotation.addEventListener('drag', (e: any) => {
+            // Marker is being dragged
+            isDraggingMarkerRef.current = true
+            // Prevent default to stop page scrolling
+            if (e && e.preventDefault) {
+              e.preventDefault()
             }
           })
 
-          annotation.addEventListener('drag', () => {
-            // Marker is being dragged
-            isDraggingMarker = true
-          })
-
-          annotation.addEventListener('drag-end', () => {
-            isDraggingMarker = false
+          annotation.addEventListener('drag-end', (e: any) => {
+            isDraggingMarkerRef.current = false
+            // Prevent default to stop page scrolling
+            if (e && e.preventDefault) {
+              e.preventDefault()
+            }
             // Re-enable map panning after drag ends
             if (map) {
               map.isScrollEnabled = interactive
+              map.isZoomEnabled = interactive
             }
             const coord = annotation.coordinate
+            console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
               draggableMarker.onDragEnd(coord.latitude, coord.longitude)
             }
@@ -251,7 +267,22 @@ export default function AppleMap({
         width: '100%',
         height: '100%',
         touchAction: 'pan-x pan-y', // Allow map panning but prevent page scroll
+        WebkitTouchCallout: 'none', // Prevent iOS callout menu
+        WebkitUserSelect: 'none', // Prevent text selection
+        userSelect: 'none',
         ...style
+      }}
+      onTouchStart={(e) => {
+        // If dragging marker, prevent default to stop page scroll
+        if (isDraggingMarkerRef.current) {
+          e.preventDefault()
+        }
+      }}
+      onTouchMove={(e) => {
+        // If dragging marker, prevent default to stop page scroll
+        if (isDraggingMarkerRef.current) {
+          e.preventDefault()
+        }
       }}
     />
   )
