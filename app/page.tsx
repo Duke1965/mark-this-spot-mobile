@@ -3002,7 +3002,7 @@ export default function PINITApp() {
           <div
             style={{
               position: "absolute",
-              bottom: "80px",
+              bottom: "120px",
               left: "50%",
               transform: "translateX(-50%)",
               background: "rgba(30, 58, 138, 0.95)",
