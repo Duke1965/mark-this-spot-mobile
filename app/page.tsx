@@ -137,13 +137,17 @@ function InteractiveMapEditor({
   }
 
   return (
-    <div style={{
-      width: "100%",
-      height: "100%",
-      position: "absolute",
-      top: 0,
-      left: 0
-    }}>
+    <div 
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        touchAction: "pan-x pan-y", // Allow map panning but prevent page scrolling
+        userSelect: "none" // Prevent text selection during drag
+      }}
+    >
       {MAP_PROVIDER === "apple" ? (
         <AppleMap {...mapProps} />
       ) : (
@@ -2979,7 +2983,12 @@ export default function PINITApp() {
         </div>
         
         {/* Full Map View - Interactive Mapbox Map */}
-        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        <div style={{ 
+          flex: 1, 
+          position: "relative", 
+          overflow: "hidden",
+          touchAction: "pan-x pan-y" // Allow map panning but prevent page scrolling
+        }}>
           <InteractiveMapEditor
             initialLat={editingPinLocation.lat}
             initialLng={editingPinLocation.lng}
