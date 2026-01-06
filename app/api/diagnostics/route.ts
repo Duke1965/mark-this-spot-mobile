@@ -1,6 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { MAP_PROVIDER, MAPBOX_API_KEY, validateMapConfig } from "@/lib/mapConfig"
 
+// Test Apple MapKit token endpoint
+async function testAppleMapKit(request: NextRequest): Promise<any> {
+  try {
+    const tokenUrl = `${request.nextUrl.origin}/api/mapkit-token`
+    const tokenResponse = await fetch(tokenUrl)
+    
+    if (tokenResponse.ok) {
+      const tokenData = await tokenResponse.json()
+      return {
+        status: "OK",
+        has_token: !!tokenData.token,
+        expires_at: tokenData.expiresAt || null
+      }
+    } else {
+      const errorText = await tokenResponse.text().catch(() => 'Unknown error')
+      return {
+        status: "ERROR",
+        http_status: tokenResponse.status,
+        error: errorText.substring(0, 200)
+      }
+    }
+  } catch (error) {
+    return {
+      status: "ERROR",
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
 /**
  * Diagnostics API Route
  * Tests all API connections and environment variables
@@ -15,12 +44,15 @@ export async function GET(request: NextRequest) {
     apis: {}
   }
 
-  // Check environment variables (Mapbox only)
+  // Check environment variables (provider-aware)
   const rawMapbox = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
   
   diagnostics.environment = {
     NEXT_PUBLIC_MAP_PROVIDER: MAP_PROVIDER,
     NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
+    APPLE_MAPKIT_TEAM_ID: !!process.env.APPLE_MAPKIT_TEAM_ID,
+    APPLE_MAPKIT_KEY_ID: !!process.env.APPLE_MAPKIT_KEY_ID,
+    APPLE_MAPKIT_PRIVATE_KEY_BASE64: !!process.env.APPLE_MAPKIT_PRIVATE_KEY_BASE64,
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
   }
@@ -28,7 +60,8 @@ export async function GET(request: NextRequest) {
   // Add debug info at top level (not in environment to avoid React rendering issues)
   diagnostics.key_debug = {
     mapbox_key_length: rawMapbox.length,
-    mapbox_key_preview: rawMapbox.length > 8 ? `${rawMapbox.substring(0, 4)}...${rawMapbox.substring(rawMapbox.length - 4)}` : "empty"
+    mapbox_key_preview: rawMapbox.length > 8 ? `${rawMapbox.substring(0, 4)}...${rawMapbox.substring(rawMapbox.length - 4)}` : "empty",
+    apple_mapkit_configured: MAP_PROVIDER === "apple" && !!process.env.APPLE_MAPKIT_TEAM_ID && !!process.env.APPLE_MAPKIT_KEY_ID && !!process.env.APPLE_MAPKIT_PRIVATE_KEY_BASE64
   }
 
   // Get test coordinates from query params or use defaults (Cape Town)
@@ -44,8 +77,9 @@ export async function GET(request: NextRequest) {
     lng: parseFloat(testLng)
   }
 
-  // Test Mapbox Maps API (always used now, TomTom has been removed)
-  try {
+  // Test Mapbox Maps API (if provider is mapbox)
+  if (MAP_PROVIDER === "mapbox") {
+    try {
     const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
     
     if (!mapboxKey) {
@@ -135,12 +169,18 @@ export async function GET(request: NextRequest) {
           error: error instanceof Error ? error.message : String(error)
         }
       }
+    } catch (error) {
+      diagnostics.apis.mapbox = {
+        status: "ERROR",
+        error: error instanceof Error ? error.message : String(error)
+      }
     }
-  } catch (error) {
-    diagnostics.apis.mapbox = {
-      status: "ERROR",
-      error: error instanceof Error ? error.message : String(error)
-    }
+  }
+
+  // Test Apple MapKit if provider is apple
+  if (MAP_PROVIDER === "apple") {
+    diagnostics.apis.apple_mapkit = await testAppleMapKit(request)
+    console.log('🍎 Apple MapKit diagnostics:', diagnostics.apis.apple_mapkit)
   }
 
   // Test Wikimedia API (replaces Unsplash)
@@ -246,27 +286,46 @@ export async function GET(request: NextRequest) {
   }
 
 
-  // Overall status - Check critical APIs (Mapbox only)
+  // Overall status - Check critical APIs (provider-aware)
   const allChecks: boolean[] = []
   
-  // Check Mapbox API (required)
-  allChecks.push(!!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY)
-  allChecks.push(diagnostics.apis.mapbox?.status === "OK")
+  if (MAP_PROVIDER === "mapbox") {
+    // Check Mapbox API (required for mapbox provider)
+    allChecks.push(!!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY)
+    allChecks.push(diagnostics.apis.mapbox?.status === "OK")
+  } else if (MAP_PROVIDER === "apple") {
+    // Check Apple MapKit (required for apple provider)
+    allChecks.push(!!diagnostics.environment.APPLE_MAPKIT_TEAM_ID)
+    allChecks.push(!!diagnostics.environment.APPLE_MAPKIT_KEY_ID)
+    allChecks.push(!!diagnostics.environment.APPLE_MAPKIT_PRIVATE_KEY_BASE64)
+    allChecks.push(diagnostics.apis.apple_mapkit?.status === "OK")
+  }
   
   diagnostics.overall_status = allChecks.every(check => check) ? "OK" : "ISSUES_FOUND"
   
   // Build issues summary arrays
   const missingEnvVars: string[] = []
-  if (!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
+  if (MAP_PROVIDER === "mapbox" && !diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
     missingEnvVars.push("Mapbox API Key")
+  }
+  if (MAP_PROVIDER === "apple") {
+    if (!diagnostics.environment.APPLE_MAPKIT_TEAM_ID) missingEnvVars.push("Apple MapKit Team ID")
+    if (!diagnostics.environment.APPLE_MAPKIT_KEY_ID) missingEnvVars.push("Apple MapKit Key ID")
+    if (!diagnostics.environment.APPLE_MAPKIT_PRIVATE_KEY_BASE64) missingEnvVars.push("Apple MapKit Private Key")
   }
   
   const failingApis: string[] = []
-  if (diagnostics.apis.mapbox?.status !== "OK") {
-    failingApis.push("Mapbox Geocoding")
-  }
-  if (diagnostics.apis.mapbox_static_image?.status && diagnostics.apis.mapbox_static_image?.status !== "OK") {
-    failingApis.push("Mapbox Static Image")
+  if (MAP_PROVIDER === "mapbox") {
+    if (diagnostics.apis.mapbox?.status !== "OK") {
+      failingApis.push("Mapbox Geocoding")
+    }
+    if (diagnostics.apis.mapbox_static_image?.status && diagnostics.apis.mapbox_static_image?.status !== "OK") {
+      failingApis.push("Mapbox Static Image")
+    }
+  } else if (MAP_PROVIDER === "apple") {
+    if (diagnostics.apis.apple_mapkit?.status !== "OK") {
+      failingApis.push("Apple MapKit Token")
+    }
   }
   
   diagnostics.issues_summary = {
