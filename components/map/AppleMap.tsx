@@ -170,6 +170,8 @@ export default function AppleMap({
             setIsDragging(true)
             // Store the current region as the original (lock map position)
             originalRegion = map.region
+            // Disable scrolling immediately
+            map.isScrollEnabled = false
             // Start continuously resetting map region to prevent panning
             regionResetInterval = setInterval(() => {
               if (isDraggingMarkerRef.current && map) {
@@ -310,12 +312,25 @@ export default function AppleMap({
         width: '100%',
         height: '100%',
         // Allow touch events for MapKit marker dragging
-        // Map scrolling disabled via isScrollEnabled: false
         touchAction: 'auto', // Allow MapKit to handle all touch events
         WebkitTouchCallout: 'none', // Prevent iOS callout menu
         WebkitUserSelect: 'none', // Prevent text selection
         userSelect: 'none',
         ...style
+      }}
+      onTouchStart={(e) => {
+        // If we have a draggable marker, disable map scrolling immediately on touch
+        // This prevents map from panning before drag-start fires
+        if (draggableMarker && mapInstanceRef.current) {
+          mapInstanceRef.current.isScrollEnabled = false
+          console.log('👆 Touch detected - disabled map scrolling preemptively')
+        }
+      }}
+      onTouchEnd={(e) => {
+        // Re-enable scrolling after touch ends (for next drag attempt)
+        if (draggableMarker && mapInstanceRef.current && !isDraggingMarkerRef.current) {
+          mapInstanceRef.current.isScrollEnabled = true
+        }
       }}
     />
   )
