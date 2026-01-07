@@ -168,6 +168,9 @@ export default function AppleMap({
             glyphText: '📍' // Pin emoji
           })
 
+          // Don't prevent map clicks when dragging is enabled - allow both map clicks and drag
+          // MapKit will handle the distinction between clicking map vs clicking marker
+
 
 
           // Track dragging state
