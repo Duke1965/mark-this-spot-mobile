@@ -190,7 +190,7 @@ function InteractiveMapEditor({
     console.log('📍 Pin drag started')
   }, [pinPosition])
 
-  // Handle pin drag move
+  // Handle pin drag move with dampening for finer control
   const handlePinDragMove = useCallback((e: TouchEvent | MouseEvent) => {
     if (!isDraggingPin) return
     
@@ -203,9 +203,13 @@ function InteractiveMapEditor({
     const deltaX = clientX - dragStartRef.current.x
     const deltaY = clientY - dragStartRef.current.y
     
+    // Apply dampening factor (0.7 = 70% of finger movement) for finer control
+    // This makes it easier to place the pin precisely
+    const dampeningFactor = 0.7
+    
     setPinPosition({
-      x: dragStartRef.current.pinX + deltaX,
-      y: dragStartRef.current.pinY + deltaY
+      x: dragStartRef.current.pinX + (deltaX * dampeningFactor),
+      y: dragStartRef.current.pinY + (deltaY * dampeningFactor)
     })
   }, [isDraggingPin])
 
@@ -276,7 +280,7 @@ function InteractiveMapEditor({
       {/* Apple MapKit - fully interactive with POIs */}
       <AppleMap 
         center={{ lat: initialLat, lng: initialLng }}
-        zoom={18}
+        zoom={16}
         interactive={true}
         onMapReady={handleMapReady}
         style={{ width: '100%', height: '100%' }}
