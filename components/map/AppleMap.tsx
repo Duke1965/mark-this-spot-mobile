@@ -30,6 +30,8 @@ export interface AppleMapProps {
   }>
   onMapClick?: (coords: { lat: number; lng: number }) => void
   onPinClick?: (pinId: string) => void
+  // Callback when map is ready (for custom overlay implementations)
+  onMapReady?: (map: any) => void
 }
 
 export default function AppleMap({
@@ -41,7 +43,8 @@ export default function AppleMap({
   draggableMarker,
   pins = [],
   onMapClick,
-  onPinClick
+  onPinClick,
+  onMapReady
 }: AppleMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -110,6 +113,11 @@ export default function AppleMap({
           center: { lat: center.lat, lng: center.lng },
           zoom
         })
+
+        // Notify parent that map is ready
+        if (onMapReady) {
+          onMapReady(map)
+        }
 
         // Handle map clicks
         if (onMapClick) {
