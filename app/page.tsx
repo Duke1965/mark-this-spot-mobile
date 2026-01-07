@@ -273,13 +273,28 @@ function InteractiveMapEditor({
         overflow: "hidden"
       }}
     >
-      {/* Apple MapKit - fully interactive */}
+      {/* Apple MapKit - fully interactive with POIs */}
       <AppleMap 
         center={{ lat: initialLat, lng: initialLng }}
         zoom={18}
         interactive={true}
         onMapReady={handleMapReady}
         style={{ width: '100%', height: '100%' }}
+        pointOfInterestFilter={[
+          'Restaurant',
+          'Cafe',
+          'Bakery',
+          'FoodMarket',
+          'Store',
+          'Museum',
+          'Landmark',
+          'Park',
+          'Hotel',
+          'Brewery',
+          'Winery',
+          'NightlifeSpot'
+        ]}
+        mapType="standard"
       />
       
       {/* Custom Draggable Pin Overlay */}
@@ -376,6 +391,24 @@ function InteractiveMainMapApple({
       center={{ lat, lng }}
       zoom={13}
       interactive={true}
+      pointOfInterestFilter={[
+        'Restaurant',
+        'Cafe',
+        'Bakery',
+        'FoodMarket',
+        'Store',
+        'Museum',
+        'Landmark',
+        'Park',
+        'Hotel',
+        'Brewery',
+        'Winery',
+        'NightlifeSpot',
+        'GasStation',
+        'ATM',
+        'Pharmacy'
+      ]}
+      mapType="standard"
     />
   )
 }
