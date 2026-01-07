@@ -148,11 +148,8 @@ function InteractiveMapEditor({
         userSelect: "none" // Prevent text selection during drag
       }}
     >
-      {MAP_PROVIDER === "apple" ? (
-        <AppleMap {...mapProps} />
-      ) : (
-        <MapboxMap {...mapProps} />
-      )}
+      {/* Always use Mapbox for edit mode - it handles draggable markers correctly */}
+      <MapboxMap {...mapProps} />
     </div>
   )
 }
