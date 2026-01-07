@@ -89,14 +89,13 @@ export default function AppleMap({
         const region = new window.mapkit.CoordinateRegion(coordinate, span)
 
         // Create map
-        // If draggable marker exists, disable map scrolling to prevent conflicts with marker dragging
-        // If no draggable marker, use interactive setting
-        const shouldDisableScrolling = !!draggableMarker
+        // Allow scrolling initially - we'll disable it when marker drag starts
+        // This allows MapKit to properly detect drag gestures on the marker
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: shouldDisableScrolling ? false : interactive, // Disable zoom when marker is draggable
-          isScrollEnabled: shouldDisableScrolling ? false : interactive, // Disable scroll when marker is draggable
+          isZoomEnabled: interactive, // Allow zoom (but will disable during drag)
+          isScrollEnabled: interactive, // Allow scroll (but will disable during drag)
           isRotationEnabled: false
         })
 
@@ -132,22 +131,23 @@ export default function AppleMap({
             title: 'Drag me'
           })
 
-          // Track dragging state - MapKit handles the drag, we just need to ensure map doesn't pan
+          // Track dragging state - disable map scrolling only when drag starts
+          // This allows MapKit to detect the drag gesture properly
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            // Ensure map scrolling is disabled (already disabled, but double-check)
+            // Disable map scrolling NOW - when drag starts
+            // This prevents map from panning while dragging marker
             if (map) {
               map.isScrollEnabled = false
               map.isZoomEnabled = false
             }
-            console.log('📍 Marker drag started')
+            console.log('📍 Marker drag started - map scrolling disabled')
           })
 
           annotation.addEventListener('drag', (e: any) => {
-            // Marker is being dragged - MapKit handles this internally
+            // Marker is being dragged - keep map scrolling disabled
             isDraggingMarkerRef.current = true
-            // Keep map scrolling disabled during drag
             if (map) {
               map.isScrollEnabled = false
             }
@@ -156,7 +156,8 @@ export default function AppleMap({
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
             setIsDragging(false)
-            // Keep map scrolling disabled after drag (we're in edit mode)
+            // Keep map scrolling disabled after drag ends (we're in edit mode)
+            // User can drag again without the map interfering
             if (map) {
               map.isScrollEnabled = false
               map.isZoomEnabled = false
