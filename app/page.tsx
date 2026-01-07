@@ -287,12 +287,10 @@ function InteractiveMapEditor({
           'FoodMarket',
           'Store',
           'Museum',
-          'Landmark',
           'Park',
           'Hotel',
           'Brewery',
-          'Winery',
-          'NightlifeSpot'
+          'Winery'
         ]}
         mapType="standard"
       />
@@ -398,12 +396,10 @@ function InteractiveMainMapApple({
         'FoodMarket',
         'Store',
         'Museum',
-        'Landmark',
         'Park',
         'Hotel',
         'Brewery',
         'Winery',
-        'NightlifeSpot',
         'GasStation',
         'ATM',
         'Pharmacy'
