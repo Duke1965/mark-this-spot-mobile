@@ -1877,129 +1877,174 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📍 Fetching location data using Mapbox APIs only...")
+      console.log("📍 Fetching location data using Apple MapKit JS Search API...")
       
-      // STEP 1: Fetch nearby POIs via Mapbox Search API FIRST (better place data with names)
+      // STEP 1: Try MapKit JS Search API first (if available)
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
+      let imageUrl: string | undefined = undefined
       let placeData: any = null
       
-      // STEP 1: Get location name and address via reverse geocoding
-      // Mapbox reverse geocoding works best with address,place types (not poi)
-      try {
-        console.log("📍 Step 1: Fetching location name via Mapbox Geocoding API...")
-        // Use address and place types for reverse geocoding (this works reliably)
-        const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place`, { signal })
-        
-        if (geocodingResponse.ok) {
-          const geocodingData = await geocodingResponse.json()
-          const places = geocodingData.places || []
-          console.log(`📍 Mapbox Geocoding returned ${places.length} places`)
+      // Check if MapKit is loaded and try to use it
+      if (typeof window !== 'undefined' && window.mapkit && window.mapkit.Search) {
+        try {
+          console.log("📍 Step 1: Searching for places using MapKit JS Search API...")
           
-          if (places.length > 0) {
-            // Find the best result: prefer address (has street name), then place (city/town)
-            const addressResult = places.find((p: any) => p.place_type === 'address' || p.context?.street)
-            const placeResult = places.find((p: any) => p.place_type === 'place' || p.context?.city)
-            const bestPlace = addressResult || placeResult || places[0]
+          // Load MapKit if not already loaded
+          const { loadMapkit } = await import('@/lib/mapkit/loadMapkit')
+          await loadMapkit()
+          
+          if (window.mapkit && window.mapkit.Search) {
+            // Create coordinate
+            const coordinate = new window.mapkit.Coordinate(lat, lng)
             
-            if (bestPlace) {
-              placeData = bestPlace
-              
-              // Extract name: prefer short name (text) over full address (place_name)
-              // For addresses, use street name; for places, use place name
-              if (bestPlace.place_type === 'address' && bestPlace.context?.street) {
-                placeName = bestPlace.context.street
-              } else if (bestPlace.name) {
-                placeName = bestPlace.name
-              } else if (bestPlace.place_name) {
-                // Extract first part of place_name (before first comma)
-                placeName = bestPlace.place_name.split(',')[0].trim()
-              } else {
-                placeName = "Location"
-              }
-              
-              // Build description from geocoding data
-              if (!placeDescription) {
-                const city = bestPlace.context?.city || bestPlace.context?.neighborhood
-                const street = bestPlace.context?.street || bestPlace.address
-                
-                if (city && street) {
-                  placeDescription = `${street}, ${city}`
-                } else if (city) {
-                  placeDescription = `Located in ${city}`
-                } else if (street) {
-                  placeDescription = `Located at ${street}`
-                } else if (bestPlace.place_name) {
-                  // Use full address as description if available
-                  placeDescription = bestPlace.place_name
+            // Create search region (100m radius)
+            const region = new window.mapkit.CoordinateRegion(
+              coordinate,
+              new window.mapkit.CoordinateSpan(0.001, 0.001) // ~100m radius
+            )
+            
+            // Create search
+            const search = new window.mapkit.Search({
+              region: region,
+              language: 'en'
+            })
+            
+            // Search for nearby places
+            await new Promise<void>((resolve, reject) => {
+              search.search('', (error: any, data: any) => {
+                if (error) {
+                  console.warn("⚠️ MapKit Search error:", error)
+                  resolve()
+                  return
                 }
-              }
-              
-              console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
-                placeType: bestPlace.place_type,
-                hasDescription: !!placeDescription,
-                description: placeDescription?.substring(0, 50)
+                
+                if (data && data.places && data.places.length > 0) {
+                  const place = data.places[0]
+                  placeData = place
+                  
+                  // Extract place name
+                  placeName = place.name || place.title || 'Location'
+                  
+                  // Extract description (subtitle or address)
+                  placeDescription = place.subtitle || place.address || undefined
+                  
+                  // Try to get image from place annotation
+                  if (place.photo) {
+                    imageUrl = typeof place.photo === 'string' ? place.photo : place.photo.url
+                  }
+                  
+                  console.log(`✅ MapKit Search found place: ${placeName}`, {
+                    hasDescription: !!placeDescription,
+                    hasImage: !!imageUrl
+                  })
+                }
+                
+                resolve()
               })
-            }
+            })
           }
-        } else {
-          console.warn("⚠️ Mapbox Geocoding API failed")
+        } catch (mapkitError: any) {
+          if (mapkitError.name === 'AbortError') {
+            throw mapkitError
+          }
+          console.warn("⚠️ MapKit Search failed, falling back to Mapbox:", mapkitError.message)
         }
-      } catch (geocodingError: any) {
-        if (geocodingError.name === 'AbortError') {
-          console.log("📍 Geocoding request was aborted")
-          throw geocodingError
-        }
-        console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
       }
       
-      // STEP 3: Resolve image using image resolver (Wikimedia → Paid → Placeholder)
-      console.log("📸 Step 3: Resolving image via image resolver...")
-      
-      // Generate a placeId for caching (use coordinates rounded to ~100m precision)
-      const placeId = `place:${lat.toFixed(4)},${lng.toFixed(4)}`
-      
-      // Resolve image using the unified image resolver
-      let imageUrl = "/pinit-placeholder.jpg"
-      let imageSource = "placeholder"
-      
-      try {
-        console.log(`🖼️ Calling image resolver with:`, {
-          placeId,
-          name: placeName,
-          lat,
-          lng,
-          address: placeData?.address || placeData?.place_name
-        })
-        
-        const imageResult = await resolvePlaceImage({
-          placeId,
-          name: placeName, // Pass the actual name, let resolver decide if it's valid
-          lat,
-          lng,
-          address: placeData?.address || placeData?.place_name
-        })
-        
-        console.log(`🖼️ Image resolver result:`, {
-          hasImageUrl: !!imageResult.imageUrl,
-          source: imageResult.source,
-          imageUrl: imageResult.imageUrl?.substring(0, 60)
-        })
-        
-        if (imageResult.imageUrl) {
-          imageUrl = imageResult.imageUrl
-          imageSource = imageResult.source
-          console.log(`✅ Image resolved: ${imageSource} - ${imageUrl.substring(0, 60)}...`)
-        } else {
-          console.log(`⚠️ Image resolver returned no imageUrl, using placeholder`)
+      // STEP 2: Fallback to Mapbox if MapKit didn't find anything
+      if (!placeData || placeName === "Location") {
+        try {
+          console.log("📍 Step 2: Fetching location name via Mapbox Geocoding API (fallback)...")
+          const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place`, { signal })
+          
+          if (geocodingResponse.ok) {
+            const geocodingData = await geocodingResponse.json()
+            const places = geocodingData.places || []
+            console.log(`📍 Mapbox Geocoding returned ${places.length} places`)
+            
+            if (places.length > 0) {
+              const addressResult = places.find((p: any) => p.place_type === 'address' || p.context?.street)
+              const placeResult = places.find((p: any) => p.place_type === 'place' || p.context?.city)
+              const bestPlace = addressResult || placeResult || places[0]
+              
+              if (bestPlace) {
+                placeData = bestPlace
+                
+                if (!placeName || placeName === "Location") {
+                  if (bestPlace.place_type === 'address' && bestPlace.context?.street) {
+                    placeName = bestPlace.context.street
+                  } else if (bestPlace.name) {
+                    placeName = bestPlace.name
+                  } else if (bestPlace.place_name) {
+                    placeName = bestPlace.place_name.split(',')[0].trim()
+                  }
+                }
+                
+                if (!placeDescription) {
+                  const city = bestPlace.context?.city || bestPlace.context?.neighborhood
+                  const street = bestPlace.context?.street || bestPlace.address
+                  
+                  if (city && street) {
+                    placeDescription = `${street}, ${city}`
+                  } else if (city) {
+                    placeDescription = `Located in ${city}`
+                  } else if (street) {
+                    placeDescription = `Located at ${street}`
+                  } else if (bestPlace.place_name) {
+                    placeDescription = bestPlace.place_name
+                  }
+                }
+                
+                console.log(`✅ Using Mapbox Geocoding data: ${placeName}`, { 
+                  placeType: bestPlace.place_type,
+                  hasDescription: !!placeDescription
+                })
+              }
+            }
+          }
+        } catch (geocodingError: any) {
+          if (geocodingError.name === 'AbortError') {
+            throw geocodingError
+          }
+          console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
         }
-      } catch (imageError) {
-        console.error("❌ Image resolver error:", imageError)
-        if (imageError instanceof Error) {
-          console.error("❌ Error message:", imageError.message)
-          console.error("❌ Error stack:", imageError.stack?.substring(0, 300))
+      }
+      
+      // STEP 3: Resolve image - use MapKit image if available, otherwise try image resolver
+      console.log("📸 Step 3: Resolving image...")
+      
+      let finalImageUrl = imageUrl || "/pinit-placeholder.jpg"
+      let imageSource = imageUrl ? "mapkit" : "placeholder"
+      
+      // If MapKit didn't provide an image, try image resolver
+      if (!imageUrl && placeName && placeName !== "Location") {
+        const placeId = `place:${lat.toFixed(4)},${lng.toFixed(4)}`
+        
+        try {
+          console.log(`🖼️ MapKit didn't provide image, trying image resolver...`, {
+            placeId,
+            name: placeName
+          })
+          
+          const imageResult = await resolvePlaceImage({
+            placeId,
+            name: placeName,
+            lat,
+            lng,
+            address: placeData?.address || placeData?.place_name
+          })
+          
+          if (imageResult.imageUrl) {
+            finalImageUrl = imageResult.imageUrl
+            imageSource = imageResult.source
+            console.log(`✅ Image resolved: ${imageSource} - ${finalImageUrl.substring(0, 60)}...`)
+          }
+        } catch (imageError) {
+          console.warn("⚠️ Image resolver error:", imageError)
         }
-        // Continue with placeholder
+      } else if (imageUrl) {
+        console.log(`✅ Using MapKit provided image: ${finalImageUrl.substring(0, 60)}...`)
       }
       
       // STEP 4: Return place data with resolved image
@@ -2012,12 +2057,12 @@ export default function PINITApp() {
         hasDescription: !!finalDescription,
         description: finalDescription?.substring(0, 50),
         imageSource,
-        imageUrl: imageUrl.substring(0, 60)
+        imageUrl: finalImageUrl.substring(0, 60)
       })
       
       if (placeName && placeName !== "Location") {
         const result = [{
-          url: imageUrl,
+          url: finalImageUrl,
           placeName: placeName,
           description: finalDescription,
           imageSource // For debugging in dev mode
@@ -2027,9 +2072,9 @@ export default function PINITApp() {
       }
       
       // STEP 5: Ultimate fallback - no place data available
-      console.log("⚠️ No Mapbox place data available - using placeholder")
+      console.log("⚠️ No place data available - using placeholder")
       const finalFallback = [{
-        url: imageUrl,
+        url: finalImageUrl,
         placeName: "Location",
         imageSource
       }]
