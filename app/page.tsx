@@ -30,11 +30,7 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
-import MapboxMap from "@/components/map/MapboxMap"
 import AppleMap from "@/components/map/AppleMap"
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
-import { MAPBOX_API_KEY, MAP_PROVIDER } from '@/lib/mapConfig'
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 
 
@@ -380,11 +376,8 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
-  // Provider-aware: use Apple or Mapbox based on NEXT_PUBLIC_MAP_PROVIDER
-  if (MAP_PROVIDER === "apple") {
-    return <InteractiveMainMapApple lat={lat} lng={lng} />
-  }
-  return <InteractiveMainMapMapbox lat={lat} lng={lng} />
+  // Always use Apple MapKit
+  return <InteractiveMainMapApple lat={lat} lng={lng} />
 }
 
 // Apple Maps version of InteractiveMainMap
@@ -421,160 +414,7 @@ function InteractiveMainMapApple({
 }
 
 // Mapbox version of InteractiveMainMap
-function InteractiveMainMapMapbox({ 
-  lat, 
-  lng 
-}: { 
-  lat: number
-  lng: number
-}) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const carMarkerRef = useRef<any>(null)
-  const lastLatRef = useRef<number | null>(null)
-  const lastLngRef = useRef<number | null>(null)
-  const isInitializedRef = useRef<boolean>(false)
-
-  // Helper function to calculate bearing (direction) between two points
-  const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const dLng = (lng2 - lng1) * Math.PI / 180
-    const lat1Rad = lat1 * Math.PI / 180
-    const lat2Rad = lat2 * Math.PI / 180
-    
-    const y = Math.sin(dLng) * Math.cos(lat2Rad)
-    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng)
-    
-    const bearing = Math.atan2(y, x) * 180 / Math.PI
-    return (bearing + 360) % 360 // Normalize to 0-360
-  }
-
-  // Initialize Mapbox map only once on mount
-  useEffect(() => {
-    if (!mapRef.current || isInitializedRef.current) return
-
-    if (!MAPBOX_API_KEY) {
-      console.error('❌ Mapbox API key is missing')
-      return
-    }
-
-    // Set Mapbox access token
-    mapboxgl.accessToken = MAPBOX_API_KEY
-
-    console.log('🔧 Initializing Mapbox main map...', {
-      hasContainer: !!mapRef.current,
-      apiKey: MAPBOX_API_KEY ? 'present' : 'missing',
-      center: [lng, lat]
-    })
-
-    try {
-      // Initialize Mapbox map
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [lng, lat], // Mapbox uses [lng, lat]
-        zoom: 16,
-        interactive: false // Disable interaction for the circle map
-      })
-
-      mapInstanceRef.current = map
-      isInitializedRef.current = true
-      lastLatRef.current = lat
-      lastLngRef.current = lng
-
-      // Wait for map to load, then add car marker
-      map.on('load', () => {
-        console.log('🗺️ Mapbox main map loaded')
-        
-        // Create car icon marker for user position
-        const carEl = document.createElement('div')
-        carEl.style.width = '32px'
-        carEl.style.height = '32px'
-        carEl.style.fontSize = '24px'
-        carEl.style.display = 'flex'
-        carEl.style.alignItems = 'center'
-        carEl.style.justifyContent = 'center'
-        carEl.style.transition = 'transform 0.3s ease'
-        carEl.textContent = '🚗'
-        
-        const carMarker = new mapboxgl.Marker({
-          element: carEl
-        })
-          .setLngLat([lng, lat])
-          .addTo(map)
-        
-        carMarkerRef.current = carMarker
-      })
-
-      map.on('error', (e) => {
-        console.error('❌ Mapbox map error:', e)
-      })
-    } catch (error) {
-      console.error('❌ Failed to initialize Mapbox map:', error)
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (mapInstanceRef.current) {
-        if (carMarkerRef.current) {
-          carMarkerRef.current.remove()
-          carMarkerRef.current = null
-        }
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-        isInitializedRef.current = false
-      }
-    }
-  }, []) // Only run once on mount
-
-  // Update map center when location changes significantly
-  useEffect(() => {
-    if (!mapInstanceRef.current || !isInitializedRef.current) return
-
-    const hasChangedSignificantly = 
-      lastLatRef.current === null || 
-      lastLngRef.current === null ||
-      Math.abs(lat - lastLatRef.current) > 0.0005 || // ~50 meters
-      Math.abs(lng - lastLngRef.current) > 0.0005
-
-    if (hasChangedSignificantly) {
-      // Update map center
-      mapInstanceRef.current.setCenter([lng, lat])
-      
-      // Calculate bearing for car icon rotation
-      let carBearing = 0
-      if (lastLatRef.current !== null && lastLngRef.current !== null) {
-        carBearing = calculateBearing(lastLatRef.current, lastLngRef.current, lat, lng)
-      }
-      
-      // Update car marker position and rotation
-      if (carMarkerRef.current) {
-        carMarkerRef.current.setLngLat([lng, lat])
-        const carEl = carMarkerRef.current.getElement()
-        if (carEl) {
-          carEl.style.transform = `rotate(${carBearing}deg)`
-        }
-      }
-
-      lastLatRef.current = lat
-      lastLngRef.current = lng
-    }
-  }, [lat, lng])
-
-  return (
-    <div
-      ref={mapRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        borderRadius: "50%",
-        overflow: "hidden"
-      }}
-    />
-  )
-}
+// Mapbox version removed - using Apple MapKit only
 
 export default function PINITApp() {
 
@@ -2276,15 +2116,43 @@ export default function PINITApp() {
     setCurrentScreen("recommendations")
   }
 
-  // Handler for when pin location is updated (dragged)
-  const handlePinLocationUpdate = useCallback((lat: number, lng: number) => {
+  // Centralized handler for pin dropped/dragged - calls pin-intel immediately
+  const handlePinDropped = useCallback(async (lat: number, lng: number) => {
+    console.log('[PIN DROP]', { lat, lng })
+    
     if (editingPin) {
+      // Update location state immediately
       setEditingPinLocation({ lat, lng })
       console.log("📍 Pin location updated:", { lat, lng })
-      // DON'T update originalPinLocation here - keep it as the original pin's location
-      // so we can detect if the pin was moved when "Done" is clicked
+      
+      // Fetch pin-intel data immediately (don't wait for Done button)
+      try {
+        console.log('[PIN INTEL] Fetching data for dropped pin...')
+        const res = await fetch('/api/pinit/pin-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, precision: 5 })
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          console.log('[PIN INTEL] Response:', data)
+          
+          // Update pin with new intel data (title, description, etc.)
+          // This will be used when "Done" is clicked
+          // Store it temporarily or update the pin preview
+          // For now, we'll just log it - the full update happens on "Done"
+        } else {
+          console.warn('[PIN INTEL] Request failed:', res.status)
+        }
+      } catch (error) {
+        console.error('[PIN INTEL] Error:', error)
+      }
     }
   }, [editingPin])
+
+  // Handler for when pin location is updated (dragged) - legacy name, now uses handlePinDropped
+  const handlePinLocationUpdate = handlePinDropped
   
   // Handler for Done button - fetch new data and update pin
   const handlePinEditDone = useCallback(async (useSelectedPOI?: {name: string, distance_m: number, category?: string, id?: string}) => {
