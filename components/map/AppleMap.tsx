@@ -32,6 +32,12 @@ export interface AppleMapProps {
   onPinClick?: (pinId: string) => void
   // Callback when map is ready (for custom overlay implementations)
   onMapReady?: (map: any) => void
+  // Point of Interest filtering
+  // Options: "Restaurant", "Cafe", "Hotel", "Store", "Museum", "Park", "Bakery", "Brewery", "Winery", etc.
+  // Default: all POIs shown
+  pointOfInterestFilter?: string[] | 'all' | 'none'
+  // Map type: "standard" (default), "hybrid" (satellite with labels), "satellite"
+  mapType?: 'standard' | 'hybrid' | 'satellite'
 }
 
 export default function AppleMap({
@@ -44,7 +50,9 @@ export default function AppleMap({
   pins = [],
   onMapClick,
   onPinClick,
-  onMapReady
+  onMapReady,
+  pointOfInterestFilter = 'all',
+  mapType = 'standard'
 }: AppleMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -91,6 +99,17 @@ export default function AppleMap({
         )
         const region = new window.mapkit.CoordinateRegion(coordinate, span)
 
+        // Create POI filter
+        let poiFilter = null
+        if (pointOfInterestFilter === 'none') {
+          // Exclude all POIs
+          poiFilter = window.mapkit.PointOfInterestFilter.excludingAll()
+        } else if (Array.isArray(pointOfInterestFilter) && pointOfInterestFilter.length > 0) {
+          // Include specific POI categories
+          poiFilter = window.mapkit.PointOfInterestFilter.including(pointOfInterestFilter)
+        }
+        // If 'all' or undefined, show all POIs (default behavior)
+
         // Create map
         // When draggable marker exists, disable scrolling from the start
         // MapKit annotation drag should still work even with scrolling disabled
@@ -99,7 +118,11 @@ export default function AppleMap({
           showsUserLocation: false,
           isZoomEnabled: !!draggableMarker ? true : interactive, // Enable zoom for pinch gestures
           isScrollEnabled: !!draggableMarker ? false : interactive, // DISABLE scroll when marker is draggable
-          isRotationEnabled: false
+          isRotationEnabled: false,
+          mapType: mapType === 'hybrid' ? window.mapkit.Map.MapTypes.Hybrid : 
+                   mapType === 'satellite' ? window.mapkit.Map.MapTypes.Satellite :
+                   window.mapkit.Map.MapTypes.Standard,
+          pointOfInterestFilter: poiFilter
         })
 
         mapInstanceRef.current = map
