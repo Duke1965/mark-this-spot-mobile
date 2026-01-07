@@ -264,9 +264,9 @@ export default function AppleMap({
       style={{
         width: '100%',
         height: '100%',
-        // When draggable marker exists, prevent panning gestures at CSS level
-        // MapKit's annotation drag still works because it's handled internally
-        touchAction: draggableMarker ? 'none' : (interactive ? 'pan-x pan-y' : 'none'),
+        // Allow touch events so MapKit can handle marker dragging
+        // Map scrolling is disabled via isScrollEnabled: false in MapKit config
+        touchAction: 'manipulation', // Allows touch but prevents double-tap zoom, allows MapKit drag
         WebkitTouchCallout: 'none', // Prevent iOS callout menu
         WebkitUserSelect: 'none', // Prevent text selection
         userSelect: 'none',
