@@ -242,16 +242,26 @@ function InteractiveMapEditor({
   }, [isDraggingPin, handlePinDragMove, handlePinDragEnd])
 
   // Update pin position when map moves (region changes)
+  // When map pans, pin stays centered but coordinate updates to new map center
   useEffect(() => {
     if (!mapInstanceRef.current || !isMapReady) return
     
     const map = mapInstanceRef.current
     
     const handleRegionChange = () => {
-      // Keep pin centered after map pan/zoom (unless actively dragging)
+      // Keep pin visually centered after map pan/zoom (unless actively dragging)
       if (!isDraggingPin && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect()
         setPinPosition({ x: rect.width / 2, y: rect.height / 2 })
+        
+        // IMPORTANT: Update the coordinate to match the new map center
+        // When user pans the map, the pin is pointing at the new center location
+        const region = map.region
+        const center = region.center
+        console.log('🗺️ Map panned - pin now points at:', { lat: center.latitude, lng: center.longitude })
+        
+        // Notify parent of the new coordinate (pin follows map center when panning)
+        onLocationChange(center.latitude, center.longitude)
       }
     }
     
@@ -260,7 +270,7 @@ function InteractiveMapEditor({
     return () => {
       map.removeEventListener('region-change-end', handleRegionChange)
     }
-  }, [isMapReady, isDraggingPin])
+  }, [isMapReady, isDraggingPin, onLocationChange])
 
   return (
     <div 
@@ -1886,7 +1896,7 @@ export default function PINITApp() {
       let placeData: any = null
       
       // Check if MapKit is loaded and try to use it
-      if (typeof window !== 'undefined' && window.mapkit && window.mapkit.Search) {
+      if (typeof window !== 'undefined') {
         try {
           console.log("📍 Step 1: Searching for places using MapKit JS Search API...")
           
@@ -1894,55 +1904,82 @@ export default function PINITApp() {
           const { loadMapkit } = await import('@/lib/mapkit/loadMapkit')
           await loadMapkit()
           
+          // Wait a bit for MapKit to be fully initialized
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
           if (window.mapkit && window.mapkit.Search) {
+            // Make sure MapKit is initialized (it needs a token)
+            if (!window.mapkit.init) {
+              // Fetch token and initialize
+              const tokenResponse = await fetch('/api/mapkit-token')
+              if (tokenResponse.ok) {
+                const { token } = await tokenResponse.json()
+                window.mapkit.init({
+                  authorizationCallback: (done: (token: string) => void) => {
+                    done(token)
+                  }
+                })
+              }
+            }
+            
             // Create coordinate
             const coordinate = new window.mapkit.Coordinate(lat, lng)
             
-            // Create search region (100m radius)
-            const region = new window.mapkit.CoordinateRegion(
-              coordinate,
-              new window.mapkit.CoordinateSpan(0.001, 0.001) // ~100m radius
-            )
+            // Create search region (100m radius = ~0.001 degrees)
+            const span = new window.mapkit.CoordinateSpan(0.001, 0.001)
+            const region = new window.mapkit.CoordinateRegion(coordinate, span)
             
-            // Create search
+            // Create search with nearby query (empty string searches nearby POIs)
             const search = new window.mapkit.Search({
               region: region,
               language: 'en'
             })
             
             // Search for nearby places
-            await new Promise<void>((resolve, reject) => {
-              search.search('', (error: any, data: any) => {
-                if (error) {
-                  console.warn("⚠️ MapKit Search error:", error)
-                  resolve()
-                  return
-                }
-                
-                if (data && data.places && data.places.length > 0) {
-                  const place = data.places[0]
-                  placeData = place
-                  
-                  // Extract place name
-                  placeName = place.name || place.title || 'Location'
-                  
-                  // Extract description (subtitle or address)
-                  placeDescription = place.subtitle || place.address || undefined
-                  
-                  // Try to get image from place annotation
-                  if (place.photo) {
-                    imageUrl = typeof place.photo === 'string' ? place.photo : place.photo.url
+            await new Promise<void>((resolve) => {
+              try {
+                search.search('', (error: any, data: any) => {
+                  if (error) {
+                    console.warn("⚠️ MapKit Search error:", error)
+                    resolve()
+                    return
                   }
                   
-                  console.log(`✅ MapKit Search found place: ${placeName}`, {
-                    hasDescription: !!placeDescription,
-                    hasImage: !!imageUrl
-                  })
-                }
-                
+                  console.log("📍 MapKit Search response:", data)
+                  
+                  if (data && data.places && data.places.length > 0) {
+                    const place = data.places[0]
+                    placeData = place
+                    
+                    // Extract place name - MapKit places have different structure
+                    placeName = place.name || place.title || place.displayName || 'Location'
+                    
+                    // Extract description
+                    placeDescription = place.subtitle || place.addressLines?.[0] || place.address || undefined
+                    
+                    // Try to get image - MapKit places may have photo data
+                    if (place.photo) {
+                      imageUrl = typeof place.photo === 'string' ? place.photo : place.photo.url || place.photo.thumbnailURL
+                    }
+                    
+                    console.log(`✅ MapKit Search found place: ${placeName}`, {
+                      hasDescription: !!placeDescription,
+                      hasImage: !!imageUrl,
+                      placeData: place
+                    })
+                  } else {
+                    console.log("📍 MapKit Search found no places")
+                  }
+                  
+                  resolve()
+                })
+              } catch (err) {
+                console.warn("⚠️ MapKit Search exception:", err)
                 resolve()
-              })
+              }
             })
+          } else {
+            console.warn("⚠️ MapKit Search not available")
           }
         } catch (mapkitError: any) {
           if (mapkitError.name === 'AbortError') {
