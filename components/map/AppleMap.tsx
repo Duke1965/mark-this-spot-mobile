@@ -132,7 +132,35 @@ export default function AppleMap({
 
           const annotation = new window.mapkit.MarkerAnnotation(markerCoordinate, {
             draggable: true,
-            title: 'Drag me'
+            title: 'Drag me',
+            color: '#3B82F6', // Blue pin color
+            glyphText: '📍' // Pin emoji
+          })
+
+          // Listen to region changes and IMMEDIATELY cancel them during drag
+          map.addEventListener('region-change-start', () => {
+            if (isDraggingMarkerRef.current && map) {
+              // Cancel the region change immediately
+              map.region = originalRegion
+            }
+          })
+
+          // Also listen to region-change events during drag
+          map.addEventListener('region-change', () => {
+            if (isDraggingMarkerRef.current && map) {
+              // Reset region immediately if it changed
+              const currentRegion = map.region
+              const centerMoved = Math.abs(currentRegion.center.latitude - originalRegion.center.latitude) +
+                                  Math.abs(currentRegion.center.longitude - originalRegion.center.longitude)
+              if (centerMoved > 0.000001) {
+                // Reset center but keep zoom
+                const resetRegion = new window.mapkit.CoordinateRegion(
+                  originalRegion.center,
+                  currentRegion.span
+                )
+                map.region = resetRegion
+              }
+            }
           })
 
 
