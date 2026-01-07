@@ -112,7 +112,8 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Draggable Marker (Provider-aware)
+// Interactive Map Editor Component with Custom Draggable Pin Overlay
+// Uses Apple MapKit for the map (up-to-date) with a custom HTML pin that can be dragged
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -122,34 +123,227 @@ function InteractiveMapEditor({
   initialLng: number
   onLocationChange: (lat: number, lng: number) => void
 }) {
-  const mapProps = {
-    center: { lat: initialLat, lng: initialLng },
-    zoom: 18,
-    interactive: true,
-    draggableMarker: {
-      lat: initialLat,
-      lng: initialLng,
-      onDragEnd: (lat: number, lng: number) => {
-        console.log("📍 Marker dragged to:", { lat, lng })
-        onLocationChange(lat, lng)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const [pinPosition, setPinPosition] = useState({ x: 0, y: 0 })
+  const [isDraggingPin, setIsDraggingPin] = useState(false)
+  const [isMapReady, setIsMapReady] = useState(false)
+  const dragStartRef = useRef({ x: 0, y: 0, pinX: 0, pinY: 0 })
+
+  // Store the map instance when it's ready
+  const handleMapReady = useCallback((map: any) => {
+    mapInstanceRef.current = map
+    setIsMapReady(true)
+    // Center pin initially
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      setPinPosition({ x: rect.width / 2, y: rect.height / 2 })
+    }
+    console.log('🗺️ Map ready for pin editing')
+  }, [])
+
+  // Convert screen position to coordinates
+  const screenToCoordinates = useCallback((screenX: number, screenY: number) => {
+    if (!mapInstanceRef.current || !containerRef.current || !window.mapkit) return null
+    
+    const rect = containerRef.current.getBoundingClientRect()
+    const map = mapInstanceRef.current
+    
+    // Get the map's current visible region
+    const region = map.region
+    const center = region.center
+    const span = region.span
+    
+    // Calculate the offset from center in pixels
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+    const offsetX = screenX - centerX
+    const offsetY = screenY - centerY
+    
+    // Convert pixel offset to coordinate offset
+    // Note: Y is inverted (screen Y increases downward, latitude increases upward)
+    const lngPerPixel = span.longitudeDelta / rect.width
+    const latPerPixel = span.latitudeDelta / rect.height
+    
+    const newLng = center.longitude + (offsetX * lngPerPixel)
+    const newLat = center.latitude - (offsetY * latPerPixel)
+    
+    return { lat: newLat, lng: newLng }
+  }, [])
+
+  // Handle pin drag start
+  const handlePinDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    
+    dragStartRef.current = {
+      x: clientX,
+      y: clientY,
+      pinX: pinPosition.x,
+      pinY: pinPosition.y
+    }
+    
+    setIsDraggingPin(true)
+    console.log('📍 Pin drag started')
+  }, [pinPosition])
+
+  // Handle pin drag move
+  const handlePinDragMove = useCallback((e: TouchEvent | MouseEvent) => {
+    if (!isDraggingPin) return
+    
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    
+    const deltaX = clientX - dragStartRef.current.x
+    const deltaY = clientY - dragStartRef.current.y
+    
+    setPinPosition({
+      x: dragStartRef.current.pinX + deltaX,
+      y: dragStartRef.current.pinY + deltaY
+    })
+  }, [isDraggingPin])
+
+  // Handle pin drag end
+  const handlePinDragEnd = useCallback((e: TouchEvent | MouseEvent) => {
+    if (!isDraggingPin) return
+    
+    setIsDraggingPin(false)
+    
+    // Convert final pin position to coordinates
+    const coords = screenToCoordinates(pinPosition.x, pinPosition.y)
+    if (coords) {
+      console.log('📍 Pin dropped at:', coords)
+      onLocationChange(coords.lat, coords.lng)
+    }
+  }, [isDraggingPin, pinPosition, screenToCoordinates, onLocationChange])
+
+  // Add global event listeners for drag
+  useEffect(() => {
+    if (isDraggingPin) {
+      window.addEventListener('mousemove', handlePinDragMove)
+      window.addEventListener('mouseup', handlePinDragEnd)
+      window.addEventListener('touchmove', handlePinDragMove, { passive: false })
+      window.addEventListener('touchend', handlePinDragEnd)
+      
+      return () => {
+        window.removeEventListener('mousemove', handlePinDragMove)
+        window.removeEventListener('mouseup', handlePinDragEnd)
+        window.removeEventListener('touchmove', handlePinDragMove)
+        window.removeEventListener('touchend', handlePinDragEnd)
       }
     }
-  }
+  }, [isDraggingPin, handlePinDragMove, handlePinDragEnd])
+
+  // Update pin position when map moves (region changes)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isMapReady) return
+    
+    const map = mapInstanceRef.current
+    
+    const handleRegionChange = () => {
+      // Keep pin centered after map pan/zoom (unless actively dragging)
+      if (!isDraggingPin && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        setPinPosition({ x: rect.width / 2, y: rect.height / 2 })
+      }
+    }
+    
+    map.addEventListener('region-change-end', handleRegionChange)
+    
+    return () => {
+      map.removeEventListener('region-change-end', handleRegionChange)
+    }
+  }, [isMapReady, isDraggingPin])
 
   return (
     <div 
+      ref={containerRef}
       style={{
         width: "100%",
         height: "100%",
         position: "absolute",
         top: 0,
         left: 0,
-        touchAction: "pan-x pan-y", // Allow map panning but prevent page scrolling
-        userSelect: "none" // Prevent text selection during drag
+        overflow: "hidden"
       }}
     >
-      {/* Always use Mapbox for edit mode - it handles draggable markers correctly */}
-      <MapboxMap {...mapProps} />
+      {/* Apple MapKit - fully interactive */}
+      <AppleMap 
+        center={{ lat: initialLat, lng: initialLng }}
+        zoom={18}
+        interactive={true}
+        onMapReady={handleMapReady}
+        style={{ width: '100%', height: '100%' }}
+      />
+      
+      {/* Custom Draggable Pin Overlay */}
+      {isMapReady && (
+        <div
+          onMouseDown={handlePinDragStart}
+          onTouchStart={handlePinDragStart}
+          style={{
+            position: 'absolute',
+            left: pinPosition.x,
+            top: pinPosition.y,
+            transform: 'translate(-50%, -100%)', // Pin point at bottom center
+            cursor: isDraggingPin ? 'grabbing' : 'grab',
+            zIndex: 1000,
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            pointerEvents: 'auto'
+          }}
+        >
+          {/* Pin SVG - Blue pin matching the original design */}
+          <svg 
+            width="40" 
+            height="52" 
+            viewBox="0 0 40 52" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{
+              filter: isDraggingPin ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+              transition: 'filter 0.15s ease'
+            }}
+          >
+            {/* Pin body */}
+            <path 
+              d="M20 0C8.954 0 0 8.954 0 20C0 35 20 52 20 52C20 52 40 35 40 20C40 8.954 31.046 0 20 0Z" 
+              fill="#3B82F6"
+            />
+            {/* Inner circle */}
+            <circle cx="20" cy="20" r="8" fill="white"/>
+            {/* Center dot */}
+            <circle cx="20" cy="20" r="4" fill="#3B82F6"/>
+          </svg>
+          
+          {/* Drag hint text */}
+          {!isDraggingPin && (
+            <div style={{
+              position: 'absolute',
+              top: '-28px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(0,0,0,0.75)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none'
+            }}>
+              Drag to adjust
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
