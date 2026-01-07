@@ -31,6 +31,7 @@ import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelA
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import AppleMap from "@/components/map/AppleMap"
+import PinAdjustEditor from "@/components/map/PinAdjustEditor"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 
 
@@ -474,9 +475,13 @@ export default function PINITApp() {
   
   // Pin editing state
   const [editingPin, setEditingPin] = useState<PinData | null>(null)
-  const [editingPinLocation, setEditingPinLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [committedPinLocation, setCommittedPinLocation] = useState<{lat: number, lng: number} | null>(null) // Saved/committed location
+  const [pendingPinLocation, setPendingPinLocation] = useState<{lat: number, lng: number} | null>(null) // Draggable location in editor
   const [originalPinLocation, setOriginalPinLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isUpdatingPinLocation, setIsUpdatingPinLocation] = useState(false)
+  
+  // Legacy aliases for compatibility
+  const editingPinLocation = pendingPinLocation // Use pendingPinLocation as the current editing location
   // POI selection modal state
   const [showPOISelection, setShowPOISelection] = useState(false)
   const [poiCandidates, setPoiCandidates] = useState<Array<{name: string, distance_m: number, category?: string, id?: string}>>([])
@@ -524,6 +529,7 @@ export default function PINITApp() {
   // Request deduplication for pin editing
   const pinEditControllerRef = useRef<AbortController | null>(null)
   const isUpdatingPinRef = useRef(false)
+  const lastDoneLocationRef = useRef<{ key: string; timestamp: number } | null>(null) // Debounce guard for Done button
 
   // Add state to remember the last good location name
   const [lastGoodLocationName, setLastGoodLocationName] = useState<string>("")
@@ -2116,47 +2122,28 @@ export default function PINITApp() {
     setCurrentScreen("recommendations")
   }
 
-  // Centralized handler for pin dropped/dragged - calls pin-intel immediately
-  const handlePinDropped = useCallback(async (lat: number, lng: number) => {
-    console.log('[PIN DROP]', { lat, lng })
+  // Handler for pin drag end - update pendingPin only, do NOT call pin-intel
+  const handlePinDragEnd = useCallback((lat: number, lng: number) => {
+    console.log('[PIN DRAG END]', { lat, lng })
     
     if (editingPin) {
-      // Update location state immediately
-      setEditingPinLocation({ lat, lng })
-      console.log("📍 Pin location updated:", { lat, lng })
-      
-      // Fetch pin-intel data immediately (don't wait for Done button)
-      try {
-        console.log('[PIN INTEL] Fetching data for dropped pin...')
-        const res = await fetch('/api/pinit/pin-intel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng, precision: 5 })
-        })
-        
-        if (res.ok) {
-          const data = await res.json()
-          console.log('[PIN INTEL] Response:', data)
-          
-          // Update pin with new intel data (title, description, etc.)
-          // This will be used when "Done" is clicked
-          // Store it temporarily or update the pin preview
-          // For now, we'll just log it - the full update happens on "Done"
-        } else {
-          console.warn('[PIN INTEL] Request failed:', res.status)
-        }
-      } catch (error) {
-        console.error('[PIN INTEL] Error:', error)
-      }
+      // Update pendingPin location only - no API calls
+      setPendingPinLocation({ lat, lng })
+      console.log("📍 Pending pin location updated (not committed yet):", { lat, lng })
     }
   }, [editingPin])
 
-  // Handler for when pin location is updated (dragged) - legacy name, now uses handlePinDropped
-  const handlePinLocationUpdate = handlePinDropped
+  // Legacy alias for compatibility
+  const handlePinLocationUpdate = handlePinDragEnd
   
-  // Handler for Done button - fetch new data and update pin
+  // Handler for Done button - commit pendingPin, then fetch new data and update pin
   const handlePinEditDone = useCallback(async (useSelectedPOI?: {name: string, distance_m: number, category?: string, id?: string}) => {
-    if (!editingPin || !editingPinLocation || !originalPinLocation) return
+    if (!editingPin || !pendingPinLocation || !originalPinLocation) return
+    
+    // Commit pendingPin to committedPin
+    const committedLocation = { lat: pendingPinLocation.lat, lng: pendingPinLocation.lng }
+    setCommittedPinLocation(committedLocation)
+    console.log('[PIN COMMIT] Committed location:', committedLocation)
     
     // Request deduplication: Prevent multiple simultaneous calls
     if (isUpdatingPinRef.current || isUpdatingPinLocation) {
@@ -2167,15 +2154,28 @@ export default function PINITApp() {
     // Check if pin was moved (compare to the ORIGINAL pin's location, not the state)
     const originalLat = editingPin.latitude
     const originalLng = editingPin.longitude
-    const latDiff = Math.abs(editingPinLocation.lat - originalLat)
-    const lngDiff = Math.abs(editingPinLocation.lng - originalLng)
+    const latDiff = Math.abs(committedLocation.lat - originalLat)
+    const lngDiff = Math.abs(committedLocation.lng - originalLng)
     const moved = latDiff > 0.00005 || lngDiff > 0.00005 // ~5.5 meters - more sensitive threshold
     console.log("📍 Pin move check:", { 
       original: { lat: originalLat, lng: originalLng },
-      current: { lat: editingPinLocation.lat, lng: editingPinLocation.lng },
+      current: { lat: committedLocation.lat, lng: committedLocation.lng },
       diff: { lat: latDiff, lng: lngDiff },
       moved 
     })
+    
+    // Debounce/guard: Check if same location was just processed (within 15s)
+    const locationKey = `${committedLocation.lat.toFixed(6)},${committedLocation.lng.toFixed(6)}`
+    const lastProcessedKey = lastDoneLocationRef.current?.key
+    const lastProcessedTime = lastDoneLocationRef.current?.timestamp || 0
+    const timeSinceLastCall = Date.now() - lastProcessedTime
+    
+    if (locationKey === lastProcessedKey && timeSinceLastCall < 15000) {
+      console.log("⏸️ Done button pressed too soon for same location, skipping duplicate request")
+      setIsUpdatingPinLocation(false)
+      isUpdatingPinRef.current = false
+      return
+    }
     
     // Set flags to prevent duplicate requests
     setIsUpdatingPinLocation(true)
@@ -2188,116 +2188,167 @@ export default function PINITApp() {
     pinEditControllerRef.current = new AbortController()
     const signal = pinEditControllerRef.current.signal
     
+    // Store this location as last processed
+    lastDoneLocationRef.current = { key: locationKey, timestamp: Date.now() }
+    
     try {
-      // First, check for POI candidates if we haven't already shown the modal
-      if (!useSelectedPOI && !showPOISelection) {
-        try {
-          const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat: editingPinLocation.lat, lng: editingPinLocation.lng, precision: 5 })
-          })
-          if (pinIntelResponse.ok) {
-            const pinIntelData = await pinIntelResponse.json()
-            // If we have multiple POIs within 500m, show selection modal
-            const nearbyPOIs = (pinIntelData.places || []).filter((p: any) => p.distance_m && p.distance_m <= 500).slice(0, 5)
-            if (nearbyPOIs.length >= 2) {
-              setPoiCandidates(nearbyPOIs)
-              setSelectedPOI(pinIntelData.poi_metadata ? {
-                name: pinIntelData.poi_metadata.name,
-                distance_m: pinIntelData.poi_metadata.distance_m,
-                category: pinIntelData.poi_metadata.category,
-                id: pinIntelData.poi_metadata.id
-              } : nearbyPOIs[0])
-              setShowPOISelection(true)
-              setIsUpdatingPinLocation(false)
-              isUpdatingPinRef.current = false
-              return // Exit early, wait for user selection
-            }
-          }
-        } catch (error) {
-          console.warn("⚠️ Failed to check POIs (non-critical):", error)
-          // Continue with normal flow
-        }
-      }
-      
-      // Close POI selection modal if open
-      setShowPOISelection(false)
-      let locationPhotos = editingPin.additionalPhotos || []
-      let placeName = editingPin.locationName
-      let placeDescription = editingPin.description
-      let aiGeneratedContent = {
-        title: editingPin.title,
-        description: editingPin.description,
-        locationName: editingPin.locationName,
-        tags: editingPin.tags || []
-      }
-      
-      // Always fetch new data when Done is clicked (even if not moved much, refresh the data)
-      // This ensures we have the latest information for the current location
-      // BYPASS CACHE to ensure we get fresh data for the new location
-      console.log("📸 Fetching FRESH location data for NEW pin location (bypassing cache):", {
-        lat: editingPinLocation.lat,
-        lng: editingPinLocation.lng,
-        originalLat: editingPin.latitude,
-        originalLng: editingPin.longitude
+      // STEP 1: Fetch pin-intel data first (geocode + POI)
+      console.log("📍 Step 1: Fetching pin-intel data...", {
+        lat: committedLocation.lat,
+        lng: committedLocation.lng
       })
       
-      locationPhotos = await fetchLocationPhotos(editingPinLocation.lat, editingPinLocation.lng, signal, true) // true = bypass cache
-      
-      // Check if request was aborted
-      if (signal.aborted) {
-        console.log("📸 Pin update request was aborted")
-        return
-      }
-      
-      console.log("📸 Fetched location photos:", {
-        count: locationPhotos.length,
-        photos: locationPhotos.map(p => ({ url: p.url?.substring(0, 50), placeName: p.placeName }))
-      })
-      
-      // Get place name and description from photos
-      placeName = locationPhotos[0]?.placeName || editingPin.locationName
-      placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
-      
-      console.log("📍 Place data from photos:", { placeName, placeDescription, photoCount: locationPhotos.length })
-      
-      // Fetch pin-intel data for better context (geocode + POI) - CRITICAL for images and AI
       let pinIntelData: any = null
       try {
         const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat: editingPinLocation.lat, lng: editingPinLocation.lng, precision: 5 })
+          body: JSON.stringify({ lat: committedLocation.lat, lng: committedLocation.lng, precision: 5 }),
+          signal
         })
+        
         if (pinIntelResponse.ok) {
           pinIntelData = await pinIntelResponse.json()
           console.log("📍 Pin-intel data fetched:", { 
             hasGeocode: !!pinIntelData.geocode, 
             placesCount: pinIntelData.places?.length || 0,
-            nearestPlace: pinIntelData.places?.[0]?.name
+            nearestPlace: pinIntelData.places?.[0]?.name,
+            hasImages: !!pinIntelData.images?.length
           })
-          
-          // If we found a nearby POI, use it for better place name and image
-          if (pinIntelData.places && pinIntelData.places.length > 0) {
-            const nearestPOI = pinIntelData.places[0]
-            // Use POI name if it's closer than 100m and we don't have a good place name
-            const distance = nearestPOI.distance_m || 999
-            if (distance < 100 && (!placeName || placeName === "Location" || placeName.includes("Street"))) {
-              placeName = nearestPOI.name || placeName
-              console.log(`✅ Using nearby POI name: ${placeName} (${distance}m away)`)
-            }
-          }
         }
       } catch (error) {
-        console.warn("⚠️ Failed to fetch pin-intel data (non-critical):", error)
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.warn("⚠️ Failed to fetch pin-intel data:", error)
+        }
       }
       
-      // Build rich context for AI generation - prioritize POI data
-      // POI-first approach: Use poi_metadata if available (from POI-first search)
+      if (signal.aborted) {
+        console.log("📍 Pin-intel request was aborted")
+        return
+      }
+      
+      // Check for POI selection modal if multiple POIs found
+      if (!useSelectedPOI && !showPOISelection && pinIntelData?.places) {
+        const nearbyPOIs = (pinIntelData.places || []).filter((p: any) => p.distance_m && p.distance_m <= 500).slice(0, 5)
+        if (nearbyPOIs.length >= 2) {
+          setPoiCandidates(nearbyPOIs)
+          setSelectedPOI(pinIntelData.poi_metadata ? {
+            name: pinIntelData.poi_metadata.name,
+            distance_m: pinIntelData.poi_metadata.distance_m,
+            category: pinIntelData.poi_metadata.category,
+            id: pinIntelData.poi_metadata.id
+          } : nearbyPOIs[0])
+          setShowPOISelection(true)
+          setIsUpdatingPinLocation(false)
+          isUpdatingPinRef.current = false
+          return // Exit early, wait for user selection
+        }
+      }
+      
+      // Close POI selection modal if open
+      setShowPOISelection(false)
+      
+      // Extract data from pin-intel
       const geocodeComponents = pinIntelData?.geocode?.components || {}
       const poiMetadata = pinIntelData?.poi_metadata
       const poiName = poiMetadata?.name || geocodeComponents.poi_name || pinIntelData?.places?.[0]?.name
+      
+      // Build search term for Yelp - use term from pin-intel if available
+      let searchTerm: string | undefined = pinIntelData?.term || undefined
+      
+      if (!searchTerm) {
+        // Fallback: build from pin-intel data
+        if (poiName) {
+          searchTerm = poiName
+        } else {
+          // Use geocode components to build a term
+          const suburb = geocodeComponents.suburb || geocodeComponents.neighbourhood
+          const city = geocodeComponents.city || geocodeComponents.town
+          if (suburb && city) {
+            searchTerm = `${suburb} ${city}`
+          } else if (city) {
+            searchTerm = city
+          } else if (geocodeComponents.road) {
+            searchTerm = `${geocodeComponents.road}${city ? ` ${city}` : ''}`
+          }
+        }
+      }
+      
+      console.log("🔍 Search term for Yelp:", searchTerm || '(none)')
+      
+      // STEP 2: Fetch Yelp photos (ONLY on Done, not during drag)
+      console.log("🍽️ Step 2: Fetching Yelp photos...")
+      
+      let yelpImages: Array<{ url: string; source: string }> = []
+      try {
+        const yelpResponse = await fetch('/api/yelp-photos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: committedLocation.lat,
+            lng: committedLocation.lng,
+            term: searchTerm
+          }),
+          signal
+        })
+        
+        if (yelpResponse.ok) {
+          const yelpData = await yelpResponse.json()
+          yelpImages = yelpData.images || []
+          console.log(`✅ Yelp returned ${yelpImages.length} photos`)
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.warn("⚠️ Yelp photos request failed:", error)
+        }
+      }
+      
+      if (signal.aborted) {
+        console.log("🍽️ Yelp request was aborted")
+        return
+      }
+      
+      // STEP 3: Merge images from pin-intel and Yelp
+      const pinIntelImages = (pinIntelData?.images || []).map((img: any) => ({
+        url: typeof img === 'string' ? img : img.url,
+        source: img.source || 'pin-intel'
+      }))
+      
+      // Deduplicate by URL
+      const allImages = [...pinIntelImages, ...yelpImages]
+      const seenUrls = new Set<string>()
+      const finalImages = allImages.filter(img => {
+        if (seenUrls.has(img.url)) return false
+        seenUrls.add(img.url)
+        return true
+      })
+      
+      console.log(`📸 Final merged images: ${finalImages.length} total (${pinIntelImages.length} from pin-intel, ${yelpImages.length} from Yelp)`)
+      
+      // Use existing photo fetching for compatibility, but merge Yelp results
+      let locationPhotos = editingPin.additionalPhotos || []
+      if (finalImages.length > 0) {
+        // Convert to expected format
+        locationPhotos = finalImages.map(img => ({
+          url: img.url,
+          placeName: poiName || editingPin.locationName || 'Location',
+          source: img.source
+        }))
+      } else {
+        // Fallback to existing method if no images from pin-intel or Yelp
+        locationPhotos = await fetchLocationPhotos(committedLocation.lat, committedLocation.lng, signal, true)
+      }
+      
+      if (signal.aborted) {
+        console.log("📸 Photo fetch was aborted")
+        return
+      }
+      
+      // Extract place name and description (poiName already extracted above)
+      let placeName = poiName || locationPhotos[0]?.placeName || editingPin.locationName
+      let placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
+      
+      // Build rich context for AI generation - prioritize POI data (geocodeComponents, poiMetadata, poiName already extracted above)
       const nearestPOI = poiMetadata ? {
         name: poiMetadata.name,
         distance_m: poiMetadata.distance_m,
@@ -2310,8 +2361,8 @@ export default function PINITApp() {
       } : pinIntelData?.places?.[0])
       
       const aiContext = {
-        lat: editingPinLocation.lat,
-        lng: editingPinLocation.lng,
+        lat: committedLocation.lat,
+        lng: committedLocation.lng,
         name: poiName || nearestPOI?.name || placeName, // Use POI name if available (from address/street detection)
         category: geocodeComponents.category || nearestPOI?.categories?.[0] || nearestPOI?.category || undefined,
         address: pinIntelData?.geocode?.formatted || geocodeComponents.address || undefined,
@@ -2353,7 +2404,7 @@ export default function PINITApp() {
       })
       
       // Map to old format for compatibility
-      aiGeneratedContent = {
+      let aiGeneratedContent = {
         title: aiTextResult?.title || placeName || editingPin.title,
         description: aiTextResult?.description || placeDescription || editingPin.description || "",
         locationName: placeName || aiTextResult?.title || editingPin.locationName,
@@ -2387,10 +2438,10 @@ export default function PINITApp() {
         try {
           console.log(`🖼️ Attempting to get image for: ${imageSearchName}`)
           const poiImageResult = await resolvePlaceImage({
-            placeId: `poi:${nearestPOI?.id || `place-${editingPinLocation.lat},${editingPinLocation.lng}`}`,
+            placeId: `poi:${nearestPOI?.id || `place-${committedLocation.lat},${committedLocation.lng}`}`,
             name: imageSearchName,
-            lat: editingPinLocation.lat,
-            lng: editingPinLocation.lng,
+            lat: committedLocation.lat,
+            lng: committedLocation.lng,
             address: aiContext.address
           })
           
@@ -2440,8 +2491,8 @@ export default function PINITApp() {
       // Update the pin with new location and data
       const updatedPin: PinData = {
         ...editingPin,
-        latitude: editingPinLocation.lat,
-        longitude: editingPinLocation.lng,
+        latitude: committedLocation.lat,
+        longitude: committedLocation.lng,
         // Use AI-generated or place name
         locationName: placeName || aiTextResult?.title || editingPin.locationName,
         // Use AI-generated title (which prioritizes place name if available)
@@ -2483,7 +2534,8 @@ export default function PINITApp() {
       // Clear editing state after navigation (use setTimeout to ensure screen transition happens first)
       setTimeout(() => {
         setEditingPin(null)
-        setEditingPinLocation(null)
+        setPendingPinLocation(null)
+        setCommittedPinLocation(null)
         setOriginalPinLocation(null)
         setIsDraggingPin(false)
       }, 100)
@@ -2504,7 +2556,8 @@ export default function PINITApp() {
   const handlePinEditCancel = useCallback(() => {
     console.log("❌ Pin editing cancelled")
     setEditingPin(null)
-    setEditingPinLocation(null)
+        setPendingPinLocation(null)
+        setCommittedPinLocation(null)
     setOriginalPinLocation(null)
     setCurrentScreen("library")
   }, [setCurrentScreen])
@@ -3031,7 +3084,9 @@ export default function PINITApp() {
             }
             
             setEditingPin(pin)
-            setEditingPinLocation({ lat: pin.latitude, lng: pin.longitude })
+            // Initialize both pending and committed to the pin's current location
+            setPendingPinLocation({ lat: pin.latitude, lng: pin.longitude })
+            setCommittedPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setCurrentScreen("map")
           } else {
@@ -3160,13 +3215,10 @@ export default function PINITApp() {
           overflow: "hidden",
           touchAction: "pan-x pan-y" // Allow map panning but prevent page scrolling
         }}>
-          <InteractiveMapEditor
-            initialLat={editingPinLocation.lat}
-            initialLng={editingPinLocation.lng}
-            onLocationChange={(lat, lng) => {
-              handlePinLocationUpdate(lat, lng)
-              // Don't update originalPinLocation here - keep it as the original pin's location
-            }}
+          <PinAdjustEditor
+            initialLat={pendingPinLocation?.lat || editingPinLocation?.lat || 0}
+            initialLng={pendingPinLocation?.lng || editingPinLocation?.lng || 0}
+            onPinDragEnd={handlePinDragEnd}
           />
           
           {/* Instruction text */}
