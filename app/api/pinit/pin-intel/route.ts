@@ -631,6 +631,8 @@ export async function POST(request: NextRequest) {
       console.log(`✅ [POI-FIRST] No suitable POI, using locality "${wikimediaSearchTerm}" for Wikimedia search`)
     }
     
+    // Always return stable response shape with images array (even if empty)
+    // Images from Wikimedia/Unsplash if available, but Yelp is called separately
     const response = {
       meta: {
         source: {
@@ -661,11 +663,13 @@ export async function POST(request: NextRequest) {
             name: bestPOI.name,
             distance_m: bestPOI.distance_m
           } : null,
-          wikimedia_search_term: wikimediaSearchTerm
+          wikimedia_search_term: wikimediaSearchTerm,
+          search_term: wikimediaSearchTerm // Also expose as search_term for Yelp usage
         }
       },
       geocode: finalGeocode,
-      places: poiData,
+      places: poiData || [],
+      images: [], // Always return images array (empty for now, Yelp handles photos separately)
       // Add POI metadata if we're using a POI (for easier UI access)
       ...(usePOIForMetadata && bestPOI ? {
         poi_metadata: {
@@ -674,7 +678,11 @@ export async function POST(request: NextRequest) {
           distance_m: bestPOI.distance_m,
           id: bestPOI.id
         }
-      } : {})
+      } : {}),
+      // Add search term for Yelp API usage
+      term: wikimediaSearchTerm || (finalGeocode.components?.city && finalGeocode.components?.suburb 
+        ? `${finalGeocode.components.suburb} ${finalGeocode.components.city}` 
+        : finalGeocode.components?.city || finalGeocode.components?.road || '')
     }
     
     // Store for idempotency if key provided
