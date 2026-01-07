@@ -89,12 +89,12 @@ export default function AppleMap({
         const region = new window.mapkit.CoordinateRegion(coordinate, span)
 
         // Create map
-        // Enable scrolling so MapKit can detect drag gestures
-        // We'll prevent map panning via event listeners
+        // Enable scrolling and zooming so MapKit can detect drag gestures and allow pinch zoom
+        // We'll prevent map panning via continuous region reset during drag
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: false, // Disable zoom in edit mode
+          isZoomEnabled: true, // Enable zoom for pinch gestures
           isScrollEnabled: true, // Enable for drag detection
           isRotationEnabled: false
         })
@@ -102,8 +102,9 @@ export default function AppleMap({
         mapInstanceRef.current = map
         isInitializedRef.current = true
 
-        // Store original region to prevent map panning
-        const originalRegion = region
+        // Store original region and zoom to prevent map panning
+        let originalRegion = region
+        let regionResetInterval: NodeJS.Timeout | null = null
 
         console.log('✅ Apple Map initialized successfully', {
           center: { lat: center.lat, lng: center.lng },
@@ -134,45 +135,49 @@ export default function AppleMap({
             title: 'Drag me'
           })
 
-          // Prevent map region changes while dragging
-          map.addEventListener('region-change-start', () => {
-            if (isDraggingMarkerRef.current) {
-              // Disable scrolling to prevent region change
-              map.isScrollEnabled = false
-            }
-          })
 
           // Track dragging state and prevent map panning
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            // Immediately disable scrolling when drag starts
-            map.isScrollEnabled = false
-            console.log('📍 Marker drag started - disabled map scrolling')
+            // Store the current region as the original (lock map position)
+            originalRegion = map.region
+            // Start continuously resetting map region to prevent panning
+            regionResetInterval = setInterval(() => {
+              if (isDraggingMarkerRef.current && map) {
+                try {
+                  const currentRegion = map.region
+                  // Only reset center (latitude/longitude), allow zoom changes
+                  const centerMoved = Math.abs(currentRegion.center.latitude - originalRegion.center.latitude) +
+                                      Math.abs(currentRegion.center.longitude - originalRegion.center.longitude)
+                  if (centerMoved > 0.000001) {
+                    // Reset center but keep current zoom
+                    const resetRegion = new window.mapkit.CoordinateRegion(
+                      originalRegion.center,
+                      currentRegion.span // Keep current zoom level
+                    )
+                    map.region = resetRegion
+                  }
+                } catch (err) {
+                  // Ignore errors
+                }
+              }
+            }, 16) // ~60fps to keep map locked
+            console.log('📍 Marker drag started - locking map position')
           })
 
           annotation.addEventListener('drag', (e: any) => {
             isDraggingMarkerRef.current = true
-            // Keep scrolling disabled and reset region if it changed
-            map.isScrollEnabled = false
-            // Reset map to original region if it moved
-            try {
-              const currentRegion = map.region
-              const centerMoved = Math.abs(currentRegion.center.latitude - originalRegion.center.latitude) +
-                                  Math.abs(currentRegion.center.longitude - originalRegion.center.longitude)
-              if (centerMoved > 0.00001) {
-                map.region = originalRegion
-              }
-            } catch (err) {
-              // Ignore errors
-            }
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
             setIsDragging(false)
-            // Re-enable scrolling for next drag attempt
-            map.isScrollEnabled = true
+            // Stop the region reset interval
+            if (regionResetInterval) {
+              clearInterval(regionResetInterval)
+              regionResetInterval = null
+            }
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
