@@ -1765,6 +1765,14 @@ export default function PINITApp() {
                     done(token)
                   }
                 })
+              } else {
+                const errorText = await tokenResponse.text().catch(() => 'Unknown error')
+                const bodySnippet = errorText.substring(0, 200)
+                console.error("❌ MapKit token fetch failed", {
+                  status: tokenResponse.status,
+                  statusText: tokenResponse.statusText,
+                  bodySnippet
+                })
               }
             }
             
