@@ -61,6 +61,7 @@ export default function AppleMap({
   const isInitializedRef = useRef(false)
   const isDraggingMarkerRef = useRef(false)
   const isUserInteractingRef = useRef(false)
+  const lastInteractionAtRef = useRef<number>(0)
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
@@ -90,12 +91,18 @@ export default function AppleMap({
 
         const { token } = await tokenResponse.json()
 
-        // Initialize MapKit with authorization callback
-        window.mapkit.init({
-          authorizationCallback: (done: (token: string) => void) => {
-            done(token)
-          }
-        })
+        // Initialize MapKit with authorization callback (only once globally)
+        if (!(window as any).__mapkitInitialized) {
+          window.mapkit.init({
+            authorizationCallback: (done: (token: string) => void) => {
+              done(token)
+            }
+          })
+          ;(window as any).__mapkitInitialized = true
+          console.log('✅ MapKit initialized globally')
+        } else {
+          console.log('⏭️ MapKit already initialized, skipping init call')
+        }
 
         // Create map coordinate
         const coordinate = new window.mapkit.Coordinate(center.lat, center.lng)
@@ -141,14 +148,19 @@ export default function AppleMap({
         // Listen for user interactions with the map
         map.addEventListener('region-change-start', () => {
           isUserInteractingRef.current = true
+          lastInteractionAtRef.current = Date.now()
           // Clear any existing timeout
           if (userInteractionTimeout) {
             clearTimeout(userInteractionTimeout)
           }
+        })
+
+        map.addEventListener('region-change-end', () => {
           // Reset flag after interaction ends (user releases)
           userInteractionTimeout = setTimeout(() => {
             isUserInteractingRef.current = false
-          }, 500)
+          }, 300)
+          lastInteractionAtRef.current = Date.now()
         })
 
         console.log('✅ Apple Map initialized successfully', {
@@ -192,12 +204,19 @@ export default function AppleMap({
 
 
 
-          // Simple drag event handlers - no region locking
+          // Drag event handlers - temporarily disable map scrolling during drag
           annotation.addEventListener('drag-start', (e: any) => {
             console.log('📍 Marker drag started!')
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            isUserInteractingRef.current = true // Mark as user interaction
+            isUserInteractingRef.current = true
+            lastInteractionAtRef.current = Date.now()
+            
+            // Temporarily disable map scrolling to prevent map from panning with marker
+            if (map) {
+              map.isScrollEnabled = false
+              map.isRotationEnabled = false
+            }
           })
 
           annotation.addEventListener('drag', (e: any) => {
@@ -209,6 +228,11 @@ export default function AppleMap({
             isDraggingMarkerRef.current = false
             setIsDragging(false)
             
+            // Restore map scrolling immediately
+            if (map) {
+              map.isScrollEnabled = interactive
+            }
+            
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
@@ -216,9 +240,10 @@ export default function AppleMap({
             }
             
             // Reset user interaction flag after drag
+            lastInteractionAtRef.current = Date.now()
             setTimeout(() => {
               isUserInteractingRef.current = false
-            }, 500)
+            }, 300)
           })
 
           map.addAnnotation(annotation)
@@ -262,8 +287,13 @@ export default function AppleMap({
     if (!mapInstanceRef.current || !window.mapkit) return
     
     // Don't override region if user is actively interacting with the map
-    if (isUserInteractingRef.current) {
-      console.log('⏸️ Skipping region update - user is interacting')
+    // Also check if interaction just ended (within 300ms) to avoid snap-back
+    const timeSinceLastInteraction = Date.now() - lastInteractionAtRef.current
+    if (isUserInteractingRef.current || timeSinceLastInteraction < 300) {
+      console.log('⏸️ Skipping region update - user is interacting or just finished interacting', {
+        isInteracting: isUserInteractingRef.current,
+        timeSinceLastInteraction
+      })
       return
     }
 
