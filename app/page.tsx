@@ -288,18 +288,7 @@ function InteractiveMapEditor({
         interactive={true}
         onMapReady={handleMapReady}
         style={{ width: '100%', height: '100%' }}
-        pointOfInterestFilter={[
-          'Restaurant',
-          'Cafe',
-          'Bakery',
-          'FoodMarket',
-          'Store',
-          'Museum',
-          'Park',
-          'Hotel',
-          'Brewery',
-          'Winery'
-        ]}
+        pointOfInterestFilter="all"
         mapType="standard"
       />
       
@@ -394,21 +383,7 @@ function InteractiveMainMapApple({
       center={{ lat, lng }}
       zoom={13}
       interactive={true}
-      pointOfInterestFilter={[
-        'Restaurant',
-        'Cafe',
-        'Bakery',
-        'FoodMarket',
-        'Store',
-        'Museum',
-        'Park',
-        'Hotel',
-        'Brewery',
-        'Winery',
-        'GasStation',
-        'ATM',
-        'Pharmacy'
-      ]}
+      pointOfInterestFilter="all"
       mapType="standard"
     />
   )
