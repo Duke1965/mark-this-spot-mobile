@@ -78,7 +78,14 @@ export default function AppleMap({
         // Fetch token from our API
         const tokenResponse = await fetch('/api/mapkit-token')
         if (!tokenResponse.ok) {
-          throw new Error('Failed to fetch MapKit token')
+          const errorText = await tokenResponse.text().catch(() => 'Unknown error')
+          const bodySnippet = errorText.substring(0, 200)
+          console.error("❌ MapKit token fetch failed", {
+            status: tokenResponse.status,
+            statusText: tokenResponse.statusText,
+            bodySnippet
+          })
+          throw new Error(`MapKit token fetch failed: ${tokenResponse.status} ${tokenResponse.statusText}`)
         }
 
         const { token } = await tokenResponse.json()
