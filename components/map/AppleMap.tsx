@@ -60,6 +60,7 @@ export default function AppleMap({
   const draggableMarkerRef = useRef<any>(null)
   const isInitializedRef = useRef(false)
   const isDraggingMarkerRef = useRef(false)
+  const isUserInteractingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
@@ -111,14 +112,12 @@ export default function AppleMap({
         // If 'all' or undefined, show all POIs (default behavior)
 
         // Create map
-        // When draggable marker is present, disable scrolling from start
-        // This prevents conflict between map panning and marker dragging
-        // User can still zoom with pinch and drag the marker
+        // Always allow scrolling and zooming for normal map interaction
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: interactive, // Enable zoom for pinch gestures
-          isScrollEnabled: draggableMarker ? false : interactive, // Disable scroll when draggable marker exists
+          isZoomEnabled: interactive,
+          isScrollEnabled: interactive, // Always allow scrolling
           isRotationEnabled: false,
           mapType: mapType === 'hybrid' ? window.mapkit.Map.MapTypes.Hybrid : 
                    mapType === 'satellite' ? window.mapkit.Map.MapTypes.Satellite :
@@ -129,9 +128,21 @@ export default function AppleMap({
         mapInstanceRef.current = map
         isInitializedRef.current = true
 
-        // Store original region and zoom to prevent map panning during marker drag
-        let lockedRegion: any = null
-        let regionResetInterval: NodeJS.Timeout | null = null
+        // Track user interaction to prevent region updates from overriding user panning
+        let userInteractionTimeout: NodeJS.Timeout | null = null
+
+        // Listen for user interactions with the map
+        map.addEventListener('region-change-start', () => {
+          isUserInteractingRef.current = true
+          // Clear any existing timeout
+          if (userInteractionTimeout) {
+            clearTimeout(userInteractionTimeout)
+          }
+          // Reset flag after interaction ends (user releases)
+          userInteractionTimeout = setTimeout(() => {
+            isUserInteractingRef.current = false
+          }, 500)
+        })
 
         console.log('✅ Apple Map initialized successfully', {
           center: { lat: center.lat, lng: center.lng },
@@ -174,29 +185,12 @@ export default function AppleMap({
 
 
 
-          // Track dragging state
-          // Since scrolling is already disabled when draggable marker exists,
-          // we just need to handle the drag events
+          // Simple drag event handlers - no region locking
           annotation.addEventListener('drag-start', (e: any) => {
             console.log('📍 Marker drag started!')
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            
-            // Lock the current map center to prevent any movement
-            lockedRegion = map.region
-            const lockedCenter = lockedRegion.center
-            
-            // Continuously reset map center during drag to prevent any panning
-            if (regionResetInterval) {
-              clearInterval(regionResetInterval)
-            }
-            regionResetInterval = setInterval(() => {
-              if (lockedRegion && isDraggingMarkerRef.current) {
-                // Only reset center, preserve span (zoom level can change via pinch)
-                const currentSpan = map.region.span
-                map.region = new window.mapkit.CoordinateRegion(lockedCenter, currentSpan)
-              }
-            }, 16) // ~60fps for smooth locking
+            isUserInteractingRef.current = true // Mark as user interaction
           })
 
           annotation.addEventListener('drag', (e: any) => {
@@ -208,19 +202,16 @@ export default function AppleMap({
             isDraggingMarkerRef.current = false
             setIsDragging(false)
             
-            // Stop the region reset interval
-            if (regionResetInterval) {
-              clearInterval(regionResetInterval)
-              regionResetInterval = null
-            }
-            
-            lockedRegion = null
-            
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
               draggableMarker.onDragEnd(coord.latitude, coord.longitude)
             }
+            
+            // Reset user interaction flag after drag
+            setTimeout(() => {
+              isUserInteractingRef.current = false
+            }, 500)
           })
 
           map.addAnnotation(annotation)
@@ -259,8 +250,15 @@ export default function AppleMap({
   }, []) // Only run once on mount
 
   // Update map center and zoom when props change
+  // BUT only if user is not actively interacting (panning/dragging)
   useEffect(() => {
     if (!mapInstanceRef.current || !window.mapkit) return
+    
+    // Don't override region if user is actively interacting with the map
+    if (isUserInteractingRef.current) {
+      console.log('⏸️ Skipping region update - user is interacting')
+      return
+    }
 
     const coordinate = new window.mapkit.Coordinate(center.lat, center.lng)
     const span = new window.mapkit.CoordinateSpan(
