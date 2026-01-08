@@ -111,12 +111,14 @@ export default function AppleMap({
         // If 'all' or undefined, show all POIs (default behavior)
 
         // Create map
-        // Enable scrolling by default - we'll disable it only during marker drag
+        // When draggable marker is present, disable scrolling from start
+        // This prevents conflict between map panning and marker dragging
+        // User can still zoom with pinch and drag the marker
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
           isZoomEnabled: interactive, // Enable zoom for pinch gestures
-          isScrollEnabled: interactive, // Enable scrolling - disable only during marker drag
+          isScrollEnabled: draggableMarker ? false : interactive, // Disable scroll when draggable marker exists
           isRotationEnabled: false,
           mapType: mapType === 'hybrid' ? window.mapkit.Map.MapTypes.Hybrid : 
                    mapType === 'satellite' ? window.mapkit.Map.MapTypes.Satellite :
@@ -172,21 +174,22 @@ export default function AppleMap({
 
 
 
-          // Track dragging state and lock map region during drag
+          // Track dragging state
+          // Since scrolling is already disabled when draggable marker exists,
+          // we just need to handle the drag events
           annotation.addEventListener('drag-start', (e: any) => {
+            console.log('📍 Marker drag started!')
             isDraggingMarkerRef.current = true
             setIsDragging(true)
             
-            // Lock the current map center to prevent panning (but allow zoom)
+            // Lock the current map center to prevent any movement
             lockedRegion = map.region
             const lockedCenter = lockedRegion.center
             
-            // Disable map scrolling while dragging marker (but keep zoom enabled for pinch-to-zoom)
-            map.isScrollEnabled = false
-            map.isZoomEnabled = true // Keep zoom enabled for pinch-to-zoom
-            
-            // Continuously reset map center to locked position during drag
-            // This prevents the map from panning while allowing zoom via pinch
+            // Continuously reset map center during drag to prevent any panning
+            if (regionResetInterval) {
+              clearInterval(regionResetInterval)
+            }
             regionResetInterval = setInterval(() => {
               if (lockedRegion && isDraggingMarkerRef.current) {
                 // Only reset center, preserve span (zoom level can change via pinch)
@@ -194,20 +197,14 @@ export default function AppleMap({
                 map.region = new window.mapkit.CoordinateRegion(lockedCenter, currentSpan)
               }
             }, 16) // ~60fps for smooth locking
-            
-            console.log('📍 Marker drag started - map center locked (zoom allowed)', {
-              center: { lat: lockedCenter.latitude, lng: lockedCenter.longitude }
-            })
           })
 
           annotation.addEventListener('drag', (e: any) => {
             isDraggingMarkerRef.current = true
-            // Keep scrolling disabled during drag (zoom remains enabled)
-            map.isScrollEnabled = false
-            // Don't change zoom setting during drag - keep it enabled
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
+            console.log('📍 Marker drag ended!')
             isDraggingMarkerRef.current = false
             setIsDragging(false)
             
@@ -217,26 +214,12 @@ export default function AppleMap({
               regionResetInterval = null
             }
             
-            // Re-enable scrolling and zoom after drag ends
-            map.isScrollEnabled = interactive
-            map.isZoomEnabled = interactive
-            
-            // Clear locked region
             lockedRegion = null
             
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
               draggableMarker.onDragEnd(coord.latitude, coord.longitude)
-            }
-          })
-          
-          // Also listen for select event to prepare for potential drag
-          // This helps us catch the interaction earlier
-          annotation.addEventListener('select', () => {
-            // Pre-emptively prepare for drag by locking region
-            if (!isDraggingMarkerRef.current) {
-              lockedRegion = map.region
             }
           })
 
