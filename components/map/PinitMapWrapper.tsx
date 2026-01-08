@@ -1,12 +1,13 @@
 "use client"
 
 import React from 'react'
-import AppleMap, { AppleMapProps } from './AppleMap'
+import MapboxMap, { Pin as MapboxPin } from './MapboxMap'
 
 /**
  * PINIT Map Wrapper Component
  * 
- * Uses Apple MapKit JS as the only map provider
+ * Uses Mapbox GL JS as the map provider
+ * TomTom API is used for search/POI lookup
  */
 
 // Pin type for compatibility
@@ -40,26 +41,33 @@ export interface PinitMapWrapperProps {
 
 /**
  * Main Wrapper Component
- * Always uses Apple MapKit JS
+ * Always uses Mapbox GL JS
  */
 export default function PinitMapWrapper(props: PinitMapWrapperProps) {
-  // Convert legacy props to AppleMap props
-  const appleMapProps: AppleMapProps = {
-    center: props.center || { lat: props.initialLat || 0, lng: props.initialLng || 0 },
-    zoom: props.zoom || 13,
-    pins: props.pins || [],
-    onMapClick: props.onMapClick,
-    onPinClick: props.onPinClick,
-    interactive: props.interactive !== false,
-    className: props.className,
-    style: props.style,
-    draggableMarker: props.draggableMarker || (props.onLocationChange ? {
-      lat: props.initialLat || props.center.lat,
-      lng: props.initialLng || props.center.lng,
-      onDragEnd: props.onLocationChange
-    } : undefined)
-  }
+  // Convert pins to MapboxMap format
+  const mapboxPins: MapboxPin[] = (props.pins || []).map(pin => ({
+    id: pin.id,
+    lat: pin.lat,
+    lng: pin.lng,
+    title: pin.title
+  }))
 
-  return <AppleMap {...appleMapProps} />
+  return (
+    <MapboxMap
+      center={props.center || { lat: props.initialLat || 0, lng: props.initialLng || 0 }}
+      zoom={props.zoom || 13}
+      pins={mapboxPins}
+      onMapClick={props.onMapClick}
+      onPinClick={props.onPinClick}
+      interactive={props.interactive !== false}
+      className={props.className}
+      style={props.style}
+      draggableMarker={props.draggableMarker || (props.onLocationChange ? {
+        lat: props.initialLat || props.center.lat,
+        lng: props.initialLng || props.center.lng,
+        onDragEnd: props.onLocationChange
+      } : undefined)}
+    />
+  )
 }
 
