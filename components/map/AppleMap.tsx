@@ -111,13 +111,12 @@ export default function AppleMap({
         // If 'all' or undefined, show all POIs (default behavior)
 
         // Create map
-        // When draggable marker exists, disable scrolling from the start
-        // MapKit annotation drag should still work even with scrolling disabled
+        // Enable scrolling by default - we'll disable it only during marker drag
         const map = new window.mapkit.Map(mapContainerRef.current, {
           region,
           showsUserLocation: false,
-          isZoomEnabled: !!draggableMarker ? true : interactive, // Enable zoom for pinch gestures
-          isScrollEnabled: !!draggableMarker ? false : interactive, // DISABLE scroll when marker is draggable
+          isZoomEnabled: interactive, // Enable zoom for pinch gestures
+          isScrollEnabled: interactive, // Enable scrolling - disable only during marker drag
           isRotationEnabled: false,
           mapType: mapType === 'hybrid' ? window.mapkit.Map.MapTypes.Hybrid : 
                    mapType === 'satellite' ? window.mapkit.Map.MapTypes.Satellite :
@@ -177,18 +176,25 @@ export default function AppleMap({
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            // Ensure scrolling stays disabled
+            // Disable map scrolling while dragging marker
             map.isScrollEnabled = false
-            console.log('📍 Marker drag started - map scrolling disabled')
+            map.isZoomEnabled = false // Also disable zoom during drag for better control
+            console.log('📍 Marker drag started - map scrolling and zoom disabled')
           })
 
           annotation.addEventListener('drag', (e: any) => {
             isDraggingMarkerRef.current = true
+            // Keep scrolling disabled during drag
+            map.isScrollEnabled = false
+            map.isZoomEnabled = false
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
             setIsDragging(false)
+            // Re-enable scrolling and zoom after drag ends
+            map.isScrollEnabled = interactive
+            map.isZoomEnabled = interactive
             // Stop the region reset interval
             if (regionResetInterval) {
               clearInterval(regionResetInterval)
