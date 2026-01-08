@@ -30,8 +30,7 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
-import AppleMap from "@/components/map/AppleMap"
-import PinAdjustEditor from "@/components/map/PinAdjustEditor"
+import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 
 
@@ -109,8 +108,8 @@ interface Renewal {
   createdAt: string
 }
 
-// Interactive Map Editor Component with Custom Draggable Pin Overlay
-// Uses Apple MapKit for the map (up-to-date) with a custom HTML pin that can be dragged
+// Interactive Map Editor Component with Draggable Pin
+// Uses Mapbox for the map with a draggable marker
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -120,240 +119,34 @@ function InteractiveMapEditor({
   initialLng: number
   onLocationChange: (lat: number, lng: number) => void
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const [pinPosition, setPinPosition] = useState({ x: 0, y: 0 })
-  const [isDraggingPin, setIsDraggingPin] = useState(false)
-  const [isMapReady, setIsMapReady] = useState(false)
-  const dragStartRef = useRef({ x: 0, y: 0, pinX: 0, pinY: 0 })
+  const [pinLocation, setPinLocation] = useState({ lat: initialLat, lng: initialLng })
 
-  // Store the map instance when it's ready
-  const handleMapReady = useCallback((map: any) => {
-    mapInstanceRef.current = map
-    setIsMapReady(true)
-    // Center pin initially
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      setPinPosition({ x: rect.width / 2, y: rect.height / 2 })
-    }
-    console.log('🗺️ Map ready for pin editing')
-  }, [])
-
-  // Convert screen position to coordinates
-  const screenToCoordinates = useCallback((screenX: number, screenY: number) => {
-    if (!mapInstanceRef.current || !containerRef.current || !window.mapkit) return null
-    
-    const rect = containerRef.current.getBoundingClientRect()
-    const map = mapInstanceRef.current
-    
-    // Get the map's current visible region
-    const region = map.region
-    const center = region.center
-    const span = region.span
-    
-    // Calculate the offset from center in pixels
-    const centerX = rect.width / 2
-    const centerY = rect.height / 2
-    const offsetX = screenX - centerX
-    const offsetY = screenY - centerY
-    
-    // Convert pixel offset to coordinate offset
-    // Note: Y is inverted (screen Y increases downward, latitude increases upward)
-    const lngPerPixel = span.longitudeDelta / rect.width
-    const latPerPixel = span.latitudeDelta / rect.height
-    
-    const newLng = center.longitude + (offsetX * lngPerPixel)
-    const newLat = center.latitude - (offsetY * latPerPixel)
-    
-    return { lat: newLat, lng: newLng }
-  }, [])
-
-  // Handle pin drag start
-  const handlePinDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
-    
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    
-    dragStartRef.current = {
-      x: clientX,
-      y: clientY,
-      pinX: pinPosition.x,
-      pinY: pinPosition.y
-    }
-    
-    setIsDraggingPin(true)
-    console.log('📍 Pin drag started')
-  }, [pinPosition])
-
-  // Handle pin drag move - direct 1:1 movement (no dampening)
-  const handlePinDragMove = useCallback((e: TouchEvent | MouseEvent) => {
-    if (!isDraggingPin) return
-    
-    e.preventDefault()
-    e.stopPropagation()
-    
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    
-    const deltaX = clientX - dragStartRef.current.x
-    const deltaY = clientY - dragStartRef.current.y
-    
-    // Direct 1:1 movement - pin follows finger/cursor exactly
-    setPinPosition({
-      x: dragStartRef.current.pinX + deltaX,
-      y: dragStartRef.current.pinY + deltaY
-    })
-  }, [isDraggingPin])
-
-  // Handle pin drag end
-  const handlePinDragEnd = useCallback((e: TouchEvent | MouseEvent) => {
-    if (!isDraggingPin) return
-    
-    setIsDraggingPin(false)
-    
-    // Convert final pin position to coordinates
-    const coords = screenToCoordinates(pinPosition.x, pinPosition.y)
-    if (coords) {
-      console.log('📍 Pin dropped at:', coords)
-      onLocationChange(coords.lat, coords.lng)
-    }
-  }, [isDraggingPin, pinPosition, screenToCoordinates, onLocationChange])
-
-  // Add global event listeners for drag
+  // Update pin location when initial props change
   useEffect(() => {
-    if (isDraggingPin) {
-      window.addEventListener('mousemove', handlePinDragMove)
-      window.addEventListener('mouseup', handlePinDragEnd)
-      window.addEventListener('touchmove', handlePinDragMove, { passive: false })
-      window.addEventListener('touchend', handlePinDragEnd)
-      
-      return () => {
-        window.removeEventListener('mousemove', handlePinDragMove)
-        window.removeEventListener('mouseup', handlePinDragEnd)
-        window.removeEventListener('touchmove', handlePinDragMove)
-        window.removeEventListener('touchend', handlePinDragEnd)
-      }
-    }
-  }, [isDraggingPin, handlePinDragMove, handlePinDragEnd])
+    setPinLocation({ lat: initialLat, lng: initialLng })
+  }, [initialLat, initialLng])
 
-  // Update pin position when map moves (region changes)
-  // When map pans, pin stays centered but coordinate updates to new map center
-  useEffect(() => {
-    if (!mapInstanceRef.current || !isMapReady) return
-    
-    const map = mapInstanceRef.current
-    
-    const handleRegionChange = () => {
-      // Keep pin visually centered after map pan/zoom (unless actively dragging)
-      if (!isDraggingPin && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setPinPosition({ x: rect.width / 2, y: rect.height / 2 })
-        
-        // IMPORTANT: Update the coordinate to match the new map center
-        // When user pans the map, the pin is pointing at the new center location
-        const region = map.region
-        const center = region.center
-        console.log('🗺️ Map panned - pin now points at:', { lat: center.latitude, lng: center.longitude })
-        
-        // Notify parent of the new coordinate (pin follows map center when panning)
-        onLocationChange(center.latitude, center.longitude)
-      }
-    }
-    
-    map.addEventListener('region-change-end', handleRegionChange)
-    
-    return () => {
-      map.removeEventListener('region-change-end', handleRegionChange)
-    }
-  }, [isMapReady, isDraggingPin, onLocationChange])
+  // Handle marker drag end
+  const handlePinDragEnd = useCallback((lat: number, lng: number) => {
+    console.log('📍 Pin dragged to:', { lat, lng })
+    setPinLocation({ lat, lng })
+    onLocationChange(lat, lng)
+  }, [onLocationChange])
 
   return (
-    <div 
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        overflow: "hidden"
-      }}
-    >
-      {/* Apple MapKit - fully interactive with POIs */}
-      <AppleMap 
-        center={{ lat: initialLat, lng: initialLng }}
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <MapboxMap
+        center={{ lat: pinLocation.lat, lng: pinLocation.lng }}
         zoom={16}
         interactive={true}
-        onMapReady={handleMapReady}
+        draggableMarker={{
+          lat: pinLocation.lat,
+          lng: pinLocation.lng,
+          onDragEnd: handlePinDragEnd
+        }}
+        showPOIs={true}
         style={{ width: '100%', height: '100%' }}
-        pointOfInterestFilter="all"
-        mapType="standard"
       />
-      
-      {/* Custom Draggable Pin Overlay */}
-      {isMapReady && (
-        <div
-          onMouseDown={handlePinDragStart}
-          onTouchStart={handlePinDragStart}
-          style={{
-            position: 'absolute',
-            left: pinPosition.x,
-            top: pinPosition.y,
-            transform: 'translate(-50%, -100%)', // Pin point at bottom center
-            cursor: isDraggingPin ? 'grabbing' : 'grab',
-            zIndex: 1000,
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            pointerEvents: 'auto'
-          }}
-        >
-          {/* Pin SVG - Blue pin matching the original design */}
-          <svg 
-            width="40" 
-            height="52" 
-            viewBox="0 0 40 52" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg"
-            style={{
-              filter: isDraggingPin ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-              transition: 'filter 0.15s ease'
-            }}
-          >
-            {/* Pin body */}
-            <path 
-              d="M20 0C8.954 0 0 8.954 0 20C0 35 20 52 20 52C20 52 40 35 40 20C40 8.954 31.046 0 20 0Z" 
-              fill="#3B82F6"
-            />
-            {/* Inner circle */}
-            <circle cx="20" cy="20" r="8" fill="white"/>
-            {/* Center dot */}
-            <circle cx="20" cy="20" r="4" fill="#3B82F6"/>
-          </svg>
-          
-          {/* Drag hint text */}
-          {!isDraggingPin && (
-            <div style={{
-              position: 'absolute',
-              top: '-28px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.75)',
-              color: 'white',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              pointerEvents: 'none'
-            }}>
-              Drag to adjust
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -366,31 +159,15 @@ function InteractiveMainMap({
   lat: number
   lng: number
 }) {
-  // Always use Apple MapKit
-  return <InteractiveMainMapApple lat={lat} lng={lng} />
-}
-
-// Apple Maps version of InteractiveMainMap
-function InteractiveMainMapApple({ 
-  lat, 
-  lng 
-}: { 
-  lat: number
-  lng: number
-}) {
   return (
-    <AppleMap
+    <MapboxMap
       center={{ lat, lng }}
       zoom={13}
       interactive={true}
-      pointOfInterestFilter="all"
-      mapType="standard"
+      showPOIs={true}
     />
   )
 }
-
-// Mapbox version of InteractiveMainMap
-// Mapbox version removed - using Apple MapKit only
 
 export default function PINITApp() {
 
@@ -1708,159 +1485,17 @@ export default function PINITApp() {
     }
     
     try {
-      console.log("📍 Fetching location data using Apple MapKit JS Search API...")
+      console.log("📍 Fetching location data using Mapbox Geocoding API...")
       
-      // STEP 1: Try MapKit JS Search API first (if available)
+      // STEP 1: Fetch location name via Mapbox Geocoding API
+      let placeData: any = null
       let placeName = "Location"
       let placeDescription: string | undefined = undefined
       let imageUrl: string | undefined = undefined
-      let placeData: any = null
       
-      // Check if MapKit is loaded and try to use it
-      if (typeof window !== 'undefined') {
-        try {
-          console.log("📍 Step 1: Searching for places using MapKit JS Search API...")
-          
-          // Load MapKit if not already loaded
-          const { loadMapkit } = await import('@/lib/mapkit/loadMapkit')
-          await loadMapkit()
-          
-          // Wait a bit for MapKit to be fully initialized
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          if (window.mapkit && window.mapkit.Search) {
-            // Make sure MapKit is initialized (it needs a token)
-            // Check if already initialized to prevent double init
-            if (!(window as any).__mapkitInitialized) {
-              // Fetch token and initialize
-              const tokenResponse = await fetch('/api/mapkit-token')
-              if (tokenResponse.ok) {
-                const { token } = await tokenResponse.json()
-                window.mapkit.init({
-                  authorizationCallback: (done: (token: string) => void) => {
-                    done(token)
-                  }
-                })
-                ;(window as any).__mapkitInitialized = true
-                console.log('✅ MapKit initialized in fetchLocationPhotos')
-              } else {
-                const errorText = await tokenResponse.text().catch(() => 'Unknown error')
-                const bodySnippet = errorText.substring(0, 200)
-                console.error("❌ MapKit token fetch failed", {
-                  status: tokenResponse.status,
-                  statusText: tokenResponse.statusText,
-                  bodySnippet
-                })
-              }
-            }
-            
-            // Create coordinate with validation
-            const coordinate = new window.mapkit.Coordinate(lat, lng)
-            
-            // Validate coordinate values
-            if (isNaN(coordinate.latitude) || isNaN(coordinate.longitude)) {
-              throw new Error(`Invalid coordinates: ${lat}, ${lng}`)
-            }
-            
-            // Create search region (100m radius = ~0.001 degrees)
-            // Ensure span values are positive and reasonable
-            const spanLat = Math.max(0.0001, Math.min(0.01, 0.001)) // 100m to 1km range
-            const spanLng = Math.max(0.0001, Math.min(0.01, 0.001))
-            const span = new window.mapkit.CoordinateSpan(spanLat, spanLng)
-            const region = new window.mapkit.CoordinateRegion(coordinate, span)
-            
-            // Validate region before creating search
-            if (!region || !region.center || !region.span) {
-              throw new Error('Invalid search region created')
-            }
-            
-            console.log('🔍 MapKit Search - Request details:', {
-              coordinate: { lat: coordinate.latitude, lng: coordinate.longitude },
-              span: { lat: span.latitudeDelta, lng: span.longitudeDelta },
-              region: {
-                center: { lat: region.center.latitude, lng: region.center.longitude },
-                span: { lat: region.span.latitudeDelta, lng: region.span.longitudeDelta }
-              }
-            })
-            
-            // Create search with nearby query (empty string searches nearby POIs)
-            const search = new window.mapkit.Search({
-              region: region,
-              language: 'en'
-            })
-            
-            // Search for nearby places
-            await new Promise<void>((resolve) => {
-              try {
-                search.search('', (error: any, data: any) => {
-                  if (error) {
-                    console.error("❌ MapKit Search error:", {
-                      error,
-                      message: error?.message || String(error),
-                      code: error?.code,
-                      coordinate: { lat, lng },
-                      region: {
-                        center: { lat: region.center.latitude, lng: region.center.longitude },
-                        span: { lat: region.span.latitudeDelta, lng: region.span.longitudeDelta }
-                      }
-                    })
-                    resolve()
-                    return
-                  }
-                  
-                  console.log("📍 MapKit Search response:", data)
-                  
-                  if (data && data.places && data.places.length > 0) {
-                    const place = data.places[0]
-                    placeData = place
-                    
-                    // Extract place name - MapKit places have different structure
-                    placeName = place.name || place.title || place.displayName || 'Location'
-                    
-                    // Extract description
-                    placeDescription = place.subtitle || place.addressLines?.[0] || place.address || undefined
-                    
-                    // Try to get image - MapKit places may have photo data
-                    if (place.photo) {
-                      imageUrl = typeof place.photo === 'string' ? place.photo : place.photo.url || place.photo.thumbnailURL
-                    }
-                    
-                    console.log(`✅ MapKit Search found place: ${placeName}`, {
-                      hasDescription: !!placeDescription,
-                      hasImage: !!imageUrl,
-                      placeData: place
-                    })
-                  } else {
-                    console.log("📍 MapKit Search found no places")
-                  }
-                  
-                  resolve()
-                })
-              } catch (err: any) {
-                console.error("❌ MapKit Search exception:", {
-                  error: err,
-                  message: err?.message || String(err),
-                  coordinate: { lat, lng }
-                })
-                resolve()
-              }
-            })
-          } else {
-            console.warn("⚠️ MapKit Search not available")
-          }
-        } catch (mapkitError: any) {
-          if (mapkitError.name === 'AbortError') {
-            throw mapkitError
-          }
-          console.warn("⚠️ MapKit Search failed, falling back to Mapbox:", mapkitError.message)
-        }
-      }
-      
-      // STEP 2: Fallback to Mapbox if MapKit didn't find anything
-      if (!placeData || placeName === "Location") {
-        try {
-          console.log("📍 Step 2: Fetching location name via Mapbox Geocoding API (fallback)...")
-          const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place`, { signal })
+      try {
+        console.log("📍 Step 1: Fetching location name via Mapbox Geocoding API...")
+        const geocodingResponse = await fetch(`/api/mapbox_geocoding?lat=${lat}&lng=${lng}&types=address,place`, { signal })
           
           if (geocodingResponse.ok) {
             const geocodingData = await geocodingResponse.json()
@@ -1907,26 +1542,25 @@ export default function PINITApp() {
               }
             }
           }
-        } catch (geocodingError: any) {
-          if (geocodingError.name === 'AbortError') {
-            throw geocodingError
-          }
-          console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
+      } catch (geocodingError: any) {
+        if (geocodingError.name === 'AbortError') {
+          throw geocodingError
         }
+        console.warn("⚠️ Mapbox Geocoding API failed:", geocodingError.message)
       }
       
-      // STEP 3: Resolve image - use MapKit image if available, otherwise try image resolver
-      console.log("📸 Step 3: Resolving image...")
+      // STEP 2: Resolve image using image resolver
+      console.log("📸 Step 2: Resolving image...")
       
       let finalImageUrl = imageUrl || "/pinit-placeholder.jpg"
-      let imageSource = imageUrl ? "mapkit" : "placeholder"
+      let imageSource = imageUrl ? "mapbox" : "placeholder"
       
-      // If MapKit didn't provide an image, try image resolver
+      // Try image resolver if we have a place name
       if (!imageUrl && placeName && placeName !== "Location") {
         const placeId = `place:${lat.toFixed(4)},${lng.toFixed(4)}`
         
         try {
-          console.log(`🖼️ MapKit didn't provide image, trying image resolver...`, {
+          console.log(`🖼️ Trying image resolver...`, {
             placeId,
             name: placeName
           })
@@ -1947,11 +1581,9 @@ export default function PINITApp() {
         } catch (imageError) {
           console.warn("⚠️ Image resolver error:", imageError)
         }
-      } else if (imageUrl) {
-        console.log(`✅ Using MapKit provided image: ${finalImageUrl.substring(0, 60)}...`)
       }
       
-      // STEP 4: Return place data with resolved image
+      // STEP 3: Return place data with resolved image
       // Always return placeName and description if we have them
       // CRITICAL: Ensure description is always meaningful, not empty or undefined
       const finalDescription = placeDescription && placeDescription.trim() ? placeDescription : undefined
@@ -1975,7 +1607,7 @@ export default function PINITApp() {
         return result
       }
       
-      // STEP 5: Ultimate fallback - no place data available
+      // STEP 4: Ultimate fallback - no place data available
       console.log("⚠️ No place data available - using placeholder")
       const finalFallback = [{
         url: finalImageUrl,
