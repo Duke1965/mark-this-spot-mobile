@@ -45,18 +45,7 @@ export default function PinAdjustEditor({
         lng: pinLocation.lng,
         onDragEnd: handleDragEnd
       }}
-      pointOfInterestFilter={[
-        'Restaurant',
-        'Cafe',
-        'Bakery',
-        'FoodMarket',
-        'Store',
-        'Museum',
-        'Park',
-        'Hotel',
-        'Brewery',
-        'Winery'
-      ]}
+      pointOfInterestFilter="all"
       mapType="standard"
     />
   )
