@@ -6,6 +6,7 @@
 declare global {
   interface Window {
     mapkit?: any
+    __mapkitInitialized?: boolean
   }
 }
 
