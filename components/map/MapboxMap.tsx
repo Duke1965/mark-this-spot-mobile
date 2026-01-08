@@ -217,7 +217,13 @@ export default function MapboxMap({
       // Listen for drag events
       marker.on('dragstart', () => {
         isDraggingRef.current = true
-        console.log('📍 Drag started')
+        // Temporarily disable map panning/dragging while dragging marker
+        if (map) {
+          map.dragPan.disable()
+          map.boxZoom.disable()
+          map.doubleClickZoom.disable()
+        }
+        console.log('📍 Drag started - map panning disabled')
       })
       
       marker.on('dragend', () => {
@@ -225,7 +231,13 @@ export default function MapboxMap({
         const newPosition = { lat: lngLat.lat, lng: lngLat.lng }
         lastDraggedPositionRef.current = newPosition
         isDraggingRef.current = false
-        console.log('📍 Drag ended at:', newPosition)
+        // Re-enable map panning/dragging after marker drag ends
+        if (map) {
+          map.dragPan.enable()
+          map.boxZoom.enable()
+          map.doubleClickZoom.enable()
+        }
+        console.log('📍 Drag ended at:', newPosition, '- map panning enabled')
         markerData.onDragEnd(newPosition.lat, newPosition.lng)
       })
 
