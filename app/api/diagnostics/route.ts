@@ -145,12 +145,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Test Apple MapKit if provider is apple
-  if (MAP_PROVIDER === "apple") {
-    diagnostics.apis.apple_mapkit = await testAppleMapKit(request)
-    console.log('🍎 Apple MapKit diagnostics:', diagnostics.apis.apple_mapkit)
-  }
-
   // Test Wikimedia API (replaces Unsplash)
   // Use a generic test name since we're testing the API, not a specific place
   try {
