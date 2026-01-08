@@ -127,8 +127,8 @@ export default function AppleMap({
         mapInstanceRef.current = map
         isInitializedRef.current = true
 
-        // Store original region and zoom to prevent map panning
-        let originalRegion = region
+        // Store original region and zoom to prevent map panning during marker drag
+        let lockedRegion: any = null
         let regionResetInterval: NodeJS.Timeout | null = null
 
         console.log('✅ Apple Map initialized successfully', {
@@ -172,38 +172,71 @@ export default function AppleMap({
 
 
 
-          // Track dragging state
+          // Track dragging state and lock map region during drag
           annotation.addEventListener('drag-start', (e: any) => {
             isDraggingMarkerRef.current = true
             setIsDragging(true)
-            // Disable map scrolling while dragging marker
+            
+            // Lock the current map center to prevent panning (but allow zoom)
+            lockedRegion = map.region
+            const lockedCenter = lockedRegion.center
+            
+            // Disable map scrolling while dragging marker (but keep zoom enabled for pinch-to-zoom)
             map.isScrollEnabled = false
-            map.isZoomEnabled = false // Also disable zoom during drag for better control
-            console.log('📍 Marker drag started - map scrolling and zoom disabled')
+            map.isZoomEnabled = true // Keep zoom enabled for pinch-to-zoom
+            
+            // Continuously reset map center to locked position during drag
+            // This prevents the map from panning while allowing zoom via pinch
+            regionResetInterval = setInterval(() => {
+              if (lockedRegion && isDraggingMarkerRef.current) {
+                // Only reset center, preserve span (zoom level can change via pinch)
+                const currentSpan = map.region.span
+                map.region = new window.mapkit.CoordinateRegion(lockedCenter, currentSpan)
+              }
+            }, 16) // ~60fps for smooth locking
+            
+            console.log('📍 Marker drag started - map center locked (zoom allowed)', {
+              center: { lat: lockedCenter.latitude, lng: lockedCenter.longitude }
+            })
           })
 
           annotation.addEventListener('drag', (e: any) => {
             isDraggingMarkerRef.current = true
-            // Keep scrolling disabled during drag
+            // Keep scrolling disabled during drag (zoom remains enabled)
             map.isScrollEnabled = false
-            map.isZoomEnabled = false
+            // Don't change zoom setting during drag - keep it enabled
           })
 
           annotation.addEventListener('drag-end', (e: any) => {
             isDraggingMarkerRef.current = false
             setIsDragging(false)
-            // Re-enable scrolling and zoom after drag ends
-            map.isScrollEnabled = interactive
-            map.isZoomEnabled = interactive
+            
             // Stop the region reset interval
             if (regionResetInterval) {
               clearInterval(regionResetInterval)
               regionResetInterval = null
             }
+            
+            // Re-enable scrolling and zoom after drag ends
+            map.isScrollEnabled = interactive
+            map.isZoomEnabled = interactive
+            
+            // Clear locked region
+            lockedRegion = null
+            
             const coord = annotation.coordinate
             console.log('📍 Marker drag ended at:', { lat: coord.latitude, lng: coord.longitude })
             if (draggableMarker.onDragEnd) {
               draggableMarker.onDragEnd(coord.latitude, coord.longitude)
+            }
+          })
+          
+          // Also listen for select event to prepare for potential drag
+          // This helps us catch the interaction earlier
+          annotation.addEventListener('select', () => {
+            // Pre-emptively prepare for drag by locking region
+            if (!isDraggingMarkerRef.current) {
+              lockedRegion = map.region
             }
           })
 
