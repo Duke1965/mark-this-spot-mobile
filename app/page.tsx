@@ -1730,7 +1730,8 @@ export default function PINITApp() {
           
           if (window.mapkit && window.mapkit.Search) {
             // Make sure MapKit is initialized (it needs a token)
-            if (!window.mapkit.init) {
+            // Check if already initialized to prevent double init
+            if (!(window as any).__mapkitInitialized) {
               // Fetch token and initialize
               const tokenResponse = await fetch('/api/mapkit-token')
               if (tokenResponse.ok) {
@@ -1740,6 +1741,8 @@ export default function PINITApp() {
                     done(token)
                   }
                 })
+                ;(window as any).__mapkitInitialized = true
+                console.log('✅ MapKit initialized in fetchLocationPhotos')
               } else {
                 const errorText = await tokenResponse.text().catch(() => 'Unknown error')
                 const bodySnippet = errorText.substring(0, 200)
@@ -1751,12 +1754,34 @@ export default function PINITApp() {
               }
             }
             
-            // Create coordinate
+            // Create coordinate with validation
             const coordinate = new window.mapkit.Coordinate(lat, lng)
             
+            // Validate coordinate values
+            if (isNaN(coordinate.latitude) || isNaN(coordinate.longitude)) {
+              throw new Error(`Invalid coordinates: ${lat}, ${lng}`)
+            }
+            
             // Create search region (100m radius = ~0.001 degrees)
-            const span = new window.mapkit.CoordinateSpan(0.001, 0.001)
+            // Ensure span values are positive and reasonable
+            const spanLat = Math.max(0.0001, Math.min(0.01, 0.001)) // 100m to 1km range
+            const spanLng = Math.max(0.0001, Math.min(0.01, 0.001))
+            const span = new window.mapkit.CoordinateSpan(spanLat, spanLng)
             const region = new window.mapkit.CoordinateRegion(coordinate, span)
+            
+            // Validate region before creating search
+            if (!region || !region.center || !region.span) {
+              throw new Error('Invalid search region created')
+            }
+            
+            console.log('🔍 MapKit Search - Request details:', {
+              coordinate: { lat: coordinate.latitude, lng: coordinate.longitude },
+              span: { lat: span.latitudeDelta, lng: span.longitudeDelta },
+              region: {
+                center: { lat: region.center.latitude, lng: region.center.longitude },
+                span: { lat: region.span.latitudeDelta, lng: region.span.longitudeDelta }
+              }
+            })
             
             // Create search with nearby query (empty string searches nearby POIs)
             const search = new window.mapkit.Search({
@@ -1769,7 +1794,16 @@ export default function PINITApp() {
               try {
                 search.search('', (error: any, data: any) => {
                   if (error) {
-                    console.warn("⚠️ MapKit Search error:", error)
+                    console.error("❌ MapKit Search error:", {
+                      error,
+                      message: error?.message || String(error),
+                      code: error?.code,
+                      coordinate: { lat, lng },
+                      region: {
+                        center: { lat: region.center.latitude, lng: region.center.longitude },
+                        span: { lat: region.span.latitudeDelta, lng: region.span.longitudeDelta }
+                      }
+                    })
                     resolve()
                     return
                   }
@@ -1802,8 +1836,12 @@ export default function PINITApp() {
                   
                   resolve()
                 })
-              } catch (err) {
-                console.warn("⚠️ MapKit Search exception:", err)
+              } catch (err: any) {
+                console.error("❌ MapKit Search exception:", {
+                  error: err,
+                  message: err?.message || String(err),
+                  coordinate: { lat, lng }
+                })
                 resolve()
               }
             })
