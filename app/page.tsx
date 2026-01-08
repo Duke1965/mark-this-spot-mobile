@@ -2868,10 +2868,10 @@ export default function PINITApp() {
           overflow: "hidden",
           touchAction: "pan-x pan-y" // Allow map panning but prevent page scrolling
         }}>
-          <PinAdjustEditor
+          <InteractiveMapEditor
             initialLat={pendingPinLocation?.lat || editingPinLocation?.lat || 0}
             initialLng={pendingPinLocation?.lng || editingPinLocation?.lng || 0}
-            onPinDragEnd={handlePinDragEnd}
+            onLocationChange={handlePinDragEnd}
           />
           
           {/* Instruction text */}
