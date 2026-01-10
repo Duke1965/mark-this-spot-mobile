@@ -80,14 +80,46 @@ export default function MapboxMap({
   // Helper function to get POI icon based on category
   const getPOIIcon = (category: string = ''): string => {
     const cat = category.toLowerCase()
-    if (cat.includes('restaurant') || cat.includes('food') || cat.includes('dining')) return '🍽️'
+    // Food & Dining
+    if (cat.includes('restaurant') || cat.includes('food') || cat.includes('dining') || cat.includes('bistro')) return '🍽️'
     if (cat.includes('cafe') || cat.includes('coffee')) return '☕'
+    if (cat.includes('bar') || cat.includes('pub') || cat.includes('tavern') || cat.includes('brewery')) return '🍺'
+    if (cat.includes('bakery') || cat.includes('ice_cream') || cat.includes('gelato')) return '🧁'
+    // Cultural & Historical
     if (cat.includes('museum') || cat.includes('gallery') || cat.includes('art')) return '🎨'
-    if (cat.includes('monument') || cat.includes('memorial') || cat.includes('landmark')) return '🏛️'
-    if (cat.includes('park') || cat.includes('garden')) return '🌳'
-    if (cat.includes('beach') || cat.includes('nature')) return '🏖️'
-    if (cat.includes('hotel') || cat.includes('lodging')) return '🏨'
-    if (cat.includes('church') || cat.includes('temple') || cat.includes('worship')) return '⛪'
+    if (cat.includes('monument') || cat.includes('memorial') || cat.includes('landmark') || cat.includes('historic')) return '🏛️'
+    if (cat.includes('castle') || cat.includes('palace') || cat.includes('fort') || cat.includes('ruins')) return '🏰'
+    // Nature & Outdoor
+    if (cat.includes('park') || cat.includes('garden') || cat.includes('botanical')) return '🌳'
+    if (cat.includes('beach') || cat.includes('coast') || cat.includes('coastal')) return '🏖️'
+    if (cat.includes('mountain') || cat.includes('hiking') || cat.includes('trail')) return '⛰️'
+    if (cat.includes('waterfall') || cat.includes('lake') || cat.includes('river')) return '💧'
+    if (cat.includes('zoo') || cat.includes('aquarium') || cat.includes('wildlife')) return '🦁'
+    // Accommodation
+    if (cat.includes('hotel') || cat.includes('resort')) return '🏨'
+    if (cat.includes('bed_and_breakfast') || cat.includes('bnb') || cat.includes('guesthouse') || cat.includes('inn')) return '🛏️'
+    if (cat.includes('hostel')) return '🛌'
+    if (cat.includes('campground') || cat.includes('camping') || cat.includes('glamping')) return '⛺'
+    if (cat.includes('villa') || cat.includes('cottage') || cat.includes('cabin') || cat.includes('holiday_rental')) return '🏡'
+    // Religious Sites
+    if (cat.includes('church') || cat.includes('cathedral') || cat.includes('basilica') || cat.includes('chapel')) return '⛪'
+    if (cat.includes('temple') || cat.includes('mosque') || cat.includes('synagogue') || cat.includes('worship')) return '🕌'
+    if (cat.includes('monastery') || cat.includes('abbey') || cat.includes('shrine')) return '🕍'
+    // Entertainment
+    if (cat.includes('theater') || cat.includes('cinema') || cat.includes('opera')) return '🎭'
+    if (cat.includes('music') || cat.includes('concert') || cat.includes('venue')) return '🎵'
+    if (cat.includes('festival') || cat.includes('fair') || cat.includes('carnival')) return '🎪'
+    // Tourism & Attractions
+    if (cat.includes('tourism') || cat.includes('tourist') || cat.includes('attraction') || cat.includes('sightseeing')) return '📸'
+    if (cat.includes('viewpoint') || cat.includes('lookout') || cat.includes('observation')) return '🔭'
+    // Sports & Recreation
+    if (cat.includes('stadium') || cat.includes('arena') || cat.includes('sports')) return '⚽'
+    if (cat.includes('golf')) return '⛳'
+    if (cat.includes('ski') || cat.includes('snowboard')) return '⛷️'
+    if (cat.includes('surf') || cat.includes('dive') || cat.includes('scuba')) return '🏄'
+    if (cat.includes('marina') || cat.includes('harbor') || cat.includes('harbour')) return '⚓'
+    // Shopping (travel-related)
+    if (cat.includes('market') || cat.includes('bazaar') || cat.includes('souvenir')) return '🛍️'
     return '📍' // Default icon
   }
 
@@ -123,8 +155,8 @@ export default function MapboxMap({
       poiMarkersRef.current.forEach(marker => marker.remove())
       poiMarkersRef.current.clear()
       
-      // Add markers for each POI
-      places.slice(0, 20).forEach((place: any) => { // Limit to 20 POIs to avoid clutter
+      // Add markers for each POI (increased limit to show more travel-related places)
+      places.slice(0, 50).forEach((place: any) => { // Limit to 50 POIs to show comprehensive travel info
         const poi: POI = {
           id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
           lat: place.lat,
@@ -173,7 +205,7 @@ export default function MapboxMap({
         poiMarkersRef.current.set(poi.id, marker)
       })
       
-      poiDataRef.current = places.slice(0, 20).map((place: any) => ({
+      poiDataRef.current = places.slice(0, 50).map((place: any) => ({
         id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
         lat: place.lat,
         lng: place.lng,
