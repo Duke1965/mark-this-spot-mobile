@@ -358,21 +358,35 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
     const travelCategories = [
       // Food & Dining
       'restaurant', 'cafe', 'coffee', 'food', 'dining', 'catering', 'bistro', 'bakery', 'bar', 'pub',
+      'tavern', 'brewery', 'winery', 'distillery', 'ice_cream', 'gelato', 'pizzeria', 'steakhouse',
       // Cultural & Historical
       'museum', 'art_gallery', 'gallery', 'art', 'cultural', 'historical', 'history',
       'monument', 'memorial', 'landmark', 'historic', 'heritage', 'castle', 'palace', 'fort',
+      'ruins', 'archaeological', 'archaeology', 'battlefield', 'cemetery', 'graveyard',
       // Tourism & Attractions
       'tourism', 'tourist', 'attraction', 'sightseeing', 'viewpoint', 'lookout', 'observation',
+      'tour', 'guide', 'visitor_center', 'information', 'tourist_information',
       // Entertainment & Venues
       'theater', 'cinema', 'entertainment', 'venue', 'concert', 'music', 'festival',
+      'nightclub', 'club', 'dance', 'comedy', 'opera', 'ballet',
       // Nature & Outdoor
       'park', 'garden', 'beach', 'nature', 'outdoor', 'hiking', 'trail', 'waterfall', 'cave',
-      // Accommodation
-      'hotel', 'lodging', 'accommodation', 'hostel', 'resort',
+      'mountain', 'hill', 'valley', 'canyon', 'gorge', 'lake', 'river', 'coast', 'coastal',
+      'wildlife', 'zoo', 'aquarium', 'botanical', 'conservatory',
+      // Accommodation (expanded)
+      'hotel', 'lodging', 'accommodation', 'hostel', 'resort', 'bed_and_breakfast', 'bnb',
+      'guesthouse', 'guest_house', 'inn', 'motel', 'apartment', 'holiday_rental', 'vacation_rental',
+      'villa', 'cottage', 'cabin', 'chalet', 'campground', 'camping', 'glamping',
       // Religious Sites
       'place_of_worship', 'church', 'temple', 'mosque', 'synagogue', 'cathedral', 'basilica',
+      'shrine', 'monastery', 'abbey', 'chapel',
       // Shopping (travel-related only)
-      'souvenir', 'market', 'bazaar'
+      'souvenir', 'market', 'bazaar', 'craft', 'handicraft', 'artisan',
+      // Holiday & Seasonal
+      'holiday', 'festival', 'celebration', 'event', 'fair', 'carnival',
+      // Sports & Recreation (travel-related)
+      'stadium', 'arena', 'sports', 'golf', 'ski', 'snowboard', 'surf', 'dive', 'scuba',
+      'marina', 'harbor', 'harbour', 'port', 'cruise', 'ferry'
     ]
     
     const excludeCategories = [
@@ -397,8 +411,8 @@ async function fetchNearbyPlaces(lat: number, lng: number): Promise<Array<{
         
         const distance = calculateDistance(lat, lng, placeLat, placeLng)
         
-        // Filter to within 5km
-        if (distance > 5000) {
+        // Filter to within 10km (increased from 5km to show more travel-related places)
+        if (distance > 10000) {
           return null
         }
         
