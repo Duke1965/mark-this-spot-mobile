@@ -240,14 +240,25 @@ function parseHtml(html: string, baseUrl: string): WebsitePreview {
     }
   }
   
-  // Filter images
+  // Filter images - exclude non-photo files and logos/icons
   const filteredImages = Array.from(images)
     .filter(img => {
       const imgLower = img.toLowerCase()
-      return !imgLower.endsWith('.svg') &&
-             !imgLower.endsWith('.ico') &&
-             !imgLower.startsWith('data:') &&
-             !imgLower.includes('sprite')
+      // Exclude file types
+      if (imgLower.endsWith('.svg') || 
+          imgLower.endsWith('.ico') || 
+          imgLower.startsWith('data:')) {
+        return false
+      }
+      // Exclude logos, icons, sprites, badges
+      if (imgLower.includes('logo') ||
+          imgLower.includes('icon') ||
+          imgLower.includes('favicon') ||
+          imgLower.includes('sprite') ||
+          imgLower.includes('badge')) {
+        return false
+      }
+      return true
     })
     .slice(0, 3) // Max 3 images
   
