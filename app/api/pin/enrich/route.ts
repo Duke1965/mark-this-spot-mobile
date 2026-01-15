@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
-import { tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
+import { tryWikidataMatch, shouldAttemptWikidata } from '@/lib/pinEnrich/wikidata'
 import { fetchWebsitePreview } from '@/lib/pinEnrich/websitePreview'
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
 import { getCached, setCached, getCacheKey } from '@/lib/pinEnrich/cache'
@@ -50,12 +50,16 @@ export async function POST(request: NextRequest) {
     console.log(`📍 Resolving place identity for ${lat}, ${lng}`)
     const place = await resolvePlaceIdentity(lat, lng, userHintName)
     
-    // Step 2: Try Wikidata match
-    console.log(`🔍 Trying Wikidata match for: ${place.canonicalQuery}`)
-    const wikidata = await tryWikidataMatch(place)
-    
-    if (wikidata?.wikidataId) {
-      place.wikidataId = wikidata.wikidataId
+    // Step 2: Try Wikidata match (only if place identity is strong)
+    let wikidata = null
+    if (shouldAttemptWikidata(place)) {
+      console.log(`🔍 Trying Wikidata match for: ${place.name}`)
+      wikidata = await tryWikidataMatch(place)
+      if (wikidata?.wikidataId) {
+        place.wikidataId = wikidata.wikidataId
+      }
+    } else {
+      console.log(`⏭️ Skipping Wikidata: confidence too low (${place.confidence}) or road-like name`)
     }
     
     // Step 3: Fetch website preview if website exists
@@ -68,8 +72,8 @@ export async function POST(request: NextRequest) {
     // Step 4: Build image candidates
     const imageCandidates: Array<{ url: string; source: 'wikimedia' | 'website' | 'stock' }> = []
     
-    // Add Wikidata/Wikimedia images
-    if (wikidata?.commonsImages) {
+    // Add Wikidata/Wikimedia images (only if we got a valid match)
+    if (wikidata && wikidata.wikidataId && wikidata.commonsImages && wikidata.commonsImages.length > 0) {
       for (const imgUrl of wikidata.commonsImages.slice(0, 3)) {
         imageCandidates.push({ url: imgUrl, source: 'wikimedia' })
       }
