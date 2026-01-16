@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
 import { tryWikidataMatch, shouldAttemptWikidata } from '@/lib/pinEnrich/wikidata'
 import { fetchWebsitePreview } from '@/lib/pinEnrich/websitePreview'
+import { fetchFacebookPreview } from '@/lib/pinEnrich/facebookPreview'
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
 import { getCached, setCached, getCacheKey } from '@/lib/pinEnrich/cache'
 import type { EnrichedPin } from '@/lib/pinEnrich/types'
@@ -50,40 +51,64 @@ export async function POST(request: NextRequest) {
     console.log(`📍 Resolving place identity for ${lat}, ${lng}`)
     const place = await resolvePlaceIdentity(lat, lng, userHintName)
     
-    // Step 2: Try Wikidata match (only if place identity is strong)
-    let wikidata = null
-    if (shouldAttemptWikidata(place)) {
-      console.log(`🔍 Trying Wikidata match for: ${place.name}`)
-      wikidata = await tryWikidataMatch(place)
-      if (wikidata?.wikidataId) {
-        place.wikidataId = wikidata.wikidataId
-      }
-    } else {
-      console.log(`⏭️ Skipping Wikidata: confidence too low (${place.confidence}) or road-like name`)
-    }
-    
-    // Step 3: Fetch website preview if website exists
+    // Step 2: Fetch website preview first (official site)
     let websitePreview = null
     if (place.website) {
       console.log(`🌐 Fetching website preview for: ${place.website}`)
       websitePreview = await fetchWebsitePreview(place.website)
-    }
-    
-    // Step 4: Build image candidates
-    const imageCandidates: Array<{ url: string; source: 'wikimedia' | 'website' | 'stock' }> = []
-    
-    // Add Wikidata/Wikimedia images (only if we got a valid match)
-    if (wikidata && wikidata.wikidataId && wikidata.commonsImages && wikidata.commonsImages.length > 0) {
-      for (const imgUrl of wikidata.commonsImages.slice(0, 3)) {
-        imageCandidates.push({ url: imgUrl, source: 'wikimedia' })
+
+      // Copy discovered social links onto place (if found)
+      if (websitePreview?.discovered?.facebookUrl && !place.facebookUrl) {
+        place.facebookUrl = websitePreview.discovered.facebookUrl
+      }
+      if (websitePreview?.discovered?.instagramUrl && !place.instagramUrl) {
+        place.instagramUrl = websitePreview.discovered.instagramUrl
       }
     }
+
+    // Step 3: Facebook page preview (OG only) if discovered/known
+    let facebookPreview = null
+    if (place.facebookUrl) {
+      console.log(`📘 Fetching Facebook preview for: ${place.facebookUrl}`)
+      facebookPreview = await fetchFacebookPreview(place.facebookUrl)
+    }
+    
+    // Step 4: Build image candidates (website -> facebook -> wikimedia -> stock)
+    const imageCandidates: Array<{ url: string; source: 'website' | 'facebook' | 'wikimedia' | 'stock' }> = []
     
     // Add website preview images
     if (websitePreview?.images) {
       for (const imgUrl of websitePreview.images) {
         imageCandidates.push({ url: imgUrl, source: 'website' })
       }
+    }
+
+    // Add Facebook preview images next (only if we still need more)
+    if (facebookPreview?.images && imageCandidates.length < 3) {
+      for (const imgUrl of facebookPreview.images) {
+        imageCandidates.push({ url: imgUrl, source: 'facebook' })
+      }
+    }
+
+    // Step 4b: Wikidata only after website/facebook, and only if we still need description/images
+    let wikidata = null
+    const needsMoreImages = imageCandidates.length === 0
+    const needsDescription = !websitePreview?.description && !facebookPreview?.description
+
+    if ((needsMoreImages || needsDescription) && shouldAttemptWikidata(place)) {
+      console.log(`🔍 Trying Wikidata match for: ${place.name}`)
+      wikidata = await tryWikidataMatch(place)
+      if (wikidata?.wikidataId) {
+        place.wikidataId = wikidata.wikidataId
+      }
+
+      if (wikidata && wikidata.wikidataId && wikidata.commonsImages && wikidata.commonsImages.length > 0 && imageCandidates.length < 3) {
+        for (const imgUrl of wikidata.commonsImages.slice(0, 3)) {
+          imageCandidates.push({ url: imgUrl, source: 'wikimedia' })
+        }
+      }
+    } else if (!shouldAttemptWikidata(place)) {
+      console.log(`⏭️ Skipping Wikidata: confidence too low (${place.confidence}) or road-like name`)
     }
     
     // Step 5: Download and upload images (max 3)
@@ -105,12 +130,14 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Step 6: Build description (prioritize Wikidata, then website, then empty)
+    // Step 6: Build description (prioritize website, then facebook, then wikidata)
     let description: string | undefined
-    if (wikidata?.description) {
-      description = wikidata.description
-    } else if (websitePreview?.description) {
+    if (websitePreview?.description) {
       description = websitePreview.description
+    } else if (facebookPreview?.description) {
+      description = facebookPreview.description
+    } else if (wikidata?.description) {
+      description = wikidata.description
     }
     
     // Step 7: Build final EnrichedPin
@@ -124,7 +151,8 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV !== 'production') {
       enriched.debug = {
         wikidataMatch: wikidata ? { id: wikidata.wikidataId, hasDescription: !!wikidata.description, imageCount: wikidata.commonsImages?.length || 0 } : null,
-        websitePreview: websitePreview ? { imageCount: websitePreview.images.length, hasDescription: !!websitePreview.description } : null,
+        websitePreview: websitePreview ? { imageCount: websitePreview.images.length, hasDescription: !!websitePreview.description, hasFacebook: !!websitePreview.discovered?.facebookUrl } : null,
+        facebookPreview: facebookPreview ? { imageCount: facebookPreview.images.length, hasDescription: !!facebookPreview.description } : null,
         imageCandidatesCount: imageCandidates.length,
         imagesProcessed: images.length
       }
