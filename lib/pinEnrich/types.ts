@@ -13,6 +13,8 @@ export type PlaceIdentity = {
   region?: string
   country?: string
   website?: string
+  facebookUrl?: string
+  instagramUrl?: string
   phone?: string
   source: "tomtom" | "geoapify" | "sygic" | "unknown"
   sourceId?: string
@@ -26,7 +28,7 @@ export type EnrichedPin = {
   description?: string
   images: Array<{
     url: string // our hosted URL
-    source: "wikimedia" | "website" | "stock"
+    source: "wikimedia" | "website" | "facebook" | "stock"
     sourceUrl?: string // original source page/image
     fetchedAt: string // ISO
   }>
