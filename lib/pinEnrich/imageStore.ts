@@ -4,20 +4,23 @@
  */
 
 import { createHash } from 'crypto'
+import admin from 'firebase-admin'
 
 /**
  * Generate deterministic path for image storage
  */
-export function generateImagePath(cacheKey: string, source: string, imageUrl: string): string {
+export function generateImagePath(cacheKey: string, source: string, imageUrl: string, extension: string): string {
   const hash = createHash('md5').update(imageUrl).digest('hex').substring(0, 8)
-  const extension = 'jpg' // We'll normalize to jpg
   return `pin_images/${cacheKey}/${source}/${hash}.${extension}`
 }
 
 /**
  * Download image to buffer with timeout
  */
-export async function downloadToBuffer(imageUrl: string, timeoutMs: number = 5000): Promise<Buffer> {
+export async function downloadToBuffer(
+  imageUrl: string,
+  timeoutMs: number = 5000
+): Promise<{ buffer: Buffer; contentType: string }> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   
@@ -53,13 +56,88 @@ export async function downloadToBuffer(imageUrl: string, timeoutMs: number = 500
       throw new Error(`Image too large: ${arrayBuffer.byteLength} bytes`)
     }
     
-    return Buffer.from(arrayBuffer)
+    return { buffer: Buffer.from(arrayBuffer), contentType }
   } catch (error) {
     clearTimeout(timeout)
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Image download timeout')
     }
     throw error
+  }
+}
+
+function getExtensionFromContentType(contentType: string): string {
+  const ct = contentType.toLowerCase()
+  if (ct.includes('image/png')) return 'png'
+  if (ct.includes('image/webp')) return 'webp'
+  return 'jpg'
+}
+
+function getBucketName(): string | undefined {
+  return process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+}
+
+function parseServiceAccountFromEnv(): admin.ServiceAccount | null {
+  const raw =
+    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+    ''
+
+  const rawBase64 =
+    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64 ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
+    ''
+
+  try {
+    if (rawBase64) {
+      const decoded = Buffer.from(rawBase64, 'base64').toString('utf8')
+      return JSON.parse(decoded)
+    }
+
+    if (raw) {
+      // Some platforms escape newlines in private_key; JSON.parse handles it if present.
+      return JSON.parse(raw)
+    }
+  } catch {
+    return null
+  }
+
+  // Support split env vars if user prefers that pattern
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID
+  if (clientEmail && privateKey) {
+    return {
+      clientEmail,
+      privateKey: privateKey.replace(/\\n/g, '\n'),
+      projectId
+    } as admin.ServiceAccount
+  }
+
+  return null
+}
+
+function getAdminApp(): admin.app.App | null {
+  try {
+    if (admin.apps.length > 0) {
+      return admin.apps[0]!
+    }
+
+    const serviceAccount = parseServiceAccountFromEnv()
+    if (serviceAccount) {
+      return admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      })
+    }
+
+    // Fall back to application default credentials if available (e.g., GCP).
+    return admin.initializeApp({
+      credential: admin.credential.applicationDefault()
+    })
+  } catch (error) {
+    console.error('❌ Firebase Admin initialization failed:', error)
+    return null
   }
 }
 
@@ -87,21 +165,28 @@ export async function downloadToBuffer(imageUrl: string, timeoutMs: number = 500
 export async function uploadToStorage(
   buffer: Buffer,
   path: string,
-  contentType: string = 'image/jpeg'
+  contentType: string
 ): Promise<string> {
-  // TODO: Implement Firebase Admin SDK upload
-  // For now, throw an error indicating Admin SDK is needed
-  throw new Error(
-    'Firebase Admin SDK required for server-side image upload. ' +
-    'Please install firebase-admin and configure it, or implement upload logic.'
-  )
-  
-  // Expected implementation:
-  // 1. Initialize Firebase Admin if not already initialized
-  // 2. Get storage bucket
-  // 3. Upload buffer to path
-  // 4. Make file public or generate signed URL
-  // 5. Return public/signed URL
+  const app = getAdminApp()
+  if (!app) {
+    throw new Error('Firebase Admin not initialized. Check service account env vars.')
+  }
+
+  const bucketName = getBucketName()
+  const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket()
+
+  const file = bucket.file(path)
+  await file.save(buffer, {
+    resumable: false,
+    metadata: { contentType }
+  })
+
+  const [signedUrl] = await file.getSignedUrl({
+    action: 'read',
+    expires: '03-09-2491'
+  })
+
+  return signedUrl
 }
 
 /**
@@ -110,17 +195,18 @@ export async function uploadToStorage(
 export async function downloadAndUploadImage(
   imageUrl: string,
   cacheKey: string,
-  source: 'wikimedia' | 'website' | 'stock'
+  source: 'wikimedia' | 'website' | 'facebook' | 'stock'
 ): Promise<string | null> {
   try {
     // Download image
-    const buffer = await downloadToBuffer(imageUrl)
+    const { buffer, contentType } = await downloadToBuffer(imageUrl)
     
     // Generate storage path
-    const path = generateImagePath(cacheKey, source, imageUrl)
+    const extension = getExtensionFromContentType(contentType)
+    const path = generateImagePath(cacheKey, source, imageUrl, extension)
     
     // Upload to storage
-    const hostedUrl = await uploadToStorage(buffer, path, 'image/jpeg')
+    const hostedUrl = await uploadToStorage(buffer, path, contentType)
     
     return hostedUrl
   } catch (error) {
