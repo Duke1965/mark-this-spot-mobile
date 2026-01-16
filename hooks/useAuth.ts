@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  User as FirebaseUser 
-} from 'firebase/auth'
-import { auth, googleProvider, facebookProvider } from '@/lib/firebase'
+import { useEffect, useState } from "react"
+import {
+  User as FirebaseUser,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth"
+import { auth, facebookProvider, googleProvider } from "@/lib/firebase"
 
 // Check if Firebase is properly configured
 const isFirebaseConfigured = () => {
@@ -33,20 +33,23 @@ export function useAuth() {
 
   // Listen for auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          providerId: firebaseUser.providerData[0]?.providerId || 'unknown'
-        })
-      } else {
-        setUser(null)
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (firebaseUser: FirebaseUser | null) => {
+        if (firebaseUser) {
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            providerId: firebaseUser.providerData[0]?.providerId || "unknown",
+          })
+        } else {
+          setUser(null)
+        }
+        setLoading(false) // Set to false only after Firebase responds
       }
-      setLoading(false) // Set to false only after Firebase responds
-    })
+    )
 
     return () => unsubscribe()
   }, [])
@@ -56,11 +59,13 @@ export function useAuth() {
     try {
       setError(null)
       setLoading(true)
-      
+
       if (!isFirebaseConfigured() || !googleProvider) {
-        throw new Error("Firebase authentication is not configured. Please set up environment variables.")
+        throw new Error(
+          "Firebase authentication is not configured. Please set up environment variables."
+        )
       }
-      
+
       const result = await signInWithPopup(auth, googleProvider!)
       console.log("✅ Google sign in successful:", result.user.displayName)
       return result.user
@@ -78,11 +83,13 @@ export function useAuth() {
     try {
       setError(null)
       setLoading(true)
-      
+
       if (!isFirebaseConfigured() || !facebookProvider) {
-        throw new Error("Firebase authentication is not configured. Please set up environment variables.")
+        throw new Error(
+          "Firebase authentication is not configured. Please set up environment variables."
+        )
       }
-      
+
       const result = await signInWithPopup(auth, facebookProvider!)
       console.log("✅ Facebook sign in successful:", result.user.displayName)
       return result.user
@@ -112,6 +119,6 @@ export function useAuth() {
     error,
     signInWithGoogle,
     signInWithFacebook,
-    signOutUser
+    signOutUser,
   }
-} 
+}
