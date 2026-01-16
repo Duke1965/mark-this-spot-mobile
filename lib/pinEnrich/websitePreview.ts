@@ -8,6 +8,10 @@ export interface WebsitePreview {
   name?: string
   description?: string
   sourceUrl: string
+  discovered: {
+    facebookUrl?: string
+    instagramUrl?: string
+  }
 }
 
 // Per-domain throttle tracking
@@ -76,6 +80,45 @@ function cleanUrl(url: string): string {
     return parsed.toString()
   } catch {
     return url
+  }
+}
+
+/**
+ * Normalize "website" URLs so we fetch the canonical homepage first.
+ * - ensure http/https
+ * - drop fragments and query params
+ * - normalize common "leaf" paths back to origin (/contact, /about, /index.html, etc.)
+ */
+export function normalizeWebsiteUrl(url: string): string {
+  const trimmed = (url || '').trim()
+  if (!trimmed) return url
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withScheme)
+    parsed.hash = ''
+    parsed.search = ''
+
+    const path = (parsed.pathname || '/').toLowerCase()
+    const leafPaths = [
+      '/',
+      '/index.html',
+      '/index.htm',
+      '/home',
+      '/contact',
+      '/contact-us',
+      '/about',
+      '/about-us'
+    ]
+
+    if (leafPaths.includes(path) || path.endsWith('/index.html') || path.endsWith('/index.htm')) {
+      parsed.pathname = '/'
+    }
+
+    return parsed.toString()
+  } catch {
+    return withScheme
   }
 }
 
@@ -172,6 +215,8 @@ function parseHtml(html: string, baseUrl: string): WebsitePreview {
   const images = new Set<string>()
   let name: string | undefined
   let description: string | undefined
+  let facebookUrl: string | undefined
+  let instagramUrl: string | undefined
   
   // Extract OG image
   const ogImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)
@@ -261,12 +306,83 @@ function parseHtml(html: string, baseUrl: string): WebsitePreview {
       return true
     })
     .slice(0, 3) // Max 3 images
+
+  // Discover social links from anchors (conservative)
+  try {
+    const anchorMatches = html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>/gi)
+    for (const match of anchorMatches) {
+      const hrefRaw = (match[1] || '').trim()
+      if (!hrefRaw) continue
+
+      const href = resolveUrl(hrefRaw, baseUrl)
+      if (!validateUrl(href)) continue
+
+      const u = new URL(href)
+      const host = u.hostname.toLowerCase()
+      const path = u.pathname.toLowerCase()
+      const full = href.toLowerCase()
+
+      // Skip obvious non-page links
+      if (
+        full.includes('sharer.php') ||
+        full.includes('/share') ||
+        full.includes('/plugins/') ||
+        full.includes('intent/') ||
+        full.includes('oauth')
+      ) {
+        continue
+      }
+
+      if (!facebookUrl && (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'm.facebook.com')) {
+        // Prefer /{page} style URLs (not groups/events/people)
+        if (!path.startsWith('/share') && !path.startsWith('/groups') && !path.startsWith('/events') && !path.startsWith('/people')) {
+          facebookUrl = href
+        }
+      }
+
+      if (!instagramUrl && (host === 'instagram.com' || host.endsWith('.instagram.com'))) {
+        // Prefer profile URLs like /{handle}/
+        if (!path.startsWith('/p/') && !path.startsWith('/reel/') && !path.startsWith('/explore') && path.split('/').filter(Boolean).length <= 2) {
+          instagramUrl = href
+        }
+      }
+
+      if (facebookUrl && instagramUrl) break
+    }
+  } catch {
+    // ignore
+  }
+
+  // If no OG/JSON-LD images, try a conservative "hero" <img> near the top
+  let finalImages = filteredImages
+  if (finalImages.length === 0) {
+    const scanWindow = html.slice(0, 25000) // near top of document
+    const imgMatches = scanWindow.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)
+    for (const match of imgMatches) {
+      const srcRaw = (match[1] || '').trim()
+      if (!srcRaw) continue
+      const src = resolveUrl(srcRaw, baseUrl)
+      const lower = src.toLowerCase()
+
+      if (!validateUrl(src)) continue
+      if (lower.startsWith('data:') || lower.endsWith('.svg') || lower.endsWith('.ico')) continue
+      if (lower.includes('logo') || lower.includes('icon') || lower.includes('favicon') || lower.includes('sprite') || lower.includes('badge')) continue
+      if (!(/\.(jpe?g|png|webp)(\?|$)/i.test(src) || lower.includes('format=webp'))) continue
+
+      finalImages = [src]
+      break
+    }
+  }
   
   return {
-    images: filteredImages,
+    images: finalImages,
     name,
     description,
-    sourceUrl: baseUrl
+    sourceUrl: baseUrl,
+    discovered: {
+      facebookUrl,
+      instagramUrl
+    }
   }
 }
 
@@ -285,13 +401,15 @@ function resolveUrl(url: string, base: string): string {
  * Fetch website preview
  */
 export async function fetchWebsitePreview(url: string): Promise<WebsitePreview | null> {
+  const normalizedUrl = normalizeWebsiteUrl(url)
+
   // Validate URL
-  if (!validateUrl(url)) {
+  if (!validateUrl(normalizedUrl)) {
     return null
   }
   
-  // Clean URL
-  const cleanedUrl = cleanUrl(url)
+  // Clean URL (tracking params) after normalization
+  const cleanedUrl = cleanUrl(normalizedUrl)
   
   // Check cache
   const cached = previewCache.get(cleanedUrl)
@@ -353,7 +471,8 @@ export async function fetchWebsitePreview(url: string): Promise<WebsitePreview |
       }
       
       // Parse HTML
-      const preview = parseHtml(html, cleanedUrl)
+      const finalUrl = response.url || cleanedUrl
+      const preview = parseHtml(html, finalUrl)
       
       // Cache result
       previewCache.set(cleanedUrl, {
