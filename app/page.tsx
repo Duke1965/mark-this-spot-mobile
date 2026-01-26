@@ -1072,58 +1072,69 @@ export default function PINITApp() {
         console.log("📍 Stationary pinning - using current location")
       }
       
-      // NEW: Fetch location photos before creating the pin (includes Foursquare place data)
-      console.log("📸 Fetching location photos for speed-based pin...")
-      const locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
-      
-      // Get place data from photos (prioritize over AI-generated content)
-      const placeName = locationPhotos[0]?.placeName
-      const placeDescription = locationPhotos[0]?.description
-      
-      console.log("📍 Place data from photos:", { placeName, placeDescription, photoCount: locationPhotos.length })
-      
-      // Fetch pin-intel data for better context (geocode + POI)
-      let pinIntelData: any = null
+      // NEW: Use unified /api/pin-intel for title/description + website-first images
+      console.log("🧠 Fetching pin intel (Geoapify + website-first images)...")
+      let pinIntelV2: any = null
       try {
-        const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat: pinLatitude, lng: pinLongitude, precision: 5 })
-        })
-        if (pinIntelResponse.ok) {
-          pinIntelData = await pinIntelResponse.json()
-          console.log("📍 Pin-intel data fetched:", { 
-            hasGeocode: !!pinIntelData.geocode, 
-            placesCount: pinIntelData.places?.length || 0 
-          })
+        const resp = await fetch(`/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`)
+        if (resp.ok) {
+          pinIntelV2 = await resp.json()
+        } else {
+          console.warn("⚠️ /api/pin-intel failed:", resp.status)
         }
       } catch (error) {
-        console.warn("⚠️ Failed to fetch pin-intel data (non-critical):", error)
+        console.warn("⚠️ Failed to fetch /api/pin-intel (non-critical):", error)
       }
-      
-      // Build context for AI generation from pin-intel data or photo data
-      const aiContext = pinIntelData ? {
-        lat: pinLatitude,
-        lng: pinLongitude,
-        name: pinIntelData.places?.[0]?.name || placeName,
-        category: pinIntelData.places?.[0]?.categories?.[0] || pinIntelData.places?.[0]?.category,
-        address: pinIntelData.geocode?.formatted || pinIntelData.geocode?.components?.address,
-        suburb: pinIntelData.geocode?.components?.suburb || pinIntelData.geocode?.components?.neighbourhood,
-        city: pinIntelData.geocode?.components?.city || pinIntelData.geocode?.components?.town,
-        region: pinIntelData.geocode?.components?.state || pinIntelData.geocode?.components?.county,
-        country: pinIntelData.geocode?.components?.country,
-        provider: 'foursquare'
-      } : {
-        lat: pinLatitude,
-        lng: pinLongitude,
-        name: placeName,
-        address: undefined,
-        suburb: undefined,
-        city: undefined,
-        region: undefined,
-        country: undefined,
-        provider: 'mapbox'
+
+      // Prefer pin-intel v2 for place data
+      const placeName = pinIntelV2?.title
+      const placeDescription = pinIntelV2?.description
+
+      // Build photo carousel data from pin-intel images if available, otherwise fallback
+      let locationPhotos: any[] = []
+      if (pinIntelV2?.images?.length) {
+        locationPhotos = pinIntelV2.images.map((img: any) => ({
+          url: img.url,
+          placeName: placeName || pinIntelV2?.place?.name || "Location",
+          description: placeDescription,
+          source: img.source
+        }))
+      } else {
+        console.log("📸 No images from pin-intel, falling back to existing photo fetch...")
+        locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
       }
+
+      console.log("📍 Pin intel v2 data:", {
+        title: placeName,
+        hasDescription: !!placeDescription,
+        imageCount: locationPhotos.length
+      })
+
+      // Build context for AI generation primarily from pin-intel v2 place metadata
+      const aiContext = pinIntelV2?.place
+        ? {
+            lat: pinLatitude,
+            lng: pinLongitude,
+            name: pinIntelV2.place.name || placeName,
+            category: pinIntelV2.place.category,
+            address: pinIntelV2.place.address,
+            suburb: undefined,
+            city: pinIntelV2.place.locality,
+            region: pinIntelV2.place.region,
+            country: pinIntelV2.place.country,
+            provider: pinIntelV2.place.source || 'geoapify'
+          }
+        : {
+            lat: pinLatitude,
+            lng: pinLongitude,
+            name: placeName,
+            address: undefined,
+            suburb: undefined,
+            city: undefined,
+            region: undefined,
+            country: undefined,
+            provider: 'fallback'
+          }
       
       // Generate AI title and description using new system
       // Only use AI if we don't have a good place name, otherwise use place name as title
@@ -1927,68 +1938,51 @@ export default function PINITApp() {
         }
       }
       
-      console.log("🔍 Search term for Yelp:", searchTerm || '(none)')
-      
-      // STEP 2: Fetch Yelp photos (ONLY on Done, not during drag)
-      console.log("🍽️ Step 2: Fetching Yelp photos...")
-      
-      let yelpImages: Array<{ url: string; source: string }> = []
+      console.log("🔍 Search hint for pin-intel:", searchTerm || '(none)')
+
+      // STEP 2: Fetch unified pin-intel (Geoapify + website-first images)
+      console.log("🧠 Step 2: Fetching /api/pin-intel...")
+      let pinIntelV2: any = null
       try {
-        const yelpResponse = await fetch('/api/yelp-photos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            lat: committedLocation.lat,
-            lng: committedLocation.lng,
-            term: searchTerm
-          }),
-          signal
+        const q = new URLSearchParams({
+          lat: String(committedLocation.lat),
+          lon: String(committedLocation.lng)
         })
-        
-        if (yelpResponse.ok) {
-          const yelpData = await yelpResponse.json()
-          yelpImages = yelpData.images || []
-          console.log(`✅ Yelp returned ${yelpImages.length} photos`)
+        if (searchTerm) q.set('hint', searchTerm)
+
+        const resp = await fetch(`/api/pin-intel?${q.toString()}`, { signal })
+        if (resp.ok) {
+          pinIntelV2 = await resp.json()
+          console.log("✅ /api/pin-intel returned:", {
+            title: pinIntelV2?.title,
+            hasDescription: !!pinIntelV2?.description,
+            imageCount: pinIntelV2?.images?.length || 0,
+            provider: pinIntelV2?.place?.source
+          })
+        } else {
+          console.warn("⚠️ /api/pin-intel failed:", resp.status)
         }
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
-          console.warn("⚠️ Yelp photos request failed:", error)
+          console.warn("⚠️ /api/pin-intel request failed:", error)
         }
       }
-      
+
       if (signal.aborted) {
-        console.log("🍽️ Yelp request was aborted")
+        console.log("🧠 /api/pin-intel request was aborted")
         return
       }
-      
-      // STEP 3: Merge images from pin-intel and Yelp
-      const pinIntelImages = (pinIntelData?.images || []).map((img: any) => ({
-        url: typeof img === 'string' ? img : img.url,
-        source: img.source || 'pin-intel'
-      }))
-      
-      // Deduplicate by URL
-      const allImages = [...pinIntelImages, ...yelpImages]
-      const seenUrls = new Set<string>()
-      const finalImages = allImages.filter(img => {
-        if (seenUrls.has(img.url)) return false
-        seenUrls.add(img.url)
-        return true
-      })
-      
-      console.log(`📸 Final merged images: ${finalImages.length} total (${pinIntelImages.length} from pin-intel, ${yelpImages.length} from Yelp)`)
-      
-      // Use existing photo fetching for compatibility, but merge Yelp results
+
+      // Prefer /api/pin-intel images; fallback to existing photo method
       let locationPhotos = editingPin.additionalPhotos || []
-      if (finalImages.length > 0) {
-        // Convert to expected format
-        locationPhotos = finalImages.map(img => ({
+      if (pinIntelV2?.images?.length) {
+        locationPhotos = pinIntelV2.images.map((img: any) => ({
           url: img.url,
-          placeName: poiName || editingPin.locationName || 'Location',
+          placeName: pinIntelV2.title || poiName || editingPin.locationName || 'Location',
+          description: pinIntelV2.description,
           source: img.source
         }))
       } else {
-        // Fallback to existing method if no images from pin-intel or Yelp
         locationPhotos = await fetchLocationPhotos(committedLocation.lat, committedLocation.lng, signal, true)
       }
       
@@ -1997,9 +1991,16 @@ export default function PINITApp() {
         return
       }
       
-      // Extract place name and description (poiName already extracted above)
-      let placeName = poiName || locationPhotos[0]?.placeName || editingPin.locationName
-      let placeDescription = (locationPhotos[0] as any)?.description || editingPin.description
+      // Extract place name and description (prefer /api/pin-intel v2)
+      let placeName =
+        pinIntelV2?.title ||
+        poiName ||
+        locationPhotos[0]?.placeName ||
+        editingPin.locationName
+      let placeDescription =
+        pinIntelV2?.description ||
+        (locationPhotos[0] as any)?.description ||
+        editingPin.description
       
       // Build rich context for AI generation - prioritize POI data (geocodeComponents, poiMetadata, poiName already extracted above)
       const nearestPOI = poiMetadata ? {
@@ -2016,14 +2017,31 @@ export default function PINITApp() {
       const aiContext = {
         lat: committedLocation.lat,
         lng: committedLocation.lng,
-        name: poiName || nearestPOI?.name || placeName, // Use POI name if available (from address/street detection)
-        category: geocodeComponents.category || nearestPOI?.categories?.[0] || nearestPOI?.category || undefined,
-        address: pinIntelData?.geocode?.formatted || geocodeComponents.address || undefined,
+        name: poiName || nearestPOI?.name || placeName, // Use POI name if available
+        category:
+          pinIntelV2?.place?.category ||
+          geocodeComponents.category ||
+          nearestPOI?.categories?.[0] ||
+          nearestPOI?.category ||
+          undefined,
+        address:
+          pinIntelV2?.place?.address ||
+          pinIntelData?.geocode?.formatted ||
+          geocodeComponents.address ||
+          undefined,
         suburb: geocodeComponents.suburb || geocodeComponents.neighbourhood || undefined,
-        city: geocodeComponents.city || geocodeComponents.town || undefined,
-        region: geocodeComponents.state || geocodeComponents.county || undefined,
-        country: geocodeComponents.country || undefined,
-        provider: poiName ? 'mapbox' : 'mapbox'
+        city:
+          pinIntelV2?.place?.locality ||
+          geocodeComponents.city ||
+          geocodeComponents.town ||
+          undefined,
+        region:
+          pinIntelV2?.place?.region ||
+          geocodeComponents.state ||
+          geocodeComponents.county ||
+          undefined,
+        country: pinIntelV2?.place?.country || geocodeComponents.country || undefined,
+        provider: pinIntelV2?.place?.source || 'geoapify'
       }
       
       console.log("🧠 AI Context:", {
