@@ -170,7 +170,7 @@ async function tryResolveWebsiteFromOverpass(
   // Avoid noisy queries for generic/streety names
   if (isStreetyName(cleaned)) return undefined
 
-  const radiusM = 900
+  const radiusM = 1500
 
   // NEW STRATEGY:
   // - Pull any nearby objects that have website/contact:website
@@ -182,14 +182,14 @@ async function tryResolveWebsiteFromOverpass(
       nwr(around:${radiusM},${center.lat},${center.lon})["website"];
       nwr(around:${radiusM},${center.lat},${center.lon})["contact:website"];
     );
-    out tags center 50;
+    out tags center 80;
   `.trim()
 
   try {
     // Overpass can be slow/unreliable; retry multiple public instances.
     // Also ensure we abort if either the upstream signal or our timeout fires.
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 7000)
+    const timeout = setTimeout(() => controller.abort(), 10000)
     if (!signal.aborted) {
       signal.addEventListener('abort', () => controller.abort(), { once: true })
     }
@@ -227,14 +227,24 @@ async function tryResolveWebsiteFromOverpass(
 
     for (const el of elements) {
       const tags = el?.tags || {}
+      // Exclude highways/roads (websites on routes/ways can be misleading)
+      if (typeof tags?.highway === 'string' && tags.highway) continue
+
       const websiteRaw = tags.website || tags['contact:website']
       if (typeof websiteRaw !== 'string' || !websiteRaw.trim()) continue
 
-      const elName = typeof tags.name === 'string' ? tags.name : ''
-      const sim = similarityScore(cleaned, elName)
-      // Require at least some name similarity when a name exists.
-      // If the element has no name, skip (too risky).
-      if (!elName || sim < 0.35) continue
+      const label =
+        (typeof tags.name === 'string' && tags.name) ||
+        (typeof tags.official_name === 'string' && tags.official_name) ||
+        (typeof tags.short_name === 'string' && tags.short_name) ||
+        (typeof tags.alt_name === 'string' && tags.alt_name) ||
+        (typeof tags.brand === 'string' && tags.brand) ||
+        (typeof tags.operator === 'string' && tags.operator) ||
+        ''
+
+      const sim = similarityScore(cleaned, label)
+      // Allow slightly looser matching; we already reject roads and score by distance too.
+      if (!label || sim < 0.22) continue
 
       const coords = el.center || { lat: el.lat, lon: el.lon }
       const lat = typeof coords?.lat === 'number' ? coords.lat : undefined
