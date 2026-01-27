@@ -49,8 +49,20 @@ export async function GET(request: NextRequest) {
 
     // 1) Place resolve (Geoapify)
     const t0 = Date.now()
-    const place = await resolvePlaceIdentity(lat, lon, hint)
+    let place = await resolvePlaceIdentity(lat, lon, hint)
     timings.place_resolve_ms = Date.now() - t0
+
+    // 1b) If missing website, try strict Wikidata match to fill official website (P856)
+    let wikidata: Awaited<ReturnType<typeof tryWikidataMatch>> | null = null
+    if (!place.website && shouldAttemptWikidata(place)) {
+      const t0b = Date.now()
+      wikidata = await tryWikidataMatch(place)
+      timings.wikidata_lookup_ms = Date.now() - t0b
+      if (wikidata?.officialWebsite) {
+        place = { ...place, website: wikidata.officialWebsite }
+        fallbacksUsed.push('wikidata_official_website')
+      }
+    }
 
     // Normalize into the formatter input shape
     const formatterInput = {
@@ -95,9 +107,11 @@ export async function GET(request: NextRequest) {
 
     // 3) Wikimedia fallback (only if we still have no images)
     if (images.length === 0 && shouldAttemptWikidata(place)) {
-      const t3 = Date.now()
-      const wikidata = await tryWikidataMatch(place)
-      timings.wikidata_ms = Date.now() - t3
+      if (!wikidata) {
+        const t3 = Date.now()
+        wikidata = await tryWikidataMatch(place)
+        timings.wikidata_ms = Date.now() - t3
+      }
 
       const commons = wikidata?.commonsImages || []
       if (commons.length > 0) {
