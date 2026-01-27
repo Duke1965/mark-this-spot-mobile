@@ -667,7 +667,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Let's set up your account to make the most of your travel discoveries.
+              Let&apos;s set up your account to make the most of your travel discoveries.
             </p>
             <button
               onClick={handleNext}
@@ -696,7 +696,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👋</div>
                 <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome back, {user.displayName}!</h1>
                 <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-                  You're already signed in to PINIT
+                  You&apos;re already signed in to PINIT
                 </p>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
@@ -860,7 +860,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👤</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Complete Your Profile</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Let's set up your PINIT profile to personalize your experience.
+              Let&apos;s set up your PINIT profile to personalize your experience.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
@@ -1451,7 +1451,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Your profile is all set up. You're ready to start discovering and sharing amazing places!
+              Your profile is all set up. You&apos;re ready to start discovering and sharing amazing places!
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
