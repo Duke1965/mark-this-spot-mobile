@@ -232,7 +232,7 @@ export function LocationPermissionPrompt({
               }}
             >
               <li>Go to your browser settings</li>
-              <li>Find "Site permissions" or "Location"</li>
+              <li>Find &quot;Site permissions&quot; or &quot;Location&quot;</li>
               <li>Allow location for this site</li>
               <li>Refresh the page</li>
             </ol>
