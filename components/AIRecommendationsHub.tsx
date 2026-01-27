@@ -585,7 +585,7 @@ export default function AIRecommendationsHub({
   const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
     try {
       // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const response = await fetch(`/api/tomtom/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+      const response = await fetch(`/api/places/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
         signal
       })
 
@@ -943,7 +943,7 @@ export default function AIRecommendationsHub({
                   console.log('🧠 Fetching local places for new user...')
                   
                   // Use Mapbox Search API with safeguards - focus on travel POIs
-                  const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                  const response = await fetch(`/api/places/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=5&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                     signal // Add abort signal
                   })
                   
@@ -1133,7 +1133,7 @@ export default function AIRecommendationsHub({
               // We already have places from the category fetch above - reuse them
               try {
                 // Focus on travel-related POIs for discovery recommendations
-                const response = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                const response = await fetch(`/api/places/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=5000&limit=30&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
@@ -1151,7 +1151,7 @@ export default function AIRecommendationsHub({
               // For new users, fetch discovery places separately
               try {
                 // Focus on travel-related POIs for discovery
-                const discoveryResponse = await fetch(`/api/tomtom/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
+                const discoveryResponse = await fetch(`/api/places/search?lat=${location.latitude || location.lat}&lng=${location.longitude || location.lng}&radius=3000&limit=10&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
                   signal
                 })
                 
