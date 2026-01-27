@@ -224,6 +224,52 @@ export default function PINITApp() {
     }, 10)
     return () => clearTimeout(timer)
   }, [])
+
+  // Handle Android back button navigation
+  useEffect(() => {
+    const handleBackButton = (event: PopStateEvent) => {
+      event.preventDefault()
+
+      // Navigation stack logic
+      if (currentScreen === "map") {
+        // FIX: Don't allow back from main map - allow app to close
+        console.log("dY Back button blocked on main screen")
+        return // Don't push history state, just prevent
+      }
+
+      // Navigate back through screens
+      const screenStack = [
+        "map", // Main screen
+        "settings", // Settings
+        "camera", // Camera
+        "platform-select", // Platform selection
+        "content-editor", // Content editor
+        "story", // Story mode
+        "library", // Library
+        "story-builder", // Story builder
+        "recommendations", // Recommendations
+        "place-navigation", // Place navigation
+        "results" // Results
+      ]
+
+      const currentIndex = screenStack.indexOf(currentScreen)
+      if (currentIndex > 0) {
+        setCurrentScreen(screenStack[currentIndex - 1] as any)
+      } else {
+        setTimeout(() => setCurrentScreen("map"), 100)
+      }
+    }
+
+    // Add history state to prevent immediate back
+    window.history.pushState(null, "", window.location.href)
+
+    // Listen for back button
+    window.addEventListener("popstate", handleBackButton)
+
+    return () => {
+      window.removeEventListener("popstate", handleBackButton)
+    }
+  }, [currentScreen])
   
   // Pin editing state
   const [editingPin, setEditingPin] = useState<PinData | null>(null)
@@ -3952,54 +3998,6 @@ export default function PINITApp() {
       `}</style>
     </div>
   )
-
-  // Auth redirect removed - handled by state persistence useEffect above to prevent flicker
-
-  // Handle Android back button navigation
-  useEffect(() => {
-    const handleBackButton = (event: PopStateEvent) => {
-      event.preventDefault()
-      
-      // Navigation stack logic
-      if (currentScreen === "map") {
-        // FIX: Don't allow back from main map - allow app to close
-        console.log("dY Back button blocked on main screen")
-        return // Don't push history state, just prevent
-      }
-      
-      // Navigate back through screens
-      const screenStack = [
-        "map",           // Main screen
-        "settings",      // Settings
-        "camera",        // Camera
-        "platform-select", // Platform selection
-        "content-editor", // Content editor
-        "story",         // Story mode
-        "library",       // Library
-        "story-builder", // Story builder
-        "recommendations", // Recommendations
-        "place-navigation", // Place navigation
-        "results"        // Results
-      ]
-      
-      const currentIndex = screenStack.indexOf(currentScreen)
-      if (currentIndex > 0) {
-        setCurrentScreen(screenStack[currentIndex - 1] as any)
-      } else {
-        setTimeout(() => setCurrentScreen("map"), 100)
-      }
-    }
-
-    // Add history state to prevent immediate back
-    window.history.pushState(null, "", window.location.href)
-    
-    // Listen for back button
-    window.addEventListener('popstate', handleBackButton)
-    
-    return () => {
-      window.removeEventListener('popstate', handleBackButton)
-    }
-  }, [currentScreen])
 }
 
 // Helper function for platform dimensions
