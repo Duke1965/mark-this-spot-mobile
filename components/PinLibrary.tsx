@@ -377,7 +377,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         {/* Personal Thoughts */}
         {item.personalThoughts && (
           <p style={{ margin: '0 0 12px 0', fontSize: '13px', opacity: 0.8, fontStyle: 'italic', lineHeight: '1.5' }}>
-            💭 "{item.personalThoughts}"
+            💭 &quot;{item.personalThoughts}&quot;
           </p>
         )}
         
