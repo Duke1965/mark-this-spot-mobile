@@ -129,17 +129,15 @@ export default function MapboxMap({
     
     try {
       console.log('🏪 Fetching POIs for map display...')
-      const response = await fetch('/api/pinit/pin-intel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lat: center.lat,
-          lng: center.lng,
-          precision: 5
-        })
-      })
+      // Use Geoapify-backed POI search (more complete travel POIs than Mapbox geocoding)
+      const url = new URL('/api/places/search', window.location.origin)
+      url.searchParams.set('lat', String(center.lat))
+      url.searchParams.set('lng', String(center.lng))
+      url.searchParams.set('radius', '600')
+      url.searchParams.set('limit', '50')
+      // Default categories already cover travel-related POIs; keep server defaults.
+
+      const response = await fetch(url.toString(), { method: 'GET' })
       
       if (!response.ok) {
         console.warn('⚠️ Failed to fetch POIs:', response.status)
@@ -147,7 +145,7 @@ export default function MapboxMap({
       }
       
       const data = await response.json()
-      const places = data.places || []
+      const places = Array.isArray(data?.pois) ? data.pois : []
       
       console.log(`✅ Found ${places.length} POIs to display on map`)
       
@@ -159,10 +157,10 @@ export default function MapboxMap({
       places.slice(0, 50).forEach((place: any) => { // Limit to 50 POIs to show comprehensive travel info
         const poi: POI = {
           id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
-          lat: place.lat,
-          lng: place.lng,
+          lat: place?.location?.lat ?? place.lat,
+          lng: place?.location?.lng ?? place.lng,
           name: place.name,
-          category: place.categories?.[0] || ''
+          category: place.category || place.categories?.[0] || ''
         }
         
         const icon = getPOIIcon(poi.category)
@@ -205,13 +203,17 @@ export default function MapboxMap({
         poiMarkersRef.current.set(poi.id, marker)
       })
       
-      poiDataRef.current = places.slice(0, 50).map((place: any) => ({
-        id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
-        lat: place.lat,
-        lng: place.lng,
-        name: place.name,
-        category: place.categories?.[0] || ''
-      }))
+      poiDataRef.current = places.slice(0, 50).map((place: any) => {
+        const lat = place?.location?.lat ?? place.lat
+        const lng = place?.location?.lng ?? place.lng
+        return {
+          id: place.id || `poi-${Math.random().toString(36).substr(2, 9)}`,
+          lat,
+          lng,
+          name: place.name,
+          category: place.category || place.categories?.[0] || ''
+        }
+      })
       
     } catch (error) {
       console.error('❌ Error fetching POIs for map:', error)
