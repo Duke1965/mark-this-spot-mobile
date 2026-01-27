@@ -10,7 +10,11 @@ const GEOAPIFY_PLACES_BASE = 'https://api.geoapify.com/v2/places'
 const GEOAPIFY_GEOCODE_SEARCH_BASE = 'https://api.geoapify.com/v1/geocode/search'
 const GEOAPIFY_REVERSE_BASE = 'https://api.geoapify.com/v1/geocode/reverse'
 const GEOAPIFY_PLACE_DETAILS_BASE = 'https://api.geoapify.com/v2/place-details'
-const OVERPASS_BASE = 'https://overpass-api.de/api/interpreter'
+const OVERPASS_BASES = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.nchc.org.tw/api/interpreter'
+]
 
 function getApiKey(): string {
   const key = process.env.GEOAPIFY_API_KEY
@@ -182,22 +186,38 @@ async function tryResolveWebsiteFromOverpass(
   `.trim()
 
   try {
-    // Overpass can be slow; use a short, dedicated timeout.
-    const localController = new AbortController()
-    const timeout = setTimeout(() => localController.abort(), 3500)
-    const mergedSignal = signal.aborted ? signal : localController.signal
+    // Overpass can be slow/unreliable; retry multiple public instances.
+    // Also ensure we abort if either the upstream signal or our timeout fires.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 7000)
+    if (!signal.aborted) {
+      signal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
 
-    const resp = await fetch(OVERPASS_BASE, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: mergedSignal
-    }).finally(() => clearTimeout(timeout))
+    let resp: Response | null = null
+    for (const base of OVERPASS_BASES) {
+      try {
+        const r = await fetch(base, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: controller.signal
+        })
+        if (r.ok) {
+          resp = r
+          break
+        }
+      } catch {
+        // try next base
+      }
+    }
+    clearTimeout(timeout)
 
-    if (!resp.ok) return undefined
+    if (!resp) return undefined
+
     const data = await resp.json()
     const elements = Array.isArray(data?.elements) ? data.elements : []
     if (elements.length === 0) return undefined
