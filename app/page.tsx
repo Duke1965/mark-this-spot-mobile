@@ -164,7 +164,8 @@ function InteractiveMainMap({
       center={{ lat, lng }}
       zoom={13}
       interactive={true}
-      showPOIs={true}
+      // Keep the main "Shazam circle" map clean (no POI markers here).
+      showPOIs={false}
     />
   )
 }
