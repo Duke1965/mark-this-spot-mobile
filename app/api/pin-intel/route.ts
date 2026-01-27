@@ -5,6 +5,7 @@ import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidat
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
 import { getWebsiteImages } from '@/lib/images/websiteScrape'
 import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
+import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -61,6 +62,24 @@ export async function GET(request: NextRequest) {
       if (wikidata?.officialWebsite) {
         place = { ...place, website: wikidata.officialWebsite }
         fallbacksUsed.push('wikidata_official_website')
+      }
+    }
+
+    // 1c) If still missing website, try search-based discovery (optional, requires SERPER_API_KEY)
+    if (!place.website) {
+      const t0c = Date.now()
+      const found = await discoverOfficialWebsite({
+        name: hint || place.name,
+        locality: place.locality,
+        region: place.region,
+        country: place.country
+      })
+      timings.website_discovery_ms = Date.now() - t0c
+      if (found.website) {
+        place = { ...place, website: found.website }
+        fallbacksUsed.push('serper_official_website')
+      } else {
+        fallbacksUsed.push(process.env.SERPER_API_KEY ? 'no_serper_match' : 'no_serper_key')
       }
     }
 
