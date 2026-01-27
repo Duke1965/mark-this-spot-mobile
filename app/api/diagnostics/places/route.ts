@@ -69,6 +69,9 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
     hasWebsite?: boolean
     websiteImages?: number
     provider?: string
+    website?: string
+    placeName?: string
+    fallbacksUsed?: string[]
     error?: string
   }> = []
 
@@ -101,7 +104,10 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
         hasDescription: !!(data?.description && String(data.description).trim()),
         hasWebsite: !!(data?.place?.website && String(data.place.website).trim()),
         websiteImages,
-        provider: data?.place?.source
+        provider: data?.place?.source,
+        website: data?.place?.website,
+        placeName: data?.place?.name,
+        fallbacksUsed: Array.isArray(data?.diagnostics?.fallbacksUsed) ? data.diagnostics.fallbacksUsed : undefined
       })
     } catch (error) {
       results.push({
