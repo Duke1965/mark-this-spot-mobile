@@ -9,6 +9,7 @@ import type { PlaceCandidate, PlacesProvider } from './types'
 const GEOAPIFY_PLACES_BASE = 'https://api.geoapify.com/v2/places'
 const GEOAPIFY_GEOCODE_SEARCH_BASE = 'https://api.geoapify.com/v1/geocode/search'
 const GEOAPIFY_REVERSE_BASE = 'https://api.geoapify.com/v1/geocode/reverse'
+const GEOAPIFY_PLACE_DETAILS_BASE = 'https://api.geoapify.com/v2/place-details'
 
 function getApiKey(): string {
   const key = process.env.GEOAPIFY_API_KEY
@@ -98,6 +99,63 @@ function buildCandidateFromFeature(feature: any): PlaceCandidate | null {
     lon,
     source: 'geoapify',
     raw: feature
+  }
+}
+
+function looksLikeGeoapifyPlaceId(id: string): boolean {
+  // Place IDs are long strings; coordinate fallback ids are "lon,lat"
+  if (!id) return false
+  if (id.includes(',')) return false
+  return id.length > 20
+}
+
+async function enrichWithPlaceDetails(
+  candidate: PlaceCandidate,
+  apiKey: string,
+  signal: AbortSignal
+): Promise<PlaceCandidate> {
+  if (!looksLikeGeoapifyPlaceId(candidate.id)) return candidate
+
+  try {
+    const url = new URL(GEOAPIFY_PLACE_DETAILS_BASE)
+    url.searchParams.set('id', candidate.id)
+    url.searchParams.set('features', 'details')
+    url.searchParams.set('apiKey', apiKey)
+    url.searchParams.set('lang', 'en')
+
+    const resp = await fetch(url.toString(), { signal })
+    if (!resp.ok) return candidate
+
+    const data = await resp.json()
+    const features = Array.isArray(data?.features) ? data.features : []
+    const details =
+      features.find((f: any) => f?.properties?.feature_type === 'details') ||
+      features[0]
+
+    const props = details?.properties || {}
+    const website =
+      extractWebsite(props) ||
+      extractWebsite(props?.contact) ||
+      (typeof props?.website === 'string' ? props.website : undefined)
+
+    const phone =
+      extractPhone(props) ||
+      extractPhone(props?.contact) ||
+      (typeof props?.contact?.phone === 'string' ? props.contact.phone : undefined)
+
+    // Some places have a better name in details
+    const name = extractName(props) || candidate.name
+
+    return {
+      ...candidate,
+      name: name || candidate.name,
+      website: candidate.website || website,
+      phone: candidate.phone || phone,
+      // Keep original raw + details raw for debugging if needed
+      raw: { base: candidate.raw, details }
+    }
+  } catch {
+    return candidate
   }
 }
 
@@ -257,6 +315,11 @@ export const geoapifyProvider: PlacesProvider = {
           best = c
           chosenReason = reason
         }
+      }
+
+      // Enrich best candidate with Place Details (helps get website/contact)
+      if (best) {
+        best = await enrichWithPlaceDetails(best, apiKey, signal)
       }
 
       return { place: best, candidates, chosenReason }
