@@ -80,6 +80,9 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
       const url = new URL(`${origin}/api/pin-intel`)
       url.searchParams.set('lat', String(p.lat))
       url.searchParams.set('lon', String(p.lon))
+      if (typeof p?.title === 'string' && p.title.trim()) {
+        url.searchParams.set('hint', p.title.trim())
+      }
 
       const resp = await fetch(url.toString(), { cache: 'no-store' })
       if (!resp.ok) {
