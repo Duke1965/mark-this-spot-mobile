@@ -47,7 +47,7 @@ function isRoadLikeName(name: string): boolean {
  */
 export function shouldAttemptWikidata(place: PlaceIdentity): boolean {
   // Skip if confidence is too low
-  if (place.confidence < 0.7) {
+  if (place.confidence < 0.55) {
     return false
   }
   
@@ -124,10 +124,13 @@ export async function tryWikidataMatch(place: PlaceIdentity): Promise<WikidataMa
       return null
     }
     
-    // Build search query: prefer place.name, optionally add locality
+    // Build search query: prefer place.name, optionally add locality/country to reduce ambiguity
     let searchQuery = place.name
     if (place.locality && !isRoadLikeName(place.name)) {
       searchQuery = `${place.name} ${place.locality}`
+    }
+    if (place.country && place.country.length >= 2 && !searchQuery.toLowerCase().includes(place.country.toLowerCase())) {
+      searchQuery = `${searchQuery} ${place.country}`
     }
     // Avoid adding region unless absolutely needed (too broad)
     
