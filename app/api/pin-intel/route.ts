@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now()
   const timings: Record<string, number> = {}
   const fallbacksUsed: string[] = []
+  const uploadFailures: Array<{ source: string; url: string }> = []
 
   try {
     const { searchParams } = new URL(request.url)
@@ -78,6 +79,8 @@ export async function GET(request: NextRequest) {
           const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website')
           if (hostedUrl) {
             images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
+          } else {
+            uploadFailures.push({ source: 'website', url: imgUrl })
           }
         }
         timings.website_upload_ms = Date.now() - t2
@@ -103,6 +106,8 @@ export async function GET(request: NextRequest) {
           const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'wikimedia')
           if (hostedUrl) {
             images.push({ url: hostedUrl, source: 'wikimedia', sourceUrl: imgUrl })
+          } else {
+            uploadFailures.push({ source: 'wikimedia', url: imgUrl })
           }
         }
         timings.wikimedia_upload_ms = Date.now() - t4
@@ -124,7 +129,8 @@ export async function GET(request: NextRequest) {
         diagnostics: {
           provider: place.source,
           timings,
-          fallbacksUsed
+          fallbacksUsed,
+          uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : []
         }
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
