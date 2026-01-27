@@ -47,6 +47,34 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function normalizeForCompare(input: string): string {
+  // Lowercase + strip accents + strip non-word characters
+  return (input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function similarityScore(a: string, b: string): number {
+  const aa = normalizeForCompare(a)
+  const bb = normalizeForCompare(b)
+  if (!aa || !bb) return 0
+  if (aa === bb) return 1
+  if (aa.includes(bb) || bb.includes(aa)) return 0.85
+
+  const aTokens = new Set(aa.split(' ').filter(Boolean))
+  const bTokens = new Set(bb.split(' ').filter(Boolean))
+  if (aTokens.size === 0 || bTokens.size === 0) return 0
+
+  let inter = 0
+  for (const t of aTokens) if (bTokens.has(t)) inter++
+  const union = aTokens.size + bTokens.size - inter
+  return union > 0 ? inter / union : 0
+}
+
 function extractWebsite(properties: any): string | undefined {
   const direct =
     normStr(properties?.website) ||
@@ -138,19 +166,27 @@ async function tryResolveWebsiteFromOverpass(
   // Avoid noisy queries for generic/streety names
   if (isStreetyName(cleaned)) return undefined
 
-  const radiusM = 800
-  const pattern = `^${escapeRegex(cleaned)}$`
+  const radiusM = 900
 
+  // NEW STRATEGY:
+  // - Pull any nearby objects that have website/contact:website
+  // - Then score locally by (name similarity + distance)
+  // This avoids exact-name-match failures (accents, punctuation, alt names).
   const query = `
     [out:json][timeout:8];
     (
-      nwr(around:${radiusM},${center.lat},${center.lon})["name"~"${pattern}",i]["website"];
-      nwr(around:${radiusM},${center.lat},${center.lon})["name"~"${pattern}",i]["contact:website"];
+      nwr(around:${radiusM},${center.lat},${center.lon})["website"];
+      nwr(around:${radiusM},${center.lat},${center.lon})["contact:website"];
     );
-    out tags center 20;
+    out tags center 50;
   `.trim()
 
   try {
+    // Overpass can be slow; use a short, dedicated timeout.
+    const localController = new AbortController()
+    const timeout = setTimeout(() => localController.abort(), 3500)
+    const mergedSignal = signal.aborted ? signal : localController.signal
+
     const resp = await fetch(OVERPASS_BASE, {
       method: 'POST',
       headers: {
@@ -158,8 +194,8 @@ async function tryResolveWebsiteFromOverpass(
         'Accept': 'application/json'
       },
       body: `data=${encodeURIComponent(query)}`,
-      signal
-    })
+      signal: mergedSignal
+    }).finally(() => clearTimeout(timeout))
 
     if (!resp.ok) return undefined
     const data = await resp.json()
@@ -167,12 +203,18 @@ async function tryResolveWebsiteFromOverpass(
     if (elements.length === 0) return undefined
 
     let bestUrl: string | undefined
-    let bestDist = Infinity
+    let bestScore = -Infinity
 
     for (const el of elements) {
       const tags = el?.tags || {}
       const websiteRaw = tags.website || tags['contact:website']
       if (typeof websiteRaw !== 'string' || !websiteRaw.trim()) continue
+
+      const elName = typeof tags.name === 'string' ? tags.name : ''
+      const sim = similarityScore(cleaned, elName)
+      // Require at least some name similarity when a name exists.
+      // If the element has no name, skip (too risky).
+      if (!elName || sim < 0.35) continue
 
       const coords = el.center || { lat: el.lat, lon: el.lon }
       const lat = typeof coords?.lat === 'number' ? coords.lat : undefined
@@ -180,8 +222,10 @@ async function tryResolveWebsiteFromOverpass(
       if (typeof lat !== 'number' || typeof lon !== 'number') continue
 
       const d = haversineDistanceMeters(center, { lat, lon })
-      if (d < bestDist) {
-        bestDist = d
+      const distanceScore = Math.max(0, 1 - d / radiusM) // 0..1
+      const combined = sim * 0.7 + distanceScore * 0.3
+      if (combined > bestScore) {
+        bestScore = combined
         bestUrl = websiteRaw.trim()
       }
     }
