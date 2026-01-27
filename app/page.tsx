@@ -1204,7 +1204,7 @@ export default function PINITApp() {
         // Use AI-generated title (which prioritizes place name if available)
         title: aiTextResult?.title || placeName || "Untitled Location",
         // Use AI-generated description or place description
-        description: aiTextResult?.description || placeDescription || "",
+        description: aiTextResult?.description || placeDescription || locationDescription || "Pinned location",
         tags: ["pinit", "travel"],
         // Additional photos (empty for now - image resolver coming in Step B-F)
         additionalPhotos: [],
@@ -2169,7 +2169,11 @@ export default function PINITApp() {
         // Use AI-generated title (which prioritizes place name if available)
         title: aiTextResult?.title || placeName || editingPin.title,
         // Use AI-generated description or place description
-        description: aiTextResult?.description || placeDescription || editingPin.description || "",
+        description:
+          aiTextResult?.description ||
+          placeDescription ||
+          editingPin.description ||
+          (placeName ? `Pinned near ${placeName}` : "Pinned location"),
         mediaUrl: primaryImageUrl, // Use existing image or placeholder
         additionalPhotos: editingPin.additionalPhotos || [],
         tags: editingPin.tags || ["pinit", "travel"],
