@@ -12,6 +12,7 @@ export interface WikidataMatch {
   wikidataId?: string
   description?: string
   commonsImages?: string[]
+  officialWebsite?: string
 }
 
 /**
@@ -234,11 +235,29 @@ export async function tryWikidataMatch(place: PlaceIdentity): Promise<WikidataMa
         images.push(`https://commons.wikimedia.org/wiki/Special:FilePath/${encodedName}`)
       }
     }
+
+    // Extract official website (P856)
+    let officialWebsite: string | undefined
+    const websiteClaims = entity.claims?.P856 || []
+    for (const claim of websiteClaims) {
+      const url = claim?.mainsnak?.datavalue?.value
+      if (typeof url === 'string' && url.trim()) {
+        try {
+          const u = new URL(url.trim())
+          u.hash = ''
+          officialWebsite = u.toString()
+          break
+        } catch {
+          // skip invalid url
+        }
+      }
+    }
     
     return {
       wikidataId: entityId,
       description,
-      commonsImages: images.length > 0 ? images : undefined
+      commonsImages: images.length > 0 ? images : undefined,
+      officialWebsite
     }
   } catch (error) {
     console.error('❌ Error in Wikidata lookup:', error)
