@@ -10,6 +10,7 @@ const GEOAPIFY_PLACES_BASE = 'https://api.geoapify.com/v2/places'
 const GEOAPIFY_GEOCODE_SEARCH_BASE = 'https://api.geoapify.com/v1/geocode/search'
 const GEOAPIFY_REVERSE_BASE = 'https://api.geoapify.com/v1/geocode/reverse'
 const GEOAPIFY_PLACE_DETAILS_BASE = 'https://api.geoapify.com/v2/place-details'
+const OVERPASS_BASE = 'https://overpass-api.de/api/interpreter'
 
 function getApiKey(): string {
   const key = process.env.GEOAPIFY_API_KEY
@@ -25,8 +26,25 @@ function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   return { signal: controller.signal, cancel: () => clearTimeout(t) }
 }
 
+function haversineDistanceMeters(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const R = 6371000
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLon = toRad(b.lon - a.lon)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const sinDLat = Math.sin(dLat / 2)
+  const sinDLon = Math.sin(dLon / 2)
+  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 function normStr(s: unknown): string {
   return typeof s === 'string' ? s.trim() : ''
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function extractWebsite(properties: any): string | undefined {
@@ -107,6 +125,81 @@ function looksLikeGeoapifyPlaceId(id: string): boolean {
   if (!id) return false
   if (id.includes(',')) return false
   return id.length > 20
+}
+
+async function tryResolveWebsiteFromOverpass(
+  name: string,
+  center: { lat: number; lon: number },
+  signal: AbortSignal
+): Promise<string | undefined> {
+  const cleaned = (name || '').trim()
+  if (!cleaned) return undefined
+
+  // Avoid noisy queries for generic/streety names
+  if (isStreetyName(cleaned)) return undefined
+
+  const radiusM = 800
+  const pattern = `^${escapeRegex(cleaned)}$`
+
+  const query = `
+    [out:json][timeout:8];
+    (
+      nwr(around:${radiusM},${center.lat},${center.lon})["name"~"${pattern}",i]["website"];
+      nwr(around:${radiusM},${center.lat},${center.lon})["name"~"${pattern}",i]["contact:website"];
+    );
+    out tags center 20;
+  `.trim()
+
+  try {
+    const resp = await fetch(OVERPASS_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: `data=${encodeURIComponent(query)}`,
+      signal
+    })
+
+    if (!resp.ok) return undefined
+    const data = await resp.json()
+    const elements = Array.isArray(data?.elements) ? data.elements : []
+    if (elements.length === 0) return undefined
+
+    let bestUrl: string | undefined
+    let bestDist = Infinity
+
+    for (const el of elements) {
+      const tags = el?.tags || {}
+      const websiteRaw = tags.website || tags['contact:website']
+      if (typeof websiteRaw !== 'string' || !websiteRaw.trim()) continue
+
+      const coords = el.center || { lat: el.lat, lon: el.lon }
+      const lat = typeof coords?.lat === 'number' ? coords.lat : undefined
+      const lon = typeof coords?.lon === 'number' ? coords.lon : undefined
+      if (typeof lat !== 'number' || typeof lon !== 'number') continue
+
+      const d = haversineDistanceMeters(center, { lat, lon })
+      if (d < bestDist) {
+        bestDist = d
+        bestUrl = websiteRaw.trim()
+      }
+    }
+
+    if (!bestUrl) return undefined
+
+    // Normalize to URL
+    const withScheme = /^https?:\/\//i.test(bestUrl) ? bestUrl : `https://${bestUrl}`
+    try {
+      const u = new URL(withScheme)
+      u.hash = ''
+      return u.toString()
+    } catch {
+      return undefined
+    }
+  } catch {
+    return undefined
+  }
 }
 
 async function enrichWithPlaceDetails(
@@ -231,8 +324,8 @@ function scoreCandidate(c: PlaceCandidate, userHintName?: string): { score: numb
 export const geoapifyProvider: PlacesProvider = {
   async resolvePlaceByLatLon(lat, lon, opts) {
     const apiKey = getApiKey()
-    const timeoutMs = parseInt(process.env.WEBSITE_SCRAPE_TIMEOUT_MS || '3500', 10)
-    const { signal, cancel } = withTimeout(Number.isFinite(timeoutMs) ? timeoutMs : 3500)
+    const timeoutMs = parseInt(process.env.GEOAPIFY_RESOLVE_TIMEOUT_MS || process.env.WEBSITE_SCRAPE_TIMEOUT_MS || '6000', 10)
+    const { signal, cancel } = withTimeout(Number.isFinite(timeoutMs) ? timeoutMs : 6000)
 
     try {
       // 1) Places API nearby search (travel categories first)
@@ -320,6 +413,14 @@ export const geoapifyProvider: PlacesProvider = {
       // Enrich best candidate with Place Details (helps get website/contact)
       if (best) {
         best = await enrichWithPlaceDetails(best, apiKey, signal)
+      }
+
+      // If we still don't have a website, try Overpass OSM tags around the place name
+      if (best && !best.website) {
+        const overpassWebsite = await tryResolveWebsiteFromOverpass(best.name, { lat: best.lat, lon: best.lon }, signal)
+        if (overpassWebsite) {
+          best = { ...best, website: overpassWebsite }
+        }
       }
 
       return { place: best, candidates, chosenReason }
