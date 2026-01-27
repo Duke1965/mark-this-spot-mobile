@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
+import type { PinData } from "@/lib/types"
 
 interface DiagnosticResult {
   timestamp: string
@@ -24,6 +25,26 @@ interface DiagnosticResult {
   }
 }
 
+type PlacesBatchResult = {
+  timestamp: string
+  total: number
+  ok: number
+  hit_rate: {
+    title: number
+    description: number
+    website: number
+    website_images: number
+  }
+  counts: {
+    withTitle: number
+    withDescription: number
+    withWebsite: number
+    withWebsiteImages: number
+  }
+  capped?: { max_points: number; processed: number; requested: number }
+  results: Array<any>
+}
+
 export default function DiagnosticsPage() {
   const router = useRouter()
   const [diagnostics, setDiagnostics] = useState<DiagnosticResult | null>(null)
@@ -31,6 +52,10 @@ export default function DiagnosticsPage() {
   const [testLocation, setTestLocation] = useState({ lat: "-33.9249", lng: "18.4241" }) // Default to Cape Town
   const [locationError, setLocationError] = useState<string | null>(null)
   const [gettingLocation, setGettingLocation] = useState(false)
+
+  const [pinsDiag, setPinsDiag] = useState<PlacesBatchResult | null>(null)
+  const [pinsDiagLoading, setPinsDiagLoading] = useState(false)
+  const [pinsDiagError, setPinsDiagError] = useState<string | null>(null)
 
   // Get current location using navigator.geolocation
   const getCurrentLocation = () => {
@@ -98,6 +123,51 @@ export default function DiagnosticsPage() {
       setLocationError("Failed to run diagnostics. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const runDiagnosticsOnSavedPins = async () => {
+    setPinsDiagLoading(true)
+    setPinsDiagError(null)
+    try {
+      const raw = localStorage.getItem("pinit-pins")
+      if (!raw) {
+        setPinsDiagError("No saved pins found on this device.")
+        return
+      }
+      const parsed: PinData[] = JSON.parse(raw)
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setPinsDiagError("Saved pins data is empty.")
+        return
+      }
+
+      // Use most recent pins (localStorage stores newest first)
+      const recentPins = parsed.slice(0, 30).map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        timestamp: p.timestamp,
+        latitude: p.latitude,
+        longitude: p.longitude
+      }))
+
+      const resp = await fetch("/api/diagnostics/places", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pins: recentPins })
+      })
+
+      if (!resp.ok) {
+        setPinsDiagError(`Failed to analyze pins: HTTP ${resp.status}`)
+        return
+      }
+
+      const data = await resp.json()
+      setPinsDiag(data)
+    } catch (error) {
+      console.error("❌ Failed to run pin diagnostics:", error)
+      setPinsDiagError("Failed to analyze saved pins. Please try again.")
+    } finally {
+      setPinsDiagLoading(false)
     }
   }
 
@@ -351,7 +421,91 @@ export default function DiagnosticsPage() {
             "▶ Run Diagnostics"
           )}
         </button>
+
+        {/* Run Diagnostics on Saved Pins */}
+        <button
+          onClick={runDiagnosticsOnSavedPins}
+          disabled={pinsDiagLoading}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            background: pinsDiagLoading ? "rgba(255, 255, 255, 0.1)" : "rgba(59, 130, 246, 0.3)",
+            color: "white",
+            fontSize: "14px",
+            fontWeight: "600",
+            cursor: pinsDiagLoading ? "not-allowed" : "pointer",
+            marginTop: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "all 0.2s ease"
+          }}
+        >
+          {pinsDiagLoading ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Analyzing saved pins...
+            </>
+          ) : (
+            "🧪 Analyze my saved pins (last 30)"
+          )}
+        </button>
+
+        {pinsDiagError && (
+          <div style={{
+            background: "rgba(239, 68, 68, 0.2)",
+            border: "1px solid rgba(239, 68, 68, 0.4)",
+            borderRadius: "8px",
+            padding: "12px",
+            marginTop: "10px",
+            color: "#fca5a5",
+            fontSize: "13px"
+          }}>
+            ⚠️ {pinsDiagError}
+          </div>
+        )}
       </div>
+
+      {/* Saved Pins Diagnostics Summary */}
+      {pinsDiag && (
+        <div style={{
+          background: "rgba(255, 255, 255, 0.1)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+          borderRadius: "15px",
+          padding: "20px",
+          marginBottom: "20px"
+        }}>
+          <h3 style={{ color: "white", margin: "0 0 15px 0", fontSize: "16px" }}>
+            Saved Pins Diagnostics (last {pinsDiag.capped?.processed ?? pinsDiag.total})
+          </h3>
+          <div style={{ color: "rgba(255, 255, 255, 0.9)", fontSize: "14px", lineHeight: 1.6 }}>
+            <div><strong>Title hit-rate:</strong> {(pinsDiag.hit_rate.title * 100).toFixed(0)}%</div>
+            <div><strong>Description hit-rate:</strong> {(pinsDiag.hit_rate.description * 100).toFixed(0)}%</div>
+            <div><strong>Website present:</strong> {(pinsDiag.hit_rate.website * 100).toFixed(0)}%</div>
+            <div><strong>Website images:</strong> {(pinsDiag.hit_rate.website_images * 100).toFixed(0)}%</div>
+          </div>
+          <details style={{ marginTop: "12px" }}>
+            <summary style={{ color: "white", cursor: "pointer", fontWeight: "600" }}>
+              Raw saved-pins diagnostics
+            </summary>
+            <pre style={{
+              color: "white",
+              fontSize: "12px",
+              overflow: "auto",
+              marginTop: "12px",
+              background: "rgba(0, 0, 0, 0.3)",
+              padding: "15px",
+              borderRadius: "8px"
+            }}>
+              {JSON.stringify(pinsDiag, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
 
       {loading && (
         <div style={{
