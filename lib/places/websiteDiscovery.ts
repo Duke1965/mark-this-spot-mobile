@@ -79,7 +79,15 @@ function isBadDomain(host: string): boolean {
     'goo.gl',
     'bit.ly',
     'linktr.ee',
-    'maps.app.goo.gl'
+    'maps.app.goo.gl',
+
+    // Knowledge bases / aggregators that are almost never an "official website"
+    'wikipedia.org',
+    'wikidata.org',
+    'datacommons.org',
+    'openstreetmap.org',
+    'osm.org',
+    'foursquare.com'
   ]
   return blocked.some((b) => (b.includes('.') ? h.includes(b) : h === b))
 }
