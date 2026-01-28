@@ -4,6 +4,7 @@ import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
 import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
 import { getWebsiteImages } from '@/lib/images/websiteScrape'
+import { searchUnsplashImages } from '@/lib/images/unsplash'
 import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
 import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
 
@@ -24,6 +25,41 @@ function looksGenericTitle(title: string | undefined): boolean {
   if (t.startsWith('place near ')) return true
   if (t.startsWith('place in ')) return true
   return false
+}
+
+function looksLikeChainOrTooGenericName(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return true
+  if (n === 'Unknown Place') return true
+  // Very short ALLCAPS brands are high-risk for "wrong branch" photos.
+  if (n.length <= 4 && n === n.toUpperCase()) return true
+  return false
+}
+
+function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
+  // Use Unsplash only when it's likely to be a "generic vibe" photo,
+  // not a specific branded/business photo.
+  if (looksGenericTitle(hint)) return true
+  if (looksLikeChainOrTooGenericName(place?.name)) return false
+
+  const cat = (place?.category || '').toLowerCase()
+  if (!cat) return false
+
+  // Nature/outdoors/travel categories benefit from Unsplash.
+  return (
+    cat.includes('natural') ||
+    cat.includes('leisure') ||
+    cat.includes('park') ||
+    cat.includes('beach') ||
+    cat.includes('tourism') ||
+    cat.includes('viewpoint') ||
+    cat.includes('mountain') ||
+    cat.includes('trail') ||
+    cat.includes('hiking') ||
+    cat.includes('waterfall') ||
+    cat.includes('lake') ||
+    cat.includes('river')
+  )
 }
 
 function getMapboxStaticUrl(lat: number, lon: number): string | null {
@@ -180,7 +216,34 @@ export async function GET(request: NextRequest) {
       fallbacksUsed.push('skip_wikidata')
     }
 
-    // 4) Final fallback: map snapshot (prevents irrelevant/random client-side fallbacks)
+    // 4) Unsplash fallback (optional)
+    if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place, hint)) {
+      const t5 = Date.now()
+      const q = looksGenericTitle(hint) ? (place.category || place.name) : place.name
+      const unsplash = await searchUnsplashImages(String(q || 'travel'), 3)
+      timings.unsplash_ms = Date.now() - t5
+
+      for (const img of unsplash) {
+        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock')
+        if (hostedUrl) {
+          images.push({ url: hostedUrl, source: 'stock', sourceUrl: img.pageUrl, attribution: img.attribution })
+        } else {
+          uploadFailures.push({ source: 'stock', url: img.imageUrl })
+        }
+      }
+
+      if (images.length > 0) {
+        fallbacksUsed.push('unsplash_images')
+      } else {
+        fallbacksUsed.push('no_unsplash_images')
+      }
+    } else if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY) {
+      fallbacksUsed.push('skip_unsplash')
+    } else if (images.length === 0) {
+      fallbacksUsed.push('no_unsplash_key')
+    }
+
+    // 5) Final fallback: map snapshot (prevents irrelevant/random client-side fallbacks)
     if (images.length === 0) {
       const mapUrl = getMapboxStaticUrl(lat, lon)
       if (mapUrl) {
