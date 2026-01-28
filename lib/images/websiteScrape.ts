@@ -10,9 +10,11 @@ import { fetchWebsitePreview, normalizeWebsiteUrl } from '@/lib/pinEnrich/websit
 type Cached = { images: string[]; expiresAt: number }
 const domainCache = new Map<string, Cached>()
 
-const DEFAULT_TIMEOUT_MS = 3500
+// 3.5s was too aggressive on Vercel; many real sites (WordPress etc.) exceed that.
+const DEFAULT_TIMEOUT_MS = 6500
 const DEFAULT_MAX_IMAGES = 8
 const DOMAIN_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+const EMPTY_TTL_MS = 60 * 60 * 1000 // 1 hour (don't lock in "no images" for a week)
 
 function getDomain(url: string): string | null {
   try {
@@ -96,7 +98,8 @@ export async function getWebsiteImages(websiteUrl: string): Promise<{ images: st
   ).slice(0, maxImages)
 
   if (domain) {
-    domainCache.set(domain, { images: filtered, expiresAt: now + DOMAIN_TTL_MS })
+    // Avoid caching empty results for too long (network timeouts / cold starts are common).
+    domainCache.set(domain, { images: filtered, expiresAt: now + (filtered.length ? DOMAIN_TTL_MS : EMPTY_TTL_MS) })
   }
 
   return { images: filtered, sourceUrl: preview?.sourceUrl || normalized }
