@@ -1141,12 +1141,19 @@ export default function PINITApp() {
       // Build photo carousel data from pin-intel images if available, otherwise fallback
       let locationPhotos: any[] = []
       if (pinIntelV2?.images?.length) {
-        locationPhotos = pinIntelV2.images.map((img: any) => ({
-          url: img.url,
-          placeName: placeName || pinIntelV2?.place?.name || "Location",
-          description: placeDescription,
-          source: img.source
-        }))
+        // Avoid using "area" (map snapshot) as the primary photo on pins.
+        const usable = (pinIntelV2.images as any[]).filter((img: any) => img?.source !== 'area')
+        if (usable.length > 0) {
+          locationPhotos = usable.map((img: any) => ({
+            url: img.url,
+            placeName: placeName || pinIntelV2?.place?.name || "Location",
+            description: placeDescription,
+            source: img.source
+          }))
+        } else {
+          console.log("🗺️ pin-intel returned only map snapshot; falling back to existing photo fetch...")
+          locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+        }
       } else {
         console.log("📸 No images from pin-intel, falling back to existing photo fetch...")
         locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
@@ -2024,12 +2031,18 @@ export default function PINITApp() {
       // Prefer /api/pin-intel images; fallback to existing photo method
       let locationPhotos = editingPin.additionalPhotos || []
       if (pinIntelV2?.images?.length) {
-        locationPhotos = pinIntelV2.images.map((img: any) => ({
-          url: img.url,
-          placeName: pinIntelV2.title || poiName || editingPin.locationName || 'Location',
-          description: pinIntelV2.description,
-          source: img.source
-        }))
+        // Avoid using "area" (map snapshot) as the primary photo on pins.
+        const usable = (pinIntelV2.images as any[]).filter((img: any) => img?.source !== 'area')
+        if (usable.length > 0) {
+          locationPhotos = usable.map((img: any) => ({
+            url: img.url,
+            placeName: pinIntelV2.title || poiName || editingPin.locationName || 'Location',
+            description: pinIntelV2.description,
+            source: img.source
+          }))
+        } else {
+          locationPhotos = await fetchLocationPhotos(committedLocation.lat, committedLocation.lng, signal, true)
+        }
       } else {
         locationPhotos = await fetchLocationPhotos(committedLocation.lat, committedLocation.lng, signal, true)
       }
