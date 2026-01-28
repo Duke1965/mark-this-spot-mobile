@@ -17,6 +17,30 @@ type PinIntelImage = {
   sourceUrl?: string
 }
 
+function looksGenericTitle(title: string | undefined): boolean {
+  const t = (title || '').trim().toLowerCase()
+  if (!t) return true
+  if (t === 'location' || t === 'pinned location' || t === 'nature spot') return true
+  if (t.startsWith('place near ')) return true
+  if (t.startsWith('place in ')) return true
+  return false
+}
+
+function getMapboxStaticUrl(lat: number, lon: number): string | null {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
+  if (!token) return null
+  const style = 'streets-v12'
+  const zoom = 15.5
+  const width = 800
+  const height = 600
+  // Use an overlay pin so the user sees the exact point.
+  const overlay = `pin-s+ff0000(${lon},${lat})`
+  const base = `https://api.mapbox.com/styles/v1/mapbox/${style}/static`
+  const url = new URL(`${base}/${overlay}/${lon},${lat},${zoom}/${width}x${height}`)
+  url.searchParams.set('access_token', token)
+  return url.toString()
+}
+
 /**
  * GET /api/pin-intel?lat=..&lon=..&hint=..
  *
@@ -67,19 +91,24 @@ export async function GET(request: NextRequest) {
 
     // 1c) If still missing website, try search-based discovery (optional, requires SERPER_API_KEY)
     if (!place.website) {
-      const t0c = Date.now()
-      const found = await discoverOfficialWebsite({
-        name: hint || place.name,
-        locality: place.locality,
-        region: place.region,
-        country: place.country
-      })
-      timings.website_discovery_ms = Date.now() - t0c
-      if (found.website) {
-        place = { ...place, website: found.website }
-        fallbacksUsed.push('serper_official_website')
+      // Skip discovery when the hint is generic (prevents bad matches like Wikipedia "Swartland" or unrelated "Nature Spot").
+      if (looksGenericTitle(hint)) {
+        fallbacksUsed.push('skip_serper_generic_hint')
       } else {
-        fallbacksUsed.push(process.env.SERPER_API_KEY ? 'no_serper_match' : 'no_serper_key')
+        const t0c = Date.now()
+        const found = await discoverOfficialWebsite({
+          name: hint || place.name,
+          locality: place.locality,
+          region: place.region,
+          country: place.country
+        })
+        timings.website_discovery_ms = Date.now() - t0c
+        if (found.website) {
+          place = { ...place, website: found.website }
+          fallbacksUsed.push('serper_official_website')
+        } else {
+          fallbacksUsed.push(process.env.SERPER_API_KEY ? 'no_serper_match' : 'no_serper_key')
+        }
       }
     }
 
@@ -149,6 +178,15 @@ export async function GET(request: NextRequest) {
       }
     } else if (images.length === 0) {
       fallbacksUsed.push('skip_wikidata')
+    }
+
+    // 4) Final fallback: map snapshot (prevents irrelevant/random client-side fallbacks)
+    if (images.length === 0) {
+      const mapUrl = getMapboxStaticUrl(lat, lon)
+      if (mapUrl) {
+        images.push({ url: mapUrl, source: 'area', sourceUrl: 'mapbox-static' })
+        fallbacksUsed.push('mapbox_static_image')
+      }
     }
 
     timings.total_ms = Date.now() - startedAt
