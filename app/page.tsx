@@ -144,7 +144,8 @@ function InteractiveMapEditor({
           lng: pinLocation.lng,
           onDragEnd: handlePinDragEnd
         }}
-        showPOIs={true}
+        // Keep the pin-adjust editor clean (no scattered POI markers).
+        showPOIs={false}
         style={{ width: '100%', height: '100%' }}
       />
     </div>
