@@ -195,11 +195,12 @@ export async function uploadToStorage(
 export async function downloadAndUploadImage(
   imageUrl: string,
   cacheKey: string,
-  source: 'wikimedia' | 'website' | 'facebook' | 'stock'
+  source: 'wikimedia' | 'website' | 'facebook' | 'stock',
+  opts?: { timeoutMs?: number }
 ): Promise<string | null> {
   try {
     // Download image
-    const { buffer, contentType } = await downloadToBuffer(imageUrl)
+    const { buffer, contentType } = await downloadToBuffer(imageUrl, opts?.timeoutMs)
     
     // Generate storage path
     const extension = getExtensionFromContentType(contentType)
