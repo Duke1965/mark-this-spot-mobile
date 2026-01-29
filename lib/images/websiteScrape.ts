@@ -5,7 +5,7 @@
  * - Cache by domain for 7 days (in-memory)
  */
 
-import { fetchWebsitePreview, normalizeWebsiteUrl } from '@/lib/pinEnrich/websitePreview'
+import { fetchWebsitePreviewWithOptions, normalizeWebsiteUrl } from '@/lib/pinEnrich/websitePreview'
 
 type Cached = { images: string[]; expiresAt: number }
 const domainCache = new Map<string, Cached>()
@@ -37,15 +37,34 @@ function looksLikeNonPhoto(url: string): boolean {
 }
 
 function hasGoodExtension(url: string): boolean {
+  // Many real sites serve OG images without a clean extension (CDNs / Cloudflare / WP transforms).
+  // Keep a conservative allow-list of patterns that are *very likely* images.
   try {
     const u = new URL(url)
     const path = u.pathname.toLowerCase()
     if (path.endsWith('.svg')) return false
-    return path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.webp')
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.webp')) return true
+
+    const qs = u.searchParams.toString().toLowerCase()
+    if (qs.includes('format=jpg') || qs.includes('format=jpeg') || qs.includes('format=png') || qs.includes('format=webp')) return true
+    if (qs.includes('fm=jpg') || qs.includes('fm=jpeg') || qs.includes('fm=png') || qs.includes('fm=webp')) return true
+
+    // WordPress / CMS uploads frequently omit extensions after transforms
+    if (path.includes('/wp-content/uploads/')) return true
+    if (path.includes('/uploads/') || path.includes('/media/')) return true
+
+    // Cloudflare image resizing proxy
+    if (path.includes('/cdn-cgi/image/')) return true
+
+    return false
   } catch {
     const lower = url.toLowerCase().split('?')[0].split('#')[0]
     if (lower.endsWith('.svg')) return false
-    return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp')
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp')) return true
+    if (lower.includes('/wp-content/uploads/')) return true
+    if (lower.includes('/uploads/') || lower.includes('/media/')) return true
+    if (lower.includes('/cdn-cgi/image/')) return true
+    return false
   }
 }
 
@@ -83,12 +102,8 @@ export async function getWebsiteImages(websiteUrl: string): Promise<{ images: st
     }
   }
 
-  // fetchWebsitePreview already includes throttling + robots checks + caching (24h).
-  // We still enforce a strict overall timeout via Promise.race.
-  const preview = await Promise.race([
-    fetchWebsitePreview(normalized),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS))
-  ])
+  // fetchWebsitePreviewWithOptions includes throttling + robots checks + caching (24h).
+  const preview = await fetchWebsitePreviewWithOptions(normalized, { timeoutMs })
 
   const rawImages = (preview?.images || []).filter((u) => typeof u === 'string')
   const filtered = dedupe(
