@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
   diagnostics.environment = {
     NEXT_PUBLIC_MAP_PROVIDER: MAP_PROVIDER,
     NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
+    SERPER_API_KEY: !!process.env.SERPER_API_KEY,
+    UNSPLASH_ACCESS_KEY: !!process.env.UNSPLASH_ACCESS_KEY,
+    GEOAPIFY_API_KEY: !!process.env.GEOAPIFY_API_KEY,
+    FIREBASE_STORAGE_BUCKET: !!(process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_ENV: process.env.VERCEL_ENV
   }
