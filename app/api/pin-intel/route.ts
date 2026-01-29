@@ -24,6 +24,10 @@ function looksGenericTitle(title: string | undefined): boolean {
   if (t === 'location' || t === 'pinned location' || t === 'nature spot') return true
   if (t.startsWith('place near ')) return true
   if (t.startsWith('place in ')) return true
+  // Titles that are really category + "near <locality>" are generic and should not be used as the search name.
+  if (t.includes(' near ') && (t.startsWith('catering near ') || t.startsWith('restaurant near ') || t.startsWith('hotel near '))) {
+    return true
+  }
   return false
 }
 
@@ -150,13 +154,20 @@ export async function GET(request: NextRequest) {
 
     // 1c) If still missing website, try search-based discovery (optional, requires SERPER_API_KEY)
     if (!place.website) {
-      // Skip discovery when the hint is generic (prevents bad matches like Wikipedia "Swartland" or unrelated "Nature Spot").
-      if (looksGenericTitle(hint)) {
+      const hasSerperKey = !!process.env.SERPER_API_KEY
+      const hintIsGeneric = looksGenericTitle(hint)
+      const serperName = hintIsGeneric ? place.name : (hint || place.name)
+      const nameLooksAddress = looksLikeStreetAddress(serperName)
+
+      if (!hasSerperKey) {
+        fallbacksUsed.push('no_serper_key')
+      } else if (!serperName || nameLooksAddress) {
+        // Avoid searching generic street addresses (often returns random domains).
         fallbacksUsed.push('skip_serper_generic_hint')
       } else {
         const t0c = Date.now()
         const found = await discoverOfficialWebsite({
-          name: hint || place.name,
+          name: serperName,
           locality: place.locality,
           region: place.region,
           country: place.country
@@ -166,7 +177,7 @@ export async function GET(request: NextRequest) {
           place = { ...place, website: found.website }
           fallbacksUsed.push('serper_official_website')
         } else {
-          fallbacksUsed.push(process.env.SERPER_API_KEY ? 'no_serper_match' : 'no_serper_key')
+          fallbacksUsed.push('no_serper_match')
         }
       }
     }
