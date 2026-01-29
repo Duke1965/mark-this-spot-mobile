@@ -1,189 +1,348 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
+import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
+import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
+import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
+import { getWebsiteImages } from '@/lib/images/websiteScrape'
+import { searchUnsplashImages } from '@/lib/images/unsplash'
+import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
+import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
+
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-type Point = { lat: number; lon: number }
-type PointWithMeta = Point & { id?: string; title?: string; timestamp?: string }
-
-function parsePointsParam(raw: string | null): Point[] {
-  if (!raw) return []
-  // Format: "lat,lon;lat,lon"
-  return raw
-    .split(';')
-    .map((pair) => pair.trim())
-    .filter(Boolean)
-    .map((pair) => {
-      const [latS, lonS] = pair.split(',').map((s) => s.trim())
-      const lat = Number(latS)
-      const lon = Number(lonS)
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-      return { lat, lon }
-    })
-    .filter(Boolean) as Point[]
+type PinIntelImage = {
+  url: string
+  source: 'website' | 'wikimedia' | 'facebook' | 'stock' | 'area'
+  attribution?: string
+  sourceUrl?: string
 }
 
-const DEFAULT_POINTS: Point[] = [
-  { lat: -33.9068, lon: 18.4201 }, // V&A Waterfront, Cape Town
-  { lat: -33.9631, lon: 18.4039 }, // Table Mountain Cableway
-  { lat: 48.85837, lon: 2.294481 }, // Eiffel Tower
-  { lat: 41.8902, lon: 12.4922 }, // Colosseum
-  { lat: 40.7580, lon: -73.9855 } // Times Square
-]
-
-function summarize(results: any[]) {
-  const total = results.length
-  const okCount = results.filter((r) => r.ok).length
-  const withTitle = results.filter((r) => r.ok && r.title && String(r.title).trim() && r.title !== 'Location').length
-  const withDescription = results.filter((r) => r.ok && r.hasDescription).length
-  const withWebsite = results.filter((r) => r.ok && r.hasWebsite).length
-  const withWebsiteImages = results.filter((r) => r.ok && (r.websiteImages || 0) > 0).length
-
-  return {
-    timestamp: new Date().toISOString(),
-    total,
-    ok: okCount,
-    hit_rate: {
-      title: total ? withTitle / total : 0,
-      description: total ? withDescription / total : 0,
-      website: total ? withWebsite / total : 0,
-      website_images: total ? withWebsiteImages / total : 0
-    },
-    counts: { withTitle, withDescription, withWebsite, withWebsiteImages }
+function looksGenericTitle(title: string | undefined): boolean {
+  const t = (title || '').trim().toLowerCase()
+  if (!t) return true
+  if (t === 'location' || t === 'pinned location' || t === 'nature spot') return true
+  if (t.startsWith('place near ')) return true
+  if (t.startsWith('place in ')) return true
+  // Titles that are really category + "near <locality>" are generic and should not be used as the search name.
+  if (t.includes(' near ') && (t.startsWith('catering near ') || t.startsWith('restaurant near ') || t.startsWith('hotel near '))) {
+    return true
   }
+  return false
 }
 
-async function runForPoints(request: NextRequest, points: Array<Point | PointWithMeta>) {
-  const origin = request.nextUrl.origin
-
-  // Safety caps (avoids hammering APIs)
-  const MAX_POINTS = 30
-  const limited = points.slice(0, MAX_POINTS)
-
-  const results: Array<{
-    point: Point
-    meta?: { id?: string; title?: string; timestamp?: string }
-    ok: boolean
-    title?: string
-    hasDescription?: boolean
-    hasWebsite?: boolean
-    websiteImages?: number
-    imagesTotal?: number
-    nonMapImages?: number
-    provider?: string
-    website?: string
-    placeName?: string
-    fallbacksUsed?: string[]
-    error?: string
-  }> = []
-
-  for (const p of limited as any[]) {
-    try {
-      const url = new URL(`${origin}/api/pin-intel`)
-      url.searchParams.set('lat', String(p.lat))
-      url.searchParams.set('lon', String(p.lon))
-      if (typeof p?.title === 'string' && p.title.trim()) {
-        url.searchParams.set('hint', p.title.trim())
-      }
-
-      const resp = await fetch(url.toString(), { cache: 'no-store' })
-      if (!resp.ok) {
-        results.push({
-          point: { lat: p.lat, lon: p.lon },
-          meta: { id: p.id, title: p.title, timestamp: p.timestamp },
-          ok: false,
-          error: `HTTP ${resp.status}`
-        })
-        continue
-      }
-
-      const data: any = await resp.json()
-      const images = Array.isArray(data?.images) ? data.images : []
-      const websiteImages = images.filter((img: any) => img?.source === 'website').length
-      const imagesTotal = images.length
-      const nonMapImages = images.filter((img: any) => img?.source !== 'area').length
-
-      results.push({
-        point: { lat: p.lat, lon: p.lon },
-        meta: { id: p.id, title: p.title, timestamp: p.timestamp },
-        ok: true,
-        title: data?.title,
-        hasDescription: !!(data?.description && String(data.description).trim()),
-        hasWebsite: !!(data?.place?.website && String(data.place.website).trim()),
-        websiteImages,
-        imagesTotal,
-        nonMapImages,
-        provider: data?.place?.source,
-        website: data?.place?.website,
-        placeName: data?.place?.name,
-        fallbacksUsed: Array.isArray(data?.diagnostics?.fallbacksUsed) ? data.diagnostics.fallbacksUsed : undefined
-      })
-    } catch (error) {
-      results.push({
-        point: { lat: (p as any).lat, lon: (p as any).lon },
-        meta: { id: (p as any).id, title: (p as any).title, timestamp: (p as any).timestamp },
-        ok: false,
-        error: error instanceof Error ? error.message : String(error)
-      })
-    }
-  }
-
-  return {
-    ...summarize(results),
-    capped: { max_points: MAX_POINTS, processed: results.length, requested: points.length },
-    results
-  }
+function looksLikeChainOrTooGenericName(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return true
+  if (n === 'Unknown Place') return true
+  // Very short ALLCAPS brands are high-risk for "wrong branch" photos.
+  if (n.length <= 4 && n === n.toUpperCase()) return true
+  return false
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const points = parsePointsParam(searchParams.get('points'))
-  const testPoints = points.length ? points : DEFAULT_POINTS
+function isRiskyShortAllCapsBrand(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return false
+  if (n.length <= 4 && n === n.toUpperCase()) return true
+  return false
+}
 
-  const payload = await runForPoints(request, testPoints)
-  return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-store' } })
+function looksLikeStreetAddress(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return false
+  // Basic heuristic: numbers + street words => likely address, not a POI name.
+  const lower = n.toLowerCase()
+  if (!/\d/.test(lower)) return false
+  return (
+    lower.includes('street') ||
+    lower.includes('st ') ||
+    lower.includes('st.') ||
+    lower.includes('road') ||
+    lower.includes('rd ') ||
+    lower.includes('rd.') ||
+    lower.includes('ave') ||
+    lower.includes('avenue') ||
+    lower.includes('crescent') ||
+    lower.includes('lane') ||
+    lower.includes('drive') ||
+    lower.includes('boulevard') ||
+    lower.includes('blvd')
+  )
+}
+
+function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
+  // Unsplash is "better than a map screenshot" when we couldn't get official photos.
+  // We only skip it for very risky short ALLCAPS brands (KFC, BP, etc.).
+  if (isRiskyShortAllCapsBrand(place?.name)) return false
+  return true
+}
+
+function buildUnsplashQuery(place: any, hint: string | undefined): string {
+  const locality = (place?.locality || place?.region || place?.country || '').trim()
+  const category = (place?.category || '').trim()
+  const name = (place?.name || '').trim()
+
+  // Generic pins should not search by a raw street address (often returns nothing).
+  if (looksGenericTitle(hint) || looksLikeStreetAddress(name)) {
+    const cat = category ? category.split('.').slice(-1)[0] : 'travel'
+    const loc = locality || 'South Africa'
+    return `${cat} ${loc} landscape`
+  }
+
+  // For named POIs/businesses, keep it descriptive but not overly specific.
+  // Adding locality helps avoid totally unrelated results.
+  return locality ? `${name} ${locality}` : name
+}
+
+function buildUnsplashFallbackQueries(place: any, hint: string | undefined): string[] {
+  const locality = (place?.locality || place?.region || place?.country || '').trim() || 'South Africa'
+  const category = (place?.category || '').trim()
+  const cat = category ? category.split('.').slice(-1)[0] : 'travel'
+
+  const primary = buildUnsplashQuery(place, hint)
+  const q1 = primary || `${cat} ${locality}`
+  const q2 = `${cat} ${locality} travel`
+  const q3 = `${locality} landscape`
+  // Dedupe
+  return Array.from(new Set([q1, q2, q3].map((s) => s.trim()).filter(Boolean)))
+}
+
+function getMapboxStaticUrl(lat: number, lon: number): string | null {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
+  if (!token) return null
+  const style = 'streets-v12'
+  const zoom = 15.5
+  const width = 800
+  const height = 600
+  // Use an overlay pin so the user sees the exact point.
+  const overlay = `pin-s+ff0000(${lon},${lat})`
+  const base = `https://api.mapbox.com/styles/v1/mapbox/${style}/static`
+  const url = new URL(`${base}/${overlay}/${lon},${lat},${zoom}/${width}x${height}`)
+  url.searchParams.set('access_token', token)
+  return url.toString()
 }
 
 /**
- * POST /api/diagnostics/places
- * Body: { pins?: Array<{id?, title?, timestamp?, latitude, longitude}>, points?: Array<{lat, lon, ...}> }
+ * GET /api/pin-intel?lat=..&lon=..&hint=..
  *
- * This allows the client to submit saved pins from localStorage for analysis.
+ * Returns consistent PinIntel payload:
+ * - place identity (Geoapify)
+ * - stable title/description derived from metadata
+ * - website-first images (uploaded to Firebase Storage)
+ * - diagnostics for road testing
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const startedAt = Date.now()
+  const timings: Record<string, number> = {}
+  const fallbacksUsed: string[] = []
+  const uploadFailures: Array<{ source: string; url: string }> = []
+
   try {
-    const body: any = await request.json().catch(() => null)
-    if (!body) {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    const { searchParams } = new URL(request.url)
+    const latRaw = searchParams.get('lat')
+    const lonRaw = searchParams.get('lon') || searchParams.get('lng')
+    const hint = searchParams.get('hint') || undefined
+
+    const lat = latRaw ? Number(latRaw) : NaN
+    const lon = lonRaw ? Number(lonRaw) : NaN
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return NextResponse.json({ error: 'Missing/invalid lat/lon' }, { status: 400 })
+    }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
     }
 
-    const points: PointWithMeta[] = []
+    // 1) Place resolve (Geoapify)
+    const t0 = Date.now()
+    let place = await resolvePlaceIdentity(lat, lon, hint)
+    timings.place_resolve_ms = Date.now() - t0
 
-    const bodyPoints = Array.isArray(body.points) ? body.points : []
-    for (const p of bodyPoints) {
-      const lat = Number(p?.lat)
-      const lon = Number(p?.lon)
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
-      points.push({ lat, lon, id: p?.id, title: p?.title, timestamp: p?.timestamp })
+    // 1b) If missing website, try strict Wikidata match to fill official website (P856)
+    let wikidata: Awaited<ReturnType<typeof tryWikidataMatch>> | null = null
+    if (!place.website && shouldAttemptWikidata(place)) {
+      const t0b = Date.now()
+      wikidata = await tryWikidataMatch(place)
+      timings.wikidata_lookup_ms = Date.now() - t0b
+      if (wikidata?.officialWebsite) {
+        place = { ...place, website: wikidata.officialWebsite }
+        fallbacksUsed.push('wikidata_official_website')
+      }
     }
 
-    const pins = Array.isArray(body.pins) ? body.pins : []
-    for (const pin of pins) {
-      const lat = Number(pin?.latitude)
-      const lon = Number(pin?.longitude)
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
-      points.push({ lat, lon, id: pin?.id, title: pin?.title, timestamp: pin?.timestamp })
+    // 1c) If still missing website, try search-based discovery (optional, requires SERPER_API_KEY)
+    if (!place.website) {
+      const hasSerperKey = !!process.env.SERPER_API_KEY
+      const hintIsGeneric = looksGenericTitle(hint)
+      const serperName = hintIsGeneric ? place.name : (hint || place.name)
+      const nameLooksAddress = looksLikeStreetAddress(serperName)
+      const nameLooksUnknown = String(serperName || '').trim().toLowerCase() === 'unknown place'
+
+      if (!hasSerperKey) {
+        fallbacksUsed.push('no_serper_key')
+      } else if (!serperName || nameLooksAddress || nameLooksUnknown) {
+        // Avoid searching generic street addresses (often returns random domains).
+        fallbacksUsed.push('skip_serper_generic_hint')
+      } else {
+        const t0c = Date.now()
+        const found = await discoverOfficialWebsite({
+          name: serperName,
+          locality: place.locality,
+          region: place.region,
+          country: place.country
+        })
+        timings.website_discovery_ms = Date.now() - t0c
+        if (found.website) {
+          place = { ...place, website: found.website }
+          fallbacksUsed.push('serper_official_website')
+        } else {
+          fallbacksUsed.push('no_serper_match')
+        }
+      }
     }
 
-    if (points.length === 0) {
-      return NextResponse.json({ error: 'No valid points provided' }, { status: 400 })
+    // Normalize into the formatter input shape
+    const formatterInput = {
+      name: place.name,
+      categories: place.category ? [place.category] : [],
+      address: place.address,
+      city: place.locality,
+      region: place.region
     }
 
-    const payload = await runForPoints(request, points)
-    return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-store' } })
-  } catch (error) {
+    const title = buildTitle(formatterInput)
+    const description = buildDescription(formatterInput)
+
+    // 2) Website-first images (only if website exists)
+    const images: PinIntelImage[] = []
+    const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
+
+    if (place.website) {
+      const t1 = Date.now()
+      const { images: websiteImages, sourceUrl } = await getWebsiteImages(place.website)
+      timings.website_scrape_ms = Date.now() - t1
+
+      if (websiteImages.length > 0) {
+        const t2 = Date.now()
+        for (const imgUrl of websiteImages.slice(0, 3)) {
+          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website')
+          if (hostedUrl) {
+            images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
+          } else {
+            uploadFailures.push({ source: 'website', url: imgUrl })
+          }
+        }
+        timings.website_upload_ms = Date.now() - t2
+      } else {
+        fallbacksUsed.push('no_website_images')
+      }
+
+      void sourceUrl
+    } else {
+      fallbacksUsed.push('no_website')
+    }
+
+    // 3) Wikimedia fallback (only if we still have no images)
+    if (images.length === 0 && shouldAttemptWikidata(place)) {
+      if (!wikidata) {
+        const t3 = Date.now()
+        wikidata = await tryWikidataMatch(place)
+        timings.wikidata_ms = Date.now() - t3
+      }
+
+      const commons = wikidata?.commonsImages || []
+      if (commons.length > 0) {
+        const t4 = Date.now()
+        for (const imgUrl of commons.slice(0, 3)) {
+          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'wikimedia')
+          if (hostedUrl) {
+            images.push({ url: hostedUrl, source: 'wikimedia', sourceUrl: imgUrl })
+          } else {
+            uploadFailures.push({ source: 'wikimedia', url: imgUrl })
+          }
+        }
+        timings.wikimedia_upload_ms = Date.now() - t4
+      } else {
+        fallbacksUsed.push('no_wikimedia_images')
+      }
+    } else if (images.length === 0) {
+      fallbacksUsed.push('skip_wikidata')
+    }
+
+    // 4) Unsplash fallback (optional)
+    if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place, hint)) {
+      const t5 = Date.now()
+      const queries = buildUnsplashFallbackQueries(place, hint)
+      let unsplashPicked: Awaited<ReturnType<typeof searchUnsplashImages>> = []
+      let usedQuery: string | null = null
+
+      for (const q of queries) {
+        const got = await searchUnsplashImages(q, 3)
+        if (got.length > 0) {
+          unsplashPicked = got
+          usedQuery = q
+          break
+        }
+      }
+
+      timings.unsplash_ms = Date.now() - t5
+
+      if (usedQuery) fallbacksUsed.push(`unsplash_query:${usedQuery}`.slice(0, 120))
+
+      for (const img of unsplashPicked) {
+        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock', { timeoutMs: 8000 })
+        if (hostedUrl) {
+          images.push({ url: hostedUrl, source: 'stock', sourceUrl: img.pageUrl, attribution: img.attribution })
+        } else {
+          uploadFailures.push({ source: 'stock', url: img.imageUrl })
+        }
+      }
+
+      if (images.length > 0) {
+        fallbacksUsed.push('unsplash_images')
+      } else {
+        fallbacksUsed.push('no_unsplash_images')
+      }
+    } else if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY) {
+      fallbacksUsed.push('skip_unsplash')
+    } else if (images.length === 0) {
+      fallbacksUsed.push('no_unsplash_key')
+    }
+
+    // 5) Final fallback: map snapshot (prevents irrelevant/random client-side fallbacks)
+    if (images.length === 0) {
+      const mapUrl = getMapboxStaticUrl(lat, lon)
+      if (mapUrl) {
+        images.push({ url: mapUrl, source: 'area', sourceUrl: 'mapbox-static' })
+        fallbacksUsed.push('mapbox_static_image')
+      }
+    }
+
+    timings.total_ms = Date.now() - startedAt
+
     return NextResponse.json(
-      { error: 'Failed to run batch diagnostics', details: error instanceof Error ? error.message : String(error) },
+      {
+        place,
+        title,
+        description,
+        images,
+        diagnostics: {
+          provider: place.source,
+          timings,
+          fallbacksUsed,
+          uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : []
+        }
+      },
+      { status: 200, headers: { 'Cache-Control': 'no-store' } }
+    )
+  } catch (error) {
+    console.error('❌ /api/pin-intel error:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to build pin intel',
+        details: error instanceof Error ? error.message : String(error),
+        diagnostics: { timings: { total_ms: Date.now() - startedAt } }
+      },
       { status: 500 }
     )
   }
