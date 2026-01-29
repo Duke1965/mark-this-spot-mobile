@@ -40,6 +40,13 @@ function looksLikeChainOrTooGenericName(name: string | undefined): boolean {
   return false
 }
 
+function isRiskyShortAllCapsBrand(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return false
+  if (n.length <= 4 && n === n.toUpperCase()) return true
+  return false
+}
+
 function looksLikeStreetAddress(name: string | undefined): boolean {
   const n = (name || '').trim()
   if (!n) return false
@@ -66,9 +73,7 @@ function looksLikeStreetAddress(name: string | undefined): boolean {
 function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
   // Unsplash is "better than a map screenshot" when we couldn't get official photos.
   // We only skip it for very risky short ALLCAPS brands (KFC, BP, etc.).
-  if (looksLikeChainOrTooGenericName(place?.name)) return false
-  // If the hint is generic, Unsplash is usually appropriate.
-  if (looksGenericTitle(hint)) return true
+  if (isRiskyShortAllCapsBrand(place?.name)) return false
   return true
 }
 
@@ -87,6 +92,19 @@ function buildUnsplashQuery(place: any, hint: string | undefined): string {
   // For named POIs/businesses, keep it descriptive but not overly specific.
   // Adding locality helps avoid totally unrelated results.
   return locality ? `${name} ${locality}` : name
+}
+
+function buildUnsplashFallbackQueries(place: any, hint: string | undefined): string[] {
+  const locality = (place?.locality || place?.region || place?.country || '').trim() || 'South Africa'
+  const category = (place?.category || '').trim()
+  const cat = category ? category.split('.').slice(-1)[0] : 'travel'
+
+  const primary = buildUnsplashQuery(place, hint)
+  const q1 = primary || `${cat} ${locality}`
+  const q2 = `${cat} ${locality} travel`
+  const q3 = `${locality} landscape`
+  // Dedupe
+  return Array.from(new Set([q1, q2, q3].map((s) => s.trim()).filter(Boolean)))
 }
 
 function getMapboxStaticUrl(lat: number, lon: number): string | null {
@@ -158,10 +176,11 @@ export async function GET(request: NextRequest) {
       const hintIsGeneric = looksGenericTitle(hint)
       const serperName = hintIsGeneric ? place.name : (hint || place.name)
       const nameLooksAddress = looksLikeStreetAddress(serperName)
+      const nameLooksUnknown = String(serperName || '').trim().toLowerCase() === 'unknown place'
 
       if (!hasSerperKey) {
         fallbacksUsed.push('no_serper_key')
-      } else if (!serperName || nameLooksAddress) {
+      } else if (!serperName || nameLooksAddress || nameLooksUnknown) {
         // Avoid searching generic street addresses (often returns random domains).
         fallbacksUsed.push('skip_serper_generic_hint')
       } else {
@@ -253,12 +272,25 @@ export async function GET(request: NextRequest) {
     // 4) Unsplash fallback (optional)
     if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place, hint)) {
       const t5 = Date.now()
-      const q = buildUnsplashQuery(place, hint)
-      const unsplash = await searchUnsplashImages(String(q || 'travel'), 3)
+      const queries = buildUnsplashFallbackQueries(place, hint)
+      let unsplashPicked: Awaited<ReturnType<typeof searchUnsplashImages>> = []
+      let usedQuery: string | null = null
+
+      for (const q of queries) {
+        const got = await searchUnsplashImages(q, 3)
+        if (got.length > 0) {
+          unsplashPicked = got
+          usedQuery = q
+          break
+        }
+      }
+
       timings.unsplash_ms = Date.now() - t5
 
-      for (const img of unsplash) {
-        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock')
+      if (usedQuery) fallbacksUsed.push(`unsplash_query:${usedQuery}`.slice(0, 120))
+
+      for (const img of unsplashPicked) {
+        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock', { timeoutMs: 8000 })
         if (hostedUrl) {
           images.push({ url: hostedUrl, source: 'stock', sourceUrl: img.pageUrl, attribution: img.attribution })
         } else {
