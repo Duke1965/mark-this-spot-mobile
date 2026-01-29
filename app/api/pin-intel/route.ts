@@ -36,30 +36,53 @@ function looksLikeChainOrTooGenericName(name: string | undefined): boolean {
   return false
 }
 
-function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
-  // Use Unsplash only when it's likely to be a "generic vibe" photo,
-  // not a specific branded/business photo.
-  if (looksGenericTitle(hint)) return true
-  if (looksLikeChainOrTooGenericName(place?.name)) return false
-
-  const cat = (place?.category || '').toLowerCase()
-  if (!cat) return false
-
-  // Nature/outdoors/travel categories benefit from Unsplash.
+function looksLikeStreetAddress(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return false
+  // Basic heuristic: numbers + street words => likely address, not a POI name.
+  const lower = n.toLowerCase()
+  if (!/\d/.test(lower)) return false
   return (
-    cat.includes('natural') ||
-    cat.includes('leisure') ||
-    cat.includes('park') ||
-    cat.includes('beach') ||
-    cat.includes('tourism') ||
-    cat.includes('viewpoint') ||
-    cat.includes('mountain') ||
-    cat.includes('trail') ||
-    cat.includes('hiking') ||
-    cat.includes('waterfall') ||
-    cat.includes('lake') ||
-    cat.includes('river')
+    lower.includes('street') ||
+    lower.includes('st ') ||
+    lower.includes('st.') ||
+    lower.includes('road') ||
+    lower.includes('rd ') ||
+    lower.includes('rd.') ||
+    lower.includes('ave') ||
+    lower.includes('avenue') ||
+    lower.includes('crescent') ||
+    lower.includes('lane') ||
+    lower.includes('drive') ||
+    lower.includes('boulevard') ||
+    lower.includes('blvd')
   )
+}
+
+function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
+  // Unsplash is "better than a map screenshot" when we couldn't get official photos.
+  // We only skip it for very risky short ALLCAPS brands (KFC, BP, etc.).
+  if (looksLikeChainOrTooGenericName(place?.name)) return false
+  // If the hint is generic, Unsplash is usually appropriate.
+  if (looksGenericTitle(hint)) return true
+  return true
+}
+
+function buildUnsplashQuery(place: any, hint: string | undefined): string {
+  const locality = (place?.locality || place?.region || place?.country || '').trim()
+  const category = (place?.category || '').trim()
+  const name = (place?.name || '').trim()
+
+  // Generic pins should not search by a raw street address (often returns nothing).
+  if (looksGenericTitle(hint) || looksLikeStreetAddress(name)) {
+    const cat = category ? category.split('.').slice(-1)[0] : 'travel'
+    const loc = locality || 'South Africa'
+    return `${cat} ${loc} landscape`
+  }
+
+  // For named POIs/businesses, keep it descriptive but not overly specific.
+  // Adding locality helps avoid totally unrelated results.
+  return locality ? `${name} ${locality}` : name
 }
 
 function getMapboxStaticUrl(lat: number, lon: number): string | null {
@@ -219,7 +242,7 @@ export async function GET(request: NextRequest) {
     // 4) Unsplash fallback (optional)
     if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place, hint)) {
       const t5 = Date.now()
-      const q = looksGenericTitle(hint) ? (place.category || place.name) : place.name
+      const q = buildUnsplashQuery(place, hint)
       const unsplash = await searchUnsplashImages(String(q || 'travel'), 3)
       timings.unsplash_ms = Date.now() - t5
 
