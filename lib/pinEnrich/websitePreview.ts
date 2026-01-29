@@ -218,41 +218,62 @@ function parseHtml(html: string, baseUrl: string): WebsitePreview {
   let facebookUrl: string | undefined
   let instagramUrl: string | undefined
   
-  // Extract OG image
-  const ogImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)
-  if (ogImageMatch?.[1]) {
-    images.add(resolveUrl(ogImageMatch[1], baseUrl))
-  }
-  
-  // Extract OG image secure URL
-  const ogImageSecureMatch = html.match(/<meta\s+property=["']og:image:secure_url["']\s+content=["']([^"']+)["']/i)
-  if (ogImageSecureMatch?.[1]) {
-    images.add(resolveUrl(ogImageSecureMatch[1], baseUrl))
-  }
-  
-  // Extract Twitter image
-  const twitterImageMatch = html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i)
-  if (twitterImageMatch?.[1]) {
-    images.add(resolveUrl(twitterImageMatch[1], baseUrl))
-  }
-  
-  // Extract OG title/name
-  const ogTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)
-  if (ogTitleMatch?.[1]) {
-    name = ogTitleMatch[1]
-  }
-  
-  // Extract OG description
-  const ogDescMatch = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)
-  if (ogDescMatch?.[1]) {
-    description = ogDescMatch[1]
+  // Extract meta tags (attribute order varies a lot across real sites).
+  // We'll scan meta tags and pick by (property|name) key.
+  try {
+    const headWindow = html.slice(0, 180_000)
+    const metaTags = headWindow.matchAll(/<meta\b[^>]*>/gi)
+    const metas: Array<Record<string, string>> = []
+
+    for (const m of metaTags) {
+      const raw = m[0] || ''
+      const attrs: Record<string, string> = {}
+      const attrMatches = raw.matchAll(/([a-zA-Z0-9:_-]+)\s*=\s*["']([^"']*)["']/g)
+      for (const a of attrMatches) {
+        const k = (a[1] || '').toLowerCase()
+        const v = (a[2] || '').trim()
+        if (k && v) attrs[k] = v
+      }
+      if (Object.keys(attrs).length) metas.push(attrs)
+    }
+
+    const getMetaContent = (key: string): string[] => {
+      const out: string[] = []
+      for (const attrs of metas) {
+        const k = (attrs.property || attrs.name || '').toLowerCase()
+        if (k === key.toLowerCase() && attrs.content) out.push(attrs.content)
+      }
+      return out
+    }
+
+    for (const img of [
+      ...getMetaContent('og:image:secure_url'),
+      ...getMetaContent('og:image'),
+      ...getMetaContent('twitter:image'),
+      ...getMetaContent('twitter:image:src')
+    ]) {
+      images.add(resolveUrl(img, baseUrl))
+    }
+
+    const titleCandidate = getMetaContent('og:title')[0] || getMetaContent('twitter:title')[0]
+    if (titleCandidate) name = titleCandidate
+
+    const descCandidate =
+      getMetaContent('og:description')[0] || getMetaContent('description')[0] || getMetaContent('twitter:description')[0]
+    if (descCandidate) description = descCandidate
+  } catch {
+    // ignore; fall back to JSON-LD and <img> scan below
   }
   
   // Extract JSON-LD (simplified - looks for image and logo)
-  const jsonLdMatches = html.matchAll(/<script\s+type=["']application\/ld\+json["']>([^<]+)<\/script>/gi)
+  const jsonLdMatches = html.matchAll(
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  )
   for (const match of jsonLdMatches) {
     try {
-      const json = JSON.parse(match[1])
+      const jsonText = (match[1] || '').trim()
+      if (!jsonText) continue
+      const json = JSON.parse(jsonText)
       const processJsonLd = (obj: any) => {
         if (typeof obj !== 'object' || obj === null) return
         
@@ -305,7 +326,7 @@ function parseHtml(html: string, baseUrl: string): WebsitePreview {
       }
       return true
     })
-    .slice(0, 3) // Max 3 images
+    .slice(0, 5) // Allow a few candidates; caller will cap further
 
   // Discover social links from anchors (conservative)
   try {
@@ -401,6 +422,13 @@ function resolveUrl(url: string, base: string): string {
  * Fetch website preview
  */
 export async function fetchWebsitePreview(url: string): Promise<WebsitePreview | null> {
+  return fetchWebsitePreviewWithOptions(url)
+}
+
+export async function fetchWebsitePreviewWithOptions(
+  url: string,
+  opts?: { timeoutMs?: number }
+): Promise<WebsitePreview | null> {
   const normalizedUrl = normalizeWebsiteUrl(url)
 
   // Validate URL
@@ -423,7 +451,14 @@ export async function fetchWebsitePreview(url: string): Promise<WebsitePreview |
     
     // Check throttle
     if (!checkThrottle(domain)) {
-      return null // Throttled
+      // Instead of failing, wait the remaining throttle window once.
+      const lastFetch = domainThrottle.get(domain) || 0
+      const waitMs = Math.max(0, THROTTLE_MS - (Date.now() - lastFetch))
+      if (waitMs > 0 && waitMs <= THROTTLE_MS) {
+        await new Promise((r) => setTimeout(r, waitMs))
+      }
+      // Update throttle timestamp so parallel calls don't stampede
+      domainThrottle.set(domain, Date.now())
     }
     
     // Check robots.txt
@@ -434,14 +469,17 @@ export async function fetchWebsitePreview(url: string): Promise<WebsitePreview |
     
     // Fetch HTML with timeout
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+    const timeoutMs = Number.isFinite(opts?.timeoutMs as any) ? Number(opts!.timeoutMs) : 6500
+    const timeout = setTimeout(() => controller.abort(), Math.max(2500, Math.min(12_000, timeoutMs)))
     
     try {
       const response = await fetch(cleanedUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'PINITPreviewBot/1.0',
-          'Accept': 'text/html,application/xhtml+xml'
+          // A more "normal" UA improves compatibility with some CDNs/WAFs.
+          'User-Agent': 'Mozilla/5.0 (compatible; PINITPreviewBot/1.0; +https://pinit.app)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9'
         }
       })
       
