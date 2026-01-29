@@ -81,6 +81,14 @@ function isBadDomain(host: string): boolean {
     'linktr.ee',
     'maps.app.goo.gl',
 
+    // Media / music / app store links (not an "official website" for a place)
+    'spotify.com',
+    'soundcloud.com',
+    'music.apple.com',
+    'podcasts.apple.com',
+    'apps.apple.com',
+    'play.google.com',
+
     // Knowledge bases / aggregators that are almost never an "official website"
     'wikipedia.org',
     'wikidata.org',
@@ -101,9 +109,17 @@ function normalizeUrl(raw: string): string | null {
     if (!u.hostname) return null
     u.hash = ''
     // Strip obvious tracking params
-    ;['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid'].forEach((k) =>
-      u.searchParams.delete(k)
-    )
+    ;[
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'gclid',
+      'fbclid',
+      // Google SERP click tracking
+      'srsltid'
+    ].forEach((k) => u.searchParams.delete(k))
     return u.toString()
   } catch {
     return null
