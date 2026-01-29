@@ -68,6 +68,8 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
     hasDescription?: boolean
     hasWebsite?: boolean
     websiteImages?: number
+    imagesTotal?: number
+    nonMapImages?: number
     provider?: string
     website?: string
     placeName?: string
@@ -98,6 +100,8 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
       const data: any = await resp.json()
       const images = Array.isArray(data?.images) ? data.images : []
       const websiteImages = images.filter((img: any) => img?.source === 'website').length
+      const imagesTotal = images.length
+      const nonMapImages = images.filter((img: any) => img?.source !== 'area').length
 
       results.push({
         point: { lat: p.lat, lon: p.lon },
@@ -107,6 +111,8 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
         hasDescription: !!(data?.description && String(data.description).trim()),
         hasWebsite: !!(data?.place?.website && String(data.place.website).trim()),
         websiteImages,
+        imagesTotal,
+        nonMapImages,
         provider: data?.place?.source,
         website: data?.place?.website,
         placeName: data?.place?.name,
