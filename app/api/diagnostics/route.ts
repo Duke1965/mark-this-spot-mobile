@@ -1,364 +1,294 @@
-import { type NextRequest, NextResponse } from 'next/server'
-
-import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
-import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
-import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
-import { getWebsiteImages } from '@/lib/images/websiteScrape'
-import { searchUnsplashImages } from '@/lib/images/unsplash'
-import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
-import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
-
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
-
-type PinIntelImage = {
-  url: string
-  source: 'website' | 'wikimedia' | 'facebook' | 'stock' | 'area'
-  attribution?: string
-  sourceUrl?: string
-}
-
-function looksGenericTitle(title: string | undefined): boolean {
-  const t = (title || '').trim().toLowerCase()
-  if (!t) return true
-  if (t === 'location' || t === 'pinned location' || t === 'nature spot') return true
-  if (t.startsWith('place near ')) return true
-  if (t.startsWith('place in ')) return true
-  // Titles that are really category + "near <locality>" are generic and should not be used as the search name.
-  if (t.includes(' near ') && (t.startsWith('catering near ') || t.startsWith('restaurant near ') || t.startsWith('hotel near '))) {
-    return true
-  }
-  return false
-}
-
-function isRiskyShortAllCapsBrand(name: string | undefined): boolean {
-  const n = (name || '').trim()
-  if (!n) return false
-  if (n.length <= 4 && n === n.toUpperCase()) return true
-  return false
-}
-
-function looksLikeStreetAddress(name: string | undefined): boolean {
-  const n = (name || '').trim()
-  if (!n) return false
-  // Basic heuristic: numbers + street words => likely address, not a POI name.
-  const lower = n.toLowerCase()
-  if (!/\d/.test(lower)) return false
-  return (
-    lower.includes('street') ||
-    lower.includes('st ') ||
-    lower.includes('st.') ||
-    lower.includes('road') ||
-    lower.includes('rd ') ||
-    lower.includes('rd.') ||
-    lower.includes('ave') ||
-    lower.includes('avenue') ||
-    lower.includes('crescent') ||
-    lower.includes('lane') ||
-    lower.includes('drive') ||
-    lower.includes('boulevard') ||
-    lower.includes('blvd')
-  )
-}
-
-function shouldUseUnsplashFallback(place: any): boolean {
-  // Unsplash is "better than a map screenshot" when we couldn't get official photos.
-  // We only skip it for very risky short ALLCAPS brands (KFC, BP, etc.).
-  if (isRiskyShortAllCapsBrand(place?.name)) return false
-  return true
-}
-
-function buildUnsplashQuery(place: any, hint: string | undefined): string {
-  const locality = (place?.locality || place?.region || place?.country || '').trim()
-  const category = (place?.category || '').trim()
-  const name = (place?.name || '').trim()
-
-  // Generic pins should not search by a raw street address (often returns nothing).
-  if (looksGenericTitle(hint) || looksLikeStreetAddress(name)) {
-    const cat = category ? category.split('.').slice(-1)[0] : 'travel'
-    const loc = locality || 'South Africa'
-    return `${cat} ${loc} landscape`
-  }
-
-  // For named POIs/businesses, keep it descriptive but not overly specific.
-  // Adding locality helps avoid totally unrelated results.
-  return locality ? `${name} ${locality}` : name
-}
-
-function buildUnsplashFallbackQueries(place: any, hint: string | undefined): string[] {
-  const locality = (place?.locality || place?.region || place?.country || '').trim() || 'South Africa'
-  const category = (place?.category || '').trim()
-  const cat = category ? category.split('.').slice(-1)[0] : 'travel'
-
-  const primary = buildUnsplashQuery(place, hint)
-  const q1 = primary || `${cat} ${locality}`
-  const q2 = `${cat} ${locality} travel`
-  const q3 = `${locality} landscape`
-  // Dedupe
-  return Array.from(new Set([q1, q2, q3].map((s) => s.trim()).filter(Boolean)))
-}
-
-function getMapboxStaticUrl(lat: number, lon: number): string | null {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
-  if (!token) return null
-  const style = 'streets-v12'
-  const zoom = 15.5
-  const width = 800
-  const height = 600
-  // Use an overlay pin so the user sees the exact point.
-  const overlay = `pin-s+ff0000(${lon},${lat})`
-  const base = `https://api.mapbox.com/styles/v1/mapbox/${style}/static`
-  const url = new URL(`${base}/${overlay}/${lon},${lat},${zoom}/${width}x${height}`)
-  url.searchParams.set('access_token', token)
-  return url.toString()
-}
+import { type NextRequest, NextResponse } from "next/server"
+import { MAP_PROVIDER, MAPBOX_API_KEY, validateMapConfig } from "@/lib/mapConfig"
 
 /**
- * GET /api/pin-intel?lat=..&lon=..&hint=..
- *
- * Returns consistent PinIntel payload:
- * - place identity (Geoapify)
- * - stable title/description derived from metadata
- * - website-first images (uploaded to Firebase Storage)
- * - diagnostics for road testing
+ * Diagnostics API Route
+ * Tests all API connections and environment variables
+ * Helps identify why photos and content aren't loading
+ * Tests Mapbox and Wikimedia APIs
  */
+
 export async function GET(request: NextRequest) {
-  const startedAt = Date.now()
-  const timings: Record<string, number> = {}
-  const fallbacksUsed: string[] = []
-  const uploadFailures: Array<{ source: string; url: string; stage?: 'init' | 'download' | 'upload'; message?: string }> =
-    []
-
-  try {
-    const { searchParams } = new URL(request.url)
-    const latRaw = searchParams.get('lat')
-    const lonRaw = searchParams.get('lon') || searchParams.get('lng')
-    const hint = searchParams.get('hint') || undefined
-
-    const lat = latRaw ? Number(latRaw) : NaN
-    const lon = lonRaw ? Number(lonRaw) : NaN
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return NextResponse.json({ error: 'Missing/invalid lat/lon' }, { status: 400 })
-    }
-    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
-    }
-
-    // 1) Place resolve (Geoapify)
-    const t0 = Date.now()
-    let place = await resolvePlaceIdentity(lat, lon, hint)
-    timings.place_resolve_ms = Date.now() - t0
-
-    // 1b) If missing website, try strict Wikidata match to fill official website (P856)
-    let wikidata: Awaited<ReturnType<typeof tryWikidataMatch>> | null = null
-    if (!place.website && shouldAttemptWikidata(place)) {
-      const t0b = Date.now()
-      wikidata = await tryWikidataMatch(place)
-      timings.wikidata_lookup_ms = Date.now() - t0b
-      if (wikidata?.officialWebsite) {
-        place = { ...place, website: wikidata.officialWebsite }
-        fallbacksUsed.push('wikidata_official_website')
-      }
-    }
-
-    // 1c) If still missing website, try search-based discovery (optional, requires SERPER_API_KEY)
-    if (!place.website) {
-      const hasSerperKey = !!process.env.SERPER_API_KEY
-      const hintIsGeneric = looksGenericTitle(hint)
-      const serperName = hintIsGeneric ? place.name : (hint || place.name)
-      const nameLooksAddress = looksLikeStreetAddress(serperName)
-      const nameLooksUnknown = String(serperName || '').trim().toLowerCase() === 'unknown place'
-
-      if (!hasSerperKey) {
-        fallbacksUsed.push('no_serper_key')
-      } else if (!serperName || nameLooksAddress || nameLooksUnknown) {
-        // Avoid searching generic street addresses (often returns random domains).
-        fallbacksUsed.push('skip_serper_generic_hint')
-      } else {
-        const t0c = Date.now()
-        const found = await discoverOfficialWebsite({
-          name: serperName,
-          locality: place.locality,
-          region: place.region,
-          country: place.country
-        })
-        timings.website_discovery_ms = Date.now() - t0c
-        if (found.website) {
-          place = { ...place, website: found.website }
-          fallbacksUsed.push('serper_official_website')
-        } else {
-          fallbacksUsed.push('no_serper_match')
-        }
-      }
-    }
-
-    // Normalize into the formatter input shape
-    const formatterInput = {
-      name: place.name,
-      categories: place.category ? [place.category] : [],
-      address: place.address,
-      city: place.locality,
-      region: place.region
-    }
-
-    const title = buildTitle(formatterInput)
-    const description = buildDescription(formatterInput)
-
-    // 2) Website-first images (only if website exists)
-    const images: PinIntelImage[] = []
-    const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
-
-    if (place.website) {
-      const t1 = Date.now()
-      const { images: websiteImages, sourceUrl } = await getWebsiteImages(place.website)
-      timings.website_scrape_ms = Date.now() - t1
-
-      if (websiteImages.length > 0) {
-        const t2 = Date.now()
-        for (const imgUrl of websiteImages.slice(0, 3)) {
-          let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
-          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website', {
-            onError: (info) => {
-              err = info
-            }
-          })
-          if (hostedUrl) {
-            images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
-          } else {
-            const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
-            const message = (err as any)?.message as string | undefined
-            uploadFailures.push({ source: 'website', url: imgUrl, stage, message })
-          }
-        }
-        timings.website_upload_ms = Date.now() - t2
-      } else {
-        fallbacksUsed.push('no_website_images')
-      }
-
-      void sourceUrl
-    } else {
-      fallbacksUsed.push('no_website')
-    }
-
-    // 3) Wikimedia fallback (only if we still have no images)
-    if (images.length === 0 && shouldAttemptWikidata(place)) {
-      if (!wikidata) {
-        const t3 = Date.now()
-        wikidata = await tryWikidataMatch(place)
-        timings.wikidata_ms = Date.now() - t3
-      }
-
-      const commons = wikidata?.commonsImages || []
-      if (commons.length > 0) {
-        const t4 = Date.now()
-        for (const imgUrl of commons.slice(0, 3)) {
-          let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
-          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'wikimedia', {
-            onError: (info) => {
-              err = info
-            }
-          })
-          if (hostedUrl) {
-            images.push({ url: hostedUrl, source: 'wikimedia', sourceUrl: imgUrl })
-          } else {
-            const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
-            const message = (err as any)?.message as string | undefined
-            uploadFailures.push({ source: 'wikimedia', url: imgUrl, stage, message })
-          }
-        }
-        timings.wikimedia_upload_ms = Date.now() - t4
-      } else {
-        fallbacksUsed.push('no_wikimedia_images')
-      }
-    } else if (images.length === 0) {
-      fallbacksUsed.push('skip_wikidata')
-    }
-
-    // 4) Unsplash fallback (optional)
-    if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place)) {
-      const t5 = Date.now()
-      const queries = buildUnsplashFallbackQueries(place, hint)
-      let unsplashPicked: Awaited<ReturnType<typeof searchUnsplashImages>> = []
-      let usedQuery: string | null = null
-
-      for (const q of queries) {
-        const got = await searchUnsplashImages(q, 3)
-        if (got.length > 0) {
-          unsplashPicked = got
-          usedQuery = q
-          break
-        }
-      }
-
-      timings.unsplash_ms = Date.now() - t5
-
-      if (usedQuery) fallbacksUsed.push(`unsplash_query:${usedQuery}`.slice(0, 120))
-
-      for (const img of unsplashPicked) {
-        let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
-        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock', {
-          timeoutMs: 8000,
-          onError: (info) => {
-            err = info
-          }
-        })
-        if (hostedUrl) {
-          images.push({ url: hostedUrl, source: 'stock', sourceUrl: img.pageUrl, attribution: img.attribution })
-        } else {
-          const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
-          const message = (err as any)?.message as string | undefined
-          uploadFailures.push({ source: 'stock', url: img.imageUrl, stage, message })
-        }
-      }
-
-      if (images.length > 0) {
-        fallbacksUsed.push('unsplash_images')
-      } else {
-        fallbacksUsed.push('no_unsplash_images')
-      }
-    } else if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY) {
-      fallbacksUsed.push('skip_unsplash')
-    } else if (images.length === 0) {
-      fallbacksUsed.push('no_unsplash_key')
-    }
-
-    // 5) Final fallback: map snapshot (prevents irrelevant/random client-side fallbacks)
-    if (images.length === 0) {
-      const mapUrl = getMapboxStaticUrl(lat, lon)
-      if (mapUrl) {
-        images.push({ url: mapUrl, source: 'area', sourceUrl: 'mapbox-static' })
-        fallbacksUsed.push('mapbox_static_image')
-      }
-    }
-
-    timings.total_ms = Date.now() - startedAt
-
-    return NextResponse.json(
-      {
-        place,
-        title,
-        description,
-        images,
-        diagnostics: {
-          provider: place.source,
-          timings,
-          fallbacksUsed,
-          uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : []
-        }
-      },
-      { status: 200, headers: { 'Cache-Control': 'no-store' } }
-    )
-  } catch (error) {
-    console.error('❌ /api/pin-intel error:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to build pin intel',
-        details: error instanceof Error ? error.message : String(error),
-        diagnostics: { timings: { total_ms: Date.now() - startedAt } }
-      },
-      { status: 500 }
-    )
+  const diagnostics: any = {
+    timestamp: new Date().toISOString(),
+    environment: {},
+    apis: {}
   }
+
+  // Check environment variables (provider-aware)
+  const rawMapbox = process.env.NEXT_PUBLIC_MAPBOX_API_KEY || ""
+  
+  diagnostics.environment = {
+    NEXT_PUBLIC_MAP_PROVIDER: MAP_PROVIDER,
+    NEXT_PUBLIC_MAPBOX_API_KEY: !!process.env.NEXT_PUBLIC_MAPBOX_API_KEY,
+    SERPER_API_KEY: !!process.env.SERPER_API_KEY,
+    UNSPLASH_ACCESS_KEY: !!process.env.UNSPLASH_ACCESS_KEY,
+    GEOAPIFY_API_KEY: !!process.env.GEOAPIFY_API_KEY,
+    FIREBASE_STORAGE_BUCKET: !!(process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+    FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON,
+    FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64: !!process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64,
+    FIREBASE_ADMIN_CLIENT_EMAIL: !!process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    FIREBASE_ADMIN_PRIVATE_KEY: !!process.env.FIREBASE_ADMIN_PRIVATE_KEY,
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV
+  }
+  
+  // Add debug info at top level (not in environment to avoid React rendering issues)
+  diagnostics.key_debug = {
+    mapbox_key_length: rawMapbox.length,
+    mapbox_key_preview: rawMapbox.length > 8 ? `${rawMapbox.substring(0, 4)}...${rawMapbox.substring(rawMapbox.length - 4)}` : "empty"
+  }
+
+  // Get test coordinates from query params or use defaults (Cape Town)
+  const { searchParams } = new URL(request.url)
+  const testLat = searchParams.get("lat") || "-33.9249"
+  const testLng = searchParams.get("lng") || "18.4241"
+
+  console.log(`🔍 Running diagnostics for location: ${testLat}, ${testLng}`)
+
+  // Store input coordinates in diagnostics
+  diagnostics.input_coords = {
+    lat: parseFloat(testLat),
+    lng: parseFloat(testLng)
+  }
+
+  // Test Mapbox Maps API (if provider is mapbox)
+  if (MAP_PROVIDER === "mapbox") {
+    try {
+      const mapboxKey = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
+      
+      if (!mapboxKey) {
+        diagnostics.apis.mapbox = {
+          status: "ERROR",
+          error: "No API key found",
+          details: "Missing NEXT_PUBLIC_MAPBOX_API_KEY"
+        }
+      } else {
+      // Test Mapbox Geocoding API (reverse geocoding)
+      const mapboxUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${testLng},${testLat}.json`)
+      mapboxUrl.searchParams.set('access_token', mapboxKey)
+      
+      const mapboxResponse = await fetch(mapboxUrl.toString())
+      
+      if (mapboxResponse.ok) {
+        const mapboxData = await mapboxResponse.json()
+        const features = mapboxData.features || []
+        
+        // Find best feature (prefer address, then place)
+        const addressFeature = features.find((f: any) => f.place_type?.includes('address'))
+        const placeFeature = features.find((f: any) => f.place_type?.includes('place'))
+        const selectedFeature = addressFeature || placeFeature || features[0]
+        
+        // Calculate distance from input coordinates to selected feature
+        let distance_km: number | null = null
+        if (selectedFeature?.geometry?.coordinates) {
+          const [featureLng, featureLat] = selectedFeature.geometry.coordinates
+          const inputLat = parseFloat(testLat)
+          const inputLng = parseFloat(testLng)
+          
+          // Haversine formula
+          const R = 6371 // Earth radius in km
+          const dLat = (featureLat - inputLat) * Math.PI / 180
+          const dLng = (featureLng - inputLng) * Math.PI / 180
+          const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(inputLat * Math.PI / 180) * Math.cos(featureLat * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2)
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          distance_km = R * c
+        }
+        
+        diagnostics.apis.mapbox = {
+          status: "OK",
+          places_found: features.length,
+          sample_place: selectedFeature?.place_name || selectedFeature?.text || "No place found"
+        }
+        
+        // Store selected Mapbox feature details
+        diagnostics.selected_mapbox_feature = {
+          name: selectedFeature?.place_name || selectedFeature?.text || null,
+          place_type: selectedFeature?.place_type?.[0] || null,
+          distance_km: distance_km !== null ? parseFloat(distance_km.toFixed(4)) : null
+        }
+      } else {
+        const errorText = await mapboxResponse.text()
+        diagnostics.apis.mapbox = {
+          status: "ERROR",
+          http_status: mapboxResponse.status,
+          error: errorText.substring(0, 200)
+        }
+      }
+      
+      // Test Mapbox Static Images API
+      try {
+        const staticImageUrl = new URL(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${testLng},${testLat},14,0/400x400`)
+        staticImageUrl.searchParams.set('access_token', mapboxKey)
+        
+        const staticImageResponse = await fetch(staticImageUrl.toString())
+        
+        if (staticImageResponse.ok) {
+          diagnostics.apis.mapbox_static_image = {
+            status: "OK",
+            has_image_url: true,
+            style: "streets-v12"
+          }
+        } else {
+          diagnostics.apis.mapbox_static_image = {
+            status: "ERROR",
+            http_status: staticImageResponse.status
+          }
+        }
+      } catch (error) {
+        diagnostics.apis.mapbox_static_image = {
+          status: "ERROR",
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+      }
+    } catch (error) {
+      diagnostics.apis.mapbox = {
+        status: "ERROR",
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  // Test Wikimedia API (replaces Unsplash)
+  // Use a generic test name since we're testing the API, not a specific place
+  try {
+    // Try to get a place name from Mapbox geocoding for better Wikimedia test
+    let testPlaceName = "Cape Town" // Fallback
+    if (diagnostics.apis.mapbox?.sample_place) {
+      // Extract first part of place name (before comma) for Wikimedia search
+      testPlaceName = diagnostics.apis.mapbox.sample_place.split(',')[0].trim()
+    }
+    
+    // Initialize chosen_wikidata and chosen_wikimedia_filename (always include in output)
+    diagnostics.chosen_wikidata = null
+    diagnostics.chosen_wikimedia_filename = null
+    diagnostics.wikimedia_search_name = testPlaceName // Store what we searched for
+    
+    const testWikimediaUrl = `${request.nextUrl.origin}/api/wikimedia/resolve?name=${encodeURIComponent(testPlaceName)}&lat=${testLat}&lng=${testLng}`
+    const wikimediaResponse = await fetch(testWikimediaUrl)
+    
+    if (wikimediaResponse.ok) {
+      const wikimediaData = await wikimediaResponse.json()
+      diagnostics.apis.wikimedia = {
+        status: wikimediaData.imageUrl ? "OK" : "WARNING",
+        has_image_url: !!wikimediaData.imageUrl,
+        source: wikimediaData.source || "none",
+        qid: wikimediaData.qid || null,
+        message: wikimediaData.imageUrl ? "Wikimedia image found" : "No image found for test location",
+        searched_name: testPlaceName // Include what was searched
+      }
+      
+      // Store chosen Wikidata and Wikimedia details (even if null)
+      if (wikimediaData.qid) {
+        diagnostics.chosen_wikidata = {
+          qid: wikimediaData.qid,
+          label: wikimediaData.label || testPlaceName // Use label from API if available
+        }
+      }
+      
+      // Store Wikimedia filename (from API response if available, otherwise extract from URL)
+      if (wikimediaData.filename) {
+        diagnostics.chosen_wikimedia_filename = wikimediaData.filename
+      } else if (wikimediaData.imageUrl) {
+        try {
+          const url = new URL(wikimediaData.imageUrl)
+          const pathParts = url.pathname.split('/')
+          const filename = pathParts[pathParts.length - 1]
+          diagnostics.chosen_wikimedia_filename = decodeURIComponent(filename.split('?')[0])
+        } catch (e) {
+          // If URL parsing fails, try to extract from string
+          const match = wikimediaData.imageUrl.match(/Special:FilePath\/([^?]+)/)
+          if (match) {
+            diagnostics.chosen_wikimedia_filename = decodeURIComponent(match[1])
+          }
+        }
+      }
+      
+      // Add debug info from the current unified /api/pin-intel (single source of truth)
+      try {
+        const url = new URL(`${request.nextUrl.origin}/api/pin-intel`)
+        url.searchParams.set('lat', String(parseFloat(testLat)))
+        url.searchParams.set('lon', String(parseFloat(testLng)))
+
+        const pinIntelResponse = await fetch(url.toString(), { cache: 'no-store' })
+        
+        if (pinIntelResponse.ok) {
+          const pinIntelData = await pinIntelResponse.json()
+          // Store the unified response so the diagnostics page shows current timings/fallbacks
+          diagnostics.pin_intel = {
+            place: pinIntelData?.place,
+            title: pinIntelData?.title,
+            description: pinIntelData?.description,
+            images: pinIntelData?.images,
+            diagnostics: pinIntelData?.diagnostics
+          }
+        }
+      } catch (error) {
+        // Non-critical - just log
+        console.warn('⚠️ Could not fetch pin-intel debug info:', error)
+      }
+    } else {
+      const errorText = await wikimediaResponse.text().catch(() => 'Unknown error')
+      diagnostics.apis.wikimedia = {
+        status: "ERROR",
+        http_status: wikimediaResponse.status,
+        error: errorText.substring(0, 200)
+      }
+    }
+  } catch (error) {
+    diagnostics.apis.wikimedia = {
+      status: "ERROR",
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+
+
+  // Validate map configuration
+  const mapConfig = validateMapConfig()
+  diagnostics.map_config = {
+    provider: MAP_PROVIDER,
+    valid: mapConfig.valid,
+    errors: mapConfig.errors
+  }
+
+
+  // Overall status - Check critical APIs
+  const allChecks: boolean[] = []
+  
+  // Check Mapbox API (required for mapbox provider)
+  allChecks.push(!!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY)
+  allChecks.push(diagnostics.apis.mapbox?.status === "OK")
+  
+  diagnostics.overall_status = allChecks.every(check => check) ? "OK" : "ISSUES_FOUND"
+  
+  // Build issues summary arrays
+  const missingEnvVars: string[] = []
+  if (!diagnostics.environment.NEXT_PUBLIC_MAPBOX_API_KEY) {
+    missingEnvVars.push("Mapbox API Key")
+  }
+  
+  const failingApis: string[] = []
+  if (diagnostics.apis.mapbox?.status !== "OK") {
+    failingApis.push("Mapbox Geocoding")
+  }
+  if (diagnostics.apis.mapbox_static_image?.status && diagnostics.apis.mapbox_static_image?.status !== "OK") {
+    failingApis.push("Mapbox Static Image")
+  }
+  
+  diagnostics.issues_summary = {
+    missing_env_vars: missingEnvVars,
+    failing_apis: failingApis
+  }
+
+  return NextResponse.json(diagnostics, { 
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-store'
+    }
+  })
 }
 
