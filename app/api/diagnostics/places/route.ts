@@ -75,6 +75,8 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
     placeName?: string
     fallbacksUsed?: string[]
     uploadFailures?: number
+    uploadFailureSample?: { source?: string; stage?: string; message?: string }
+    websiteMeta?: { attempted?: boolean; hasTitleHint?: boolean; hasDescriptionHint?: boolean; imageCandidates?: number }
     error?: string
   }> = []
 
@@ -103,6 +105,9 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
       const websiteImages = images.filter((img: any) => img?.source === 'website').length
       const imagesTotal = images.length
       const nonMapImages = images.filter((img: any) => img?.source !== 'area').length
+      const uploadFailuresArr = Array.isArray(data?.diagnostics?.uploadFailures) ? data.diagnostics.uploadFailures : []
+      const failureSample = uploadFailuresArr?.[0]
+      const websiteMeta = data?.diagnostics?.websiteMeta
 
       results.push({
         point: { lat: p.lat, lon: p.lon },
@@ -118,7 +123,20 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
         website: data?.place?.website,
         placeName: data?.place?.name,
         fallbacksUsed: Array.isArray(data?.diagnostics?.fallbacksUsed) ? data.diagnostics.fallbacksUsed : undefined,
-        uploadFailures: Array.isArray(data?.diagnostics?.uploadFailures) ? data.diagnostics.uploadFailures.length : 0
+        uploadFailures: uploadFailuresArr.length,
+        uploadFailureSample:
+          failureSample && typeof failureSample === 'object'
+            ? { source: failureSample.source, stage: failureSample.stage, message: failureSample.message }
+            : undefined,
+        websiteMeta:
+          websiteMeta && typeof websiteMeta === 'object'
+            ? {
+                attempted: !!websiteMeta.attempted,
+                hasTitleHint: !!websiteMeta.hasTitleHint,
+                hasDescriptionHint: !!websiteMeta.hasDescriptionHint,
+                imageCandidates: Number.isFinite(websiteMeta.imageCandidates) ? Number(websiteMeta.imageCandidates) : undefined
+              }
+            : undefined
       })
     } catch (error) {
       results.push({
