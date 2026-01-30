@@ -608,7 +608,7 @@ export default function DiagnosticsPage() {
             marginBottom: "20px"
           }}>
             <h3 style={{ color: "white", margin: "0 0 15px 0", fontSize: "16px" }}>Environment Variables</h3>
-            {Object.entries(diagnostics.environment).map(([key, value]) => (
+            {Object.entries(diagnostics.environment || {}).map(([key, value]) => (
               <div key={key} style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -642,7 +642,7 @@ export default function DiagnosticsPage() {
             marginBottom: "20px"
           }}>
             <h3 style={{ color: "white", margin: "0 0 15px 0", fontSize: "16px" }}>API Status</h3>
-            {Object.entries(diagnostics.apis).map(([apiName, apiData]) => (
+            {Object.entries(diagnostics.apis || {}).map(([apiName, apiData]) => (
               <div key={apiName} style={{
                 background: "rgba(255, 255, 255, 0.05)",
                 borderRadius: "10px",
@@ -650,13 +650,13 @@ export default function DiagnosticsPage() {
                 marginBottom: "10px"
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                  {getStatusIcon(apiData.status)}
+                  {getStatusIcon((apiData as any)?.status)}
                   <strong style={{ color: "white", textTransform: "capitalize" }}>
                     {apiName.replace(/_/g, " ")}
                   </strong>
                 </div>
                 <div style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: "14px" }}>
-                  {Object.entries(apiData).map(([key, value]) => (
+                  {Object.entries((apiData as any) || {}).map(([key, value]) => (
                     <div key={key} style={{ marginBottom: "5px" }}>
                       <strong style={{ color: "rgba(255, 255, 255, 0.6)" }}>{key}:</strong>{" "}
                       <span className={getStatusColor(String(value))}>
