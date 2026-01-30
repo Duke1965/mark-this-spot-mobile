@@ -3,10 +3,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
 import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
-import { getWebsiteImages } from '@/lib/images/websiteScrape'
+import { getWebsiteMeta } from '@/lib/images/websiteMeta'
 import { searchUnsplashImages } from '@/lib/images/unsplash'
 import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
 import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
+import { mergeTitleDescription } from '@/lib/pinEnrich/mergeTitleDescription'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -28,15 +29,6 @@ function looksGenericTitle(title: string | undefined): boolean {
   if (t.includes(' near ') && (t.startsWith('catering near ') || t.startsWith('restaurant near ') || t.startsWith('hotel near '))) {
     return true
   }
-  return false
-}
-
-function looksLikeChainOrTooGenericName(name: string | undefined): boolean {
-  const n = (name || '').trim()
-  if (!n) return true
-  if (n === 'Unknown Place') return true
-  // Very short ALLCAPS brands are high-risk for "wrong branch" photos.
-  if (n.length <= 4 && n === n.toUpperCase()) return true
   return false
 }
 
@@ -70,7 +62,7 @@ function looksLikeStreetAddress(name: string | undefined): boolean {
   )
 }
 
-function shouldUseUnsplashFallback(place: any, hint: string | undefined): boolean {
+function shouldUseUnsplashFallback(place: any): boolean {
   // Unsplash is "better than a map screenshot" when we couldn't get official photos.
   // We only skip it for very risky short ALLCAPS brands (KFC, BP, etc.).
   if (isRiskyShortAllCapsBrand(place?.name)) return false
@@ -135,7 +127,14 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now()
   const timings: Record<string, number> = {}
   const fallbacksUsed: string[] = []
-  const uploadFailures: Array<{ source: string; url: string }> = []
+  const uploadFailures: Array<{ source: string; url: string; stage?: 'init' | 'download' | 'upload'; message?: string }> =
+    []
+  const websiteMetaDiag = {
+    attempted: false,
+    hasTitleHint: false,
+    hasDescriptionHint: false,
+    imageCandidates: 0
+  }
 
   try {
     const { searchParams } = new URL(request.url)
@@ -210,37 +209,60 @@ export async function GET(request: NextRequest) {
       region: place.region
     }
 
-    const title = buildTitle(formatterInput)
-    const description = buildDescription(formatterInput)
+    const baseTitle = buildTitle(formatterInput)
+    const baseDescription = buildDescription(formatterInput)
 
     // 2) Website-first images (only if website exists)
     const images: PinIntelImage[] = []
     const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
+    let websiteMeta: Awaited<ReturnType<typeof getWebsiteMeta>> | null = null
 
     if (place.website) {
+      websiteMetaDiag.attempted = true
       const t1 = Date.now()
-      const { images: websiteImages, sourceUrl } = await getWebsiteImages(place.website)
-      timings.website_scrape_ms = Date.now() - t1
+      websiteMeta = await getWebsiteMeta(place.website)
+      timings.website_meta_ms = Date.now() - t1
 
+      websiteMetaDiag.hasTitleHint = !!(websiteMeta?.ogTitle || websiteMeta?.siteTitle)
+      websiteMetaDiag.hasDescriptionHint = !!(websiteMeta?.metaDescription || websiteMeta?.ogDescription)
+      websiteMetaDiag.imageCandidates = Array.isArray(websiteMeta?.images) ? websiteMeta!.images.length : 0
+
+      const websiteImages = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
       if (websiteImages.length > 0) {
         const t2 = Date.now()
         for (const imgUrl of websiteImages.slice(0, 3)) {
-          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website')
+          let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
+          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website', {
+            timeoutMs: 6500,
+            onError: (info) => {
+              err = info
+            }
+          })
           if (hostedUrl) {
             images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
           } else {
-            uploadFailures.push({ source: 'website', url: imgUrl })
+            const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
+            const message = (err as any)?.message as string | undefined
+            uploadFailures.push({ source: 'website', url: imgUrl, stage, message })
           }
         }
         timings.website_upload_ms = Date.now() - t2
       } else {
         fallbacksUsed.push('no_website_images')
       }
-
-      void sourceUrl
     } else {
       fallbacksUsed.push('no_website')
     }
+
+    // 2b) Merge title/description with website metadata hints (no crawling)
+    const merged = mergeTitleDescription({
+      baseTitle,
+      baseDescription,
+      place,
+      websiteMeta
+    })
+    const title = merged.title
+    const description = merged.description
 
     // 3) Wikimedia fallback (only if we still have no images)
     if (images.length === 0 && shouldAttemptWikidata(place)) {
@@ -254,11 +276,18 @@ export async function GET(request: NextRequest) {
       if (commons.length > 0) {
         const t4 = Date.now()
         for (const imgUrl of commons.slice(0, 3)) {
-          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'wikimedia')
+          let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
+          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'wikimedia', {
+            onError: (info) => {
+              err = info
+            }
+          })
           if (hostedUrl) {
             images.push({ url: hostedUrl, source: 'wikimedia', sourceUrl: imgUrl })
           } else {
-            uploadFailures.push({ source: 'wikimedia', url: imgUrl })
+            const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
+            const message = (err as any)?.message as string | undefined
+            uploadFailures.push({ source: 'wikimedia', url: imgUrl, stage, message })
           }
         }
         timings.wikimedia_upload_ms = Date.now() - t4
@@ -270,7 +299,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 4) Unsplash fallback (optional)
-    if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place, hint)) {
+    if (images.length === 0 && process.env.UNSPLASH_ACCESS_KEY && shouldUseUnsplashFallback(place)) {
       const t5 = Date.now()
       const queries = buildUnsplashFallbackQueries(place, hint)
       let unsplashPicked: Awaited<ReturnType<typeof searchUnsplashImages>> = []
@@ -290,11 +319,19 @@ export async function GET(request: NextRequest) {
       if (usedQuery) fallbacksUsed.push(`unsplash_query:${usedQuery}`.slice(0, 120))
 
       for (const img of unsplashPicked) {
-        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock', { timeoutMs: 8000 })
+        let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
+        const hostedUrl = await downloadAndUploadImage(img.imageUrl, cacheKey, 'stock', {
+          timeoutMs: 8000,
+          onError: (info) => {
+            err = info
+          }
+        })
         if (hostedUrl) {
           images.push({ url: hostedUrl, source: 'stock', sourceUrl: img.pageUrl, attribution: img.attribution })
         } else {
-          uploadFailures.push({ source: 'stock', url: img.imageUrl })
+          const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
+          const message = (err as any)?.message as string | undefined
+          uploadFailures.push({ source: 'stock', url: img.imageUrl, stage, message })
         }
       }
 
@@ -330,7 +367,8 @@ export async function GET(request: NextRequest) {
           provider: place.source,
           timings,
           fallbacksUsed,
-          uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : []
+          uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : [],
+          websiteMeta: websiteMetaDiag
         }
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
