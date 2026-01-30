@@ -175,20 +175,35 @@ export async function uploadToStorage(
 
   const bucketName = getBucketName()
   const storage = getStorage(app)
-  const bucket = bucketName ? storage.bucket(bucketName) : storage.bucket()
+  // Prefer explicitly configured bucket, but fall back to default bucket if misconfigured.
+  const tryUpload = async (bucketToUse: ReturnType<typeof storage.bucket>) => {
+    const file = bucketToUse.file(path)
+    await file.save(buffer, {
+      resumable: false,
+      metadata: { contentType }
+    })
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491'
+    })
+    return signedUrl
+  }
 
-  const file = bucket.file(path)
-  await file.save(buffer, {
-    resumable: false,
-    metadata: { contentType }
-  })
+  if (bucketName) {
+    try {
+      return await tryUpload(storage.bucket(bucketName))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      // Common when env var points at a non-existent bucket.
+      if (msg.toLowerCase().includes('specified bucket does not exist')) {
+        // Try the default bucket for the service account project.
+        return await tryUpload(storage.bucket())
+      }
+      throw e
+    }
+  }
 
-  const [signedUrl] = await file.getSignedUrl({
-    action: 'read',
-    expires: '03-09-2491'
-  })
-
-  return signedUrl
+  return await tryUpload(storage.bucket())
 }
 
 /**
