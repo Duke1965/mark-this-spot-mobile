@@ -5,6 +5,7 @@
 
 import { createHash } from 'crypto'
 import admin from 'firebase-admin'
+import { getStorage } from 'firebase-admin/storage'
 
 /**
  * Generate deterministic path for image storage
@@ -173,7 +174,8 @@ export async function uploadToStorage(
   }
 
   const bucketName = getBucketName()
-  const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket()
+  const storage = getStorage(app)
+  const bucket = bucketName ? storage.bucket(bucketName) : storage.bucket()
 
   const file = bucket.file(path)
   await file.save(buffer, {
@@ -196,18 +198,39 @@ export async function downloadAndUploadImage(
   imageUrl: string,
   cacheKey: string,
   source: 'wikimedia' | 'website' | 'facebook' | 'stock',
-  opts?: { timeoutMs?: number }
+  opts?: { timeoutMs?: number; onError?: (info: { stage: 'init' | 'download' | 'upload'; message: string }) => void }
 ): Promise<string | null> {
   try {
     // Download image
-    const { buffer, contentType } = await downloadToBuffer(imageUrl, opts?.timeoutMs)
+    let buffer: Buffer
+    let contentType: string
+    try {
+      const got = await downloadToBuffer(imageUrl, opts?.timeoutMs)
+      buffer = got.buffer
+      contentType = got.contentType
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      opts?.onError?.({ stage: msg.toLowerCase().includes('firebase admin') ? 'init' : 'download', message: msg })
+      throw e
+    }
     
     // Generate storage path
     const extension = getExtensionFromContentType(contentType)
     const path = generateImagePath(cacheKey, source, imageUrl, extension)
     
     // Upload to storage
-    const hostedUrl = await uploadToStorage(buffer, path, contentType)
+    let hostedUrl: string
+    try {
+      hostedUrl = await uploadToStorage(buffer, path, contentType)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      const stage: 'init' | 'upload' =
+        msg.toLowerCase().includes('firebase admin not initialized') || msg.toLowerCase().includes('credential')
+          ? 'init'
+          : 'upload'
+      opts?.onError?.({ stage, message: msg })
+      throw e
+    }
     
     return hostedUrl
   } catch (error) {
