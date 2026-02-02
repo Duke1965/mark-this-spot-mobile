@@ -1948,7 +1948,9 @@ export default function PINITApp() {
       
       // Check for POI selection modal if multiple POIs found
       if (!useSelectedPOI && !showPOISelection && pinIntelData?.places) {
-        const nearbyPOIs = (pinIntelData.places || []).filter((p: any) => p.distance_m && p.distance_m <= 500).slice(0, 5)
+        // After the user manually drags the pin, we should only consider *very* close POIs.
+        // This prevents snapping to a place a few blocks away.
+        const nearbyPOIs = (pinIntelData.places || []).filter((p: any) => p.distance_m && p.distance_m <= 30).slice(0, 5)
         if (nearbyPOIs.length >= 2) {
           setPoiCandidates(nearbyPOIs)
           setSelectedPOI(pinIntelData.poi_metadata ? {
@@ -1977,7 +1979,10 @@ export default function PINITApp() {
       
       if (!searchTerm) {
         // Fallback: build from pin-intel data
-        if (poiName) {
+        // Only trust POI names that are truly close to the adjusted pin.
+        const poiDistanceM = Number(poiMetadata?.distance_m)
+        const canTrustPoiName = poiName && Number.isFinite(poiDistanceM) ? poiDistanceM <= 30 : false
+        if (canTrustPoiName) {
           searchTerm = poiName
         } else {
           // Use geocode components to build a term
@@ -2001,7 +2006,10 @@ export default function PINITApp() {
       try {
         const q = new URLSearchParams({
           lat: String(committedLocation.lat),
-          lon: String(committedLocation.lng)
+          lon: String(committedLocation.lng),
+          // When the user has manually adjusted the pin, resolve within ~10m.
+          mode: 'adjusted',
+          maxDistanceM: '10'
         })
         if (searchTerm) q.set('hint', searchTerm)
 
