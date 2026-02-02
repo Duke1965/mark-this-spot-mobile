@@ -20,11 +20,16 @@ function safeJoin(parts: Array<string | undefined>): string {
 export async function resolvePlaceIdentity(
   lat: number,
   lng: number,
-  userHintName?: string
+  userHintName?: string,
+  opts?: { searchRadiusM?: number; maxDistanceM?: number }
 ): Promise<PlaceIdentity> {
   try {
     const { id: providerId, provider } = getPlacesProvider()
-    const { place, chosenReason } = await provider.resolvePlaceByLatLon(lat, lng, { userHintName })
+    const { place } = await provider.resolvePlaceByLatLon(lat, lng, {
+      userHintName,
+      searchRadiusM: opts?.searchRadiusM,
+      maxDistanceM: opts?.maxDistanceM
+    })
 
     if (place) {
       const canonicalQuery = safeJoin([place.name, place.city, place.region])
