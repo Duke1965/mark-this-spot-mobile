@@ -194,12 +194,20 @@ export default function PINITApp() {
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
+  const [quickPinStage, setQuickPinStage] = useState<string>("")
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [showRecommendationPopup, setShowRecommendationPopup] = useState(false)
   const [finalImageData, setFinalImageData] = useState<any>(null)
   const [quickPinSuccess, setQuickPinSuccess] = useState(false)
   const [locationName, setLocationName] = useState<string>("")
+
+  // Prevent "stuck" pinning sessions and stacked timers
+  const quickPinInFlightRef = useRef(false)
+  const quickPinControllerRef = useRef<AbortController | null>(null)
+  const quickPinTimeoutRef = useRef<number | null>(null)
+  const successPopupTimerRef = useRef<number | null>(null)
+  const fetchLocationPhotosRef = useRef<null | ((lat: number, lng: number, externalSignal?: AbortSignal, bypassCache?: boolean) => Promise<any[]>)>(null)
 
   const [showRecommendToggle, setShowRecommendToggle] = useState(false)
   const [showNearbyPins, setShowNearbyPins] = useState(false)
@@ -1075,12 +1083,49 @@ export default function PINITApp() {
 
   // Handle quick pin with speed-based location calculation
   const handleQuickPin = useCallback(async () => {
-    if (isQuickPinning) return
+    // Guard against re-entry (and recover from rare stuck states)
+    if (quickPinInFlightRef.current || isQuickPinning) return
 
+    // Clear any previous UI timers/popups
+    if (successPopupTimerRef.current) {
+      window.clearTimeout(successPopupTimerRef.current)
+      successPopupTimerRef.current = null
+    }
+    setShowSuccessPopup(false)
+    setSuccessMessage("")
+
+    // Cancel any previous in-flight quick-pin network work
+    if (quickPinControllerRef.current) {
+      quickPinControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    quickPinControllerRef.current = controller
+
+    quickPinInFlightRef.current = true
     setIsQuickPinning(true)
+    setQuickPinStage("Processing pin…")
     setLastActivity("quick-pin")
 
     try {
+      // Hard timeout so the user never gets "stuck" (fixes the “only 4 pins” style issue).
+      if (quickPinTimeoutRef.current) {
+        window.clearTimeout(quickPinTimeoutRef.current)
+      }
+      quickPinTimeoutRef.current = window.setTimeout(() => {
+        try {
+          controller.abort()
+        } catch {
+          // ignore
+        }
+        quickPinInFlightRef.current = false
+        setIsQuickPinning(false)
+        setQuickPinStage("")
+        setSuccessMessage("Pin timed out — try again")
+        setShowSuccessPopup(true)
+        successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
+      }, 25000)
+
+      setQuickPinStage("Getting your location…")
       const currentLocation = await getCurrentLocation()
       
       // NEW: Calculate precise location based on speed and movement
@@ -1121,10 +1166,14 @@ export default function PINITApp() {
       }
       
       // NEW: Use unified /api/pin-intel for title/description + website-first images
+      setQuickPinStage("Finding place info…")
       console.log("🧠 Fetching pin intel (Geoapify + website-first images)...")
       let pinIntelV2: any = null
       try {
-        const resp = await fetch(`/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`)
+        const resp = await fetch(`/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`, {
+          signal: controller.signal,
+          cache: 'no-store'
+        })
         if (resp.ok) {
           pinIntelV2 = await resp.json()
         } else {
@@ -1139,6 +1188,7 @@ export default function PINITApp() {
       const placeDescription = pinIntelV2?.description
 
       // Build photo carousel data from pin-intel images if available, otherwise fallback
+      setQuickPinStage("Fetching images…")
       let locationPhotos: any[] = []
       if (pinIntelV2?.images?.length) {
         // Avoid using "area" (map snapshot) as the primary photo on pins.
@@ -1152,11 +1202,19 @@ export default function PINITApp() {
           }))
         } else {
           console.log("🗺️ pin-intel returned only map snapshot; falling back to existing photo fetch...")
-          locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+          if (fetchLocationPhotosRef.current) {
+            locationPhotos = await fetchLocationPhotosRef.current(pinLatitude, pinLongitude, controller.signal)
+          } else {
+            locationPhotos = [{ url: "/pinit-placeholder.jpg", placeName: "Location" }]
+          }
         }
       } else {
         console.log("📸 No images from pin-intel, falling back to existing photo fetch...")
-        locationPhotos = await fetchLocationPhotos(pinLatitude, pinLongitude)
+        if (fetchLocationPhotosRef.current) {
+          locationPhotos = await fetchLocationPhotosRef.current(pinLatitude, pinLongitude, controller.signal)
+        } else {
+          locationPhotos = [{ url: "/pinit-placeholder.jpg", placeName: "Location" }]
+        }
       }
 
       console.log("📍 Pin intel v2 data:", {
@@ -1277,18 +1335,29 @@ export default function PINITApp() {
       console.log("💾 Pin saved to pins array - accessible in pins section")
 
       // Show simple "Pinned Successfully" popup instead of results page
+      setQuickPinStage("Pinned!")
       setSuccessMessage("Pinned Successfully!")
       setShowSuccessPopup(true)
       
       // Auto-hide popup and stay on map screen after 1.5 seconds
-      setTimeout(() => {
+      successPopupTimerRef.current = window.setTimeout(() => {
         setShowSuccessPopup(false)
         console.log("🔄 Pin created - ready for next pin")
       }, 1500)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
+      setSuccessMessage("Pin failed — try again")
+      setShowSuccessPopup(true)
+      successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
     } finally {
+      if (quickPinTimeoutRef.current) {
+        window.clearTimeout(quickPinTimeoutRef.current)
+        quickPinTimeoutRef.current = null
+      }
+      quickPinControllerRef.current = null
+      quickPinInFlightRef.current = false
       setIsQuickPinning(false)
+      setQuickPinStage("")
     }
   }, [getCurrentLocation, isQuickPinning, motionData, addPin])
 
@@ -1703,6 +1772,9 @@ export default function PINITApp() {
       }
     }
   }
+
+  // Keep a callable reference for earlier-defined callbacks (prevents "used before declaration" issues).
+  fetchLocationPhotosRef.current = fetchLocationPhotos as any
 
   // Request deduplication for camera capture
   const cameraFetchControllerRef = useRef<AbortController | null>(null)
@@ -3183,6 +3255,46 @@ export default function PINITApp() {
             letterSpacing: "0.5px"
           }}>
             {successMessage || "Pinned Successfully!"}
+          </div>
+        </div>
+      )}
+
+      {/* Processing Popup - shown while quick pin is running */}
+      {isQuickPinning && !showSuccessPopup && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(30, 58, 138, 0.98)",
+            padding: "2rem 3rem",
+            borderRadius: "1.5rem",
+            border: "2px solid rgba(255, 255, 255, 0.25)",
+            zIndex: 10000,
+            textAlign: "center",
+            minWidth: "280px",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.4)",
+            animation: "fadeInScale 0.2s ease-out"
+          }}
+        >
+          <div
+            style={{
+              width: "44px",
+              height: "44px",
+              border: "4px solid rgba(255,255,255,0.25)",
+              borderTop: "4px solid white",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 1rem auto"
+            }}
+          />
+          <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "white", marginBottom: "0.25rem" }}>
+            Please wait…
+          </div>
+          <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.85)" }}>
+            {quickPinStage || "Processing pin"}
           </div>
         </div>
       )}
