@@ -30,7 +30,7 @@ export interface PlacesProvider {
   resolvePlaceByLatLon(
     lat: number,
     lon: number,
-    opts?: { userHintName?: string }
+    opts?: { userHintName?: string; searchRadiusM?: number; maxDistanceM?: number }
   ): Promise<{ place: PlaceCandidate | null; candidates: PlaceCandidate[]; chosenReason: string }>
 
   /**
