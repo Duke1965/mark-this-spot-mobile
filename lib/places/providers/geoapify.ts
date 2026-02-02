@@ -350,6 +350,17 @@ const TRAVEL_CATEGORY_PREFIXES = [
   'natural.',
   'beach.',
   'heritage.',
+  'production.winery',
+  'commercial.shopping_mall',
+  'commercial.marketplace',
+  'commercial.gift_and_souvenir',
+  'commercial.art',
+  'tourism.sights',
+  'tourism.attraction',
+  'man_made.lighthouse',
+  'man_made.tower',
+  'man_made.bridge',
+  'man_made.pier',
   'religion.place_of_worship',
   'building.tourism'
 ]
@@ -405,14 +416,30 @@ export const geoapifyProvider: PlacesProvider = {
       const searchRadiusM = Number.isFinite(opts?.searchRadiusM as any) ? Number(opts!.searchRadiusM) : 300
       const maxDistanceM = Number.isFinite(opts?.maxDistanceM as any) ? Number(opts!.maxDistanceM) : Infinity
 
-      // 1) Places API nearby search (travel categories first)
+      // 1) Places API nearby search (travel/tourism categories first)
       const categories = [
         'tourism',
+        'tourism.attraction',
+        'tourism.sights',
         'accommodation',
         'catering',
         'entertainment.museum',
+        'entertainment.culture.gallery',
         'leisure.park',
         'natural',
+        'beach',
+        'production.winery',
+        // Shopping + local markets + art/souvenir (common “travel pin” targets)
+        'commercial.shopping_mall',
+        'commercial.marketplace',
+        'commercial.gift_and_souvenir',
+        'commercial.art',
+        // Landmarks / man-made points of interest
+        'man_made.lighthouse',
+        'man_made.tower',
+        'man_made.bridge',
+        'man_made.pier',
+        'heritage',
         'religion.place_of_worship'
       ].join(',')
 
