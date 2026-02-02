@@ -75,7 +75,19 @@ function getExtensionFromContentType(contentType: string): string {
 }
 
 function getBucketName(): string | undefined {
-  return process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+  const raw = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+  if (!raw) return undefined
+  let name = String(raw).trim()
+  if (!name) return undefined
+
+  // Accept common formats users paste into env vars.
+  // - gs://my-bucket
+  // - https://storage.googleapis.com/my-bucket
+  name = name.replace(/^gs:\/\//i, '')
+  name = name.replace(/^https?:\/\/storage\.googleapis\.com\//i, '')
+  name = name.replace(/\/+$/g, '')
+
+  return name || undefined
 }
 
 function parseServiceAccountFromEnv(): admin.ServiceAccount | null {
@@ -126,15 +138,19 @@ function getAdminApp(): admin.app.App | null {
     }
 
     const serviceAccount = parseServiceAccountFromEnv()
+    const storageBucket = getBucketName()
     if (serviceAccount) {
       return admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+        credential: admin.credential.cert(serviceAccount),
+        // Setting this makes getStorage(app).bucket() work even when bucket name isn't passed explicitly.
+        ...(storageBucket ? { storageBucket } : {})
       })
     }
 
     // Fall back to application default credentials if available (e.g., GCP).
     return admin.initializeApp({
-      credential: admin.credential.applicationDefault()
+      credential: admin.credential.applicationDefault(),
+      ...(storageBucket ? { storageBucket } : {})
     })
   } catch (error) {
     console.error('❌ Firebase Admin initialization failed:', error)
@@ -195,7 +211,10 @@ export async function uploadToStorage(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       // Common when env var points at a non-existent bucket.
-      if (msg.toLowerCase().includes('specified bucket does not exist')) {
+      if (
+        msg.toLowerCase().includes('specified bucket does not exist') ||
+        msg.toLowerCase().includes('bucket name not specified or invalid')
+      ) {
         // Try the default bucket for the service account project.
         return await tryUpload(storage.bucket())
       }
