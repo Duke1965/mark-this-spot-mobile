@@ -141,9 +141,20 @@ export async function GET(request: NextRequest) {
     const latRaw = searchParams.get('lat')
     const lonRaw = searchParams.get('lon') || searchParams.get('lng')
     const hint = searchParams.get('hint') || undefined
+    const mode = (searchParams.get('mode') || '').toLowerCase()
+    const maxDistanceRaw = searchParams.get('maxDistanceM') || searchParams.get('max_distance_m')
 
     const lat = latRaw ? Number(latRaw) : NaN
     const lon = lonRaw ? Number(lonRaw) : NaN
+
+    const maxDistanceMFromQuery = maxDistanceRaw ? Number(maxDistanceRaw) : NaN
+    const isAdjusted = mode === 'adjusted' || mode === 'final' || mode === 'pin_adjusted'
+    const maxDistanceM = Number.isFinite(maxDistanceMFromQuery)
+      ? maxDistanceMFromQuery
+      : isAdjusted
+        ? 10
+        : undefined
+    const searchRadiusM = isAdjusted ? 120 : undefined
 
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return NextResponse.json({ error: 'Missing/invalid lat/lon' }, { status: 400 })
@@ -154,7 +165,7 @@ export async function GET(request: NextRequest) {
 
     // 1) Place resolve (Geoapify)
     const t0 = Date.now()
-    let place = await resolvePlaceIdentity(lat, lon, hint)
+    let place = await resolvePlaceIdentity(lat, lon, hint, { searchRadiusM, maxDistanceM })
     timings.place_resolve_ms = Date.now() - t0
 
     // 1b) If missing website, try strict Wikidata match to fill official website (P856)
