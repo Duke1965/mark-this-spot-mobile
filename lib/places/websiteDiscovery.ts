@@ -80,6 +80,7 @@ function isBadDomain(host: string): boolean {
     'bit.ly',
     'linktr.ee',
     'maps.app.goo.gl',
+    'municipalities.co.za',
 
     // Media / music / app store links (not an "official website" for a place)
     'spotify.com',
