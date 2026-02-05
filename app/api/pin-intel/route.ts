@@ -1,22 +1,93 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 
 import { resolvePlaceIdentity } from '@/lib/pinEnrich/resolvePlaceIdentity'
 import { shouldAttemptWikidata, tryWikidataMatch } from '@/lib/pinEnrich/wikidata'
-import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
+import { downloadAndUploadImage, uploadToStorage } from '@/lib/pinEnrich/imageStore'
 import { getWebsiteMeta } from '@/lib/images/websiteMeta'
 import { searchUnsplashImages } from '@/lib/images/unsplash'
 import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
 import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
 import { mergeTitleDescription } from '@/lib/pinEnrich/mergeTitleDescription'
+import { nearbySearch, placeDetails, fetchPhoto, hashPhotoRef } from '@/lib/google/googlePlaces'
+import { checkAndIncrementGoogleDailyLimit, getCachedGooglePlaceByLatLon, setCachedGooglePlace } from '@/lib/cache/placeCache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 type PinIntelImage = {
   url: string
-  source: 'website' | 'wikimedia' | 'facebook' | 'stock' | 'area'
+  source: 'google' | 'website' | 'wikimedia' | 'facebook' | 'stock' | 'area'
   attribution?: string
   sourceUrl?: string
+}
+
+function envInt(name: string, def: number): number {
+  const raw = process.env[name]
+  if (!raw) return def
+  const n = Number(raw)
+  return Number.isFinite(n) ? Math.floor(n) : def
+}
+
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIP = request.headers.get('x-real-ip')
+  if (forwarded) return forwarded.split(',')[0]!.trim()
+  if (realIP) return realIP.trim()
+  return 'unknown'
+}
+
+function limiterKeyForRequest(request: NextRequest): string {
+  const userId = (request.headers.get('x-user-id') || request.headers.get('x-userid') || '').trim()
+  if (userId) return `uid:${userId}`
+  const ip = getClientIP(request)
+  const ua = (request.headers.get('user-agent') || '').trim()
+  const uaHash = createHash('sha256').update(ua).digest('hex').slice(0, 12)
+  return `ip:${ip}:ua:${uaHash}`
+}
+
+function normalizeForIncludes(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function websiteLooksOfficialForPlace(placeName: string, websiteTitle: string | undefined): boolean {
+  const n = normalizeForIncludes(placeName)
+  const t = normalizeForIncludes(websiteTitle || '')
+  if (!n || !t) return false
+  // Require at least the main name token to be present to avoid random domains counting as "official".
+  const mainToken = n.split(' ').filter(Boolean)[0]
+  if (!mainToken) return false
+  return t.includes(mainToken)
+}
+
+function googleTypesToCategory(types?: string[]): string | undefined {
+  const t = (types || []).map((s) => String(s || '').toLowerCase())
+  if (t.includes('museum')) return 'entertainment.museum'
+  if (t.includes('art_gallery')) return 'entertainment.culture.gallery'
+  if (t.includes('church') || t.includes('place_of_worship')) return 'building.place_of_worship'
+  if (t.includes('tourist_attraction')) return 'tourism.attraction'
+  if (t.includes('park')) return 'leisure.park'
+  if (t.includes('restaurant')) return 'catering.restaurant'
+  if (t.includes('cafe')) return 'catering.cafe'
+  if (t.includes('bar')) return 'catering.bar'
+  return undefined
+}
+
+function parseLocalityFromFormattedAddress(addr: string | undefined): { locality?: string; country?: string } {
+  const a = (addr || '').trim()
+  if (!a) return {}
+  const parts = a.split(',').map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 2) return {}
+  const country = parts[parts.length - 1]
+  // Heuristic: for "street, town, postal, country" the town is usually index 1.
+  const locality = parts.length >= 3 ? parts[1] : parts[0]
+  return { locality, country }
 }
 
 function looksGenericTitle(title: string | undefined): boolean {
@@ -163,10 +234,185 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
     }
 
+    const googleFlag = String(process.env.NEXT_PUBLIC_USE_GOOGLE_PIN_INTEL || '').toLowerCase() === 'true'
+    const hasGoogleKey = !!process.env.GOOGLE_MAPS_API_KEY
+    const googleEnabled = googleFlag && hasGoogleKey
+    const googleMaxPhotos = Math.max(0, Math.min(5, envInt('GOOGLE_PIN_INTEL_MAX_PHOTOS', 3)))
+    const googleRadiusMeters = Math.max(10, Math.min(250, envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
+    const googleCacheTtlDays = Math.max(1, Math.min(365, envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 30)))
+
+    const googleDiag: any = {
+      enabled: googleEnabled,
+      cacheHit: false,
+      used: false,
+      called: false,
+      placeId: undefined as string | undefined,
+      calls: { nearby: 0, details: 0, photos: 0 },
+      dailyLimitRemaining: undefined as number | undefined
+    }
+
+    // Images we return (hosted URLs only)
+    const images: PinIntelImage[] = []
+
+    // 0) Google cache-first + pin-time lookup (only if enabled)
+    let place: any | null = null
+    if (googleEnabled) {
+      const tG0 = Date.now()
+      const cached = await getCachedGooglePlaceByLatLon({ lat, lon, ttlDays: googleCacheTtlDays })
+      timings.google_cache_ms = Date.now() - tG0
+
+      if (cached?.place?.place_id) {
+        googleDiag.cacheHit = true
+        googleDiag.used = true
+        googleDiag.placeId = cached.place.place_id
+
+        const { locality, country } = parseLocalityFromFormattedAddress(cached.place.address)
+        place = {
+          lat,
+          lng: lon,
+          name: cached.place.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+          address: cached.place.address,
+          locality,
+          country,
+          website: cached.place.website,
+          category: googleTypesToCategory(cached.place.types),
+          source: 'google' as const,
+          sourceId: cached.place.place_id,
+          confidence: 0.95,
+          canonicalQuery: [cached.place.name, locality].filter(Boolean).join(' ').trim() || (cached.place.name || '')
+        }
+
+        for (const u of (cached.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
+          images.push({ url: u, source: 'google', sourceUrl: `google:place:${cached.place.place_id}` })
+        }
+      } else {
+        // Daily safety limit before calling Google
+        const key = limiterKeyForRequest(request)
+        const limit = await checkAndIncrementGoogleDailyLimit({ key })
+        googleDiag.dailyLimitRemaining = limit.remaining
+        if (!limit.allowed) {
+          fallbacksUsed.push('google_daily_limit_reached')
+        } else {
+          try {
+            googleDiag.called = true
+            const tG1 = Date.now()
+            googleDiag.calls.nearby++
+            const cand = await nearbySearch({ lat, lon, radiusMeters: googleRadiusMeters })
+            timings.google_nearby_ms = Date.now() - tG1
+            if (!cand?.placeId) {
+              fallbacksUsed.push('google_no_candidate')
+            } else {
+              googleDiag.placeId = cand.placeId
+              const tG2 = Date.now()
+              googleDiag.calls.details++
+              const det = await placeDetails(cand.placeId)
+              timings.google_details_ms = Date.now() - tG2
+              if (!det?.placeId) {
+                fallbacksUsed.push('google_no_details')
+              } else {
+                // Validate candidate distance (protects against mismatched nearby results)
+                const detLoc = det.location
+                const distOk =
+                  detLoc && Number.isFinite(detLoc.lat) && Number.isFinite(detLoc.lon)
+                    ? (() => {
+                        const R = 6371000
+                        const toRad = (x: number) => (x * Math.PI) / 180
+                        const dLat = toRad(detLoc.lat - lat)
+                        const dLon = toRad(detLoc.lon - lon)
+                        const a =
+                          Math.sin(dLat / 2) ** 2 +
+                          Math.cos(toRad(lat)) * Math.cos(toRad(detLoc.lat)) * Math.sin(dLon / 2) ** 2
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                        const d = R * c
+                        return d <= 150
+                      })()
+                    : true
+
+                if (!distOk) {
+                  fallbacksUsed.push('google_reject_far_candidate')
+                } else {
+                  const { locality, country } = parseLocalityFromFormattedAddress(det.formattedAddress)
+                  place = {
+                    lat,
+                    lng: lon,
+                    name: det.name || cand.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+                    category: googleTypesToCategory(det.types || cand.types),
+                    address: det.formattedAddress,
+                    locality,
+                    country,
+                    website: det.website,
+                    phone: det.phone,
+                    source: 'google' as const,
+                    sourceId: det.placeId,
+                    confidence: 0.95,
+                    canonicalQuery: [det.name, locality].filter(Boolean).join(' ').trim() || (det.name || '')
+                  }
+
+                  // Photos (download and upload to our Storage; never hotlink)
+                  const hostedPhotoUrls: string[] = []
+                  const tG3 = Date.now()
+                  const photos = Array.isArray(det.photos) ? det.photos : []
+                  for (const p of photos.slice(0, googleMaxPhotos)) {
+                    try {
+                      googleDiag.calls.photos++
+                      const got = await fetchPhoto(p.photoReference, 1200)
+                      const ext = got.contentType.toLowerCase().includes('png')
+                        ? 'png'
+                        : got.contentType.toLowerCase().includes('webp')
+                          ? 'webp'
+                          : 'jpg'
+                      const hash = hashPhotoRef(p.photoReference)
+                      const path = `place_cache/google/${det.placeId}/${hash}.${ext}`
+                      const url = await uploadToStorage(got.buffer, path, got.contentType)
+                      hostedPhotoUrls.push(url)
+                      images.push({ url, source: 'google', sourceUrl: `google:photo:${hash}` })
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e)
+                      uploadFailures.push({ source: 'google', url: `google:photo`, stage: 'upload', message: msg })
+                    }
+                  }
+                  timings.google_photos_ms = Date.now() - tG3
+
+                  // Cache in Firestore so repeat pins/views are free.
+                  const tG4 = Date.now()
+                  await setCachedGooglePlace({
+                    lat,
+                    lon,
+                    place: {
+                      place_id: det.placeId,
+                      name: det.name,
+                      address: det.formattedAddress,
+                      website: det.website,
+                      types: det.types,
+                      photoStorageUrls: hostedPhotoUrls,
+                      lat,
+                      lon,
+                      source: 'google'
+                    }
+                  })
+                  timings.google_cache_set_ms = Date.now() - tG4
+                  googleDiag.used = true
+                }
+              }
+            }
+          } catch (e) {
+            googleDiag.error = e instanceof Error ? e.message : String(e)
+            fallbacksUsed.push('google_error')
+          }
+        }
+      }
+    } else if (googleFlag && !hasGoogleKey) {
+      fallbacksUsed.push('google_flag_on_missing_key')
+    }
+
     // 1) Place resolve (Geoapify)
     const t0 = Date.now()
-    let place = await resolvePlaceIdentity(lat, lon, hint, { searchRadiusM, maxDistanceM })
-    timings.place_resolve_ms = Date.now() - t0
+    if (!place) {
+      place = await resolvePlaceIdentity(lat, lon, hint, { searchRadiusM, maxDistanceM })
+      timings.place_resolve_ms = Date.now() - t0
+    } else {
+      timings.place_resolve_ms = 0
+    }
 
     // 1b) If missing website, try strict Wikidata match to fill official website (P856)
     let wikidata: Awaited<ReturnType<typeof tryWikidataMatch>> | null = null
@@ -223,12 +469,33 @@ export async function GET(request: NextRequest) {
     const baseTitle = buildTitle(formatterInput)
     const baseDescription = buildDescription(formatterInput)
 
-    // 2) Website-first images (only if website exists)
-    const images: PinIntelImage[] = []
+    // 2) Website-first images (only if website exists) — only needed if Google didn't already give us photos.
     const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
     let websiteMeta: Awaited<ReturnType<typeof getWebsiteMeta>> | null = null
+    let websiteValidated = false
+    let websiteWasDiscovered = false
 
     if (place.website) {
+      // If the website came from Serper discovery, apply a conservative "officialness" guard.
+      // We only do this for discovered websites (not for provider-provided websites like Google/Geoapify).
+      websiteWasDiscovered = fallbacksUsed.includes('serper_official_website')
+      if (websiteWasDiscovered) {
+        try {
+          const host = new URL(place.website).hostname.toLowerCase()
+          const blocked = ['municipalities.co.za']
+          if (blocked.some((b) => host === b || host.endsWith(`.${b}`))) {
+            fallbacksUsed.push('reject_discovered_website:blocked_domain')
+            place = { ...place, website: undefined }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Skip website meta if we already have enough Google photos.
+      if (images.filter((i) => i.source === 'google').length >= Math.max(1, googleMaxPhotos)) {
+        fallbacksUsed.push('skip_website_meta_google_photos')
+      } else if (place.website) {
       websiteMetaDiag.attempted = true
       const t1 = Date.now()
       websiteMeta = await getWebsiteMeta(place.website)
@@ -237,6 +504,22 @@ export async function GET(request: NextRequest) {
       websiteMetaDiag.hasTitleHint = !!(websiteMeta?.ogTitle || websiteMeta?.siteTitle)
       websiteMetaDiag.hasDescriptionHint = !!(websiteMeta?.metaDescription || websiteMeta?.ogDescription)
       websiteMetaDiag.imageCandidates = Array.isArray(websiteMeta?.images) ? websiteMeta!.images.length : 0
+
+      if (websiteWasDiscovered) {
+        const titleHint = websiteMeta?.ogTitle || websiteMeta?.siteTitle
+        websiteValidated = websiteLooksOfficialForPlace(place.name, titleHint)
+        if (!websiteValidated) {
+          fallbacksUsed.push('website_not_official_title_mismatch')
+          // If we can't validate "official", don't count it as a success and don't use its images.
+          websiteMeta = null
+          place = { ...place, website: undefined }
+        } else {
+          fallbacksUsed.push('website_validated')
+        }
+      } else {
+        // Provider-provided website (Google/Geoapify) counts as validated for metrics.
+        websiteValidated = true
+      }
 
       const websiteImages = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
       if (websiteImages.length > 0) {
@@ -260,6 +543,7 @@ export async function GET(request: NextRequest) {
         timings.website_upload_ms = Date.now() - t2
       } else {
         fallbacksUsed.push('no_website_images')
+      }
       }
     } else {
       fallbacksUsed.push('no_website')
@@ -376,6 +660,10 @@ export async function GET(request: NextRequest) {
         images,
         diagnostics: {
           provider: place.source,
+          googleUsed: !!googleDiag.used,
+          cacheHit: !!googleDiag.cacheHit,
+          google: googleDiag,
+          websiteValidated,
           timings,
           fallbacksUsed,
           uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : [],
