@@ -16,7 +16,7 @@ export type PlaceIdentity = {
   facebookUrl?: string
   instagramUrl?: string
   phone?: string
-  source: "tomtom" | "geoapify" | "sygic" | "unknown"
+  source: "google" | "tomtom" | "geoapify" | "sygic" | "unknown"
   sourceId?: string
   confidence: number // 0..1
   canonicalQuery: string // e.g. "Spier Wine Farm Stellenbosch"
