@@ -13,14 +13,12 @@ export type PlaceTextInput = {
 
 function isStreetyName(name: string): boolean {
   const n = (name || '').toLowerCase()
+  // IMPORTANT: do not treat normal business names like "Wine & Olive Estate" as "streety".
+  // Only mark as streety when there are explicit road/address terms.
   return (
     /\b(street|st\\.?|road|rd\\.?|avenue|ave\\.?|drive|dr\\.?|lane|ln\\.?|boulevard|blvd\\.?|highway|hwy\\.?|route|junction|intersection|roundabout)\b/i.test(
       n
-    ) ||
-    /^\d+\s+\w+/.test(n) ||
-    n.includes(' at ') ||
-    n.includes(' & ') ||
-    n.includes(' and ')
+    ) || /^\d+\s+\w+/.test(n)
   )
 }
 
