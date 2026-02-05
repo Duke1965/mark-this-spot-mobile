@@ -87,6 +87,7 @@ export async function nearbySearch(input: {
   lat: number
   lon: number
   radiusMeters?: number
+  term?: string
 }): Promise<GoogleNearbyCandidate | null> {
   const key = requireApiKey()
   const radius = Math.max(10, Math.min(250, input.radiusMeters ?? envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
@@ -97,6 +98,12 @@ export async function nearbySearch(input: {
   url.searchParams.set('radius', String(radius))
   url.searchParams.set('language', 'en')
   url.searchParams.set('region', 'za')
+
+  // Bias the search toward the user hint (reduces "wrong POI next door" picks).
+  const term = String(input.term || '').trim()
+  if (term.length >= 3 && term.length <= 80 && !/^[-+]?\d+\.\d+/.test(term)) {
+    url.searchParams.set('keyword', term)
+  }
 
   const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
   const data = await fetchJsonWithTimeout(url.toString(), timeoutMs)
