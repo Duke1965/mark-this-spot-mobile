@@ -35,9 +35,15 @@ function summarize(results: any[]) {
   const total = results.length
   const okCount = results.filter((r) => r.ok).length
   const withTitle = results.filter((r) => r.ok && r.title && String(r.title).trim() && r.title !== 'Location').length
+  const titleHit = results.filter((r) => r.ok && r.titleHit).length
   const withDescription = results.filter((r) => r.ok && r.hasDescription).length
   const withWebsite = results.filter((r) => r.ok && r.hasWebsite).length
   const withWebsiteImages = results.filter((r) => r.ok && (r.websiteImages || 0) > 0).length
+  const googleUsedCount = results.filter((r) => r.ok && r.googleUsed).length
+  const cacheHitCount = results.filter((r) => r.ok && r.cacheHit).length
+  const websiteValidatedCount = results.filter((r) => r.ok && r.websiteValidated).length
+
+  const googleCallsTotal = results.reduce((sum, r) => sum + (Number(r.googleCalls) || 0), 0)
 
   return {
     timestamp: new Date().toISOString(),
@@ -45,12 +51,38 @@ function summarize(results: any[]) {
     ok: okCount,
     hit_rate: {
       title: total ? withTitle / total : 0,
+      titleHit: total ? titleHit / total : 0,
       description: total ? withDescription / total : 0,
       website: total ? withWebsite / total : 0,
-      website_images: total ? withWebsiteImages / total : 0
+      website_images: total ? withWebsiteImages / total : 0,
+      google_used: total ? googleUsedCount / total : 0,
+      cache_hit: total ? cacheHitCount / total : 0,
+      website_validated: total ? websiteValidatedCount / total : 0
     },
-    counts: { withTitle, withDescription, withWebsite, withWebsiteImages }
+    counts: {
+      withTitle,
+      titleHit,
+      withDescription,
+      withWebsite,
+      withWebsiteImages,
+      googleUsedCount,
+      cacheHitCount,
+      websiteValidatedCount
+    },
+    approx: {
+      avgGoogleCallsPerPin: total ? googleCallsTotal / total : 0
+    }
   }
+}
+
+function looksTitleHit(title: string | undefined): boolean {
+  const t = (title || '').trim().toLowerCase()
+  if (!t) return false
+  if (t === 'location' || t.startsWith('place near ') || t.startsWith('place in ')) return false
+  // coordinate title
+  if (/\(-?\d+\.\d+,\s*-?\d+\.\d+\)/.test(t)) return false
+  if (/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(t)) return false
+  return true
 }
 
 async function runForPoints(request: NextRequest, points: Array<Point | PointWithMeta>) {
@@ -73,6 +105,12 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
     provider?: string
     website?: string
     placeName?: string
+    googleUsed?: boolean
+    cacheHit?: boolean
+    googleCalls?: number
+    placeConfidence?: number
+    websiteValidated?: boolean
+    titleHit?: boolean
     fallbacksUsed?: string[]
     uploadFailures?: number
     uploadFailureSample?: { source?: string; stage?: string; message?: string }
@@ -108,12 +146,23 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
       const uploadFailuresArr = Array.isArray(data?.diagnostics?.uploadFailures) ? data.diagnostics.uploadFailures : []
       const failureSample = uploadFailuresArr?.[0]
       const websiteMeta = data?.diagnostics?.websiteMeta
+      const googleUsed = !!data?.diagnostics?.googleUsed
+      const cacheHit = !!data?.diagnostics?.cacheHit
+      const websiteValidated = !!data?.diagnostics?.websiteValidated
+      const calls = data?.diagnostics?.google?.calls
+      const googleCalls =
+        calls && typeof calls === 'object'
+          ? (Number(calls.nearby) || 0) + (Number(calls.details) || 0) + (Number(calls.photos) || 0)
+          : 0
+      const placeConfidence = Number.isFinite(Number(data?.place?.confidence)) ? Number(data.place.confidence) : undefined
+      const title = data?.title
 
       results.push({
         point: { lat: p.lat, lon: p.lon },
         meta: { id: p.id, title: p.title, timestamp: p.timestamp },
         ok: true,
-        title: data?.title,
+        title,
+        titleHit: looksTitleHit(title),
         hasDescription: !!(data?.description && String(data.description).trim()),
         hasWebsite: !!(data?.place?.website && String(data.place.website).trim()),
         websiteImages,
@@ -122,6 +171,11 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
         provider: data?.place?.source,
         website: data?.place?.website,
         placeName: data?.place?.name,
+        googleUsed,
+        cacheHit,
+        googleCalls,
+        placeConfidence,
+        websiteValidated,
         fallbacksUsed: Array.isArray(data?.diagnostics?.fallbacksUsed) ? data.diagnostics.fallbacksUsed : undefined,
         uploadFailures: uploadFailuresArr.length,
         uploadFailureSample:
