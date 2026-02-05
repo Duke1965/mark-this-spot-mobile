@@ -10,7 +10,12 @@ import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
 import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
 import { mergeTitleDescription } from '@/lib/pinEnrich/mergeTitleDescription'
 import { nearbySearch, placeDetails, fetchPhoto, hashPhotoRef } from '@/lib/google/googlePlaces'
-import { checkAndIncrementGoogleDailyLimit, getCachedGooglePlaceByLatLon, setCachedGooglePlace } from '@/lib/cache/placeCache'
+import {
+  checkAndIncrementGoogleDailyLimit,
+  getCachedGooglePlaceById,
+  getCachedGooglePlaceByLatLon,
+  setCachedGooglePlace
+} from '@/lib/cache/placeCache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -248,7 +253,8 @@ export async function GET(request: NextRequest) {
       called: false,
       placeId: undefined as string | undefined,
       calls: { nearby: 0, details: 0, photos: 0 },
-      dailyLimitRemaining: undefined as number | undefined
+      dailyLimitRemaining: undefined as number | undefined,
+      cache: { read: 'skipped' as 'skipped' | 'hit' | 'miss' | 'error', write: 'skipped' as 'skipped' | 'ok' | 'error' }
     }
 
     // Images we return (hosted URLs only)
@@ -263,6 +269,7 @@ export async function GET(request: NextRequest) {
 
       if (cached?.place?.place_id) {
         googleDiag.cacheHit = true
+        googleDiag.cache.read = 'hit'
         googleDiag.used = true
         googleDiag.placeId = cached.place.place_id
 
@@ -286,6 +293,7 @@ export async function GET(request: NextRequest) {
           images.push({ url: u, source: 'google', sourceUrl: `google:place:${cached.place.place_id}` })
         }
       } else {
+        googleDiag.cache.read = 'miss'
         // Daily safety limit before calling Google
         const key = limiterKeyForRequest(request)
         const limit = await checkAndIncrementGoogleDailyLimit({ key })
@@ -303,6 +311,36 @@ export async function GET(request: NextRequest) {
               fallbacksUsed.push('google_no_candidate')
             } else {
               googleDiag.placeId = cand.placeId
+
+              // If we already cached this placeId from a previous pin, avoid details+photo calls.
+              const tG1b = Date.now()
+              const cachedById = await getCachedGooglePlaceById({ placeId: cand.placeId, ttlDays: googleCacheTtlDays })
+              timings.google_cache_by_id_ms = Date.now() - tG1b
+              if (cachedById?.place?.place_id) {
+                googleDiag.cacheHit = true
+                googleDiag.cache.read = 'hit'
+                googleDiag.used = true
+                const { locality, country } = parseLocalityFromFormattedAddress(cachedById.place.address)
+                place = {
+                  lat,
+                  lng: lon,
+                  name: cachedById.place.name || cand.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+                  address: cachedById.place.address,
+                  locality,
+                  country,
+                  website: cachedById.place.website,
+                  category: googleTypesToCategory(cachedById.place.types),
+                  source: 'google' as const,
+                  sourceId: cachedById.place.place_id,
+                  confidence: 0.95,
+                  canonicalQuery:
+                    [cachedById.place.name || cand.name, locality].filter(Boolean).join(' ').trim() ||
+                    (cachedById.place.name || cand.name || '')
+                }
+                for (const u of (cachedById.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
+                  images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
+                }
+              } else {
               const tG2 = Date.now()
               googleDiag.calls.details++
               const det = await placeDetails(cand.placeId)
@@ -375,24 +413,30 @@ export async function GET(request: NextRequest) {
 
                   // Cache in Firestore so repeat pins/views are free.
                   const tG4 = Date.now()
-                  await setCachedGooglePlace({
-                    lat,
-                    lon,
-                    place: {
-                      place_id: det.placeId,
-                      name: det.name,
-                      address: det.formattedAddress,
-                      website: det.website,
-                      types: det.types,
-                      photoStorageUrls: hostedPhotoUrls,
+                  try {
+                    await setCachedGooglePlace({
                       lat,
                       lon,
-                      source: 'google'
-                    }
-                  })
+                      place: {
+                        place_id: det.placeId,
+                        name: det.name,
+                        address: det.formattedAddress,
+                        website: det.website,
+                        types: det.types,
+                        photoStorageUrls: hostedPhotoUrls,
+                        lat,
+                        lon,
+                        source: 'google'
+                      }
+                    })
+                    googleDiag.cache.write = 'ok'
+                  } catch {
+                    googleDiag.cache.write = 'error'
+                  }
                   timings.google_cache_set_ms = Date.now() - tG4
                   googleDiag.used = true
                 }
+              }
               }
             }
           } catch (e) {
@@ -472,7 +516,8 @@ export async function GET(request: NextRequest) {
     // 2) Website-first images (only if website exists) — only needed if Google didn't already give us photos.
     const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
     let websiteMeta: Awaited<ReturnType<typeof getWebsiteMeta>> | null = null
-    let websiteValidated = false
+    // For provider-provided websites (Google/Geoapify), treat as validated for metrics.
+    let websiteValidated = !!place.website
     let websiteWasDiscovered = false
 
     if (place.website) {
