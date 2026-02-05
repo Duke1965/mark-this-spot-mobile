@@ -93,13 +93,19 @@ export async function setCachedGooglePlace(input: {
     updatedAt: FieldValue.serverTimestamp()
   }
 
-  await Promise.all([
-    db.collection('place_cache').doc(docId).set(payload, { merge: true }),
-    db
-      .collection('place_cache_geo')
-      .doc(geoId)
-      .set({ place_id: input.place.place_id, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-  ])
+  try {
+    await Promise.all([
+      db.collection('place_cache').doc(docId).set(payload, { merge: true }),
+      db
+        .collection('place_cache_geo')
+        .doc(geoId)
+        .set({ place_id: input.place.place_id, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    ])
+  } catch (e) {
+    // Cache should never break pin-intel. If Firestore isn't enabled or permissions are missing,
+    // we simply operate without caching until fixed.
+    console.warn('⚠️ Failed to write Google place cache:', e)
+  }
 }
 
 function utcDayKey(d: Date = new Date()): string {
@@ -121,17 +127,23 @@ export async function checkAndIncrementGoogleDailyLimit(input: {
   const docId = `${day}:${input.key}`
   const ref = db.collection('google_pin_intel_limits').doc(docId)
 
-  const result = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref)
-    const count = snap.exists ? Number(snap.data()?.count || 0) : 0
-    const next = count + 1
-    if (count >= max) {
-      return { allowed: false, remaining: 0 }
-    }
-    tx.set(ref, { count: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-    return { allowed: true, remaining: Math.max(0, max - next) }
-  })
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref)
+      const count = snap.exists ? Number(snap.data()?.count || 0) : 0
+      const next = count + 1
+      if (count >= max) {
+        return { allowed: false, remaining: 0 }
+      }
+      tx.set(ref, { count: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      return { allowed: true, remaining: Math.max(0, max - next) }
+    })
 
-  return result
+    return result
+  } catch (e) {
+    // Never fail pin-intel if Firestore can't be used yet.
+    console.warn('⚠️ Failed to enforce Google daily limit (Firestore issue):', e)
+    return { allowed: true, remaining: max }
+  }
 }
 
