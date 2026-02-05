@@ -108,6 +108,24 @@ function looksGenericTitle(title: string | undefined): boolean {
   return false
 }
 
+function looksLikeCoordTitle(t: string | undefined): boolean {
+  const s = (t || '').trim()
+  if (!s) return false
+  if (/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(s)) return true
+  if (/^\(-?\d+\.\d+,\s*-?\d+\.\d+\)$/.test(s)) return true
+  return false
+}
+
+function usefulGoogleHint(hint: string | undefined): string | null {
+  const h = (hint || '').trim()
+  if (!h) return null
+  if (looksGenericTitle(h)) return null
+  if (looksLikeCoordTitle(h)) return null
+  // Don't send raw street addresses as keyword (can bias to wrong thing).
+  if (looksLikeStreetAddress(h)) return null
+  return h.slice(0, 80)
+}
+
 function isRiskyShortAllCapsBrand(name: string | undefined): boolean {
   const n = (name || '').trim()
   if (!n) return false
@@ -154,7 +172,8 @@ function buildUnsplashQuery(place: any, hint: string | undefined): string {
   if (looksGenericTitle(hint) || looksLikeStreetAddress(name)) {
     const cat = category ? category.split('.').slice(-1)[0] : 'travel'
     const loc = locality || 'South Africa'
-    return `${cat} ${loc} landscape`
+    // Avoid over-broad "landscape" queries that often return beaches/ocean.
+    return `${cat} ${loc} South Africa`
   }
 
   // For named POIs/businesses, keep it descriptive but not overly specific.
@@ -170,9 +189,12 @@ function buildUnsplashFallbackQueries(place: any, hint: string | undefined): str
   const primary = buildUnsplashQuery(place, hint)
   const q1 = primary || `${cat} ${locality}`
   const q2 = `${cat} ${locality} travel`
-  const q3 = `${locality} landscape`
+  // Inland-friendly fallbacks (reduces chance of "sea" photos for non-coastal places).
+  const q3 = `${locality} countryside`
+  const q4 = `${locality} vineyards`
+  const q5 = `${locality} mountains`
   // Dedupe
-  return Array.from(new Set([q1, q2, q3].map((s) => s.trim()).filter(Boolean)))
+  return Array.from(new Set([q1, q2, q3, q4, q5].map((s) => s.trim()).filter(Boolean)))
 }
 
 function getMapboxStaticUrl(lat: number, lon: number): string | null {
@@ -305,7 +327,7 @@ export async function GET(request: NextRequest) {
             googleDiag.called = true
             const tG1 = Date.now()
             googleDiag.calls.nearby++
-            const cand = await nearbySearch({ lat, lon, radiusMeters: googleRadiusMeters })
+            const cand = await nearbySearch({ lat, lon, radiusMeters: googleRadiusMeters, term: usefulGoogleHint(hint) || undefined })
             timings.google_nearby_ms = Date.now() - tG1
             if (!cand?.placeId) {
               fallbacksUsed.push('google_no_candidate')
