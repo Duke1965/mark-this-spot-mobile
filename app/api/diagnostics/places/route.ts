@@ -129,11 +129,24 @@ async function runForPoints(request: NextRequest, points: Array<Point | PointWit
 
       const resp = await fetch(url.toString(), { cache: 'no-store' })
       if (!resp.ok) {
+        let details: string | undefined
+        try {
+          const ct = resp.headers.get('content-type') || ''
+          if (ct.includes('application/json')) {
+            const j: any = await resp.json()
+            details = j?.details || j?.error || JSON.stringify(j).slice(0, 300)
+          } else {
+            const t = await resp.text()
+            details = t ? t.slice(0, 300) : undefined
+          }
+        } catch {
+          // ignore
+        }
         results.push({
           point: { lat: p.lat, lon: p.lon },
           meta: { id: p.id, title: p.title, timestamp: p.timestamp },
           ok: false,
-          error: `HTTP ${resp.status}`
+          error: details ? `HTTP ${resp.status}: ${details}` : `HTTP ${resp.status}`
         })
         continue
       }
