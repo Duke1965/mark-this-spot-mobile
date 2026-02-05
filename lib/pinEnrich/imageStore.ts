@@ -4,8 +4,8 @@
  */
 
 import { createHash } from 'crypto'
-import admin from 'firebase-admin'
 import { getStorage } from 'firebase-admin/storage'
+import { getAdminApp, getNormalizedBucketName } from '@/lib/firebaseAdmin'
 
 /**
  * Generate deterministic path for image storage
@@ -74,90 +74,6 @@ function getExtensionFromContentType(contentType: string): string {
   return 'jpg'
 }
 
-function getBucketName(): string | undefined {
-  const raw = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-  if (!raw) return undefined
-  let name = String(raw).trim()
-  if (!name) return undefined
-
-  // Accept common formats users paste into env vars.
-  // - gs://my-bucket
-  // - https://storage.googleapis.com/my-bucket
-  name = name.replace(/^gs:\/\//i, '')
-  name = name.replace(/^https?:\/\/storage\.googleapis\.com\//i, '')
-  name = name.replace(/\/+$/g, '')
-
-  return name || undefined
-}
-
-function parseServiceAccountFromEnv(): admin.ServiceAccount | null {
-  const raw =
-    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON ||
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
-    ''
-
-  const rawBase64 =
-    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64 ||
-    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
-    ''
-
-  try {
-    if (rawBase64) {
-      const decoded = Buffer.from(rawBase64, 'base64').toString('utf8')
-      return JSON.parse(decoded)
-    }
-
-    if (raw) {
-      // Some platforms escape newlines in private_key; JSON.parse handles it if present.
-      return JSON.parse(raw)
-    }
-  } catch {
-    return null
-  }
-
-  // Support split env vars if user prefers that pattern
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID
-  if (clientEmail && privateKey) {
-    return {
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n'),
-      projectId
-    } as admin.ServiceAccount
-  }
-
-  return null
-}
-
-function getAdminApp(): admin.app.App | null {
-  try {
-    if (admin.apps.length > 0) {
-      return admin.apps[0]!
-    }
-
-    const serviceAccount = parseServiceAccountFromEnv()
-    const storageBucket = getBucketName()
-    if (serviceAccount) {
-      return admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        // Setting this makes getStorage(app).bucket() work even when bucket name isn't passed explicitly.
-        ...(storageBucket ? { storageBucket } : {})
-      })
-    }
-
-    // Fall back to application default credentials if available (e.g., GCP).
-    return admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      ...(storageBucket ? { storageBucket } : {})
-    })
-  } catch (error) {
-    console.error('❌ Firebase Admin initialization failed:', error)
-    return null
-  }
-}
-
 /**
  * Upload buffer to Firebase Storage
  * NOTE: This requires Firebase Admin SDK for server-side operations
@@ -189,7 +105,7 @@ export async function uploadToStorage(
     throw new Error('Firebase Admin not initialized. Check service account env vars.')
   }
 
-  const bucketName = getBucketName()
+  const bucketName = getNormalizedBucketName()
   const storage = getStorage(app)
   // Prefer explicitly configured bucket, but fall back to default bucket if misconfigured.
   const tryUpload = async (bucketToUse: ReturnType<typeof storage.bucket>) => {
