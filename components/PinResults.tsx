@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { PinData } from "@/lib/types"
 import { ArrowLeft, Share2, Save, Calendar, MapPin, Bot, MessageSquare, Star } from "lucide-react"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 
 // Helper to get display title with fallback
 function getDisplayTitle(pin: PinData): string {
@@ -51,12 +50,11 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
     onShare(updatedPin)
   }
 
-  // Combine all photos for carousel - filter out invalid URLs
-  // Priority: 1. primaryPhoto (mediaUrl), 2. additionalPhotos
-  const allPhotos = [
-    ...(primaryPhoto ? [primaryPhoto] : []), // Primary photo first
-    ...photos.map(p => p.url).filter(url => url && url !== '/pinit-placeholder.jpg' && !url.includes('placeholder') && url !== primaryPhoto)
-  ].filter(Boolean).slice(0, 3)
+  // Single-photo view (saves UX complexity; backend already caps photo count for cost)
+  // Priority: 1) mediaUrl 2) first valid additional photo
+  const singlePhoto =
+    primaryPhoto ||
+    (photos.map((p) => p.url).find((url) => url && url !== "/pinit-placeholder.jpg" && !url.includes("placeholder")) || null)
   
   // Format date/time
   const formatDateTime = (timestamp: string) => {
@@ -96,7 +94,7 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
       longitude: pin.longitude,
       hasMediaUrl: !!pin.mediaUrl,
       additionalPhotosCount: photos.length,
-      allPhotosCount: allPhotos.length,
+      hasPhoto: !!singlePhoto,
       rating: pin.rating,
       totalEndorsements: pin.totalEndorsements
     })
@@ -160,59 +158,36 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
 
       {/* Scrollable Content Area */}
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", position: "relative" }}>
-        {/* Image Carousel (up to 3) */}
-        {allPhotos.length > 0 ? (
-          <>
-            <div style={{ height: "280px", width: "100%", background: "rgba(0,0,0,0.3)" }}>
-              <Carousel
-                opts={{ loop: allPhotos.length > 1 }}
-                className="w-full h-full"
-              >
-                <CarouselContent className="h-full">
-                  {allPhotos.map((photoUrl, index) => (
-                    <CarouselItem key={`photo-${index}-${photoUrl}`} className="h-full">
-                      <div style={{ width: "100%", height: "280px", position: "relative" }}>
-                        <img
-                          src={photoUrl}
-                          alt={pin.title || pin.locationName}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={(e) => {
-                            console.error("❌ Failed to load image:", photoUrl)
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                            const fallback = target.nextElementSibling as HTMLElement
-                            if (fallback) fallback.style.display = 'flex'
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            display: "none",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "rgba(30, 58, 138, 0.5)"
-                          }}
-                        >
-                          <span style={{ fontSize: "3rem" }}>📍</span>
-                        </div>
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                {allPhotos.length > 1 && (
-                  <>
-                    <CarouselPrevious className="left-3 top-1/2 -translate-y-1/2" />
-                    <CarouselNext className="right-3 top-1/2 -translate-y-1/2" />
-                  </>
-                )}
-              </Carousel>
-            </div>
-            
-          </>
+        {/* Single photo viewer (centered) */}
+        {singlePhoto ? (
+          <div
+            style={{
+              height: "280px",
+              width: "100%",
+              background: "rgba(0,0,0,0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden"
+            }}
+          >
+            <img
+              src={singlePhoto}
+              alt={pin.title || pin.locationName}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                display: "block"
+              }}
+              onError={(e) => {
+                console.error("❌ Failed to load image:", singlePhoto)
+                const target = e.target as HTMLImageElement
+                target.style.display = "none"
+              }}
+            />
+          </div>
         ) : (
           <div style={{
             height: "280px",
