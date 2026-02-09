@@ -81,6 +81,15 @@ function isBadDomain(host: string): boolean {
     'linktr.ee',
     'maps.app.goo.gl',
     'municipalities.co.za',
+    // Local/SA directory & aggregator sites (not official websites)
+    'restaurantguru.',
+    'foodbevg.com',
+    'bluepillow.com',
+    'property24.com',
+    'lekkeslaap.co.za',
+    'waze.com',
+    'artefacts.co.za',
+    'swopandstay.com',
 
     // Media / music / app store links (not an "official website" for a place)
     'spotify.com',
