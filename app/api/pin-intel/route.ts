@@ -264,9 +264,18 @@ export async function GET(request: NextRequest) {
     const googleFlag = String(process.env.NEXT_PUBLIC_USE_GOOGLE_PIN_INTEL || '').toLowerCase() === 'true'
     const hasGoogleKey = !!process.env.GOOGLE_MAPS_API_KEY
     const googleEnabled = googleFlag && hasGoogleKey
-    const googleMaxPhotos = Math.max(0, Math.min(5, envInt('GOOGLE_PIN_INTEL_MAX_PHOTOS', 3)))
+    const googleEnablePhotos = String(process.env.GOOGLE_ENABLE_PHOTOS || 'true').toLowerCase() !== 'false'
+    const googleMaxPhotos = Math.max(
+      0,
+      Math.min(5, envInt('GOOGLE_MAX_PHOTOS', envInt('GOOGLE_PIN_INTEL_MAX_PHOTOS', 3)))
+    )
     const googleRadiusMeters = Math.max(10, Math.min(250, envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
-    const googleCacheTtlDays = Math.max(1, Math.min(365, envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 30)))
+    const googleCacheTtlDays = Math.max(
+      1,
+      Math.min(365, envInt('PINIT_GOOGLE_CACHE_TTL_DAYS', envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 90)))
+    )
+    const googleMaxDistanceM = Math.max(25, Math.min(1000, envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250)))
+    const googleMaxDistanceChainM = Math.max(10, Math.min(500, envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS_CHAIN', 100)))
 
     const googleDiag: any = {
       enabled: googleEnabled,
@@ -274,6 +283,10 @@ export async function GET(request: NextRequest) {
       used: false,
       called: false,
       placeId: undefined as string | undefined,
+      reasonIfNotUsed: undefined as string | undefined,
+      thresholdUsed: undefined as number | undefined,
+      distanceMetersSelected: undefined as number | undefined,
+      candidates: [] as Array<{ name?: string; placeId: string; distanceMeters?: number; selected?: boolean; isChain?: boolean }>,
       calls: { nearby: 0, details: 0, photos: 0 },
       dailyLimitRemaining: undefined as number | undefined,
       cache: { read: 'skipped' as 'skipped' | 'hit' | 'miss' | 'error', write: 'skipped' as 'skipped' | 'ok' | 'error' }
@@ -284,6 +297,7 @@ export async function GET(request: NextRequest) {
 
     // 0) Google cache-first + pin-time lookup (only if enabled)
     let place: any | null = null
+    let googlePhotosSucceeded = 0
     if (googleEnabled) {
       const tG0 = Date.now()
       const cached = await getCachedGooglePlaceByLatLon({ lat, lon, ttlDays: googleCacheTtlDays })
@@ -327,12 +341,33 @@ export async function GET(request: NextRequest) {
             googleDiag.called = true
             const tG1 = Date.now()
             googleDiag.calls.nearby++
-            const cand = await nearbySearch({ lat, lon, radiusMeters: googleRadiusMeters, term: usefulGoogleHint(hint) || undefined })
+            const sel = await nearbySearch({
+              lat,
+              lon,
+              radiusMeters: googleRadiusMeters,
+              term: usefulGoogleHint(hint) || undefined,
+              maxDistanceMeters: googleMaxDistanceM,
+              maxDistanceMetersChain: googleMaxDistanceChainM
+            })
             timings.google_nearby_ms = Date.now() - tG1
-            if (!cand?.placeId) {
-              fallbacksUsed.push('google_no_candidate')
+            googleDiag.thresholdUsed = sel.thresholdUsed
+            googleDiag.candidates = Array.isArray(sel.candidates)
+              ? sel.candidates.map((c: any) => ({
+                  name: c.name,
+                  placeId: c.placeId,
+                  distanceMeters: Number.isFinite(c.distanceMeters) ? Math.round(c.distanceMeters) : undefined,
+                  selected: !!c.selected,
+                  isChain: !!c.isChain
+                }))
+              : []
+
+            if (!sel.selected?.placeId) {
+              googleDiag.reasonIfNotUsed = sel.reasonIfNotUsed || 'google_no_candidate'
+              fallbacksUsed.push(googleDiag.reasonIfNotUsed)
             } else {
+              const cand = sel.selected
               googleDiag.placeId = cand.placeId
+              googleDiag.distanceMetersSelected = Math.round(cand.distanceMeters || 0)
 
               // If we already cached this placeId from a previous pin, avoid details+photo calls.
               const tG1b = Date.now()
@@ -362,35 +397,17 @@ export async function GET(request: NextRequest) {
                 for (const u of (cachedById.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
                   images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
                 }
+                googlePhotosSucceeded = images.filter((i) => i.source === 'google').length
               } else {
+              // Only call Details after candidate passed the distance threshold (saves money).
               const tG2 = Date.now()
               googleDiag.calls.details++
               const det = await placeDetails(cand.placeId)
               timings.google_details_ms = Date.now() - tG2
               if (!det?.placeId) {
                 fallbacksUsed.push('google_no_details')
+                googleDiag.reasonIfNotUsed = 'google_no_details'
               } else {
-                // Validate candidate distance (protects against mismatched nearby results)
-                const detLoc = det.location
-                const distOk =
-                  detLoc && Number.isFinite(detLoc.lat) && Number.isFinite(detLoc.lon)
-                    ? (() => {
-                        const R = 6371000
-                        const toRad = (x: number) => (x * Math.PI) / 180
-                        const dLat = toRad(detLoc.lat - lat)
-                        const dLon = toRad(detLoc.lon - lon)
-                        const a =
-                          Math.sin(dLat / 2) ** 2 +
-                          Math.cos(toRad(lat)) * Math.cos(toRad(detLoc.lat)) * Math.sin(dLon / 2) ** 2
-                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-                        const d = R * c
-                        return d <= 150
-                      })()
-                    : true
-
-                if (!distOk) {
-                  fallbacksUsed.push('google_reject_far_candidate')
-                } else {
                   const { locality, country } = parseLocalityFromFormattedAddress(det.formattedAddress)
                   place = {
                     lat,
@@ -408,33 +425,7 @@ export async function GET(request: NextRequest) {
                     canonicalQuery: [det.name, locality].filter(Boolean).join(' ').trim() || (det.name || '')
                   }
 
-                  // Photos (download and upload to our Storage; never hotlink)
-                  const hostedPhotoUrls: string[] = []
-                  const tG3 = Date.now()
-                  const photos = Array.isArray(det.photos) ? det.photos : []
-                  for (const p of photos.slice(0, googleMaxPhotos)) {
-                    try {
-                      googleDiag.calls.photos++
-                      const got = await fetchPhoto(p.photoReference, 1200)
-                      const ext = got.contentType.toLowerCase().includes('png')
-                        ? 'png'
-                        : got.contentType.toLowerCase().includes('webp')
-                          ? 'webp'
-                          : 'jpg'
-                      const hash = hashPhotoRef(p.photoReference)
-                      const path = `place_cache/google/${det.placeId}/${hash}.${ext}`
-                      const url = await uploadToStorage(got.buffer, path, got.contentType)
-                      hostedPhotoUrls.push(url)
-                      images.push({ url, source: 'google', sourceUrl: `google:photo:${hash}` })
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : String(e)
-                      uploadFailures.push({ source: 'google', url: `google:photo`, stage: 'upload', message: msg })
-                    }
-                  }
-                  timings.google_photos_ms = Date.now() - tG3
-
-                  // Cache in Firestore so repeat pins/views are free.
-                  const tG4 = Date.now()
+                  // Cache identity even if photos fail (cache still reduces Details calls later).
                   try {
                     await setCachedGooglePlace({
                       lat,
@@ -445,7 +436,7 @@ export async function GET(request: NextRequest) {
                         address: det.formattedAddress,
                         website: det.website,
                         types: det.types,
-                        photoStorageUrls: hostedPhotoUrls,
+                        photoStorageUrls: [],
                         lat,
                         lon,
                         source: 'google'
@@ -455,9 +446,66 @@ export async function GET(request: NextRequest) {
                   } catch {
                     googleDiag.cache.write = 'error'
                   }
-                  timings.google_cache_set_ms = Date.now() - tG4
+
+                  // Photos (download and upload to our Storage; never hotlink)
+                  const hostedPhotoUrls: string[] = []
+                  if (googleEnablePhotos && googleMaxPhotos > 0) {
+                    const tG3 = Date.now()
+                    const photos = Array.isArray(det.photos) ? det.photos : []
+                    for (const p of photos.slice(0, googleMaxPhotos)) {
+                      try {
+                        googleDiag.calls.photos++
+                        const got = await fetchPhoto(p.photoReference, 1200)
+                        const ext = got.contentType.toLowerCase().includes('png')
+                          ? 'png'
+                          : got.contentType.toLowerCase().includes('webp')
+                            ? 'webp'
+                            : 'jpg'
+                        const hash = hashPhotoRef(p.photoReference)
+                        const path = `place_cache/google/${det.placeId}/${hash}.${ext}`
+                        const url = await uploadToStorage(got.buffer, path, got.contentType)
+                        hostedPhotoUrls.push(url)
+                        images.push({ url, source: 'google', sourceUrl: `google:photo:${hash}` })
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : String(e)
+                        uploadFailures.push({ source: 'google', url: `google:photo`, stage: 'upload', message: msg })
+                      }
+                    }
+                    timings.google_photos_ms = Date.now() - tG3
+                  } else {
+                    fallbacksUsed.push('google_photos_disabled')
+                  }
+
+                  googlePhotosSucceeded = images.filter((i) => i.source === 'google').length
+
+                  // Update cache with hosted photos if any (best-effort).
+                  if (hostedPhotoUrls.length > 0) {
+                    const tG4 = Date.now()
+                    try {
+                      await setCachedGooglePlace({
+                        lat,
+                        lon,
+                        place: {
+                          place_id: det.placeId,
+                          name: det.name,
+                          address: det.formattedAddress,
+                          website: det.website,
+                          types: det.types,
+                          photoStorageUrls: hostedPhotoUrls,
+                          lat,
+                          lon,
+                          source: 'google'
+                        }
+                      })
+                      googleDiag.cache.write = 'ok'
+                    } catch {
+                      googleDiag.cache.write = 'error'
+                    }
+                    timings.google_cache_set_ms = Date.now() - tG4
+                  }
+
+                  // Use Google only if details succeeded. Photos are optional; if none succeeded, allow website scraping later.
                   googleDiag.used = true
-                }
               }
               }
             }
@@ -559,9 +607,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Skip website meta if we already have enough Google photos.
-      if (images.filter((i) => i.source === 'google').length >= Math.max(1, googleMaxPhotos)) {
-        fallbacksUsed.push('skip_website_meta_google_photos')
+      // Skip website meta ONLY if Google photos actually succeeded (>= 1 hosted image).
+      if (googlePhotosSucceeded >= 1) {
+        fallbacksUsed.push('skip_website_meta_google_photos_succeeded')
       } else if (place.website) {
       websiteMetaDiag.attempted = true
       const t1 = Date.now()
@@ -588,10 +636,18 @@ export async function GET(request: NextRequest) {
         websiteValidated = true
       }
 
-      const websiteImages = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
+      const websiteImagesRaw = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
+      const websiteImagesPreferred = websiteImagesRaw.filter((u) => !String(u).toLowerCase().includes('.gif'))
+      const websiteImages = websiteImagesPreferred.length ? websiteImagesPreferred : websiteImagesRaw
       if (websiteImages.length > 0) {
         const t2 = Date.now()
-        for (const imgUrl of websiteImages.slice(0, 3)) {
+        // Try more than the first 3 so GIFs/unsupported types don't block success.
+        const maxWant = 3
+        let uploaded = 0
+        let attempts = 0
+        for (const imgUrl of websiteImages.slice(0, 8)) {
+          if (uploaded >= maxWant) break
+          attempts++
           let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
           const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website', {
             timeoutMs: 6500,
@@ -601,6 +657,7 @@ export async function GET(request: NextRequest) {
           })
           if (hostedUrl) {
             images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
+            uploaded++
           } else {
             const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
             const message = (err as any)?.message as string | undefined
@@ -731,6 +788,12 @@ export async function GET(request: NextRequest) {
           cacheHit: !!googleDiag.cacheHit,
           google: googleDiag,
           websiteValidated,
+          imageSummary: {
+            googlePhotos: images.filter((i) => i.source === 'google').length,
+            websitePhotos: images.filter((i) => i.source === 'website').length,
+            unsplashPhotos: images.filter((i) => i.source === 'stock').length,
+            mapStatic: images.filter((i) => i.source === 'area').length
+          },
           timings,
           fallbacksUsed,
           uploadFailures: uploadFailures.length ? uploadFailures.slice(0, 10) : [],
