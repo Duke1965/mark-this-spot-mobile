@@ -78,9 +78,11 @@ function googleTypesToCategory(types?: string[]): string | undefined {
   if (t.includes('church') || t.includes('place_of_worship')) return 'building.place_of_worship'
   if (t.includes('tourist_attraction')) return 'tourism.attraction'
   if (t.includes('park')) return 'leisure.park'
+  if (t.includes('winery')) return 'production.winery'
   if (t.includes('restaurant')) return 'catering.restaurant'
   if (t.includes('cafe')) return 'catering.cafe'
   if (t.includes('bar')) return 'catering.bar'
+  if (t.includes('lodging')) return 'accommodation'
   return undefined
 }
 
@@ -427,7 +429,7 @@ export async function GET(request: NextRequest) {
 
                   // Cache identity even if photos fail (cache still reduces Details calls later).
                   try {
-                    await setCachedGooglePlace({
+                    const wr = await setCachedGooglePlace({
                       lat,
                       lon,
                       place: {
@@ -442,7 +444,8 @@ export async function GET(request: NextRequest) {
                         source: 'google'
                       }
                     })
-                    googleDiag.cache.write = 'ok'
+                    googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
+                    if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
                   } catch {
                     googleDiag.cache.write = 'error'
                   }
@@ -482,7 +485,7 @@ export async function GET(request: NextRequest) {
                   if (hostedPhotoUrls.length > 0) {
                     const tG4 = Date.now()
                     try {
-                      await setCachedGooglePlace({
+                      const wr = await setCachedGooglePlace({
                         lat,
                         lon,
                         place: {
@@ -497,7 +500,8 @@ export async function GET(request: NextRequest) {
                           source: 'google'
                         }
                       })
-                      googleDiag.cache.write = 'ok'
+                      googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
+                      if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
                     } catch {
                       googleDiag.cache.write = 'error'
                     }
