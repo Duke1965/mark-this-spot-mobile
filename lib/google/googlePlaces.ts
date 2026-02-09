@@ -141,6 +141,33 @@ function hintMatches(hint: string | undefined, candidateName: string | undefined
   return false
 }
 
+function preferenceScore(types: string[] | undefined): number {
+  const t = (types || []).map((s) => String(s || '').toLowerCase())
+  let score = 0
+
+  // Prefer travel/food/visitor POIs
+  const preferred = [
+    'restaurant',
+    'cafe',
+    'bar',
+    'tourist_attraction',
+    'museum',
+    'art_gallery',
+    'park',
+    'lodging',
+    'winery'
+  ]
+  for (const p of preferred) if (t.includes(p)) score += 2
+
+  // Deprioritize util/vehicle POIs that frequently “steal” pins near mixed buildings.
+  const deprioritized = ['car_wash', 'car_repair', 'gas_station']
+  for (const d of deprioritized) if (t.includes(d)) score -= 3
+
+  // Mild reward for "point_of_interest"
+  if (t.includes('point_of_interest')) score += 1
+  return score
+}
+
 export async function nearbySearch(input: {
   lat: number
   lon: number
@@ -221,7 +248,14 @@ export async function nearbySearch(input: {
     }
   }
 
-  const selected = pool.slice().sort((a, b) => a.distanceMeters - b.distanceMeters)[0]!
+  // Sort by preference then distance (fixes “Car Wash” beating a restaurant next door).
+  const selected = pool
+    .slice()
+    .sort((a, b) => {
+      const ps = preferenceScore(a.types) - preferenceScore(b.types)
+      if (ps !== 0) return -ps
+      return a.distanceMeters - b.distanceMeters
+    })[0]!
   const thresholdUsed = selected.isChain ? threshChain : thresh
 
   // Return top 3 candidates for diagnostics (sorted by distance)
