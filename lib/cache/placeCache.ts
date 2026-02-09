@@ -30,6 +30,12 @@ function envInt(name: string, def: number): number {
   return Number.isFinite(n) ? Math.floor(n) : def
 }
 
+function cacheEnabled(): boolean {
+  const raw = process.env.PINIT_ENABLE_GOOGLE_CACHE
+  if (!raw) return true
+  return String(raw).toLowerCase() !== 'false'
+}
+
 function geoDocId(lat: number, lon: number): string {
   return `${lat.toFixed(4)}:${lon.toFixed(4)}`
 }
@@ -60,10 +66,13 @@ export async function getCachedGooglePlaceByLatLon(input: {
   lon: number
   ttlDays?: number
 }): Promise<{ place: CachedGooglePlace; cacheHit: true } | null> {
+  if (!cacheEnabled()) return null
   const db = getAdminFirestore()
   if (!db) return null
 
-  const ttlDays = input.ttlDays ?? envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 30)
+  const ttlDays =
+    input.ttlDays ??
+    envInt('PINIT_GOOGLE_CACHE_TTL_DAYS', envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 90))
   const fineId = geoDocId(input.lat, input.lon)
   const fineSnap = await db.collection('place_cache_geo').doc(fineId).get().catch(() => null)
   const finePlaceId = fineSnap?.exists ? String(fineSnap.data()?.place_id || '') : ''
@@ -115,9 +124,12 @@ export async function getCachedGooglePlaceById(input: {
   placeId: string
   ttlDays?: number
 }): Promise<{ place: CachedGooglePlace; cacheHit: true } | null> {
+  if (!cacheEnabled()) return null
   const db = getAdminFirestore()
   if (!db) return null
-  const ttlDays = input.ttlDays ?? envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 30)
+  const ttlDays =
+    input.ttlDays ??
+    envInt('PINIT_GOOGLE_CACHE_TTL_DAYS', envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 90))
 
   try {
     const docId = placeDocId(input.placeId)
@@ -137,6 +149,7 @@ export async function setCachedGooglePlace(input: {
   lat: number
   lon: number
 }): Promise<void> {
+  if (!cacheEnabled()) return
   const db = getAdminFirestore()
   if (!db) return
 
