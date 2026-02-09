@@ -78,7 +78,29 @@ function isMarketingFluff(desc: string): boolean {
   if (d.includes('!!!')) return true
   if (d.includes('best ') || d.includes('cheap ') || d.includes('sale') || d.includes('discount')) return true
   if (d.includes('click here') || d.includes('book now') || d.includes('order now')) return true
+  // Common spam/off-topic patterns that should never become a place description.
+  if (d.includes('bankroll') || d.includes('odds') || d.includes('tipster') || d.includes('betting')) return true
+  if (d.includes('casino') || d.includes('slots') || d.includes('gambling')) return true
+  if (d.includes('seo') || d.includes('lorem ipsum')) return true
   return false
+}
+
+function tokensForRelevance(name: string | undefined): string[] {
+  const n = normalizeForCompare(name || '')
+  if (!n) return []
+  return n
+    .split(' ')
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4)
+    .slice(0, 6)
+}
+
+function descriptionSeemsRelevant(desc: string, place: PlaceLike | undefined): boolean {
+  const d = normalizeForCompare(desc)
+  if (!d) return false
+  const tokens = tokensForRelevance(place?.name)
+  if (tokens.length === 0) return true
+  return tokens.some((t) => d.includes(t))
 }
 
 function clampDescription(desc: string): string {
@@ -115,7 +137,7 @@ export function mergeTitleDescription(input: {
   // Description
   let description = baseDescription
   const metaDescRaw = norm(meta?.metaDescription) || norm(meta?.ogDescription)
-  if (metaDescRaw && !isMarketingFluff(metaDescRaw)) {
+  if (metaDescRaw && !isMarketingFluff(metaDescRaw) && descriptionSeemsRelevant(metaDescRaw, input.place)) {
     // Use as a hint only when it seems relevant and not wildly different
     const hint = clampDescription(metaDescRaw)
     if (hint.length >= 40) {
