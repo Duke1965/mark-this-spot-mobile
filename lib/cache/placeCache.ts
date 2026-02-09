@@ -148,10 +148,10 @@ export async function setCachedGooglePlace(input: {
   place: Omit<CachedGooglePlace, 'updatedAt'>
   lat: number
   lon: number
-}): Promise<void> {
-  if (!cacheEnabled()) return
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!cacheEnabled()) return { ok: false, error: 'cache_disabled' }
   const db = getAdminFirestore()
-  if (!db) return
+  if (!db) return { ok: false, error: 'no_firestore' }
 
   const docId = placeDocId(input.place.place_id)
   const geoId = geoDocId(input.lat, input.lon)
@@ -190,7 +190,10 @@ export async function setCachedGooglePlace(input: {
     // Cache should never break pin-intel. If Firestore isn't enabled or permissions are missing,
     // we simply operate without caching until fixed.
     console.warn('⚠️ Failed to write Google place cache:', e)
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
+
+  return { ok: true }
 }
 
 function utcDayKey(d: Date = new Date()): string {
