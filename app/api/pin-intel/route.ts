@@ -567,8 +567,21 @@ export async function GET(request: NextRequest) {
         })
         timings.website_discovery_ms = Date.now() - t0c
         if (found.website) {
-          place = { ...place, website: found.website }
-          fallbacksUsed.push('serper_official_website')
+          // Reject obvious non-website targets (pdf/docs)
+          let okWebsite = true
+          try {
+            const u = new URL(found.website)
+            const p = (u.pathname || '').toLowerCase()
+            if (p.endsWith('.pdf') || p.endsWith('.doc') || p.endsWith('.docx')) okWebsite = false
+          } catch {
+            // ignore
+          }
+          if (!okWebsite) {
+            fallbacksUsed.push('reject_discovered_website:non_html')
+          } else {
+            place = { ...place, website: found.website }
+            fallbacksUsed.push('serper_official_website')
+          }
         } else {
           fallbacksUsed.push('no_serper_match')
         }
