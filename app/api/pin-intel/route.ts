@@ -7,7 +7,7 @@ import { downloadAndUploadImage, uploadToStorage } from '@/lib/pinEnrich/imageSt
 import { getWebsiteMeta } from '@/lib/images/websiteMeta'
 import { searchUnsplashImages } from '@/lib/images/unsplash'
 import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
-import { discoverOfficialWebsite } from '@/lib/places/websiteDiscovery'
+import { discoverOfficialWebsite, isLikelyOfficialWebsiteUrl } from '@/lib/places/websiteDiscovery'
 import { mergeTitleDescription } from '@/lib/pinEnrich/mergeTitleDescription'
 import { nearbySearch, placeDetails, fetchPhoto, hashPhotoRef } from '@/lib/google/googlePlaces'
 import {
@@ -271,13 +271,15 @@ export async function GET(request: NextRequest) {
       0,
       Math.min(5, envInt('GOOGLE_MAX_PHOTOS', envInt('GOOGLE_PIN_INTEL_MAX_PHOTOS', 3)))
     )
-    const googleRadiusMeters = Math.max(10, Math.min(250, envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
+    const googleRadiusMetersBase = Math.max(10, Math.min(250, envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
     const googleCacheTtlDays = Math.max(
       1,
       Math.min(365, envInt('PINIT_GOOGLE_CACHE_TTL_DAYS', envInt('GOOGLE_PIN_INTEL_CACHE_TTL_DAYS', 90)))
     )
     const googleMaxDistanceM = Math.max(25, Math.min(1000, envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250)))
     const googleMaxDistanceChainM = Math.max(10, Math.min(500, envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS_CHAIN', 100)))
+    // Nearby Search radius must be >= max distance threshold, otherwise we can miss valid candidates.
+    const googleRadiusMeters = Math.max(googleRadiusMetersBase, Math.min(250, googleMaxDistanceM))
 
     const googleDiag: any = {
       enabled: googleEnabled,
@@ -532,6 +534,13 @@ export async function GET(request: NextRequest) {
       timings.place_resolve_ms = 0
     }
 
+    // 1a) Drop obviously bad "websites" (PDFs, aggregator/directory links), even if a provider supplied them.
+    // This prevents results like Brabys / Bluepillow / PDF URLs being treated as an "official website".
+    if (place?.website && !isLikelyOfficialWebsiteUrl(place.website)) {
+      fallbacksUsed.push('reject_provider_website:blocked_or_non_html')
+      place = { ...place, website: undefined }
+    }
+
     // 1b) If missing website, try strict Wikidata match to fill official website (P856)
     let wikidata: Awaited<ReturnType<typeof tryWikidataMatch>> | null = null
     if (!place.website && shouldAttemptWikidata(place)) {
@@ -567,17 +576,8 @@ export async function GET(request: NextRequest) {
         })
         timings.website_discovery_ms = Date.now() - t0c
         if (found.website) {
-          // Reject obvious non-website targets (pdf/docs)
-          let okWebsite = true
-          try {
-            const u = new URL(found.website)
-            const p = (u.pathname || '').toLowerCase()
-            if (p.endsWith('.pdf') || p.endsWith('.doc') || p.endsWith('.docx')) okWebsite = false
-          } catch {
-            // ignore
-          }
-          if (!okWebsite) {
-            fallbacksUsed.push('reject_discovered_website:non_html')
+          if (!isLikelyOfficialWebsiteUrl(found.website)) {
+            fallbacksUsed.push('reject_discovered_website:blocked_or_non_html')
           } else {
             place = { ...place, website: found.website }
             fallbacksUsed.push('serper_official_website')
@@ -611,18 +611,7 @@ export async function GET(request: NextRequest) {
       // If the website came from Serper discovery, apply a conservative "officialness" guard.
       // We only do this for discovered websites (not for provider-provided websites like Google/Geoapify).
       websiteWasDiscovered = fallbacksUsed.includes('serper_official_website')
-      if (websiteWasDiscovered) {
-        try {
-          const host = new URL(place.website).hostname.toLowerCase()
-          const blocked = ['municipalities.co.za']
-          if (blocked.some((b) => host === b || host.endsWith(`.${b}`))) {
-            fallbacksUsed.push('reject_discovered_website:blocked_domain')
-            place = { ...place, website: undefined }
-          }
-        } catch {
-          // ignore
-        }
-      }
+      // Domain/path-level filtering already happened when the website was assigned.
 
       // Skip website meta ONLY if Google photos actually succeeded (>= 1 hosted image).
       if (googlePhotosSucceeded >= 1) {
