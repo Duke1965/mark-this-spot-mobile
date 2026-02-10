@@ -613,10 +613,10 @@ export async function GET(request: NextRequest) {
       websiteWasDiscovered = fallbacksUsed.includes('serper_official_website')
       // Domain/path-level filtering already happened when the website was assigned.
 
-      // Skip website meta ONLY if Google photos actually succeeded (>= 1 hosted image).
-      if (googlePhotosSucceeded >= 1) {
-        fallbacksUsed.push('skip_website_meta_google_photos_succeeded')
-      } else if (place.website) {
+      // If Google photos succeeded, skip ONLY website image downloading (to save costs),
+      // but still use website metadata to improve title/description.
+      const allowWebsiteImages = googlePhotosSucceeded < 1
+
       websiteMetaDiag.attempted = true
       const t1 = Date.now()
       websiteMeta = await getWebsiteMeta(place.website)
@@ -642,38 +642,41 @@ export async function GET(request: NextRequest) {
         websiteValidated = true
       }
 
-      const websiteImagesRaw = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
-      const websiteImagesPreferred = websiteImagesRaw.filter((u) => !String(u).toLowerCase().includes('.gif'))
-      const websiteImages = websiteImagesPreferred.length ? websiteImagesPreferred : websiteImagesRaw
-      if (websiteImages.length > 0) {
-        const t2 = Date.now()
-        // Try more than the first 3 so GIFs/unsupported types don't block success.
-        const maxWant = 3
-        let uploaded = 0
-        let attempts = 0
-        for (const imgUrl of websiteImages.slice(0, 8)) {
-          if (uploaded >= maxWant) break
-          attempts++
-          let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
-          const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website', {
-            timeoutMs: 6500,
-            onError: (info) => {
-              err = info
-            }
-          })
-          if (hostedUrl) {
-            images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
-            uploaded++
-          } else {
-            const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
-            const message = (err as any)?.message as string | undefined
-            uploadFailures.push({ source: 'website', url: imgUrl, stage, message })
-          }
-        }
-        timings.website_upload_ms = Date.now() - t2
+      if (!allowWebsiteImages) {
+        fallbacksUsed.push('skip_website_images_google_photos_succeeded')
       } else {
-        fallbacksUsed.push('no_website_images')
-      }
+        const websiteImagesRaw = Array.isArray(websiteMeta?.images) ? websiteMeta!.images : []
+        const websiteImagesPreferred = websiteImagesRaw.filter((u) => !String(u).toLowerCase().includes('.gif'))
+        const websiteImages = websiteImagesPreferred.length ? websiteImagesPreferred : websiteImagesRaw
+        if (websiteImages.length > 0) {
+          const t2 = Date.now()
+          // Try more than the first 3 so GIFs/unsupported types don't block success.
+          const maxWant = 3
+          let uploaded = 0
+          let attempts = 0
+          for (const imgUrl of websiteImages.slice(0, 8)) {
+            if (uploaded >= maxWant) break
+            attempts++
+            let err: { stage: 'init' | 'download' | 'upload'; message: string } | null = null
+            const hostedUrl = await downloadAndUploadImage(imgUrl, cacheKey, 'website', {
+              timeoutMs: 6500,
+              onError: (info) => {
+                err = info
+              }
+            })
+            if (hostedUrl) {
+              images.push({ url: hostedUrl, source: 'website', sourceUrl: imgUrl })
+              uploaded++
+            } else {
+              const stage = (err as any)?.stage as 'init' | 'download' | 'upload' | undefined
+              const message = (err as any)?.message as string | undefined
+              uploadFailures.push({ source: 'website', url: imgUrl, stage, message })
+            }
+          }
+          timings.website_upload_ms = Date.now() - t2
+        } else {
+          fallbacksUsed.push('no_website_images')
+        }
       }
     } else {
       fallbacksUsed.push('no_website')
