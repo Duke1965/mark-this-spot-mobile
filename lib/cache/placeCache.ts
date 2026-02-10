@@ -190,7 +190,13 @@ export async function setCachedGooglePlace(input: {
     // Cache should never break pin-intel. If Firestore isn't enabled or permissions are missing,
     // we simply operate without caching until fixed.
     console.warn('⚠️ Failed to write Google place cache:', e)
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    const msg = e instanceof Error ? e.message : String(e)
+    // Common production misconfig: Firestore not provisioned in the Firebase project.
+    // This typically appears as gRPC code 5 NOT_FOUND.
+    if (/NOT_FOUND/i.test(msg)) {
+      return { ok: false, error: `firestore_not_found:${msg}` }
+    }
+    return { ok: false, error: msg }
   }
 
   return { ok: true }
