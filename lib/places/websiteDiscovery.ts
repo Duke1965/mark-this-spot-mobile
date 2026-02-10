@@ -87,9 +87,11 @@ function isBadDomain(host: string): boolean {
     'bluepillow.com',
     'property24.com',
     'lekkeslaap.co.za',
+    'brabys.com',
     'waze.com',
     'artefacts.co.za',
     'swopandstay.com',
+    'riebeek-valley-info.co.za',
 
     // Media / music / app store links (not an "official website" for a place)
     'spotify.com',
@@ -108,6 +110,23 @@ function isBadDomain(host: string): boolean {
     'foursquare.com'
   ]
   return blocked.some((b) => (b.includes('.') ? h.includes(b) : h === b))
+}
+
+export function isLikelyOfficialWebsiteUrl(rawUrl: string): boolean {
+  const normalized = normalizeUrl(normStr(rawUrl))
+  if (!normalized) return false
+  try {
+    const u = new URL(normalized)
+    const host = (u.hostname || '').toLowerCase()
+    if (!host) return false
+    if (isBadDomain(host)) return false
+    const p = (u.pathname || '').toLowerCase()
+    // Reject obvious non-HTML documents masquerading as "websites"
+    if (p.endsWith('.pdf') || p.endsWith('.doc') || p.endsWith('.docx')) return false
+    return true
+  } catch {
+    return false
+  }
 }
 
 function normalizeUrl(raw: string): string | null {
@@ -180,13 +199,14 @@ export async function discoverOfficialWebsite(
   for (const r of organic) {
     const link = normalizeUrl(normStr(r.link))
     if (!link) continue
+    if (!isLikelyOfficialWebsiteUrl(link)) continue
+
     let host = ''
     try {
       host = new URL(link).hostname
     } catch {
       continue
     }
-    if (isBadDomain(host)) continue
 
     const title = normStr(r.title)
     const snippet = normStr(r.snippet)
