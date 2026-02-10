@@ -157,13 +157,24 @@ export async function setCachedGooglePlace(input: {
   const geoId = geoDocId(input.lat, input.lon)
   const coarseId = geoDocIdCoarse(input.lat, input.lon)
 
+  // Firestore does not allow `undefined` values in documents by default.
+  // Sanitize optional fields so cache writes never fail due to `undefined`.
+  const photoStorageUrls = Array.isArray(input.place.photoStorageUrls)
+    ? input.place.photoStorageUrls.map(String).filter(Boolean)
+    : []
+
   const payload: CachedGooglePlace = {
-    ...input.place,
+    place_id: String(input.place.place_id),
     lat: input.lat,
     lon: input.lon,
+    photoStorageUrls,
     source: 'google',
     updatedAt: FieldValue.serverTimestamp()
   }
+  if (input.place.name) payload.name = String(input.place.name)
+  if (input.place.address) payload.address = String(input.place.address)
+  if (input.place.website) payload.website = String(input.place.website)
+  if (Array.isArray(input.place.types) && input.place.types.length) payload.types = input.place.types.map(String).filter(Boolean)
 
   try {
     await Promise.all([
