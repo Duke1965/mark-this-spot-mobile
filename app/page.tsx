@@ -3135,28 +3135,6 @@ export default function PINITApp() {
             onLocationChange={handlePinDragEnd}
           />
           
-          {/* Instruction text */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "120px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(30, 58, 138, 0.95)",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "0.75rem",
-              fontSize: "0.875rem",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              pointerEvents: "none",
-              textAlign: "center",
-              maxWidth: "90%",
-              zIndex: 1000
-            }}
-          >
-            💡 Drag the pin to move it to the exact location
-          </div>
-          
           {/* POI Selection Modal */}
           {showPOISelection && poiCandidates.length > 0 && (
             <div
@@ -3633,7 +3611,7 @@ export default function PINITApp() {
             zIndex: 1001
           }}
         >
-          <span style={{ fontSize: "1.5rem" }}>✏️</span>
+          <span style={{ fontSize: "1.5rem" }}>📍</span>
           <span style={{ fontWeight: "600" }}>Edit Mode - Move pin to exact location</span>
         </div>
       </div>
