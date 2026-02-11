@@ -43,6 +43,9 @@ export interface MapboxMapProps {
   interactive?: boolean
   className?: string
   style?: React.CSSProperties
+  // Label readability tweaks (do not change map zoom)
+  labelScale?: number // e.g. 1.15
+  poiLabelMinZoomDelta?: number // e.g. -1 to show POIs sooner
   // For draggable marker (single marker editing use case)
   draggableMarker?: {
     lat: number
@@ -63,6 +66,8 @@ export default function MapboxMap({
   interactive = true,
   className = "",
   style = {},
+  labelScale = 1,
+  poiLabelMinZoomDelta = 0,
   draggableMarker,
   showPOIs = false,
   onPOIClick
@@ -282,6 +287,49 @@ export default function MapboxMap({
     }
   }
 
+  const applyLabelTweaks = useCallback((map: any) => {
+    try {
+      const scale = Number.isFinite(Number(labelScale)) ? Number(labelScale) : 1
+      const dz = Number.isFinite(Number(poiLabelMinZoomDelta)) ? Number(poiLabelMinZoomDelta) : 0
+      if (scale === 1 && dz === 0) return
+
+      const styleObj = map?.getStyle?.()
+      const layers: any[] = Array.isArray(styleObj?.layers) ? styleObj.layers : []
+
+      for (const layer of layers) {
+        const id = String(layer?.id || '')
+        if (!id) continue
+        if (layer?.type !== 'symbol') continue
+        const hasText = !!(layer?.layout && (layer.layout as any)['text-field'])
+        if (!hasText) continue
+
+        // 1) Make label text slightly bigger (without changing map zoom)
+        if (scale !== 1) {
+          const cur = map.getLayoutProperty(id, 'text-size')
+          if (typeof cur === 'number') {
+            map.setLayoutProperty(id, 'text-size', Math.max(8, cur * scale))
+          } else if (Array.isArray(cur)) {
+            map.setLayoutProperty(id, 'text-size', ['*', cur, scale])
+          }
+        }
+
+        // 2) Show POI-ish labels slightly earlier (reduces "must zoom in to see it")
+        if (dz !== 0) {
+          const isPoiLike = /poi|poi-label|poi_label|restaurant|cafe|bar|food|shop|store|attraction/i.test(id)
+          const isLabel = /label/i.test(id)
+          if (isPoiLike && isLabel) {
+            const minz = typeof layer?.minzoom === 'number' ? layer.minzoom : 0
+            const maxz = typeof layer?.maxzoom === 'number' ? layer.maxzoom : 24
+            const nextMin = Math.max(0, minz + dz)
+            map.setLayerZoomRange(id, nextMin, maxz)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to apply label tweaks:', e)
+    }
+  }, [labelScale, poiLabelMinZoomDelta])
+
   // Initialize Mapbox map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return
@@ -317,6 +365,9 @@ export default function MapboxMap({
       map.on('load', () => {
         console.log('🗺️ Mapbox map loaded successfully')
         isMapLoadedRef.current = true
+        
+        // Optional label readability improvements (no zoom change)
+        applyLabelTweaks(map)
         
         // Add click handler for map clicks (pin creation)
         if (onMapClick && interactive) {
