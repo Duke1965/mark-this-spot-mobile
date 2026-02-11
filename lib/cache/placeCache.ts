@@ -16,8 +16,12 @@ export type CachedGooglePlace = {
   address?: string
   website?: string
   types?: string[]
+  // The pin location used for geo indexing
   lat: number
   lon: number
+  // The actual place location (when known) to sanity-check geo cache bindings
+  placeLat?: number
+  placeLon?: number
   photoStorageUrls: string[]
   updatedAt?: any
   source: 'google'
@@ -110,8 +114,10 @@ export async function getCachedGooglePlaceByLatLon(input: {
 
   let best: { p: CachedGooglePlace; d: number } | null = null
   for (const p of candidates) {
-    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue
-    const d = distM({ lat: input.lat, lon: input.lon }, { lat: p.lat, lon: p.lon })
+    const refLat = Number.isFinite(Number((p as any).placeLat)) ? Number((p as any).placeLat) : p.lat
+    const refLon = Number.isFinite(Number((p as any).placeLon)) ? Number((p as any).placeLon) : p.lon
+    if (!Number.isFinite(refLat) || !Number.isFinite(refLon)) continue
+    const d = distM({ lat: input.lat, lon: input.lon }, { lat: refLat, lon: refLon })
     if (d > 150) continue
     if (!best || d < best.d) best = { p, d }
   }
@@ -148,12 +154,17 @@ export async function setCachedGooglePlace(input: {
   place: Omit<CachedGooglePlace, 'updatedAt'>
   lat: number
   lon: number
+  writeGeo?: boolean
+  writeCoarseGeo?: boolean
 }): Promise<{ ok: boolean; error?: string }> {
   if (!cacheEnabled()) return { ok: false, error: 'cache_disabled' }
   const db = getAdminFirestore()
   if (!db) return { ok: false, error: 'no_firestore' }
 
   const docId = placeDocId(input.place.place_id)
+  const writeGeo = input.writeGeo !== false
+  const writeCoarseGeo = input.writeCoarseGeo !== false
+
   const geoId = geoDocId(input.lat, input.lon)
   const coarseId = geoDocIdCoarse(input.lat, input.lon)
 
@@ -175,28 +186,35 @@ export async function setCachedGooglePlace(input: {
   if (input.place.address) payload.address = String(input.place.address)
   if (input.place.website) payload.website = String(input.place.website)
   if (Array.isArray(input.place.types) && input.place.types.length) payload.types = input.place.types.map(String).filter(Boolean)
+  if (Number.isFinite(Number(input.place.placeLat))) payload.placeLat = Number(input.place.placeLat)
+  if (Number.isFinite(Number(input.place.placeLon))) payload.placeLon = Number(input.place.placeLon)
 
   try {
-    await Promise.all([
-      db.collection('place_cache').doc(docId).set(payload, { merge: true }),
-      db
-        .collection('place_cache_geo')
-        .doc(geoId)
-        .set({ place_id: input.place.place_id, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-    ])
+    const writes: Promise<any>[] = [db.collection('place_cache').doc(docId).set(payload, { merge: true })]
+    if (writeGeo) {
+      writes.push(
+        db
+          .collection('place_cache_geo')
+          .doc(geoId)
+          .set({ place_id: input.place.place_id, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      )
+    }
+    await Promise.all(writes)
 
     // Coarse geo index: stores multiple place_ids for better hit rate.
     // This is best-effort and should never break pin-intel.
-    await db
-      .collection('place_cache_geo_coarse')
-      .doc(coarseId)
-      .set(
-        {
-          place_ids: FieldValue.arrayUnion(input.place.place_id),
-          updatedAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      )
+    if (writeCoarseGeo) {
+      await db
+        .collection('place_cache_geo_coarse')
+        .doc(coarseId)
+        .set(
+          {
+            place_ids: FieldValue.arrayUnion(input.place.place_id),
+            updatedAt: FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        )
+    }
   } catch (e) {
     // Cache should never break pin-intel. If Firestore isn't enabled or permissions are missing,
     // we simply operate without caching until fixed.
@@ -211,6 +229,48 @@ export async function setCachedGooglePlace(input: {
   }
 
   return { ok: true }
+}
+
+export async function deleteCachedGooglePlaceById(input: { placeId: string }): Promise<{ ok: boolean; error?: string }> {
+  const db = getAdminFirestore()
+  if (!db) return { ok: false, error: 'no_firestore' }
+  try {
+    await db.collection('place_cache').doc(placeDocId(input.placeId)).delete()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+export async function deleteCachedGooglePlaceGeoByLatLon(input: {
+  lat: number
+  lon: number
+  placeId?: string
+}): Promise<{ ok: boolean; error?: string; deletedPlaceId?: string }> {
+  const db = getAdminFirestore()
+  if (!db) return { ok: false, error: 'no_firestore' }
+  const geoId = geoDocId(input.lat, input.lon)
+  const coarseId = geoDocIdCoarse(input.lat, input.lon)
+  try {
+    let pid = String(input.placeId || '')
+    if (!pid) {
+      const snap = await db.collection('place_cache_geo').doc(geoId).get().catch(() => null)
+      pid = snap?.exists ? String(snap.data()?.place_id || '') : ''
+    }
+
+    await db.collection('place_cache_geo').doc(geoId).delete().catch(() => null)
+    if (pid) {
+      await db
+        .collection('place_cache_geo_coarse')
+        .doc(coarseId)
+        .set({ place_ids: FieldValue.arrayRemove(pid), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+        .catch(() => null)
+    }
+
+    return { ok: true, deletedPlaceId: pid || undefined }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 function utcDayKey(d: Date = new Date()): string {
