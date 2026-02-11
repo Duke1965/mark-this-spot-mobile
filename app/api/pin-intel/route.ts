@@ -430,10 +430,33 @@ export async function GET(request: NextRequest) {
                   }
 
                   // Cache identity even if photos fail (cache still reduces Details calls later).
+                  const cacheGeoMaxM = Math.max(
+                    10,
+                    Math.min(500, envInt('PINIT_GOOGLE_CACHE_GEO_MAX_DISTANCE_METERS', 120))
+                  )
+                  const haversineMeters = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
+                    const R = 6371000
+                    const toRad = (x: number) => (x * Math.PI) / 180
+                    const dLat = toRad(b.lat - a.lat)
+                    const dLon = toRad(b.lon - a.lon)
+                    const lat1 = toRad(a.lat)
+                    const lat2 = toRad(b.lat)
+                    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+                    return 2 * R * Math.asin(Math.sqrt(h))
+                  }
+                  const distM = Number.isFinite(Number(cand.distanceMeters))
+                    ? Math.round(Number(cand.distanceMeters))
+                    : det.location && Number.isFinite(det.location.lat) && Number.isFinite(det.location.lon)
+                      ? Math.round(haversineMeters({ lat, lon }, { lat: det.location.lat, lon: det.location.lon }))
+                      : 999999
+                  const allowGeoBind = distM <= cacheGeoMaxM
+                  if (!allowGeoBind) fallbacksUsed.push(`skip_cache_geo_bind_far:${distM}m`)
                   try {
                     const wr = await setCachedGooglePlace({
                       lat,
                       lon,
+                      writeGeo: allowGeoBind,
+                      writeCoarseGeo: allowGeoBind,
                       place: {
                         place_id: det.placeId,
                         name: det.name,
@@ -441,6 +464,8 @@ export async function GET(request: NextRequest) {
                         website: det.website,
                         types: det.types,
                         photoStorageUrls: [],
+                        placeLat: det.location?.lat,
+                        placeLon: det.location?.lon,
                         lat,
                         lon,
                         source: 'google'
@@ -490,6 +515,8 @@ export async function GET(request: NextRequest) {
                       const wr = await setCachedGooglePlace({
                         lat,
                         lon,
+                        writeGeo: allowGeoBind,
+                        writeCoarseGeo: allowGeoBind,
                         place: {
                           place_id: det.placeId,
                           name: det.name,
@@ -497,6 +524,8 @@ export async function GET(request: NextRequest) {
                           website: det.website,
                           types: det.types,
                           photoStorageUrls: hostedPhotoUrls,
+                          placeLat: det.location?.lat,
+                          placeLon: det.location?.lon,
                           lat,
                           lon,
                           source: 'google'
