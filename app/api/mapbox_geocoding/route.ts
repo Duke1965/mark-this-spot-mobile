@@ -14,8 +14,10 @@ export async function GET(request: NextRequest) {
   const lng = searchParams.get("lng")
   const query = searchParams.get("query") // For forward geocoding
   const types = searchParams.get("types") || "place" // Default to 'place' for reliable results
+  const proximityLat = searchParams.get("proximityLat")
+  const proximityLng = searchParams.get("proximityLng")
 
-  console.log('📍 Mapbox Geocoding API GET - params:', { lat, lng, query, types })
+  console.log('📍 Mapbox Geocoding API GET - params:', { lat, lng, query, types, proximityLat, proximityLng })
 
   // Validate that we have either coordinates OR a query
   if (!lat && !lng && !query) {
@@ -69,6 +71,12 @@ export async function GET(request: NextRequest) {
       // Forward geocoding: can use multiple types and limit
       geocodingUrl.searchParams.set('types', types)
       geocodingUrl.searchParams.set('limit', '10')
+      // Optional proximity bias (useful for "Search instead" near a pin)
+      const pLat = proximityLat ? parseFloat(proximityLat) : NaN
+      const pLng = proximityLng ? parseFloat(proximityLng) : NaN
+      if (Number.isFinite(pLat) && Number.isFinite(pLng)) {
+        geocodingUrl.searchParams.set('proximity', `${pLng},${pLat}`)
+      }
       
       console.log('🔗 Mapbox Geocoding URL:', geocodingUrl.toString().replace(accessToken, 'TOKEN_HIDDEN'))
 
