@@ -296,6 +296,22 @@ export default function PINITApp() {
   const [selectedPOI, setSelectedPOI] = useState<{name: string, distance_m: number, category?: string, id?: string} | null>(null)
   const [isDraggingPin, setIsDraggingPin] = useState(false)
 
+  // Pin confirmation flow (prevents POI mismatches like "car wash vs restaurant")
+  const [pinConfirmOpen, setPinConfirmOpen] = useState(false)
+  const [pinConfirmStage, setPinConfirmStage] = useState<'idle' | 'finding' | 'confirming' | 'saving'>('idle')
+  const [pinConfirmPayload, setPinConfirmPayload] = useState<{
+    committedLocation: { lat: number; lng: number }
+    pinIntelData: any
+    pinIntelV2: any
+    searchTerm?: string
+    overrideHint?: string
+    useSelectedPOI?: { name: string; distance_m: number; category?: string; id?: string }
+  } | null>(null)
+  const [pinConfirmSearchOpen, setPinConfirmSearchOpen] = useState(false)
+  const [pinConfirmSearchQuery, setPinConfirmSearchQuery] = useState('')
+  const [pinConfirmSearchResults, setPinConfirmSearchResults] = useState<any[]>([])
+  const [pinConfirmSearchLoading, setPinConfirmSearchLoading] = useState(false)
+
   // Add this new state for user location
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
@@ -1927,12 +1943,56 @@ export default function PINITApp() {
   // Legacy alias for compatibility
   const handlePinLocationUpdate = handlePinDragEnd
   
-  // Handler for Done button - commit pendingPin, then fetch new data and update pin
-  const handlePinEditDone = useCallback(async (useSelectedPOI?: {name: string, distance_m: number, category?: string, id?: string}) => {
-    if (!editingPin || !pendingPinLocation || !originalPinLocation) return
+  function normalizeForCompare(s: string): string {
+    return (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  function looksDifferent(expected: string | undefined, got: string | undefined): boolean {
+    const a = normalizeForCompare(expected || '')
+    const b = normalizeForCompare(got || '')
+    if (!a || !b) return false
+    if (a === b) return false
+    if (a.includes(b) || b.includes(a)) return false
+    const at = new Set(a.split(' ').filter(Boolean))
+    const bt = new Set(b.split(' ').filter(Boolean))
+    if (at.size === 0 || bt.size === 0) return false
+    let inter = 0
+    for (const t of at) if (bt.has(t)) inter++
+    const union = at.size + bt.size - inter
+    const j = union > 0 ? inter / union : 0
+    return j < 0.35
+  }
+
+  // Handler for Done button - resolve place, then confirm before saving
+  const handlePinEditDone = useCallback(async (
+    useSelectedPOI?: {name: string, distance_m: number, category?: string, id?: string},
+    options?: {
+      preResolved?: {
+        committedLocation: { lat: number; lng: number }
+        pinIntelData: any
+        pinIntelV2: any
+        searchTerm?: string
+        overrideHint?: string
+        useSelectedPOI?: { name: string; distance_m: number; category?: string; id?: string }
+      }
+      skipConfirmation?: boolean
+      overrideHint?: string
+      overrideLocation?: { lat: number; lng: number }
+    }
+  ) => {
+    if (!editingPin || !originalPinLocation) return
+    const pre = options?.preResolved
+    const effectivePending = options?.overrideLocation || pendingPinLocation
+    if (!pre && !effectivePending) return
     
     // Commit pendingPin to committedPin
-    const committedLocation = { lat: pendingPinLocation.lat, lng: pendingPinLocation.lng }
+    const committedLocation = pre?.committedLocation || options?.overrideLocation || { lat: effectivePending!.lat, lng: effectivePending!.lng }
     setCommittedPinLocation(committedLocation)
     console.log('[PIN COMMIT] Committed location:', committedLocation)
     
@@ -1989,27 +2049,29 @@ export default function PINITApp() {
         lng: committedLocation.lng
       })
       
-      let pinIntelData: any = null
-      try {
-        const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat: committedLocation.lat, lng: committedLocation.lng, precision: 5 }),
-          signal
-        })
-        
-        if (pinIntelResponse.ok) {
-          pinIntelData = await pinIntelResponse.json()
-          console.log("📍 Pin-intel data fetched:", { 
-            hasGeocode: !!pinIntelData.geocode, 
-            placesCount: pinIntelData.places?.length || 0,
-            nearestPlace: pinIntelData.places?.[0]?.name,
-            hasImages: !!pinIntelData.images?.length
+      let pinIntelData: any = pre?.pinIntelData ?? null
+      if (!pre) {
+        try {
+          const pinIntelResponse = await fetch('/api/pinit/pin-intel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: committedLocation.lat, lng: committedLocation.lng, precision: 5 }),
+            signal
           })
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.warn("⚠️ Failed to fetch pin-intel data:", error)
+          
+          if (pinIntelResponse.ok) {
+            pinIntelData = await pinIntelResponse.json()
+            console.log("📍 Pin-intel data fetched:", { 
+              hasGeocode: !!pinIntelData.geocode, 
+              placesCount: pinIntelData.places?.length || 0,
+              nearestPlace: pinIntelData.places?.[0]?.name,
+              hasImages: !!pinIntelData.images?.length
+            })
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.warn("⚠️ Failed to fetch pin-intel data:", error)
+          }
         }
       }
       
@@ -2047,7 +2109,8 @@ export default function PINITApp() {
       const poiName = poiMetadata?.name || geocodeComponents.poi_name || pinIntelData?.places?.[0]?.name
       
       // Build search term for Yelp - use term from pin-intel if available
-      let searchTerm: string | undefined = pinIntelData?.term || undefined
+      const overrideHint = options?.overrideHint || pre?.overrideHint
+      let searchTerm: string | undefined = overrideHint || pre?.searchTerm || pinIntelData?.term || undefined
       
       if (!searchTerm) {
         // Fallback: build from pin-intel data
@@ -2074,37 +2137,72 @@ export default function PINITApp() {
 
       // STEP 2: Fetch unified pin-intel (Geoapify + website-first images)
       console.log("🧠 Step 2: Fetching /api/pin-intel...")
-      let pinIntelV2: any = null
-      try {
-        const q = new URLSearchParams({
-          lat: String(committedLocation.lat),
-          lon: String(committedLocation.lng),
-          // When the user has manually adjusted the pin, resolve within ~10m.
-          mode: 'adjusted',
-          maxDistanceM: '10'
-        })
-        if (searchTerm) q.set('hint', searchTerm)
-
-        const resp = await fetch(`/api/pin-intel?${q.toString()}`, { signal })
-        if (resp.ok) {
-          pinIntelV2 = await resp.json()
-          console.log("✅ /api/pin-intel returned:", {
-            title: pinIntelV2?.title,
-            hasDescription: !!pinIntelV2?.description,
-            imageCount: pinIntelV2?.images?.length || 0,
-            provider: pinIntelV2?.place?.source
+      let pinIntelV2: any = pre?.pinIntelV2 ?? null
+      if (!pre) {
+        // Open confirmation UI immediately (loading state)
+        setPinConfirmOpen(true)
+        setPinConfirmStage('finding')
+        setPinConfirmSearchOpen(false)
+        setPinConfirmSearchQuery(searchTerm || '')
+        setPinConfirmSearchResults([])
+        setPinConfirmPayload(null)
+      }
+      if (!pre) {
+        try {
+          const q = new URLSearchParams({
+            lat: String(committedLocation.lat),
+            lon: String(committedLocation.lng),
+            // When the user has manually adjusted the pin, resolve within ~10m.
+            mode: 'adjusted',
+            maxDistanceM: '10'
           })
-        } else {
-          console.warn("⚠️ /api/pin-intel failed:", resp.status)
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.warn("⚠️ /api/pin-intel request failed:", error)
+          if (searchTerm) q.set('hint', searchTerm)
+
+          const resp = await fetch(`/api/pin-intel?${q.toString()}`, { signal })
+          if (resp.ok) {
+            pinIntelV2 = await resp.json()
+            console.log("✅ /api/pin-intel returned:", {
+              title: pinIntelV2?.title,
+              hasDescription: !!pinIntelV2?.description,
+              imageCount: pinIntelV2?.images?.length || 0,
+              provider: pinIntelV2?.place?.source
+            })
+          } else {
+            console.warn("⚠️ /api/pin-intel failed:", resp.status)
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.warn("⚠️ /api/pin-intel request failed:", error)
+          }
         }
       }
 
       if (signal.aborted) {
         console.log("🧠 /api/pin-intel request was aborted")
+        return
+      }
+
+      // Confirmation step (no duplicate enrichment calls)
+      if (!options?.skipConfirmation && !pre) {
+        const resolvedName = pinIntelV2?.title || poiName || editingPin.locationName || ''
+        const expectedName = searchTerm || useSelectedPOI?.name || editingPin.title || ''
+        const mismatch = looksDifferent(expectedName, resolvedName)
+        setPinConfirmPayload({
+          committedLocation,
+          pinIntelData,
+          pinIntelV2,
+          searchTerm,
+          overrideHint,
+          useSelectedPOI
+        })
+        setPinConfirmStage('confirming')
+        // Release flags; user is now deciding.
+        setIsUpdatingPinLocation(false)
+        isUpdatingPinRef.current = false
+        if (mismatch) {
+          // keep helper text visible (UI checks mismatch via payload)
+          console.log('⚠️ Pin confirmation: name mismatch detected', { expectedName, resolvedName })
+        }
         return
       }
 
@@ -3169,6 +3267,349 @@ export default function PINITApp() {
                 >
                   {selectedPOI ? `Use ${selectedPOI.name}` : "Use Auto-Selected"}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pin Confirmation (prevents POI mismatches) */}
+          {pinConfirmOpen && !showPOISelection && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(0, 0, 0, 0.55)",
+                zIndex: 2200,
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                padding: "1rem"
+              }}
+              onClick={(e) => {
+                // Don't close on backdrop click (forgiving + explicit actions)
+                e.stopPropagation()
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: "520px",
+                  background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                  borderRadius: "1.25rem",
+                  border: "2px solid rgba(255,255,255,0.25)",
+                  backdropFilter: "blur(15px)",
+                  padding: "1.25rem",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.35)"
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+                  <div>
+                    <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "white" }}>
+                      We found this place
+                    </div>
+                    <div style={{ fontSize: "0.875rem", opacity: 0.9, color: "white", marginTop: "0.25rem" }}>
+                      Maps aren’t always perfect. If this doesn’t look right, move the pin slightly or search for the correct name.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Treat as "Adjust pin"
+                      setPinConfirmOpen(false)
+                      setPinConfirmStage('idle')
+                      setPinConfirmPayload(null)
+                      setPinConfirmSearchOpen(false)
+                      setPinConfirmSearchResults([])
+                      lastDoneLocationRef.current = null
+                    }}
+                    style={{
+                      background: "rgba(255,255,255,0.12)",
+                      color: "white",
+                      padding: "0.5rem 0.75rem",
+                      borderRadius: "0.75rem",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      cursor: "pointer",
+                      fontWeight: 700
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={{ marginTop: "1rem" }}>
+                  {pinConfirmStage === 'finding' && (
+                    <div style={{ color: "white", opacity: 0.95, padding: "0.75rem 0" }}>
+                      ⏳ Finding place…
+                    </div>
+                  )}
+
+                  {pinConfirmStage !== 'finding' && (
+                    <>
+                      {(() => {
+                        const v2 = pinConfirmPayload?.pinIntelV2
+                        const place = v2?.place
+                        const resolvedTitle = String(v2?.title || place?.name || '').trim()
+                        const resolvedAddress = String(place?.address || '').trim()
+                        const resolvedCategory = String(place?.category || '').trim()
+                        const confidence = typeof place?.confidence === 'number' ? place.confidence : undefined
+                        const ok = !!resolvedTitle && (confidence == null || confidence >= 0.8)
+                        const expected = pinConfirmPayload?.overrideHint || pinConfirmPayload?.searchTerm || pinConfirmPayload?.useSelectedPOI?.name || editingPin?.title
+                        const mismatch = looksDifferent(expected, resolvedTitle)
+
+                        return (
+                          <div
+                            style={{
+                              background: "rgba(255,255,255,0.10)",
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              borderRadius: "1rem",
+                              padding: "1rem",
+                              color: "white"
+                            }}
+                          >
+                            {ok ? (
+                              <>
+                                <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>
+                                  {resolvedTitle}
+                                </div>
+                                {(resolvedAddress || resolvedCategory) && (
+                                  <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", opacity: 0.95, lineHeight: 1.35 }}>
+                                    {resolvedAddress ? <div>{resolvedAddress}</div> : null}
+                                    {resolvedCategory ? <div style={{ marginTop: resolvedAddress ? "0.25rem" : 0, opacity: 0.9 }}>
+                                      {resolvedCategory}
+                                    </div> : null}
+                                  </div>
+                                )}
+                                {mismatch && (
+                                  <div style={{ marginTop: "0.75rem", fontSize: "0.875rem", opacity: 0.95 }}>
+                                    Looks different? Try moving the pin a few meters or use search.
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>
+                                  We couldn’t confidently identify this place.
+                                </div>
+                                <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", opacity: 0.95, lineHeight: 1.35 }}>
+                                  Try adjusting the pin slightly or search by name.
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </>
+                  )}
+                </div>
+
+                {/* Search instead */}
+                {pinConfirmStage !== 'finding' && pinConfirmSearchOpen && (
+                  <div style={{ marginTop: "1rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input
+                        value={pinConfirmSearchQuery}
+                        onChange={(e) => setPinConfirmSearchQuery(e.target.value)}
+                        placeholder="Search by name (e.g., Angie’s Bistro)"
+                        style={{
+                          flex: 1,
+                          padding: "0.75rem 0.9rem",
+                          borderRadius: "0.75rem",
+                          border: "1px solid rgba(255,255,255,0.25)",
+                          background: "rgba(255,255,255,0.12)",
+                          color: "white",
+                          outline: "none"
+                        }}
+                      />
+                      <button
+                        disabled={pinConfirmSearchLoading || !pinConfirmSearchQuery.trim()}
+                        onClick={async () => {
+                          const q = pinConfirmSearchQuery.trim()
+                          if (!q) return
+                          setPinConfirmSearchLoading(true)
+                          try {
+                            const prox = pendingPinLocation || committedPinLocation || null
+                            const u = new URL('/api/mapbox_geocoding', window.location.origin)
+                            u.searchParams.set('query', q)
+                            u.searchParams.set('types', 'poi,place,address')
+                            if (prox) {
+                              u.searchParams.set('proximityLat', String(prox.lat))
+                              u.searchParams.set('proximityLng', String(prox.lng))
+                            }
+                            const resp = await fetch(u.toString())
+                            const json = resp.ok ? await resp.json() : null
+                            const places = Array.isArray(json?.places) ? json.places : []
+                            // Sort by distance to current pin (client-side)
+                            const toRad = (x: number) => (x * Math.PI) / 180
+                            const distM = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+                              const R = 6371000
+                              const dLat = toRad(b.lat - a.lat)
+                              const dLon = toRad(b.lng - a.lng)
+                              const lat1 = toRad(a.lat)
+                              const lat2 = toRad(b.lat)
+                              const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+                              return 2 * R * Math.asin(Math.sqrt(h))
+                            }
+                            const origin = prox ? { lat: prox.lat, lng: prox.lng } : null
+                            const enriched = origin
+                              ? places
+                                  .map((p: any) => ({
+                                    ...p,
+                                    _distanceM:
+                                      p?.location?.lat && p?.location?.lng ? Math.round(distM(origin, p.location)) : 999999
+                                  }))
+                                  .sort((a: any, b: any) => a._distanceM - b._distanceM)
+                              : places
+                            setPinConfirmSearchResults(enriched.slice(0, 5))
+                          } catch (e) {
+                            console.warn('⚠️ Search failed:', e)
+                            setPinConfirmSearchResults([])
+                          } finally {
+                            setPinConfirmSearchLoading(false)
+                          }
+                        }}
+                        style={{
+                          background: pinConfirmSearchLoading ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.18)",
+                          color: "white",
+                          padding: "0.75rem 0.9rem",
+                          borderRadius: "0.75rem",
+                          border: "1px solid rgba(255,255,255,0.25)",
+                          cursor: pinConfirmSearchLoading ? "not-allowed" : "pointer",
+                          fontWeight: 700,
+                          opacity: pinConfirmSearchLoading ? 0.7 : 1
+                        }}
+                      >
+                        {pinConfirmSearchLoading ? "Searching…" : "Search"}
+                      </button>
+                    </div>
+
+                    {pinConfirmSearchResults.length > 0 && (
+                      <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        {pinConfirmSearchResults.map((p: any, idx: number) => (
+                          <button
+                            key={`${p?.id || idx}`}
+                            onClick={async () => {
+                              const lat = Number(p?.location?.lat)
+                              const lng = Number(p?.location?.lng)
+                              const name = String(p?.name || '').trim()
+                              if (!Number.isFinite(lat) || !Number.isFinite(lng) || !name) return
+                              // Move the pin to the selected result and re-run resolve (user-driven)
+                              setPendingPinLocation({ lat, lng })
+                              setCommittedPinLocation({ lat, lng })
+                              lastDoneLocationRef.current = null
+                              setPinConfirmSearchOpen(false)
+                              setPinConfirmSearchResults([])
+                              setPinConfirmStage('finding')
+                              await handlePinEditDone(undefined, { overrideLocation: { lat, lng }, overrideHint: name })
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              background: "rgba(255,255,255,0.10)",
+                              color: "white",
+                              padding: "0.75rem 0.9rem",
+                              borderRadius: "0.75rem",
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <div style={{ fontWeight: 800 }}>{p?.name}</div>
+                            <div style={{ fontSize: "0.85rem", opacity: 0.9, marginTop: "0.25rem" }}>
+                              {p?._distanceM != null && Number.isFinite(Number(p._distanceM)) ? `${p._distanceM}m • ` : ''}
+                              {p?.place_name || p?.address || ''}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+                  <button
+                    onClick={async () => {
+                      if (!pinConfirmPayload) return
+                      setPinConfirmStage('saving')
+                      try {
+                        await handlePinEditDone(pinConfirmPayload.useSelectedPOI, {
+                          preResolved: pinConfirmPayload,
+                          skipConfirmation: true
+                        })
+                        setPinConfirmOpen(false)
+                        setPinConfirmStage('idle')
+                        setPinConfirmPayload(null)
+                        setPinConfirmSearchOpen(false)
+                        setPinConfirmSearchResults([])
+                      } catch (e) {
+                        console.warn('⚠️ Confirm save failed:', e)
+                        setPinConfirmStage('confirming')
+                      }
+                    }}
+                    disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving' || !pinConfirmPayload}
+                    style={{
+                      flex: 1,
+                      background: pinConfirmStage === 'saving' ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.18)",
+                      color: "white",
+                      padding: "0.85rem 1rem",
+                      borderRadius: "0.85rem",
+                      border: "1px solid rgba(255,255,255,0.25)",
+                      cursor: pinConfirmStage === 'saving' ? "not-allowed" : "pointer",
+                      fontWeight: 800,
+                      opacity: pinConfirmStage === 'finding' ? 0.6 : 1
+                    }}
+                  >
+                    {pinConfirmStage === 'saving' ? "Saving…" : "✅ Confirm"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPinConfirmOpen(false)
+                      setPinConfirmStage('idle')
+                      setPinConfirmPayload(null)
+                      setPinConfirmSearchOpen(false)
+                      setPinConfirmSearchResults([])
+                      lastDoneLocationRef.current = null
+                    }}
+                    disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving'}
+                    style={{
+                      background: "rgba(255,255,255,0.12)",
+                      color: "white",
+                      padding: "0.85rem 1rem",
+                      borderRadius: "0.85rem",
+                      border: "1px solid rgba(255,255,255,0.22)",
+                      cursor: "pointer",
+                      fontWeight: 800,
+                      opacity: pinConfirmStage === 'finding' ? 0.6 : 1
+                    }}
+                  >
+                    🔄 Adjust pin
+                  </button>
+                </div>
+
+                <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "center" }}>
+                  <button
+                    onClick={() => {
+                      setPinConfirmSearchOpen((v) => !v)
+                      if (!pinConfirmSearchOpen) {
+                        setPinConfirmSearchQuery(pinConfirmPayload?.overrideHint || pinConfirmPayload?.searchTerm || '')
+                        setPinConfirmSearchResults([])
+                      }
+                    }}
+                    disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving'}
+                    style={{
+                      background: "transparent",
+                      color: "rgba(255,255,255,0.95)",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                      textDecoration: "underline",
+                      opacity: pinConfirmStage === 'finding' ? 0.6 : 1
+                    }}
+                  >
+                    🔍 Search instead
+                  </button>
+                </div>
               </div>
             </div>
           )}
