@@ -167,6 +167,9 @@ function InteractiveMainMap({
       interactive={true}
       // Keep the main "Shazam circle" map clean (no POI markers here).
       showPOIs={false}
+      // Improve label readability without changing zoom
+      labelScale={1.18}
+      poiLabelMinZoomDelta={-1}
     />
   )
 }
