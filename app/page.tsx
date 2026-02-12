@@ -3511,6 +3511,9 @@ export default function PINITApp() {
                       if (!pinConfirmPayload) return
                       setPinConfirmStage('saving')
                       try {
+                        // Bypass the "same-location within 15s" debounce: Confirm should save immediately
+                        // using the already-resolved data (no extra resolver calls).
+                        lastDoneLocationRef.current = null
                         await handlePinEditDone(pinConfirmPayload.useSelectedPOI, {
                           preResolved: pinConfirmPayload,
                           skipConfirmation: true
