@@ -43,10 +43,6 @@ export interface MapboxMapProps {
   interactive?: boolean
   className?: string
   style?: React.CSSProperties
-  // Label readability tweaks (do not change map zoom)
-  labelScale?: number // e.g. 1.15
-  poiLabelMinZoomDelta?: number // e.g. -1 to show POIs sooner
-  poiLabelAllowOverlap?: boolean // show more POI labels (less collision hiding)
   // For draggable marker (single marker editing use case)
   draggableMarker?: {
     lat: number
@@ -67,9 +63,6 @@ export default function MapboxMap({
   interactive = true,
   className = "",
   style = {},
-  labelScale = 1,
-  poiLabelMinZoomDelta = 0,
-  poiLabelAllowOverlap = false,
   draggableMarker,
   showPOIs = false,
   onPOIClick
@@ -289,78 +282,6 @@ export default function MapboxMap({
     }
   }
 
-  const applyLabelTweaks = useCallback((map: any) => {
-    try {
-      const scale = Number.isFinite(Number(labelScale)) ? Number(labelScale) : 1
-      const dz = Number.isFinite(Number(poiLabelMinZoomDelta)) ? Number(poiLabelMinZoomDelta) : 0
-      const allowOverlap = !!poiLabelAllowOverlap
-      if (scale === 1 && dz === 0 && !allowOverlap) return
-
-      const styleObj = map?.getStyle?.()
-      const layers: any[] = Array.isArray(styleObj?.layers) ? styleObj.layers : []
-      let touched = 0
-
-      for (const layer of layers) {
-        const id = String(layer?.id || '')
-        if (!id) continue
-        if (layer?.type !== 'symbol') continue
-        const hasText = !!(layer?.layout && (layer.layout as any)['text-field'])
-        if (!hasText) continue
-
-        const sourceLayer = String((layer as any)?.['source-layer'] || '')
-        const isLabel = /label/i.test(id) || /label/i.test(sourceLayer)
-        const isPoiLike =
-          /poi|poi-label|poi_label|poi_label_2|poi_level|poi/i.test(id) ||
-          /poi|poi_label|poi_label_2|poi_level|poi/i.test(sourceLayer) ||
-          /restaurant|cafe|bar|food|shop|store|attraction/i.test(id) ||
-          /restaurant|cafe|bar|food|shop|store|attraction/i.test(sourceLayer)
-
-        // In Mapbox Streets v12, the "interesting" POI layers are not always named with obvious ids,
-        // so we consider source-layer too. We keep this scoped to label-ish symbol layers.
-        const isPoiLabelLayer = isPoiLike && isLabel
-
-        // 1) Make label text slightly bigger (without changing map zoom)
-        if (scale !== 1) {
-          const cur = map.getLayoutProperty(id, 'text-size')
-          if (typeof cur === 'number') {
-            map.setLayoutProperty(id, 'text-size', Math.max(8, cur * scale))
-            touched++
-          } else if (Array.isArray(cur)) {
-            map.setLayoutProperty(id, 'text-size', ['*', cur, scale])
-            touched++
-          }
-        }
-
-        // 2) Show POI-ish labels slightly earlier (reduces "must zoom in to see it")
-        if (dz !== 0) {
-          if (isPoiLabelLayer) {
-            const minz = typeof layer?.minzoom === 'number' ? layer.minzoom : 0
-            const maxz = typeof layer?.maxzoom === 'number' ? layer.maxzoom : 24
-            const nextMin = Math.max(0, minz + dz)
-            map.setLayerZoomRange(id, nextMin, maxz)
-            touched++
-          }
-        }
-
-        // 3) Reduce collision hiding for POI labels only (so more names show at the same zoom).
-        // This can increase clutter, so we keep it opt-in and scoped.
-        if (allowOverlap && isPoiLabelLayer) {
-          map.setLayoutProperty(id, 'text-allow-overlap', true)
-          map.setLayoutProperty(id, 'text-ignore-placement', true)
-          map.setLayoutProperty(id, 'icon-allow-overlap', true)
-          map.setLayoutProperty(id, 'icon-ignore-placement', true)
-          touched++
-        }
-      }
-
-      if (touched > 0) {
-        console.log('🔤 Applied label tweaks:', { touched, scale, dz, allowOverlap })
-      }
-    } catch (e) {
-      console.warn('⚠️ Failed to apply label tweaks:', e)
-    }
-  }, [labelScale, poiLabelMinZoomDelta, poiLabelAllowOverlap])
-
   // Initialize Mapbox map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return
@@ -397,14 +318,6 @@ export default function MapboxMap({
         console.log('🗺️ Mapbox map loaded successfully')
         isMapLoadedRef.current = true
         
-        // Optional label readability improvements (no zoom change)
-        applyLabelTweaks(map)
-
-        // Some styles finish populating layers after load; re-apply once after style settles.
-        const reapply = () => applyLabelTweaks(map)
-        map.once('idle', reapply)
-        map.on('styledata', reapply)
-        
         // Add click handler for map clicks (pin creation)
         if (onMapClick && interactive) {
           map.on('click', (e) => {
@@ -436,14 +349,6 @@ export default function MapboxMap({
 
     // Cleanup on unmount
     return () => {
-      // Remove map listeners (best-effort)
-      try {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.off('styledata', applyLabelTweaks as any)
-        }
-      } catch {
-        // ignore
-      }
       if (draggableMarkerRef.current) {
         try {
           draggableMarkerRef.current.remove()
@@ -466,13 +371,6 @@ export default function MapboxMap({
       poiMarkersRef.current.clear()
     }
   }, []) // Only run once on mount
-
-  // Re-apply label tweaks when props change (main map can stay mounted)
-  useEffect(() => {
-    if (mapInstanceRef.current && isMapLoadedRef.current) {
-      applyLabelTweaks(mapInstanceRef.current)
-    }
-  }, [applyLabelTweaks])
 
   // Update map center when center prop changes
   useEffect(() => {
