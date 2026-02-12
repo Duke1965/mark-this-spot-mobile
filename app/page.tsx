@@ -170,6 +170,7 @@ function InteractiveMainMap({
       // Improve label readability without changing zoom
       labelScale={1.18}
       poiLabelMinZoomDelta={-1}
+      poiLabelAllowOverlap={true}
     />
   )
 }
