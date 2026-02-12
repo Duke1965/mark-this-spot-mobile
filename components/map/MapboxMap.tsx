@@ -46,6 +46,7 @@ export interface MapboxMapProps {
   // Label readability tweaks (do not change map zoom)
   labelScale?: number // e.g. 1.15
   poiLabelMinZoomDelta?: number // e.g. -1 to show POIs sooner
+  poiLabelAllowOverlap?: boolean // show more POI labels (less collision hiding)
   // For draggable marker (single marker editing use case)
   draggableMarker?: {
     lat: number
@@ -68,6 +69,7 @@ export default function MapboxMap({
   style = {},
   labelScale = 1,
   poiLabelMinZoomDelta = 0,
+  poiLabelAllowOverlap = false,
   draggableMarker,
   showPOIs = false,
   onPOIClick
@@ -291,7 +293,8 @@ export default function MapboxMap({
     try {
       const scale = Number.isFinite(Number(labelScale)) ? Number(labelScale) : 1
       const dz = Number.isFinite(Number(poiLabelMinZoomDelta)) ? Number(poiLabelMinZoomDelta) : 0
-      if (scale === 1 && dz === 0) return
+      const allowOverlap = !!poiLabelAllowOverlap
+      if (scale === 1 && dz === 0 && !allowOverlap) return
 
       const styleObj = map?.getStyle?.()
       const layers: any[] = Array.isArray(styleObj?.layers) ? styleObj.layers : []
@@ -302,6 +305,10 @@ export default function MapboxMap({
         if (layer?.type !== 'symbol') continue
         const hasText = !!(layer?.layout && (layer.layout as any)['text-field'])
         if (!hasText) continue
+
+        const isPoiLike = /poi|poi-label|poi_label|restaurant|cafe|bar|food|shop|store|attraction/i.test(id)
+        const isLabel = /label/i.test(id)
+        const isPoiLabelLayer = isPoiLike && isLabel
 
         // 1) Make label text slightly bigger (without changing map zoom)
         if (scale !== 1) {
@@ -315,20 +322,27 @@ export default function MapboxMap({
 
         // 2) Show POI-ish labels slightly earlier (reduces "must zoom in to see it")
         if (dz !== 0) {
-          const isPoiLike = /poi|poi-label|poi_label|restaurant|cafe|bar|food|shop|store|attraction/i.test(id)
-          const isLabel = /label/i.test(id)
-          if (isPoiLike && isLabel) {
+          if (isPoiLabelLayer) {
             const minz = typeof layer?.minzoom === 'number' ? layer.minzoom : 0
             const maxz = typeof layer?.maxzoom === 'number' ? layer.maxzoom : 24
             const nextMin = Math.max(0, minz + dz)
             map.setLayerZoomRange(id, nextMin, maxz)
           }
         }
+
+        // 3) Reduce collision hiding for POI labels only (so more names show at the same zoom).
+        // This can increase clutter, so we keep it opt-in and scoped.
+        if (allowOverlap && isPoiLabelLayer) {
+          map.setLayoutProperty(id, 'text-allow-overlap', true)
+          map.setLayoutProperty(id, 'text-ignore-placement', true)
+          map.setLayoutProperty(id, 'icon-allow-overlap', true)
+          map.setLayoutProperty(id, 'icon-ignore-placement', true)
+        }
       }
     } catch (e) {
       console.warn('⚠️ Failed to apply label tweaks:', e)
     }
-  }, [labelScale, poiLabelMinZoomDelta])
+  }, [labelScale, poiLabelMinZoomDelta, poiLabelAllowOverlap])
 
   // Initialize Mapbox map
   useEffect(() => {
