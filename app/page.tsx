@@ -146,10 +146,6 @@ function InteractiveMapEditor({
         }}
         // Keep the pin-adjust editor clean (no scattered POI markers).
         showPOIs={false}
-        // Improve label readability while placing/adjusting (users shouldn't have to zoom to see names)
-        labelScale={1.22}
-        poiLabelMinZoomDelta={-2}
-        poiLabelAllowOverlap={true}
         style={{ width: '100%', height: '100%' }}
       />
     </div>
@@ -171,10 +167,6 @@ function InteractiveMainMap({
       interactive={true}
       // Keep the main "Shazam circle" map clean (no POI markers here).
       showPOIs={false}
-      // Improve label readability without changing zoom
-      labelScale={1.18}
-      poiLabelMinZoomDelta={-2}
-      poiLabelAllowOverlap={true}
     />
   )
 }
@@ -3620,7 +3612,12 @@ export default function PINITApp() {
           }}
         >
           <span style={{ fontSize: "1.5rem" }}>📍</span>
-          <span style={{ fontWeight: "600" }}>Edit Mode - Move pin to exact location</span>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+            <span style={{ fontWeight: "600" }}>Edit Mode - Move pin to exact location</span>
+            <span style={{ fontSize: "0.85rem", opacity: 0.9 }}>
+              Zoom in if your pinned place is not showing
+            </span>
+          </div>
         </div>
       </div>
     )
