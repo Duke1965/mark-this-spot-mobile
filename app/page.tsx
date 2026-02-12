@@ -146,6 +146,10 @@ function InteractiveMapEditor({
         }}
         // Keep the pin-adjust editor clean (no scattered POI markers).
         showPOIs={false}
+        // Improve label readability while placing/adjusting (users shouldn't have to zoom to see names)
+        labelScale={1.22}
+        poiLabelMinZoomDelta={-2}
+        poiLabelAllowOverlap={true}
         style={{ width: '100%', height: '100%' }}
       />
     </div>
@@ -169,7 +173,7 @@ function InteractiveMainMap({
       showPOIs={false}
       // Improve label readability without changing zoom
       labelScale={1.18}
-      poiLabelMinZoomDelta={-1}
+      poiLabelMinZoomDelta={-2}
       poiLabelAllowOverlap={true}
     />
   )
