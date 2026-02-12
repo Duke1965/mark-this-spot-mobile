@@ -298,6 +298,7 @@ export default function MapboxMap({
 
       const styleObj = map?.getStyle?.()
       const layers: any[] = Array.isArray(styleObj?.layers) ? styleObj.layers : []
+      let touched = 0
 
       for (const layer of layers) {
         const id = String(layer?.id || '')
@@ -306,8 +307,16 @@ export default function MapboxMap({
         const hasText = !!(layer?.layout && (layer.layout as any)['text-field'])
         if (!hasText) continue
 
-        const isPoiLike = /poi|poi-label|poi_label|restaurant|cafe|bar|food|shop|store|attraction/i.test(id)
-        const isLabel = /label/i.test(id)
+        const sourceLayer = String((layer as any)?.['source-layer'] || '')
+        const isLabel = /label/i.test(id) || /label/i.test(sourceLayer)
+        const isPoiLike =
+          /poi|poi-label|poi_label|poi_label_2|poi_level|poi/i.test(id) ||
+          /poi|poi_label|poi_label_2|poi_level|poi/i.test(sourceLayer) ||
+          /restaurant|cafe|bar|food|shop|store|attraction/i.test(id) ||
+          /restaurant|cafe|bar|food|shop|store|attraction/i.test(sourceLayer)
+
+        // In Mapbox Streets v12, the "interesting" POI layers are not always named with obvious ids,
+        // so we consider source-layer too. We keep this scoped to label-ish symbol layers.
         const isPoiLabelLayer = isPoiLike && isLabel
 
         // 1) Make label text slightly bigger (without changing map zoom)
@@ -315,8 +324,10 @@ export default function MapboxMap({
           const cur = map.getLayoutProperty(id, 'text-size')
           if (typeof cur === 'number') {
             map.setLayoutProperty(id, 'text-size', Math.max(8, cur * scale))
+            touched++
           } else if (Array.isArray(cur)) {
             map.setLayoutProperty(id, 'text-size', ['*', cur, scale])
+            touched++
           }
         }
 
@@ -327,6 +338,7 @@ export default function MapboxMap({
             const maxz = typeof layer?.maxzoom === 'number' ? layer.maxzoom : 24
             const nextMin = Math.max(0, minz + dz)
             map.setLayerZoomRange(id, nextMin, maxz)
+            touched++
           }
         }
 
@@ -337,7 +349,12 @@ export default function MapboxMap({
           map.setLayoutProperty(id, 'text-ignore-placement', true)
           map.setLayoutProperty(id, 'icon-allow-overlap', true)
           map.setLayoutProperty(id, 'icon-ignore-placement', true)
+          touched++
         }
+      }
+
+      if (touched > 0) {
+        console.log('🔤 Applied label tweaks:', { touched, scale, dz, allowOverlap })
       }
     } catch (e) {
       console.warn('⚠️ Failed to apply label tweaks:', e)
@@ -382,6 +399,11 @@ export default function MapboxMap({
         
         // Optional label readability improvements (no zoom change)
         applyLabelTweaks(map)
+
+        // Some styles finish populating layers after load; re-apply once after style settles.
+        const reapply = () => applyLabelTweaks(map)
+        map.once('idle', reapply)
+        map.on('styledata', reapply)
         
         // Add click handler for map clicks (pin creation)
         if (onMapClick && interactive) {
@@ -414,6 +436,14 @@ export default function MapboxMap({
 
     // Cleanup on unmount
     return () => {
+      // Remove map listeners (best-effort)
+      try {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.off('styledata', applyLabelTweaks as any)
+        }
+      } catch {
+        // ignore
+      }
       if (draggableMarkerRef.current) {
         try {
           draggableMarkerRef.current.remove()
@@ -436,6 +466,13 @@ export default function MapboxMap({
       poiMarkersRef.current.clear()
     }
   }, []) // Only run once on mount
+
+  // Re-apply label tweaks when props change (main map can stay mounted)
+  useEffect(() => {
+    if (mapInstanceRef.current && isMapLoadedRef.current) {
+      applyLabelTweaks(mapInstanceRef.current)
+    }
+  }, [applyLabelTweaks])
 
   // Update map center when center prop changes
   useEffect(() => {
