@@ -128,6 +128,24 @@ export function usePinStorage() {
     }
   }, [])
 
+  const publishUserRecommendationToCloud = useCallback(async (pin: PinData) => {
+    // Only publish *user* recommendations (not AI suggestions)
+    if (!pin?.isRecommended) return
+    if (pin?.isAISuggestion) return
+    try {
+      const user: any = (auth as any)?.currentUser
+      if (!user?.getIdToken) return
+      const token = await user.getIdToken()
+      await fetch("/api/recommendations/upsert-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pin })
+      })
+    } catch {
+      // ignore
+    }
+  }, [])
+
   // Save pins to localStorage whenever pins change
   useEffect(() => {
     try {
@@ -206,8 +224,11 @@ export function usePinStorage() {
 
     // Best-effort cloud upsert (cross-device).
     upsertPinToCloud(validatedPin)
+
+    // Best-effort: if this pin is a user recommendation, publish it globally too.
+    publishUserRecommendationToCloud(validatedPin)
     return true
-  }, [upsertPinToCloud])
+  }, [publishUserRecommendationToCloud, upsertPinToCloud])
 
   const removePin = useCallback((pinId: string) => {
     setPins((prev) => prev.filter((pin) => pin.id !== pinId))
@@ -226,11 +247,12 @@ export function usePinStorage() {
         const updated = { ...pin, ...updates, _lastUpdated: new Date().toISOString() } as PinData
         // Best-effort cloud upsert for edits.
         upsertPinToCloud(updated)
+        publishUserRecommendationToCloud(updated)
         return updated
       })
     )
     console.log("✏️ Pin updated:", pinId, updates)
-  }, [upsertPinToCloud])
+  }, [publishUserRecommendationToCloud, upsertPinToCloud])
 
   // Enhanced functions for recommendations
   const markPinAsRecommended = useCallback((pinId: string, recommended: boolean = true) => {
