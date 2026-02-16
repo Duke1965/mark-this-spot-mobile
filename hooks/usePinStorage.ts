@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback } from "react"
 import type { PinData } from "@/lib/types"
 import { validatePin, validatePinCollection } from "@/lib/validation"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { dataSyncManager } from "@/lib/dataSync"
 
 export function usePinStorage() {
   const [pins, setPins] = useState<PinData[]>([])
+  const [cloudReady, setCloudReady] = useState(false)
 
   // Enhanced data loading with validation and backup
   useEffect(() => {
@@ -66,6 +70,61 @@ export function usePinStorage() {
       } catch (clearError) {
         console.error("❌ Failed to clear corrupted data:", clearError)
       }
+    }
+  }, [])
+
+  // Cloud sync: when logged in, fetch pins from Firestore and merge with local.
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth as any, async (user: any) => {
+      if (!user?.getIdToken) {
+        setCloudReady(false)
+        return
+      }
+
+      try {
+        const token = await user.getIdToken()
+        const resp = await fetch("/api/pins/query?limit=500", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!resp.ok) {
+          setCloudReady(false)
+          return
+        }
+        const data = await resp.json()
+        const remotePins: any[] = Array.isArray(data?.pins) ? data.pins : []
+
+        // Merge local + remote with conflict resolution (latest wins).
+        setPins((localPins) => {
+          const { merged } = dataSyncManager.mergePins(localPins, remotePins as any, "latest")
+          const cleaned = dataSyncManager.validateMergedData(merged).valid
+          cleaned.sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+          return cleaned
+        })
+
+        setCloudReady(true)
+      } catch (e) {
+        console.warn("☁️ Failed to sync pins from cloud:", e)
+        setCloudReady(false)
+      }
+    })
+
+    return () => unsub()
+  }, [])
+
+  const upsertPinToCloud = useCallback(async (pin: PinData) => {
+    try {
+      const user: any = (auth as any)?.currentUser
+      if (!user?.getIdToken) return
+      const token = await user.getIdToken()
+      await fetch("/api/pins/upsert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pin })
+      })
+    } catch {
+      // ignore (offline / network)
     }
   }, [])
 
@@ -144,8 +203,11 @@ export function usePinStorage() {
     
     setPins((prev) => [validatedPin, ...prev])
     console.log("📌 Pin added with validation:", validatedPin)
+
+    // Best-effort cloud upsert (cross-device).
+    upsertPinToCloud(validatedPin)
     return true
-  }, [])
+  }, [upsertPinToCloud])
 
   const removePin = useCallback((pinId: string) => {
     setPins((prev) => prev.filter((pin) => pin.id !== pinId))
@@ -158,11 +220,17 @@ export function usePinStorage() {
   }, [])
 
   const updatePin = useCallback((pinId: string, updates: Partial<PinData>) => {
-    setPins((prev) => prev.map((pin) => 
-      pin.id === pinId ? { ...pin, ...updates, _lastUpdated: new Date().toISOString() } : pin
-    ))
+    setPins((prev) =>
+      prev.map((pin) => {
+        if (pin.id !== pinId) return pin
+        const updated = { ...pin, ...updates, _lastUpdated: new Date().toISOString() } as PinData
+        // Best-effort cloud upsert for edits.
+        upsertPinToCloud(updated)
+        return updated
+      })
+    )
     console.log("✏️ Pin updated:", pinId, updates)
-  }, [])
+  }, [upsertPinToCloud])
 
   // Enhanced functions for recommendations
   const markPinAsRecommended = useCallback((pinId: string, recommended: boolean = true) => {
@@ -297,6 +365,7 @@ export function usePinStorage() {
     removePin,
     clearPins,
     updatePin,
+    cloudReady,
     markPinAsRecommended,
     markPinAsAISuggestion,
     getRecommendedPins,
