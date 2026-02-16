@@ -7,6 +7,7 @@ interface ContentEditorProps {
   mediaUrl: string
   mediaType: "photo" | "video"
   platform: string
+  editorMode?: "capture" | "share"
   onBack: () => void
   onPost: (contentData: any) => void
   onSave: (contentData: any) => void
@@ -249,7 +250,9 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
   )
 }
 
-export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, onSave }: ContentEditorProps) {
+export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "capture", onBack, onPost, onSave }: ContentEditorProps) {
+  const allowStickers = editorMode === "capture"
+
   // Available stickers (matching exact GitHub file names)
   const availableStickers = [
     // Old School stickers
@@ -353,6 +356,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
   const [photoMode, setPhotoMode] = useState<"locked" | "sticker-selection">("sticker-selection") // Start with sticker selection open
   const [isRendering, setIsRendering] = useState(false) // Loading state for rendering
   const [stickersLocked, setStickersLocked] = useState(false) // Track if stickers are locked (handles hidden)
+  const [comments, setComments] = useState("")
+  const [pinRating, setPinRating] = useState<number>(0)
 
   // Filter stickers by category
   const filteredStickers = availableStickers.filter(sticker => sticker.category === stickerCategory)
@@ -383,6 +388,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Handle post
   const handlePost = async () => {
+    if (!allowStickers) {
+      onPost({ platform, stickers: [], comments, pinRating })
+      return
+    }
     setIsRendering(true)
     try {
       // Render stickers onto the photo
@@ -392,6 +401,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         stickers,
         platform,
         finalImageUrl, // Include the rendered image
+        comments,
+        pinRating,
       }
       onPost(contentData)
     } catch (error) {
@@ -400,6 +411,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       const contentData = {
         stickers,
         platform,
+        comments,
+        pinRating,
       }
       onPost(contentData)
     } finally {
@@ -409,6 +422,10 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
 
   // Handle save
   const handleSave = async () => {
+    if (!allowStickers) {
+      onSave({ platform, stickers: [], comments, pinRating })
+      return
+    }
     setIsRendering(true)
     try {
       // Render stickers and text onto the photo
@@ -418,6 +435,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         stickers,
         platform,
         finalImageUrl, // Include the rendered image
+        comments,
+        pinRating,
       }
       onSave(contentData)
     } catch (error) {
@@ -426,6 +445,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
       const contentData = {
         stickers,
         platform,
+        comments,
+        pinRating,
       }
       onSave(contentData)
     } finally {
@@ -636,7 +657,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
         }}
       >
         {/* Done Button - Only show when stickers are placed */}
-        {stickers.length > 0 && (
+        {allowStickers && stickers.length > 0 && (
           <button
             onClick={() => {
               setStickersLocked(true) // Lock stickers when Done is clicked
@@ -703,28 +724,114 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           )}
           
           {/* Draggable Stickers Overlay */}
-        {stickers.map((sticker) => (
-          <DraggableSticker
-            key={sticker.id}
-            sticker={sticker}
-            onUpdate={(updates) => {
-              console.log("🎯 Sticker update:", { stickerId: sticker.id, updates, currentSticker: sticker })
-              setStickers(prevStickers => prevStickers.map(s => 
-                s.id === sticker.id ? { ...s, ...updates } : s
-              ))
-            }}
-            onRemove={() => {
-              removeSticker(sticker.id)
-            }}
-            isActive={!stickersLocked} // Disable interactions when locked
-            stickersLocked={stickersLocked}
-          />
-        ))}
+          {allowStickers &&
+            stickers.map((sticker) => (
+              <DraggableSticker
+                key={sticker.id}
+                sticker={sticker}
+                onUpdate={(updates) => {
+                  console.log("🎯 Sticker update:", { stickerId: sticker.id, updates, currentSticker: sticker })
+                  setStickers((prevStickers) =>
+                    prevStickers.map((s) => (s.id === sticker.id ? { ...s, ...updates } : s))
+                  )
+                }}
+                onRemove={() => {
+                  removeSticker(sticker.id)
+                }}
+                isActive={!stickersLocked} // Disable interactions when locked
+                stickersLocked={stickersLocked}
+              />
+            ))}
         </div>
       </div>
 
+      {/* Pin share mode: comment + rating (no stickers/resizing) */}
+      {!allowStickers && (
+        <div
+          style={{
+            padding: "16px",
+            background: "rgba(30, 58, 138, 0.95)",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
+            backdropFilter: "blur(15px)",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: 720, margin: "0 auto" }}>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 800, marginBottom: "6px", opacity: 0.95 }}>
+                Comment (optional)
+              </div>
+              <textarea
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="Write a short comment for your post…"
+                style={{
+                  width: "100%",
+                  minHeight: "72px",
+                  resize: "none",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "white",
+                  padding: "10px 12px",
+                  outline: "none",
+                  fontSize: "14px",
+                  lineHeight: 1.4,
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 800, marginBottom: "6px", opacity: 0.95 }}>
+                Pin rating (optional)
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPinRating(n)}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: pinRating >= n ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.08)",
+                      color: pinRating >= n ? "#0f172a" : "rgba(255,255,255,0.95)",
+                      cursor: "pointer",
+                      fontSize: 18,
+                      fontWeight: 900,
+                      transition: "all 0.15s ease",
+                    }}
+                    title={`${n} star${n === 1 ? "" : "s"}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                {pinRating > 0 && (
+                  <button
+                    onClick={() => setPinRating(0)}
+                    style={{
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,255,255,0.95)",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticker Selection Panel - Slides over photo */}
-          <div style={{ 
+      {allowStickers && (
+        <div style={{ 
         position: 'absolute',
         bottom: photoMode === "sticker-selection" ? '0' : '-100%',
         left: '0',
@@ -877,34 +984,37 @@ export function ContentEditor({ mediaUrl, mediaType, platform, onBack, onPost, o
           </div>
         </div>
       </div>
+      )}
 
       {/* Action Buttons */}
       <div style={{padding: '16px', background: 'rgba(30, 58, 138, 0.95)', borderTop: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(15px)'}}>
         <div style={{display: 'flex', gap: '8px'}}>
-          <button
-            onClick={handleSave}
-            disabled={isRendering}
-            style={{
-              flex: 1,
-              padding: '12px',
-              borderRadius: '0.75rem',
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
-              color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: isRendering ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
-            <Save size={16} />
-            {isRendering ? 'Rendering...' : 'Save'}
-          </button>
+          {allowStickers && (
+            <button
+              onClick={handleSave}
+              disabled={isRendering}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '0.75rem',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: isRendering ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
+                color: isRendering ? 'rgba(255,255,255,0.5)' : 'white',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: isRendering ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <Save size={16} />
+              {isRendering ? 'Rendering...' : 'Save'}
+            </button>
+          )}
           <button
             onClick={handlePost}
             disabled={isRendering}
