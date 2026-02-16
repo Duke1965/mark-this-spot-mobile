@@ -11,6 +11,7 @@ import type { PinData } from '../lib/types'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
+import { auth } from '@/lib/firebase'
 
 interface Recommendation {
   id: string
@@ -45,6 +46,7 @@ interface AIRecommendationsHubProps {
   userLocation?: any
   // NEW: Receive recommendations from parent component
   initialRecommendations?: Recommendation[]
+  onSharePin?: (pin: PinData) => void
   // Pin editing props
   editingPin?: any
   editingPinLocation?: { lat: number; lng: number } | null
@@ -57,6 +59,7 @@ export default function AIRecommendationsHub({
   onBack, 
   userLocation, 
   initialRecommendations,
+  onSharePin,
   editingPin,
   editingPinLocation,
   onPinLocationUpdate,
@@ -122,6 +125,114 @@ export default function AIRecommendationsHub({
   
   // NEW: State for filtering by User vs AI recommendations
   const [recommendationFilter, setRecommendationFilter] = useState<"all" | "user" | "ai">("all")
+
+  // Shared clustering logic (exact coordinate grouping).
+  // Defined here so it can be used before the hook-defined `clusterPins`.
+  function clusterPinsImpl(pins: Recommendation[]) {
+    const clustersByKey = new Map<string, ClusteredPin>()
+    const validPins = pins.filter((pin) => {
+      if (
+        !pin.location ||
+        !pin.location.lat ||
+        !pin.location.lng ||
+        !isFinite(pin.location.lat) ||
+        !isFinite(pin.location.lng)
+      ) {
+        return false
+      }
+      return true
+    })
+
+    validPins.forEach((pin) => {
+      const key = `${pin.location.lat.toFixed(6)},${pin.location.lng.toFixed(6)}`
+      const existing = clustersByKey.get(key)
+      if (existing) {
+        existing.recommendations.push(pin)
+        existing.count = existing.recommendations.length
+        if (pin.category && !existing.category.includes(pin.category)) {
+          existing.category = existing.category ? `${existing.category}, ${pin.category}` : pin.category
+        }
+      } else {
+        clustersByKey.set(key, {
+          id: `cluster-${pin.id}`,
+          location: pin.location,
+          count: 1,
+          recommendations: [pin],
+          category: pin.category || 'general'
+        })
+      }
+    })
+
+    return Array.from(clustersByKey.values())
+  }
+
+  const getIdToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const u: any = (auth as any)?.currentUser
+      if (!u?.getIdToken) return null
+      return await u.getIdToken()
+    } catch {
+      return null
+    }
+  }, [])
+
+  const loadRecommendationsFromServer = useCallback(async () => {
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    if (!lat || !lng) return
+    try {
+      const token = await getIdToken()
+      const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      })
+      if (!resp.ok) return
+      const data = await resp.json()
+      const serverRecs: Recommendation[] = Array.isArray(data?.recommendations) ? data.recommendations : []
+      if (serverRecs.length > 0) {
+        setRecommendations(serverRecs)
+        setClusteredPins(clusterPinsImpl(serverRecs))
+      }
+    } catch {
+      // ignore
+    }
+  }, [getIdToken, location?.lat, location?.latitude, location?.lng, location?.longitude])
+
+  // Firestore-backed recommendations (community + personalized AI) for this area.
+  useEffect(() => {
+    if (!isInitialized) return
+    loadRecommendationsFromServer()
+  }, [isInitialized, loadRecommendationsFromServer])
+
+  const persistAIRecommendationsToServer = useCallback(
+    async (items: Recommendation[]) => {
+      if (!items || items.length === 0) return
+      const token = await getIdToken()
+      if (!token) return
+      try {
+        await fetch('/api/recommendations/upsert-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            items: items
+              .filter((r) => r.isAISuggestion)
+              .map((r) => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                category: r.category,
+                location: r.location,
+                rating: r.rating,
+                confidence: r.confidence,
+                reason: r.reason
+              }))
+          })
+        })
+      } catch {
+        // ignore
+      }
+    },
+    [getIdToken]
+  )
   
   // Helper function to categorize places based on their types (must be defined before functions that use it)
   const getCategoryFromTypes = useCallback((types: string[]): string => {
@@ -1267,6 +1378,10 @@ export default function AIRecommendationsHub({
               // Keep only the most recent 10 recommendations to prevent spam
               return combined.slice(-10)
             })
+
+            // Persist AI recommendations to Firestore for cross-device consistency.
+            // (Best-effort; silently ignored if user is not signed in.)
+            persistAIRecommendationsToServer(aiRecs)
             
             // NEW: Update clustered pins whenever recommendations change
             setRecommendations(prev => {
@@ -1297,7 +1412,7 @@ export default function AIRecommendationsHub({
         setIsGeneratingRecommendations(false)
       })
     }
-  }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations, getLocationCacheKey, clusterPins]) // Added cache key and cluster functions
+  }, [location, insights, recommendations.length, isInitialized, isGeneratingRecommendations, getLocationCacheKey, clusterPins, persistAIRecommendationsToServer]) // Added cache key and cluster functions
 
   // Load user recommendations on mount and location change
   useEffect(() => {
@@ -2596,8 +2711,30 @@ export default function AIRecommendationsHub({
             </button>
             <button
               onClick={() => {
-                console.log('📤 Share button clicked - opening editable form')
-                // Prepare data and open editable form for sharing
+                console.log('📤 Share button clicked')
+                if (onSharePin) {
+                  const pinLike: PinData = {
+                    id: String(selectedRecommendation?.originalPinId || selectedRecommendation?.id || Date.now()),
+                    latitude: Number(selectedRecommendation?.location?.lat || 0),
+                    longitude: Number(selectedRecommendation?.location?.lng || 0),
+                    locationName: String(selectedRecommendation?.title || 'Location'),
+                    mediaUrl: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl || '/pinit-placeholder.jpg') as any,
+                    mediaType: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl) ? "photo" : null,
+                    audioUrl: null,
+                    timestamp: new Date().toISOString(),
+                    title: String(selectedRecommendation?.title || 'Location'),
+                    description: selectedRecommendation?.description || undefined,
+                    tags: ["share", selectedRecommendation?.category?.toLowerCase?.() || "general"],
+                    rating: typeof selectedRecommendation?.rating === "number" ? selectedRecommendation.rating : undefined,
+                    isRecommended: !!selectedRecommendation?.isRecommended,
+                    isAISuggestion: !!selectedRecommendation?.isAISuggestion,
+                    category: selectedRecommendation?.category || "general",
+                  }
+                  onSharePin(pinLike)
+                  return
+                }
+
+                // Fallback: keep existing editable form behavior if parent didn't provide share handler
                 setRecommendationFormData({
                   mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
                   locationName: selectedRecommendation.title || 'Location',
@@ -2684,9 +2821,31 @@ export default function AIRecommendationsHub({
             console.log('✅ Pin saved to library!')
           }}
           onShare={() => {
-            console.log('📤 Share on social media - to be implemented')
-            // TODO: Navigate to platform select screen or implement sharing
-            // For now, just log
+            console.log('📤 Share on social media')
+            if (onSharePin && selectedRecommendation) {
+              const pinLike: PinData = {
+                id: String(selectedRecommendation?.originalPinId || selectedRecommendation?.id || Date.now()),
+                latitude: Number(selectedRecommendation?.location?.lat || 0),
+                longitude: Number(selectedRecommendation?.location?.lng || 0),
+                locationName: String(selectedRecommendation?.title || 'Location'),
+                mediaUrl: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl || '/pinit-placeholder.jpg') as any,
+                mediaType: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl) ? "photo" : null,
+                audioUrl: null,
+                timestamp: new Date().toISOString(),
+                title: String(selectedRecommendation?.title || 'Location'),
+                description: selectedRecommendation?.description || undefined,
+                tags: ["share", selectedRecommendation?.category?.toLowerCase?.() || "general"],
+                rating: typeof selectedRecommendation?.rating === "number" ? selectedRecommendation.rating : undefined,
+                isRecommended: !!selectedRecommendation?.isRecommended,
+                isAISuggestion: !!selectedRecommendation?.isAISuggestion,
+                category: selectedRecommendation?.category || "general",
+              }
+              setShowRecommendationForm(false)
+              setShowReadOnlyRecommendation(false)
+              setRecommendationFormData(null)
+              setSelectedRecommendation(null)
+              onSharePin(pinLike)
+            }
           }}
           onRecommend={async (rating: number, review: string) => {
             console.log('📍 Recommendation submitted:', { rating, review, rec: selectedRecommendation })
