@@ -1345,9 +1345,25 @@ export default function AIRecommendationsHub({
       lastRecommendationsSignatureRef.current = ""
       return
     }
+
+    // Apply map filter to reduce clutter.
+    const visibleRecommendations =
+      recommendationFilter === "all"
+        ? recommendations
+        : recommendations.filter((r) =>
+            recommendationFilter === "ai" ? r.isAISuggestion === true : r.isAISuggestion !== true
+          )
+
+    if (!visibleRecommendations || visibleRecommendations.length === 0) {
+      // Clear markers and stop here (no visible markers for this filter)
+      console.log("🗺️ No visible recommendations for filter:", recommendationFilter)
+      hasFittedBoundsRef.current = false
+      lastRecommendationsSignatureRef.current = `filter:${recommendationFilter}|empty`
+      return
+    }
     
     // Only update if recommendations actually changed (by count or IDs)
-    const currentSignature = recommendations.map(r => r.id).sort().join("|")
+    const currentSignature = `filter:${recommendationFilter}|` + visibleRecommendations.map(r => r.id).sort().join("|")
     if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) return
     lastRecommendationsSignatureRef.current = currentSignature
     
@@ -1376,7 +1392,7 @@ export default function AIRecommendationsHub({
     const groupsByKey = new Map<string, MarkerGroup>()
     const typeCoordToPresence = new Map<string, { user: boolean; ai: boolean }>()
 
-    for (const rec of recommendations) {
+    for (const rec of visibleRecommendations) {
       if (!rec.location || !isFinite(rec.location.lat) || !isFinite(rec.location.lng)) continue
       const lat0 = rec.location.lat
       const lng0 = rec.location.lng
@@ -1481,7 +1497,7 @@ export default function AIRecommendationsHub({
     // The map is already initialized with zoom: 16, matching the main page
     
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
-  }, [recommendations, location])
+  }, [recommendations, location, recommendationFilter])
 
   // Initialize map when map view is active (Mapbox only)
   useEffect(() => {
@@ -1588,7 +1604,7 @@ export default function AIRecommendationsHub({
         mapInstanceRef.current = null
         isMapInitializedRef.current = false
         hasFittedBoundsRef.current = false
-        lastRecommendationsCountRef.current = 0
+        lastRecommendationsSignatureRef.current = ""
         lastLocationCoordsRef.current = null
       }
     }
@@ -1806,6 +1822,61 @@ export default function AIRecommendationsHub({
                 overflow: 'hidden'
               }}
             />
+
+            {/* Top tabs to reduce clutter (All / Users / AI) */}
+            <div style={{
+              position: 'absolute',
+              top: '14px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 6,
+              display: 'flex',
+              gap: '6px',
+              padding: '6px',
+              borderRadius: '14px',
+              background: 'rgba(15, 23, 42, 0.55)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
+            }}>
+              {([
+                { key: "all", label: "All" },
+                { key: "user", label: "Users" },
+                { key: "ai", label: "AI" }
+              ] as const).map((tab) => {
+                const active = recommendationFilter === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setRecommendationFilter(tab.key)
+                      // If user is in list/cluster mode, keep their context; this is map-only filtering.
+                      // Trigger marker refresh by updating state; map update effect will handle it.
+                    }}
+                    style={{
+                      border: '1px solid rgba(255,255,255,0.18)',
+                      background: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)',
+                      color: active ? '#0f172a' : 'rgba(255,255,255,0.92)',
+                      borderRadius: '12px',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      minWidth: '64px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = active ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.14)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
 
             {/* Legend (replaces the old two-button overlay) */}
             <div style={{
