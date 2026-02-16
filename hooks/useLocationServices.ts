@@ -29,6 +29,46 @@ export function useLocationServices() {
   const [isLoading, setIsLoading] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null)
   const [placeName, setPlaceName] = useState<string | null>(null)
+
+  // NEW: Persist last known coordinates so the app can still function
+  // when geolocation is slow/unavailable (e.g., desktop without location services).
+  const LAST_KNOWN_LOCATION_KEY = "pinit-last-known-location-v1"
+  const readLastKnownLocation = useCallback((): LocationData | null => {
+    try {
+      if (typeof window === "undefined") return null
+      const raw = window.localStorage.getItem(LAST_KNOWN_LOCATION_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as Partial<LocationData>
+      const lat = Number(parsed.latitude)
+      const lng = Number(parsed.longitude)
+      const accuracy = Number(parsed.accuracy ?? 0)
+      const ts = Number(parsed.timestamp ?? 0)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+      return {
+        latitude: lat,
+        longitude: lng,
+        accuracy: Number.isFinite(accuracy) ? accuracy : undefined,
+        timestamp: Number.isFinite(ts) && ts > 0 ? ts : Date.now(),
+      }
+    } catch {
+      return null
+    }
+  }, [])
+
+  const persistLastKnownLocation = useCallback((loc: LocationData) => {
+    try {
+      if (typeof window === "undefined") return
+      const payload: LocationData = {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        accuracy: loc.accuracy,
+        timestamp: loc.timestamp ?? Date.now(),
+      }
+      window.localStorage.setItem(LAST_KNOWN_LOCATION_KEY, JSON.stringify(payload))
+    } catch {
+      // best-effort
+    }
+  }, [])
   
   // NEW: Location persistence - remember last good location name
   const [lastGoodPlaceName, setLastGoodPlaceName] = useState<string | null>(null)
@@ -60,6 +100,16 @@ export function useLocationServices() {
       })
     }
   }, [])
+
+  // Warm-start from last known location (prevents "stuck on Getting location...")
+  useEffect(() => {
+    const cached = readLastKnownLocation()
+    if (!cached) return
+    // Only apply cached location if we don't already have one (avoid clobbering GPS).
+    setLocation((prev) => prev ?? cached)
+    // Intentionally only warm-start coordinates; place naming will be resolved by
+    // downstream effects when a location is present.
+  }, [readLastKnownLocation])
 
   const getPlaceName = useCallback(async (lat: number, lng: number): Promise<string | null> => {
     try {
@@ -133,6 +183,7 @@ export function useLocationServices() {
 
           setLocation(locationData)
           setIsLoading(false)
+          persistLastKnownLocation(locationData)
           
           // Debounced place name lookup
           const now = Date.now()
@@ -164,12 +215,18 @@ export function useLocationServices() {
 
           setError(error)
           setIsLoading(false)
+
+          // If we have a cached location, use it as a fallback so the UI can proceed.
+          const cached = readLastKnownLocation()
+          if (cached) {
+            setLocation((prev) => prev ?? cached)
+          }
           reject(error)
         },
         defaultOptions,
       )
     })
-  }, [calculateDistance, getPlaceName])
+  }, [calculateDistance, getPlaceName, persistLastKnownLocation, readLastKnownLocation])
 
   const watchLocation = useCallback((options?: PositionOptions): number => {
     if (!navigator.geolocation) {
@@ -201,6 +258,7 @@ export function useLocationServices() {
 
         setLocation(locationData)
         setError(null)
+        persistLastKnownLocation(locationData)
         
         // Debounced place name lookup
         const now = Date.now()
@@ -228,10 +286,16 @@ export function useLocationServices() {
           message: getErrorMessage(geoError.code),
         }
         setError(error)
+
+        // Keep last known location if watchPosition fails intermittently.
+        const cached = readLastKnownLocation()
+        if (cached) {
+          setLocation((prev) => prev ?? cached)
+        }
       },
       defaultOptions,
     )
-  }, [calculateDistance, getPlaceName])
+  }, [calculateDistance, getPlaceName, persistLastKnownLocation, readLastKnownLocation])
 
   const clearWatch = useCallback((watchId: number) => {
     if (navigator.geolocation) {
