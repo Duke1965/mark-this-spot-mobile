@@ -77,12 +77,7 @@ export default function AIRecommendationsHub({
   const [recommendationFormData, setRecommendationFormData] = useState<{
     mediaUrl: string
     locationName: string
-    foursquareData?: {
-      placeName: string | null
-      description: string | null
-      latitude: number
-      longitude: number
-    }
+    placeDescription?: string | null
   } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   
@@ -2668,12 +2663,7 @@ export default function AIRecommendationsHub({
                 setRecommendationFormData({
                   mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
                   locationName: selectedRecommendation.title || 'Location',
-                  foursquareData: selectedRecommendation.fsq_id ? {
-                    placeName: selectedRecommendation.title || null,
-                    description: selectedRecommendation.description || null,
-                    latitude: selectedRecommendation.location?.lat,
-                    longitude: selectedRecommendation.location?.lng,
-                  } : undefined,
+                  placeDescription: selectedRecommendation.description || null,
                 })
                 setShowReadOnlyRecommendation(false)
                 setShowRecommendationForm(true)
@@ -2738,12 +2728,7 @@ export default function AIRecommendationsHub({
                 setRecommendationFormData({
                   mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
                   locationName: selectedRecommendation.title || 'Location',
-                  foursquareData: selectedRecommendation.fsq_id ? {
-                    placeName: selectedRecommendation.title || null,
-                    description: selectedRecommendation.description || null,
-                    latitude: selectedRecommendation.location?.lat,
-                    longitude: selectedRecommendation.location?.lng,
-                  } : undefined,
+                  placeDescription: selectedRecommendation.description || null,
                 })
                 setShowReadOnlyRecommendation(false)
                 setShowRecommendationForm(true)
@@ -2788,7 +2773,7 @@ export default function AIRecommendationsHub({
         <RecommendationForm
           mediaUrl={recommendationFormData.mediaUrl || ''}
           locationName={recommendationFormData.locationName}
-          foursquareData={recommendationFormData.foursquareData}
+          placeDescription={recommendationFormData.placeDescription ?? selectedRecommendation?.description ?? null}
           additionalPhotos={selectedRecommendation.additionalPhotos || (selectedRecommendation.photoUrl ? [{ url: selectedRecommendation.photoUrl, placeName: selectedRecommendation.title }] : undefined)}
           onSave={() => {
             console.log('📍 Saving recommendation to library (without recommending)')
@@ -2847,20 +2832,21 @@ export default function AIRecommendationsHub({
               onSharePin(pinLike)
             }
           }}
-          onRecommend={async (rating: number, review: string) => {
-            console.log('📍 Recommendation submitted:', { rating, review, rec: selectedRecommendation })
+          onRecommend={async (rating: number, review: string, placeName?: string) => {
+            console.log('📍 Recommendation submitted:', { rating, review, placeName, rec: selectedRecommendation })
             
             // Create a new recommendation pin
+            const chosenName = (placeName || "").trim() || selectedRecommendation.title || 'Location'
             const newRecommendation: PinData = {
               id: Date.now().toString(),
               latitude: selectedRecommendation.location?.lat || 0,
               longitude: selectedRecommendation.location?.lng || 0,
-              locationName: selectedRecommendation.title || 'Location',
+              locationName: chosenName,
               mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || null,
               mediaType: (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) ? "photo" : null,
               audioUrl: null,
               timestamp: new Date().toISOString(),
-              title: `Recommendation - ${selectedRecommendation.title || 'Location'}`,
+              title: `Recommendation - ${chosenName}`,
               description: selectedRecommendation.description 
                 ? `${review}\n\n${selectedRecommendation.description}` 
                 : review,
