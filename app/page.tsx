@@ -2943,8 +2943,9 @@ export default function PINITApp() {
     description: rec.description,
     category: rec.category,
     location: {
-      lat: location?.latitude || -33.9,
-      lng: location?.longitude || 18.4
+      // IMPORTANT: place recommendations must render at their own coordinates (not the user's current location)
+      lat: rec?.data?.geometry?.location?.lat ?? rec?.data?.lat ?? rec?.data?.location?.lat ?? location?.latitude ?? -33.9,
+      lng: rec?.data?.geometry?.location?.lng ?? rec?.data?.lng ?? rec?.data?.location?.lng ?? location?.longitude ?? 18.4
     },
     rating: 4.0 + Math.random() * 1.0, // Generate random rating
     isAISuggestion: rec.isAISuggestion || false,
