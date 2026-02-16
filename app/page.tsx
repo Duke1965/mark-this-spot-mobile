@@ -2530,7 +2530,7 @@ export default function PINITApp() {
     // Create a comprehensive media object that captures ALL PINIT data
     const mediaData = {
       url: pin.mediaUrl || "/pinit-placeholder.jpg",
-      type: (pin.mediaType === "video" ? "video" : "photo") as const,
+      type: (pin.mediaType === "video" ? "video" : "photo") as "photo" | "video",
       location: pin.locationName,
         title: pin.title,
       description: pin.description,
