@@ -22,6 +22,7 @@ import { PinResults } from "@/components/PinResults"
 import { LocationPermissionPrompt } from "@/components/LocationPermissionPrompt"
 import { useAuth } from "@/hooks/useAuth"
 import { PinData } from "@/lib/types"
+import { auth } from "@/lib/firebase"
 
 import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
@@ -326,6 +327,7 @@ export default function PINITApp() {
     tags?: string[]
     personalThoughts?: string
     id?: string
+    shareKind?: "pin" | "camera"
     latitude?: number
     longitude?: number
     additionalPhotos?: Array<{ url: string; placeName: string }>
@@ -2499,6 +2501,24 @@ export default function PINITApp() {
     addPin(pinToSave)
     
     console.log("💾 Pin saved from results - old pending pin removed, completed pin added:", pinToSave.id)
+
+    // Best-effort: also publish this pin as a community recommendation (Firestore),
+    // so it shows across the user's devices and for other users in the same area.
+    ;(async () => {
+      try {
+        const u: any = (auth as any)?.currentUser
+        if (!u?.getIdToken) return
+        const token = await u.getIdToken()
+        if (!token) return
+        await fetch("/api/recommendations/upsert-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ pin: pinToSave })
+        })
+      } catch {
+        // ignore
+      }
+    })()
     
     setCurrentResultPin(null)
     setTimeout(() => setCurrentScreen("map"), 100)
@@ -2510,11 +2530,13 @@ export default function PINITApp() {
     // Create a comprehensive media object that captures ALL PINIT data
     const mediaData = {
       url: pin.mediaUrl || "/pinit-placeholder.jpg",
-      type: "photo" as const,
+      type: (pin.mediaType === "video" ? "video" : "photo") as const,
       location: pin.locationName,
         title: pin.title,
       description: pin.description,
       personalThoughts: pin.personalThoughts || undefined,
+      id: pin.id,
+      shareKind: "pin" as const,
       // Enhanced PINIT data
       pinId: pin.id,
       latitude: pin.latitude,
@@ -2753,6 +2775,7 @@ export default function PINITApp() {
         mediaUrl={capturedMedia.url}
         mediaType={capturedMedia.type}
         onPlatformSelect={handlePlatformSelect}
+        enablePositioning={capturedMedia.shareKind !== "pin"}
         onBack={() => {}} // Empty function - no UI back button
       />
     )
@@ -2764,6 +2787,7 @@ export default function PINITApp() {
         mediaUrl={capturedMedia.url}
         mediaType={capturedMedia.type}
         platform={selectedPlatform}
+        editorMode={capturedMedia.shareKind === "pin" ? "share" : "capture"}
         onBack={() => setCurrentScreen("platform-select")}
         onPost={async (contentData) => {
           // Prevent multiple rapid clicks
@@ -2773,8 +2797,27 @@ export default function PINITApp() {
           // Store the final image data for the recommendation popup
           setFinalImageData(contentData)
           
-          // Handle posting with content data - save the pin first
-          if (capturedMedia && location) {
+          // Handle posting with content data
+          // - For camera captures: save a new pin.
+          // - For sharing an existing pin: do NOT create a new pin; only share (and optionally update rating/comment).
+          if (capturedMedia?.shareKind === "pin") {
+            try {
+              if (capturedMedia?.id) {
+                const updates: any = {}
+                if (typeof contentData?.comments === "string" && contentData.comments.trim()) {
+                  updates.personalThoughts = contentData.comments.trim()
+                }
+                if (typeof contentData?.pinRating === "number" && contentData.pinRating > 0) {
+                  updates.rating = contentData.pinRating
+                }
+                if (Object.keys(updates).length > 0) {
+                  updatePinInStorage(capturedMedia.id, updates)
+                }
+              }
+            } catch {
+              // ignore
+            }
+          } else if (capturedMedia && location) {
             // PRIORITIZE Foursquare data for location name and title
             const foursquareTitle = capturedMedia.foursquareData?.placeName || locationDetails?.name
             const foursquareDescription = capturedMedia.foursquareData?.description
