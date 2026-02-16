@@ -6,23 +6,22 @@ import { Star, X, Send } from "lucide-react"
 interface RecommendationFormProps {
   mediaUrl: string
   locationName: string
-  onRecommend: (rating: number, review: string) => void
+  onRecommend: (rating: number, review: string, placeName?: string) => void
   onSkip: () => void
   onSave?: () => void // Optional save callback (for recommendations)
   onShare?: () => void // Optional share callback (for social media)
-  foursquareData?: {
-    placeName: string | null
-    description: string | null
-    latitude: number
-    longitude: number
-  }
+  placeDescription?: string | null
   additionalPhotos?: Array<{ url: string; placeName: string }> // For image carousel
 }
 
-export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip, onSave, onShare, foursquareData, additionalPhotos }: RecommendationFormProps) {
+export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip, onSave, onShare, placeDescription, additionalPhotos }: RecommendationFormProps) {
   const [showForm, setShowForm] = useState(false)
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState("")
+  const [placeName, setPlaceName] = useState<string>(() => {
+    const seed = (locationName || "").trim()
+    return seed
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   console.log("🎯 RecommendationForm rendered with:", { mediaUrl, locationName, showForm, rating, review, isSubmitting })
@@ -43,12 +42,14 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
       console.log("❌ Review is empty, submission blocked")
       return
     }
+
+    const finalPlaceName = (placeName || "").trim() || (locationName || "Location")
     
     console.log("✅ Submitting recommendation:", { rating, review: review.trim() })
     setIsSubmitting(true)
     
     // Call the onRecommend callback
-    onRecommend(rating, review.trim())
+    onRecommend(rating, review.trim(), finalPlaceName)
   }
 
   const handleStarClick = (pinNumber: number) => {
@@ -203,9 +204,9 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           fontWeight: "500",
           textAlign: "center"
         }}>
-          {foursquareData?.placeName || locationName}
+          {locationName}
         </div>
-        {foursquareData?.description && (
+        {placeDescription ? (
           <div style={{ 
             fontSize: "0.875rem", 
             opacity: 0.8, 
@@ -215,9 +216,9 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             background: "rgba(255,255,255,0.1)",
             borderRadius: "0.5rem"
           }}>
-            {foursquareData.description}
+            {placeDescription}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Star Rating */}
@@ -254,6 +255,38 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
 
       {/* Review Text */}
       <div style={{ marginBottom: "2rem" }}>
+        {/* Place Name */}
+        <div style={{ marginBottom: "1rem" }}>
+          <div
+            style={{
+              fontSize: "1rem",
+              marginBottom: "0.75rem",
+              opacity: 0.9,
+              textAlign: "center",
+              fontWeight: 600
+            }}
+          >
+            Place name
+          </div>
+          <input
+            value={placeName}
+            onChange={(e) => setPlaceName(e.target.value)}
+            placeholder="Type the place name..."
+            style={{
+              width: "100%",
+              padding: "0.9rem 1rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "0.75rem",
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+              fontSize: "1rem",
+              fontFamily: "inherit",
+              outline: "none",
+            }}
+            maxLength={80}
+          />
+        </div>
+
         <div style={{ 
           fontSize: "1rem", 
           marginBottom: "1rem",
