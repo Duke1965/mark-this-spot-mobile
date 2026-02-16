@@ -163,8 +163,7 @@ export default function AIRecommendationsHub({
 
   // NEW: Pin clustering function
   const clusterPins = useCallback((pins: Recommendation[]) => {
-    const clusters: ClusteredPin[] = []
-    const clusterRadius = 0.0005 // About 50 meters - smaller radius for tighter clustering
+    const clustersByKey = new Map<string, ClusteredPin>()
     
     // Filter out pins without valid locations
     const validPins = pins.filter((pin) => {
@@ -178,34 +177,19 @@ export default function AIRecommendationsHub({
     
     console.log(`🧠 Clustering ${validPins.length} valid pins (filtered ${pins.length - validPins.length} invalid)`)
     
+    // IMPORTANT: cluster by exact coordinate (rounded) so pins stay at their true location.
+    // This avoids "nearby" clustering that can make a recommendation look misplaced.
     validPins.forEach((pin) => {
-      let addedToCluster = false
-      
-      // Try to add to existing cluster
-      for (const cluster of clusters) {
-        const distance = Math.sqrt(
-          Math.pow(pin.location.lat - cluster.location.lat, 2) +
-          Math.pow(pin.location.lng - cluster.location.lng, 2)
-        )
-        
-        if (distance < clusterRadius) {
-          // Add to existing cluster
-          cluster.recommendations.push(pin)
-          cluster.count = cluster.recommendations.length
-          
-          // Update category if this pin has a different one
-          if (pin.category && !cluster.category.includes(pin.category)) {
-            cluster.category = cluster.category ? `${cluster.category}, ${pin.category}` : pin.category
-          }
-          
-          addedToCluster = true
-          break
+      const key = `${pin.location.lat.toFixed(6)},${pin.location.lng.toFixed(6)}`
+      const existing = clustersByKey.get(key)
+      if (existing) {
+        existing.recommendations.push(pin)
+        existing.count = existing.recommendations.length
+        if (pin.category && !existing.category.includes(pin.category)) {
+          existing.category = existing.category ? `${existing.category}, ${pin.category}` : pin.category
         }
-      }
-      
-      // Create new cluster if not added to existing one
-      if (!addedToCluster) {
-        clusters.push({
+      } else {
+        clustersByKey.set(key, {
           id: `cluster-${pin.id}`,
           location: pin.location,
           count: 1,
@@ -215,7 +199,8 @@ export default function AIRecommendationsHub({
       }
     })
     
-    console.log(`🧠 Clustered ${pins.length} pins into ${clusters.length} clusters`)
+    const clusters = Array.from(clustersByKey.values())
+    console.log(`🧠 Clustered ${pins.length} pins into ${clusters.length} clusters (exact coords)`)
     return clusters
   }, [])
 
@@ -1345,7 +1330,7 @@ export default function AIRecommendationsHub({
 
   // Track if we've already fitted bounds to prevent repeated zooming
   const hasFittedBoundsRef = useRef<boolean>(false)
-  const lastRecommendationsCountRef = useRef<number>(0)
+  const lastRecommendationsSignatureRef = useRef<string>("")
 
   // Function to update recommendation markers on map
   // Update recommendation markers (Mapbox only)
@@ -1357,17 +1342,14 @@ export default function AIRecommendationsHub({
     if (!recommendations || recommendations.length === 0) {
       console.log('🗺️ No recommendations to display on map')
       hasFittedBoundsRef.current = false
-      lastRecommendationsCountRef.current = 0
+      lastRecommendationsSignatureRef.current = ""
       return
     }
     
     // Only update if recommendations actually changed (by count or IDs)
-    const currentCount = recommendations.length
-    if (currentCount === lastRecommendationsCountRef.current && !shouldFitBounds) {
-      // Recommendations count hasn't changed, skip update to prevent flashing
-      return
-    }
-    lastRecommendationsCountRef.current = currentCount
+    const currentSignature = recommendations.map(r => r.id).sort().join("|")
+    if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) return
+    lastRecommendationsSignatureRef.current = currentSignature
     
     // Calculate bounds to fit all recommendations
     const lat = location?.latitude || location?.lat
@@ -1380,70 +1362,119 @@ export default function AIRecommendationsHub({
       bounds.extend([lng, lat]) // Add user location
     }
     
-    // Add markers for each recommendation
-    recommendations.forEach((rec: Recommendation) => {
-      if (!rec.location || !rec.location.lat || !rec.location.lng) return
-      
-      const recLat = rec.location.lat
-      const recLng = rec.location.lng
-      bounds.extend([recLng, recLat])
-      
-      // Create custom marker element
-      const el = document.createElement('div')
-      el.style.width = '32px'
-      el.style.height = '32px'
-      el.style.borderRadius = '50%'
-      el.style.backgroundColor = rec.isAISuggestion ? '#3B82F6' : '#10B981'
-      el.style.border = '3px solid white'
-      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-      el.style.cursor = 'pointer'
-      el.style.display = 'flex'
-      el.style.alignItems = 'center'
-      el.style.justifyContent = 'center'
-      el.style.fontSize = '16px'
-      
-      // Add icon based on category
-      let icon = '📍'
-      if (rec.category) {
-        const cat = rec.category.toLowerCase()
-        if (cat.includes('restaurant') || cat.includes('food')) icon = '🍽️'
-        else if (cat.includes('cafe') || cat.includes('coffee')) icon = '☕'
-        else if (cat.includes('monument') || cat.includes('memorial')) icon = '🗿'
-        else if (cat.includes('museum')) icon = '🏛️'
-        else if (cat.includes('art') || cat.includes('gallery')) icon = '🎨'
-        else if (cat.includes('church') || cat.includes('worship')) icon = '⛪'
-        else if (cat.includes('tourism') || cat.includes('attraction')) icon = '🎯'
+    // Group markers by exact coordinate + type (user vs AI).
+    // This lets us show a dot for users and a robot for AI, with a count badge per type.
+    type MarkerGroup = {
+      key: string
+      coordKey: string
+      isAISuggestion: boolean
+      lat: number
+      lng: number
+      items: Recommendation[]
+    }
+
+    const groupsByKey = new Map<string, MarkerGroup>()
+    const typeCoordToPresence = new Map<string, { user: boolean; ai: boolean }>()
+
+    for (const rec of recommendations) {
+      if (!rec.location || !isFinite(rec.location.lat) || !isFinite(rec.location.lng)) continue
+      const lat0 = rec.location.lat
+      const lng0 = rec.location.lng
+
+      const coordKey = `${lat0.toFixed(6)},${lng0.toFixed(6)}`
+      const typeKey = rec.isAISuggestion ? "ai" : "user"
+      const key = `${typeKey}|${coordKey}`
+
+      const presence = typeCoordToPresence.get(coordKey) || { user: false, ai: false }
+      presence[typeKey] = true
+      typeCoordToPresence.set(coordKey, presence)
+
+      const existing = groupsByKey.get(key)
+      if (existing) {
+        existing.items.push(rec)
+      } else {
+        groupsByKey.set(key, {
+          key,
+          coordKey,
+          isAISuggestion: !!rec.isAISuggestion,
+          lat: lat0,
+          lng: lng0,
+          items: [rec]
+        })
       }
-      el.textContent = icon
-      
-      // Create Mapbox marker with popup
-      const marker = new mapboxgl.Marker({
-        element: el
-      })
-        .setLngLat([recLng, recLat])
-        .setPopup(new mapboxgl.Popup({ 
-          offset: 25,
-          closeButton: true,
-          className: 'recommendation-popup'
-        }).setHTML(`
-          <div style="font-weight: 600; font-size: 14px; color: #1e3a8a; margin-bottom: 6px;">
-            ${rec.title}
-          </div>
-          ${rec.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 4px; max-width: 200px;">${rec.description.substring(0, 100)}${rec.description.length > 100 ? '...' : ''}</div>` : ''}
-          <div style="font-size: 11px; color: #999; margin-top: 4px;">
-            ${rec.isAISuggestion ? '🤖 AI Recommendation' : '👥 Community'} • ⭐ ${rec.rating.toFixed(1)}
-          </div>
-        `))
+    }
+
+    const groups = Array.from(groupsByKey.values())
+    for (const g of groups) {
+      bounds.extend([g.lng, g.lat])
+
+      const el = document.createElement("div")
+      el.style.position = "relative"
+      el.style.width = g.isAISuggestion ? "28px" : "18px"
+      el.style.height = g.isAISuggestion ? "28px" : "18px"
+      el.style.borderRadius = "50%"
+      el.style.border = g.isAISuggestion ? "2px solid rgba(255,255,255,0.95)" : "2px solid rgba(255,255,255,0.9)"
+      el.style.boxShadow = "0 2px 10px rgba(0,0,0,0.35)"
+      el.style.cursor = "pointer"
+      el.style.display = "flex"
+      el.style.alignItems = "center"
+      el.style.justifyContent = "center"
+      el.style.userSelect = "none"
+      el.style.background = g.isAISuggestion ? "rgba(59,130,246,0.95)" : "rgba(16,185,129,0.95)"
+
+      // If both types exist at the same coordinate, offset them slightly so both are visible.
+      const presence = typeCoordToPresence.get(g.coordKey)
+      if (presence?.user && presence?.ai) {
+        el.style.transform = g.isAISuggestion ? "translateX(9px)" : "translateX(-9px)"
+      }
+
+      if (g.isAISuggestion) {
+        el.textContent = "🤖"
+        el.style.fontSize = "14px"
+        el.title = `${g.items.length} AI recommendation${g.items.length === 1 ? "" : "s"}`
+      } else {
+        // User/community marker is a clean dot (no emoji)
+        el.textContent = ""
+        el.title = `${g.items.length} user recommendation${g.items.length === 1 ? "" : "s"}`
+      }
+
+      if (g.items.length > 1) {
+        const badge = document.createElement("div")
+        badge.textContent = String(g.items.length)
+        badge.style.position = "absolute"
+        badge.style.top = "-8px"
+        badge.style.right = "-8px"
+        badge.style.minWidth = "18px"
+        badge.style.height = "18px"
+        badge.style.padding = "0 5px"
+        badge.style.borderRadius = "999px"
+        badge.style.background = "rgba(255,255,255,0.95)"
+        badge.style.color = "#0f172a"
+        badge.style.fontSize = "11px"
+        badge.style.fontWeight = "800"
+        badge.style.display = "flex"
+        badge.style.alignItems = "center"
+        badge.style.justifyContent = "center"
+        badge.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)"
+        badge.style.border = "1px solid rgba(15, 23, 42, 0.15)"
+        el.appendChild(badge)
+      }
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([g.lng, g.lat])
         .addTo(map)
-      
-      // Click handler to select recommendation
-      el.addEventListener('click', () => {
-        setSelectedRecommendation(rec)
-        setShowReadOnlyRecommendation(true)
+
+      el.addEventListener("click", () => {
+        // Show the exact items for this marker in the list view.
+        setRecommendationFilter(g.isAISuggestion ? "ai" : "user")
+        setFilteredRecommendations(g.items)
+        setIsShowingCluster(false)
+        setCurrentCluster(null)
+        setViewMode("list")
       })
-      
+
       recommendationMarkersRef.current.push(marker)
-    })
+    }
     
     // Don't use fitBounds - keep fixed zoom level to match main page circle map (zoom: 16)
     // This ensures consistent view between main page and recommendations page
@@ -1775,98 +1806,56 @@ export default function AIRecommendationsHub({
                 overflow: 'hidden'
               }}
             />
-            
-            {/* User Recommendations and AI Recommendations buttons - centered on map */}
+
+            {/* Legend (replaces the old two-button overlay) */}
             <div style={{
               position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              display: 'flex',
-              gap: '12px',
+              top: '14px',
+              left: '14px',
               zIndex: 5,
-              justifyContent: 'center',
-              alignItems: 'center'
+              background: 'rgba(15, 23, 42, 0.55)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: '12px',
+              padding: '10px 12px',
+              color: 'white',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
             }}>
-              <button 
-                onClick={async () => {
-                  console.log('👥 Switching to User Recommendations')
-                  setRecommendationFilter('user')
-                  // Load user recommendations
-                  try {
-                    const userRecs = await getUserRecommendations()
-                    setFilteredRecommendations(userRecs)
-                    console.log(`👥 Loaded ${userRecs.length} user recommendations`)
-                  } catch (error) {
-                    console.error('Error loading user recommendations:', error)
-                  }
-                  // Switch to list view to show filtered recommendations
-                  setViewMode('list')
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.9)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '12px',
-                  padding: '12px 20px',
-                  color: '#1e3a8a',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                  backdropFilter: 'blur(10px)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,1)'
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
-                  e.currentTarget.style.transform = 'scale(1)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
-                }}
-              >
-                👥 User Recommendations
-              </button>
-              
-              <button 
-                onClick={() => {
-                  console.log('🤖 Switching to AI Recommendations')
-                  setRecommendationFilter('ai')
-                  // Filter AI recommendations
-                  const aiRecs = recommendations.filter(rec => rec.isAISuggestion === true)
-                  setFilteredRecommendations(aiRecs)
-                  console.log(`🤖 Loaded ${aiRecs.length} AI recommendations`)
-                  // Switch to list view to show filtered recommendations
-                  setViewMode('list')
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.9)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '12px',
-                  padding: '12px 20px',
-                  color: '#1e3a8a',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                  backdropFilter: 'blur(10px)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,1)'
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
-                  e.currentTarget.style.transform = 'scale(1)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
-                }}
-              >
-                🤖 AI Recommendations
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, opacity: 0.95, marginBottom: 6 }}>
+                Recommendations
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, opacity: 0.95 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    background: 'rgba(16,185,129,0.95)',
+                    border: '2px solid rgba(255,255,255,0.9)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
+                  }} />
+                  <span>Users</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(59,130,246,0.95)',
+                    border: '2px solid rgba(255,255,255,0.95)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                    fontSize: 11
+                  }}>🤖</span>
+                  <span>AI</span>
+                </div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                  Tap a marker to open the list.
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1909,12 +1898,14 @@ export default function AIRecommendationsHub({
               </div>
               
               {/* NEW: Back button when showing cluster recommendations */}
-              {isShowingCluster && (
+              {(isShowingCluster || recommendationFilter !== "all") && (
                 <button
                   onClick={() => {
+                    // Return to the full unfiltered list
                     setIsShowingCluster(false)
-                    setFilteredRecommendations([])
                     setCurrentCluster(null)
+                    setFilteredRecommendations([])
+                    setRecommendationFilter("all")
                     console.log('🧠 Returning to all recommendations')
                   }}
                   style={{
