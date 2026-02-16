@@ -8,6 +8,7 @@ interface SocialPlatformSelectorProps {
   mediaType: "photo" | "video"
   onPlatformSelect: (platform: string) => void
   onBack: () => void
+  enablePositioning?: boolean
 }
 
 const platforms = [
@@ -48,7 +49,7 @@ const platforms = [
   },
 ]
 
-export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, onBack }: SocialPlatformSelectorProps) {
+export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, onBack, enablePositioning = true }: SocialPlatformSelectorProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
   
   // Photo positioning state
@@ -57,6 +58,11 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
   const [showPositioning, setShowPositioning] = useState(false)
 
   const handlePlatformClick = (platformId: string) => {
+    if (!enablePositioning) {
+      // For sharing existing pins, we skip resizing/positioning entirely.
+      onPlatformSelect(platformId)
+      return
+    }
     setSelectedPlatform(platformId)
     setShowPositioning(true) // Show positioning controls after platform selection
   }
