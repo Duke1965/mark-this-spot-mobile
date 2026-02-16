@@ -341,7 +341,16 @@ export default function PINITApp() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("")
 
   // Hooks
-  const { location, getCurrentLocation, watchLocation, clearWatch, isLoading: locationLoading, requestPermission, permissionStatus } = useLocationServices()
+  const {
+    location,
+    error: locationError,
+    getCurrentLocation,
+    watchLocation,
+    clearWatch,
+    isLoading: locationLoading,
+    requestPermission,
+    permissionStatus
+  } = useLocationServices()
   const { pins: storedPins, addPin: addPinFromStorage, removePin: removePinFromStorage, updatePin: updatePinInStorage } = usePinStorage()
   const motionData = useMotionDetection()
   
@@ -4240,8 +4249,67 @@ export default function PINITApp() {
             textShadow: "0 2px 6px rgba(0,0,0,0.4)",
           }}
         >
-          📍 {motionData.isMoving ? "Driving..." : (locationName || "Getting location...")}
+          📍 {motionData.isMoving ? "Driving..." : (locationName || (locationLoading ? "Getting location..." : "Location unavailable"))}
         </p>
+
+        {/* Location recovery UX (permission/timeout/etc.) */}
+        {(!motionData.isMoving && (!locationName || !!locationError)) && (
+          <div style={{ marginTop: "0.6rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.35rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
+              <button
+                onClick={async () => {
+                  try {
+                    // User gesture: prompts permission on platforms that require it.
+                    await requestPermission()
+                    await getCurrentLocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
+                  } catch (e) {
+                    console.warn("📍 Location retry failed:", e)
+                  }
+                }}
+                style={{
+                  padding: "0.45rem 0.75rem",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  background: "rgba(255,255,255,0.14)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  backdropFilter: "blur(10px)",
+                }}
+              >
+                Use my location
+              </button>
+            </div>
+
+            {locationError ? (
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  opacity: 0.95,
+                  color: "rgba(255,255,255,0.95)",
+                  textShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                  maxWidth: "min(520px, 92vw)",
+                  lineHeight: 1.3,
+                }}
+              >
+                {permissionStatus === "denied"
+                  ? "Location is blocked for this site. Enable it in your browser settings, then refresh."
+                  : locationError.message}
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  opacity: 0.92,
+                  color: "rgba(255,255,255,0.95)",
+                  textShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                }}
+              >
+                {permissionStatus === "prompt" || permissionStatus == null ? "Tap “Use my location” to continue." : null}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ENHANCED: Real Google Places Discovery Panel */}
