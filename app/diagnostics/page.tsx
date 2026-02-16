@@ -57,6 +57,52 @@ export default function DiagnosticsPage() {
   const [pinsDiagLoading, setPinsDiagLoading] = useState(false)
   const [pinsDiagError, setPinsDiagError] = useState<string | null>(null)
 
+  const DIAG_LAST_COORDS_KEY = "pinit-diagnostics-last-coords"
+
+  const readMostRecentPinCoords = (): { lat: string; lng: string } | null => {
+    try {
+      const raw = localStorage.getItem("pinit-pins")
+      if (!raw) return null
+      const parsed: any = JSON.parse(raw)
+      if (!Array.isArray(parsed) || parsed.length === 0) return null
+      const newest = parsed[0]
+      const lat = newest?.latitude
+      const lng = newest?.longitude
+      if (typeof lat === "number" && typeof lng === "number") {
+        return { lat: String(lat), lng: String(lng) }
+      }
+      if (typeof lat === "string" && typeof lng === "string") {
+        return { lat, lng }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const readLastDiagnosticsCoords = (): { lat: string; lng: string } | null => {
+    try {
+      const raw = localStorage.getItem(DIAG_LAST_COORDS_KEY)
+      if (!raw) return null
+      const parsed: any = JSON.parse(raw)
+      const lat = parsed?.lat
+      const lng = parsed?.lng
+      if (typeof lat !== "string" || typeof lng !== "string") return null
+      if (!lat || !lng) return null
+      return { lat, lng }
+    } catch {
+      return null
+    }
+  }
+
+  const persistLastDiagnosticsCoords = (coords: { lat: string; lng: string }) => {
+    try {
+      localStorage.setItem(DIAG_LAST_COORDS_KEY, JSON.stringify(coords))
+    } catch {
+      // ignore storage failures (private mode, quota, etc.)
+    }
+  }
+
   // Get current location using navigator.geolocation
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -72,6 +118,7 @@ export default function DiagnosticsPage() {
         const lat = position.coords.latitude.toString()
         const lng = position.coords.longitude.toString()
         setTestLocation({ lat, lng })
+        persistLastDiagnosticsCoords({ lat, lng })
         setGettingLocation(false)
         console.log("📍 Current location obtained:", { lat, lng })
       },
@@ -102,8 +149,8 @@ export default function DiagnosticsPage() {
     )
   }
 
-  const runDiagnostics = async () => {
-    if (!testLocation.lat || !testLocation.lng) {
+  const runDiagnosticsWith = async (coords: { lat: string; lng: string }) => {
+    if (!coords.lat || !coords.lng) {
       setLocationError("Please enter coordinates or use current location")
       return
     }
@@ -111,12 +158,13 @@ export default function DiagnosticsPage() {
     setLoading(true)
     setLocationError(null)
     try {
-      const url = `/api/diagnostics?lat=${testLocation.lat}&lng=${testLocation.lng}`
-      console.log("📍 Running diagnostics with location:", { lat: testLocation.lat, lng: testLocation.lng })
-      
+      const url = `/api/diagnostics?lat=${coords.lat}&lng=${coords.lng}`
+      console.log("📍 Running diagnostics with location:", { lat: coords.lat, lng: coords.lng })
+
       const response = await fetch(url)
       const data = await response.json()
       setDiagnostics(data)
+      persistLastDiagnosticsCoords(coords)
       console.log("📊 Diagnostics results:", data)
     } catch (error) {
       console.error("❌ Failed to run diagnostics:", error)
@@ -124,6 +172,10 @@ export default function DiagnosticsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const runDiagnostics = async () => {
+    return runDiagnosticsWith(testLocation)
   }
 
   const runDiagnosticsOnSavedPins = async () => {
@@ -173,7 +225,11 @@ export default function DiagnosticsPage() {
 
   // Run diagnostics on mount with default location
   useEffect(() => {
-    runDiagnostics()
+    const fromMostRecentPin = readMostRecentPinCoords()
+    const fromLastDiag = readLastDiagnosticsCoords()
+    const initial = fromMostRecentPin ?? fromLastDiag ?? { lat: "-33.9249", lng: "18.4241" }
+    setTestLocation(initial)
+    runDiagnosticsWith(initial)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
