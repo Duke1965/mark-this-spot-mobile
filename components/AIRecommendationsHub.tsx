@@ -1426,10 +1426,12 @@ export default function AIRecommendationsHub({
 
       const el = document.createElement("div")
       el.style.position = "relative"
-      el.style.width = g.isAISuggestion ? "28px" : "18px"
-      el.style.height = g.isAISuggestion ? "28px" : "18px"
+      // Same-size markers so both can hold count badges comfortably.
+      const markerSizePx = 28
+      el.style.width = `${markerSizePx}px`
+      el.style.height = `${markerSizePx}px`
       el.style.borderRadius = "50%"
-      el.style.border = g.isAISuggestion ? "2px solid rgba(255,255,255,0.95)" : "2px solid rgba(255,255,255,0.9)"
+      el.style.border = "2px solid rgba(255,255,255,0.92)"
       el.style.boxShadow = "0 2px 10px rgba(0,0,0,0.35)"
       el.style.cursor = "pointer"
       el.style.display = "flex"
@@ -1441,18 +1443,12 @@ export default function AIRecommendationsHub({
       // If both types exist at the same coordinate, offset them slightly so both are visible.
       const presence = typeCoordToPresence.get(g.coordKey)
       if (presence?.user && presence?.ai) {
-        el.style.transform = g.isAISuggestion ? "translateX(9px)" : "translateX(-9px)"
+        el.style.transform = g.isAISuggestion ? "translateX(11px)" : "translateX(-11px)"
       }
 
-      if (g.isAISuggestion) {
-        el.textContent = "🤖"
-        el.style.fontSize = "14px"
-        el.title = `${g.items.length} AI recommendation${g.items.length === 1 ? "" : "s"}`
-      } else {
-        // User/community marker is a clean dot (no emoji)
-        el.textContent = ""
-        el.title = `${g.items.length} user recommendation${g.items.length === 1 ? "" : "s"}`
-      }
+      // No icons inside markers (keeps them clean and leaves room for count badges).
+      el.textContent = ""
+      el.title = `${g.items.length} ${g.isAISuggestion ? "AI" : "user"} recommendation${g.items.length === 1 ? "" : "s"}`
 
       if (g.items.length > 1) {
         const badge = document.createElement("div")
@@ -1823,61 +1819,6 @@ export default function AIRecommendationsHub({
               }}
             />
 
-            {/* Top tabs to reduce clutter (All / Users / AI) */}
-            <div style={{
-              position: 'absolute',
-              top: '14px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 6,
-              display: 'flex',
-              gap: '6px',
-              padding: '6px',
-              borderRadius: '14px',
-              background: 'rgba(15, 23, 42, 0.55)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
-            }}>
-              {([
-                { key: "all", label: "All" },
-                { key: "user", label: "Users" },
-                { key: "ai", label: "AI" }
-              ] as const).map((tab) => {
-                const active = recommendationFilter === tab.key
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => {
-                      setRecommendationFilter(tab.key)
-                      // If user is in list/cluster mode, keep their context; this is map-only filtering.
-                      // Trigger marker refresh by updating state; map update effect will handle it.
-                    }}
-                    style={{
-                      border: '1px solid rgba(255,255,255,0.18)',
-                      background: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)',
-                      color: active ? '#0f172a' : 'rgba(255,255,255,0.92)',
-                      borderRadius: '12px',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      minWidth: '64px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = active ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.14)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </div>
-
             {/* Legend (replaces the old two-button overlay) */}
             <div style={{
               position: 'absolute',
@@ -1892,14 +1833,59 @@ export default function AIRecommendationsHub({
               backdropFilter: 'blur(10px)',
               boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, opacity: 0.95, marginBottom: 6 }}>
-                Recommendations
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 800, opacity: 0.95, marginBottom: 6 }}>
+                Tap a marker to open the list
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, opacity: 0.95 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, opacity: 0.95 }}>
+                {/* Toggle (All / Users / AI) */}
+                <div style={{
+                  display: 'flex',
+                  gap: '6px',
+                  padding: '6px',
+                  borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.10)'
+                }}>
+                  {([
+                    { key: "all", label: "All" },
+                    { key: "user", label: "Users" },
+                    { key: "ai", label: "AI" }
+                  ] as const).map((tab) => {
+                    const active = recommendationFilter === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setRecommendationFilter(tab.key)}
+                        style={{
+                          border: '1px solid rgba(255,255,255,0.18)',
+                          background: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)',
+                          color: active ? '#0f172a' : 'rgba(255,255,255,0.92)',
+                          borderRadius: '12px',
+                          padding: '8px 12px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          minWidth: '64px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = active ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.14)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)'
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Key */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
-                    width: 10,
-                    height: 10,
+                    width: 16,
+                    height: 16,
                     borderRadius: '50%',
                     display: 'inline-block',
                     background: 'rgba(16,185,129,0.95)',
@@ -1910,21 +1896,15 @@ export default function AIRecommendationsHub({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     borderRadius: '50%',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     background: 'rgba(59,130,246,0.95)',
                     border: '2px solid rgba(255,255,255,0.95)',
                     boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
-                    fontSize: 11
-                  }}>🤖</span>
+                    display: 'inline-block'
+                  }} />
                   <span>AI</span>
-                </div>
-                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-                  Tap a marker to open the list.
                 </div>
               </div>
             </div>
