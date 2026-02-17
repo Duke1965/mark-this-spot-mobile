@@ -252,6 +252,7 @@ function DraggableSticker({ sticker, onUpdate, onRemove, isActive = true, sticke
 
 export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "capture", onBack, onPost, onSave }: ContentEditorProps) {
   const allowStickers = editorMode === "capture"
+  const ACTION_BAR_HEIGHT_PX = 88
 
   // Available stickers (matching exact GitHub file names)
   const availableStickers = [
@@ -385,6 +386,8 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
   const removeSticker = (id: string) => {
     setStickers(prevStickers => prevStickers.filter(s => s.id !== id))
   }
+
+  const isStickerLibraryOpen = allowStickers && photoMode === "sticker-selection"
 
   // Handle post
   const handlePost = async () => {
@@ -606,6 +609,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
         display: "flex",
         flexDirection: "column",
         color: "white",
+        paddingBottom: allowStickers ? `calc(${ACTION_BAR_HEIGHT_PX}px + env(safe-area-inset-bottom))` : undefined,
       }}
     >
       {/* Header */}
@@ -829,42 +833,57 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
         </div>
       )}
 
-      {/* Sticker Selection Panel - Slides over photo */}
+      {/* Sticker Selection Panel (fixed, no drag-to-close to avoid pull-to-refresh) */}
       {allowStickers && (
-        <div style={{ 
-        position: 'absolute',
-        bottom: photoMode === "sticker-selection" ? '0' : '-100%',
-        left: '0',
-        right: '0',
-        height: '60vh',
-        backgroundColor: 'rgba(15, 23, 42, 0.95)', // PINIT dark theme
-        borderTopLeftRadius: '20px',
-        borderTopRightRadius: '20px',
-        padding: '16px',
-        overflowY: 'auto',
-        transition: 'all 0.3s ease',
-        zIndex: 1000,
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.3)'
-      }}>
-        {/* Draggable Handle */}
-        <div style={{
-          width: '40px',
-          height: '4px',
-          backgroundColor: 'rgba(255,255,255,0.3)',
-          borderRadius: '2px',
-          margin: '0 auto 16px auto',
-          cursor: 'grab'
-        }} 
-        onMouseDown={(e) => {
-          e.preventDefault()
-          setPhotoMode("locked")
-        }}
-        onTouchStart={(e) => {
-          e.preventDefault()
-          setPhotoMode("locked")
-        }}
-        title="Drag down to close"
-        />
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: `calc(${ACTION_BAR_HEIGHT_PX}px + env(safe-area-inset-bottom))`,
+            maxHeight: "46vh",
+            transform: isStickerLibraryOpen ? "translateY(0)" : "translateY(110%)",
+            transition: "transform 0.25s ease",
+            background: "rgba(30, 58, 138, 0.98)",
+            backdropFilter: "blur(18px)",
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            borderTop: "1px solid rgba(255,255,255,0.2)",
+            boxShadow: "0 -12px 30px rgba(0,0,0,0.25)",
+            zIndex: 1000,
+            overflow: "hidden",
+          }}
+          aria-hidden={!isStickerLibraryOpen}
+        >
+          {/* Header row (explicit close) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              borderBottom: "1px solid rgba(255,255,255,0.14)",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 900, opacity: 0.95 }}>
+              Stickers
+            </div>
+            <button
+              onClick={() => setPhotoMode("locked")}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.10)",
+                color: "rgba(255,255,255,0.95)",
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+              title="Hide stickers"
+            >
+              Hide
+            </button>
+          </div>
 
         {/* Sticker Selection Mode Indicator */}
         {photoMode === "sticker-selection" && (
@@ -884,10 +903,18 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
         </div>
       )}
 
-        <div>
-          <div>
-            <h3 style={{fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#f1f5f9'}}>
-              Add Stickers
+          {/* Scrollable content (contain overscroll so pull-to-refresh doesn’t fire here) */}
+          <div
+            style={{
+              padding: "12px 16px 16px 16px",
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehaviorY: "contain" as any,
+              maxHeight: "calc(46vh - 56px)",
+            }}
+          >
+            <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 12, color: "rgba(255,255,255,0.96)" }}>
+              Add a sticker
             </h3>
             
             {/* Sticker Category Tabs */}
@@ -939,7 +966,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
               </button>
             </div>
             
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px'}}>
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px'}}>
               {filteredStickers.map((sticker, index) => (
                 <button
                   key={sticker.id}
@@ -948,7 +975,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
                     padding: '8px',
                     borderRadius: '8px',
                     border: '1px solid rgba(255,255,255,0.3)',
-                    background: 'rgba(255,255,255,0.8)', // Much lighter background
+                    background: 'rgba(255,255,255,0.92)',
                     color: 'white',
                     cursor: 'pointer',
                     aspectRatio: '1',
@@ -982,12 +1009,50 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
               ))}
             </div>
           </div>
-        </div>
       </div>
       )}
 
-      {/* Action Buttons */}
-      <div style={{padding: '16px', background: 'rgba(30, 58, 138, 0.95)', borderTop: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(15px)'}}>
+      {/* Action Buttons (fixed) */}
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: "12px 16px calc(12px + env(safe-area-inset-bottom)) 16px",
+          background: "rgba(30, 58, 138, 0.98)",
+          borderTop: "1px solid rgba(255,255,255,0.2)",
+          backdropFilter: "blur(18px)",
+          zIndex: 1100,
+        }}
+      >
+        {/* Sticker toggle row */}
+        {allowStickers && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <button
+              onClick={() => {
+                setPhotoMode((m) => (m === "sticker-selection" ? "locked" : "sticker-selection"))
+                setStickersLocked(false)
+              }}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.10)",
+                color: "rgba(255,255,255,0.95)",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 900,
+              }}
+            >
+              {isStickerLibraryOpen ? "Hide stickers" : "Show stickers"}
+            </button>
+            <div style={{ fontSize: 12, opacity: 0.9, fontWeight: 700 }}>
+              {stickersLocked ? "Stickers locked" : "Tap a sticker to add"}
+            </div>
+          </div>
+        )}
+
         <div style={{display: 'flex', gap: '8px'}}>
           {allowStickers && (
             <button
