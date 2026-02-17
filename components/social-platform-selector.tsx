@@ -56,6 +56,7 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
   const [photoScale, setPhotoScale] = useState(1)
   const [photoPosition, setPhotoPosition] = useState({ x: 0, y: 0 })
   const [showPositioning, setShowPositioning] = useState(false)
+  const isPositioning = showPositioning && !!selectedPlatform
 
   const handlePlatformClick = (platformId: string) => {
     if (!enablePositioning) {
@@ -65,6 +66,17 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
     }
     setSelectedPlatform(platformId)
     setShowPositioning(true) // Show positioning controls after platform selection
+  }
+
+  const resetPositioning = () => {
+    setPhotoScale(1)
+    setPhotoPosition({ x: 0, y: 0 })
+  }
+
+  const changePlatform = () => {
+    setSelectedPlatform("")
+    setShowPositioning(false)
+    resetPositioning()
   }
 
 
@@ -77,7 +89,7 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)",
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
         display: "flex",
         flexDirection: "column",
         color: "white",
@@ -90,26 +102,38 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "rgba(0,0,0,0.2)",
+          background: "rgba(30, 58, 138, 0.95)",
+          backdropFilter: "blur(15px)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         <button
-          onClick={onBack}
+          onClick={() => {
+            if (isPositioning) {
+              changePlatform()
+              return
+            }
+            onBack()
+          }}
           style={{
             padding: "0.75rem",
-            borderRadius: "50%",
-            border: "none",
-            background: "rgba(255,255,255,0.2)",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.15)",
             color: "white",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "all 0.2s ease",
+            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>Choose Platform</h1>
+        <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "bold" }}>
+          {isPositioning ? "Resize & Position" : "Choose Platform"}
+        </h1>
         <div style={{ width: "48px" }} /> {/* Spacer */}
       </div>
 
@@ -119,7 +143,9 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
           padding: "1rem",
           display: "flex",
           justifyContent: "center",
-          background: "rgba(0,0,0,0.1)",
+          background: "rgba(30, 58, 138, 0.65)",
+          backdropFilter: "blur(15px)",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
         }}
       >
         <div
@@ -233,12 +259,14 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
         <div
           style={{
             padding: "1rem",
-            background: "rgba(0,0,0,0.2)",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(30, 58, 138, 0.95)",
+            backdropFilter: "blur(15px)",
+            borderTop: "1px solid rgba(255,255,255,0.18)",
+            borderBottom: "1px solid rgba(255,255,255,0.18)",
           }}
         >
           <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: "600" }}>
-            Position Your Photo
+            Position & resize
           </h3>
           
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
@@ -327,44 +355,12 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
             </div>
           </div>
           
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-            <button
-              onClick={() => {
-                setPhotoScale(1)
-                setPhotoPosition({ x: 0, y: 0 })
-              }}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "0.25rem",
-                border: "1px solid rgba(255,255,255,0.3)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-              }}
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => onPlatformSelect(selectedPlatform)}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "0.25rem",
-                border: "1px solid rgba(255,255,255,0.3)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: "600",
-              }}
-            >
-              Next
-            </button>
-          </div>
+          {/* Actions moved to bottom bar so they're never hidden */}
         </div>
       )}
 
       {/* Platform Grid */}
+      {!isPositioning && (
       <div
         style={{
           flex: 1,
@@ -475,24 +471,63 @@ export function SocialPlatformSelector({ mediaUrl, mediaType, onPlatformSelect, 
           ))}
         </div>
       </div>
+      )}
 
       {/* Instructions */}
       <div
         style={{
           padding: "1rem",
           textAlign: "center",
-          background: "rgba(0,0,0,0.1)",
+          background: "rgba(30, 58, 138, 0.95)",
+          backdropFilter: "blur(15px)",
+          borderTop: "1px solid rgba(255,255,255,0.2)",
         }}
       >
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.875rem",
-            opacity: 0.8,
-          }}
-        >
-          Select a platform to optimize your {mediaType} for sharing
-        </p>
+        {isPositioning ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxWidth: 720, margin: "0 auto" }}>
+            <div style={{ fontSize: "0.95rem", fontWeight: 800, opacity: 0.95 }}>
+              Position and resize your image
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={resetPositioning}
+                style={{
+                  flex: 1,
+                  padding: "0.85rem 1rem",
+                  borderRadius: "0.85rem",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.95)",
+                  cursor: "pointer",
+                  fontSize: "0.95rem",
+                  fontWeight: 800,
+                }}
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => onPlatformSelect(selectedPlatform)}
+                style={{
+                  flex: 1,
+                  padding: "0.85rem 1rem",
+                  borderRadius: "0.85rem",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.92)",
+                  color: "#0f172a",
+                  cursor: "pointer",
+                  fontSize: "0.95rem",
+                  fontWeight: 900,
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: "0.9rem", opacity: 0.9 }}>
+            Select a platform to optimize your {mediaType} for sharing
+          </p>
+        )}
       </div>
     </div>
   )
