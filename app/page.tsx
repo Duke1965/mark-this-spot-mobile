@@ -243,9 +243,37 @@ export default function PINITApp() {
 
       // Navigation stack logic
       if (currentScreen === "map") {
-        // FIX: Don't allow back from main map - allow app to close
-        console.log("dY Back button blocked on main screen")
-        return // Don't push history state, just prevent
+        // Don't navigate "back into" an old in-app screen.
+        // popstate can't be cancelled, so immediately re-add a history entry.
+        try {
+          window.history.pushState(null, "", window.location.href)
+        } catch {
+          // ignore
+        }
+        return
+      }
+
+      // Pending Pins live inside the Library screen; hardware back should return Home.
+      if (currentScreen === "library") {
+        setCurrentScreen("map")
+        try {
+          window.history.pushState(null, "", window.location.href)
+        } catch {
+          // ignore
+        }
+        return
+      }
+
+      // Results should not jump to an unrelated screen via a static stack.
+      if (currentScreen === "results") {
+        setCurrentResultPin(null)
+        setCurrentScreen("map")
+        try {
+          window.history.pushState(null, "", window.location.href)
+        } catch {
+          // ignore
+        }
+        return
       }
 
       // Navigate back through screens
