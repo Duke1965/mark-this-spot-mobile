@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { Camera, Video, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
+import { Camera, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
@@ -689,6 +689,14 @@ export default function PINITApp() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
+  const getVoiceHintText = () => {
+    if (typeof window === "undefined") return 'Or say: “Hey Siri / Hey Google, pin this spot.”'
+    const ua = navigator.userAgent || ""
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'Or say: “Hey Siri, pin this spot.”'
+    if (/Android/i.test(ua)) return 'Or say: “Hey Google, pin this spot.”'
+    return 'Or say: “Hey Siri / Hey Google, pin this spot.”'
+  }
+
   // Retry logic with exponential backoff
   const retryWithBackoff = async <T,>(
     fn: () => Promise<T>,
@@ -1121,7 +1129,7 @@ export default function PINITApp() {
 
     quickPinInFlightRef.current = true
     setIsQuickPinning(true)
-    setQuickPinStage("Processing pin…")
+    setQuickPinStage("Saving this spot…")
     setLastActivity("quick-pin")
 
     try {
@@ -1143,7 +1151,7 @@ export default function PINITApp() {
         successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
       }, 25000)
 
-      setQuickPinStage("Getting your location…")
+      setQuickPinStage("Saving this spot…")
       const currentLocation = await getCurrentLocation()
       
       // NEW: Calculate precise location based on speed and movement
@@ -1184,7 +1192,7 @@ export default function PINITApp() {
       }
       
       // NEW: Use unified /api/pin-intel for title/description + website-first images
-      setQuickPinStage("Finding place info…")
+      setQuickPinStage("Saving this spot…")
       console.log("🧠 Fetching pin intel (Geoapify + website-first images)...")
       let pinIntelV2: any = null
       try {
@@ -1206,7 +1214,7 @@ export default function PINITApp() {
       const placeDescription = pinIntelV2?.description
 
       // Build photo carousel data from pin-intel images if available, otherwise fallback
-      setQuickPinStage("Fetching images…")
+      setQuickPinStage("Saving this spot…")
       let locationPhotos: any[] = []
       if (pinIntelV2?.images?.length) {
         // Avoid using "area" (map snapshot) as the primary photo on pins.
@@ -1352,9 +1360,9 @@ export default function PINITApp() {
       console.log("📍 Quick pin created with photo:", newPin)
       console.log("💾 Pin saved to pins array - accessible in pins section")
 
-      // Show simple "Pinned Successfully" popup instead of results page
+      // Show simple success popup instead of results page
       setQuickPinStage("Pinned!")
-      setSuccessMessage("Pinned Successfully!")
+      setSuccessMessage("Pin saved.")
       setShowSuccessPopup(true)
       
       // Auto-hide popup and stay on map screen after 1.5 seconds
@@ -3707,7 +3715,7 @@ export default function PINITApp() {
             marginBottom: "0.5rem",
             letterSpacing: "0.5px"
           }}>
-            {successMessage || "Pinned Successfully!"}
+            {successMessage || "Pin saved."}
           </div>
         </div>
       )}
@@ -3744,11 +3752,13 @@ export default function PINITApp() {
             }}
           />
           <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "white", marginBottom: "0.25rem" }}>
-            Please wait…
+            Saving this spot…
           </div>
-          <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.85)" }}>
-            {quickPinStage || "Processing pin"}
-          </div>
+          {quickPinStage ? (
+            <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.85)" }}>
+              {quickPinStage}
+            </div>
+          ) : null}
         </div>
       )}
       
@@ -4172,6 +4182,19 @@ export default function PINITApp() {
                 >
                   Tap to PINIT!
                 </span>
+                <div
+                  style={{
+                    marginTop: "0.55rem",
+                    fontSize: "0.75rem",
+                    opacity: 0.9,
+                    textShadow: "0 2px 6px rgba(0,0,0,0.45)",
+                    maxWidth: 220,
+                    lineHeight: 1.25,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {getVoiceHintText()}
+                </div>
               </>
             )}
           </div>
@@ -4339,7 +4362,7 @@ export default function PINITApp() {
         </div>
       )}
 
-              {/* Bottom Navigation - Photo/Video/Library/Recommendations */}
+              {/* Bottom Navigation - Camera/Library/Recommendations */}
       <div
         style={{
           position: "absolute",
@@ -4378,35 +4401,6 @@ export default function PINITApp() {
           }}
         >
           <Camera size={28} />
-        </button>
-
-        <button
-          onClick={() => {
-            setCameraMode("video")
-            setCurrentScreen("camera")
-          }}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: "transparent",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
-            e.currentTarget.style.transform = "scale(1.05)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent"
-            e.currentTarget.style.transform = "scale(1)"
-          }}
-        >
-          <Video size={28} />
         </button>
 
         <button
