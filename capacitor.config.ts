@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     url: 'https://mark-this-spot-mobile.vercel.app',
-    cleartext: false
+    cleartext: true
   }
 };
 
