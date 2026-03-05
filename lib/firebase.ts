@@ -44,8 +44,15 @@ try {
     storage = getStorage(app)
     firestore = getFirestore(app)
     
-    // Enable persistence
-    setPersistence(auth, browserLocalPersistence)
+    // Enable persistence (skip in Capacitor WebView to avoid auth issues)
+const isCapacitor =
+  typeof window !== "undefined" &&
+  (window as any)?.Capacitor &&
+  (window as any).Capacitor.isNativePlatform?.()
+
+if (!isCapacitor) {
+  setPersistence(auth, browserLocalPersistence)
+}
   } else {
     // Create mock objects for demo mode
     auth = {
