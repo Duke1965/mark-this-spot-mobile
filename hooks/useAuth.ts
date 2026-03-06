@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react"
 import {
   User as FirebaseUser,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithPopup,
   signOut,
 } from "firebase/auth"
 import { auth, facebookProvider, googleProvider } from "@/lib/firebase"
+import { Capacitor } from "@capacitor/core"
 
 // Check if Firebase is properly configured
 const isFirebaseConfigured = () => {
@@ -17,6 +20,8 @@ const isFirebaseConfigured = () => {
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   )
 }
+
+let googleSignInInitialized = false
 
 interface User {
   uid: string
@@ -66,9 +71,47 @@ export function useAuth() {
         )
       }
 
-      const result = await signInWithPopup(auth, googleProvider!)
-      console.log("✅ Google sign in successful:", result.user.displayName)
-      return result.user
+      const isNativeAndroid =
+        typeof window !== "undefined" &&
+        Capacitor.isNativePlatform() &&
+        Capacitor.getPlatform() === "android"
+
+      if (!isNativeAndroid) {
+        console.log("🌐 Google sign-in: web popup path")
+        const result = await signInWithPopup(auth, googleProvider!)
+        console.log("✅ Google sign in successful:", result.user.displayName)
+        return result.user
+      }
+
+      console.log("📱 Google sign-in: Capacitor native Android path")
+
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_WEB_CLIENT_ID
+      if (!clientId) {
+        throw new Error(
+          "Missing Google OAuth web client ID. Set NEXT_PUBLIC_GOOGLE_OAUTH_WEB_CLIENT_ID."
+        )
+      }
+
+      const { GoogleSignIn } = await import("@capawesome/capacitor-google-sign-in")
+
+      if (!googleSignInInitialized) {
+        await GoogleSignIn.initialize({
+          clientId,
+          scopes: ["email", "profile"],
+        })
+        googleSignInInitialized = true
+      }
+
+      const nativeResult = await GoogleSignIn.signIn()
+      const idToken = nativeResult?.idToken
+      if (!idToken) {
+        throw new Error("Google sign-in did not return an ID token.")
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken)
+      const userCred = await signInWithCredential(auth, credential)
+      console.log("✅ Google sign in successful (native):", userCred.user.displayName)
+      return userCred.user
     } catch (error: any) {
       console.error("❌ Google sign in failed:", error)
       setError(error.message)
