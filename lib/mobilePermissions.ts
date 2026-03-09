@@ -9,6 +9,8 @@ type PluginWithPermissions = {
 }
 
 const EXPLAINED_KEY_PREFIX = "pinit-permission-explained:"
+const DENIED_COUNT_KEY_PREFIX = "pinit-permission-denied-count:"
+const LAST_STATE_KEY_PREFIX = "pinit-permission-last-state:"
 
 function isNativeCapacitor(): boolean {
   return typeof window !== "undefined" && Capacitor.isNativePlatform()
@@ -30,6 +32,37 @@ function markExplained(key: string) {
   } catch {
     // best-effort
   }
+}
+
+function getNumber(key: string): number {
+  try {
+    if (typeof window === "undefined") return 0
+    const raw = window.localStorage.getItem(key)
+    const n = raw ? Number(raw) : 0
+    return Number.isFinite(n) ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function setString(key: string, value: string) {
+  try {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(key, value)
+  } catch {
+    // best-effort
+  }
+}
+
+function bumpDeniedCount(permissionKey: string): number {
+  const key = DENIED_COUNT_KEY_PREFIX + permissionKey
+  const next = getNumber(key) + 1
+  try {
+    if (typeof window !== "undefined") window.localStorage.setItem(key, String(next))
+  } catch {
+    // best-effort
+  }
+  return next
 }
 
 function parseAnyGranted(result: unknown): boolean {
@@ -72,6 +105,29 @@ async function showExplanationModalOnce(opts: {
   })
   if (ok) markExplained(opts.key)
   return ok
+}
+
+async function showExplanationModal(opts: {
+  title: string
+  message: string
+  confirmText?: string
+  cancelText?: string
+}): Promise<boolean> {
+  return await showPinitConfirmModal({
+    title: opts.title,
+    message: opts.message,
+    confirmText: opts.confirmText ?? "Continue",
+    cancelText: opts.cancelText ?? "Not now",
+  })
+}
+
+async function showPinitInfoModal(opts: { title: string; message: string; okText?: string }): Promise<void> {
+  await showPinitConfirmModal({
+    title: opts.title,
+    message: opts.message,
+    confirmText: opts.okText ?? "OK",
+    cancelText: "",
+  })
 }
 
 async function showPinitConfirmModal(opts: {
@@ -139,6 +195,7 @@ async function showPinitConfirmModal(opts: {
       "color:white",
       "font-weight:600",
       "cursor:pointer",
+      "display:" + (opts.cancelText ? "inline-flex" : "none"),
     ].join(";")
 
     const confirmBtn = document.createElement("button")
@@ -206,6 +263,43 @@ async function requestNativePermission(pluginName: string, requestArgs?: unknown
   }
 }
 
+async function getNativePermissionState(pluginName: string): Promise<PermissionStateLike | null> {
+  try {
+    const plugin = registerPlugin<PluginWithPermissions>(pluginName)
+    if (typeof plugin?.checkPermissions !== "function") return null
+    const res = await plugin.checkPermissions()
+    return pickFirstPermissionValue(res)
+  } catch {
+    return null
+  }
+}
+
+export async function getCameraPermissionStatus(): Promise<
+  "granted" | "prompt" | "denied" | "blocked" | "unknown"
+> {
+  if (isNativeCapacitor()) {
+    const nativeState = await getNativePermissionState("Camera")
+    if (nativeState === "granted") return "granted"
+    if (nativeState === "prompt" || nativeState === "prompt-with-rationale") return "prompt"
+    if (nativeState === "denied") return "blocked"
+  }
+
+  // Web / best-effort: rely on recent history of denials to classify as "blocked"
+  const deniedCount = getNumber(DENIED_COUNT_KEY_PREFIX + "camera")
+  const lastState = (() => {
+    try {
+      if (typeof window === "undefined") return ""
+      return window.localStorage.getItem(LAST_STATE_KEY_PREFIX + "camera") || ""
+    } catch {
+      return ""
+    }
+  })()
+  if (lastState === "granted") return "granted"
+  if (deniedCount >= 2) return "blocked"
+  if (deniedCount >= 1) return "denied"
+  return "unknown"
+}
+
 export async function requestLocationPermission(): Promise<boolean> {
   const ok = await showExplanationModalOnce({
     key: "location",
@@ -227,11 +321,27 @@ export async function requestLocationPermission(): Promise<boolean> {
 
 export async function requestCameraPermission(): Promise<boolean> {
   console.log("📷 requestCameraPermission(): start")
-  const ok = await showExplanationModalOnce({
-    key: "camera",
+  const currentStatus = await getCameraPermissionStatus()
+  console.log("📷 requestCameraPermission(): current permission state =", currentStatus)
+
+  if (currentStatus === "blocked") {
+    console.log("📷 requestCameraPermission(): permission permanently denied")
+    await showPinitInfoModal({
+      title: "Camera access is off",
+      message:
+        "Camera access is disabled for PINIT. To use the camera, enable it in your phone settings:\n\nSettings → Apps → PINIT → Permissions → Camera → Allow",
+      okText: "OK",
+    })
+    console.log("📷 requestCameraPermission(): opening settings fallback (manual)")
+    return false
+  }
+
+  console.log("📷 requestCameraPermission(): permission request attempted")
+  const ok = await showExplanationModal({
     title: "Enable camera",
     message: "PINIT needs camera access so you can take photos of places you want to remember.",
     confirmText: "Allow camera",
+    cancelText: "Not now",
   })
   if (!ok) {
     console.log("📷 requestCameraPermission(): user cancelled explanation")
@@ -257,8 +367,22 @@ export async function requestCameraPermission(): Promise<boolean> {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true })
     stream.getTracks().forEach((t) => t.stop())
     console.log("📷 requestCameraPermission(): granted (getUserMedia)")
+    setString(LAST_STATE_KEY_PREFIX + "camera", "granted")
     return true
-  } catch {
+  } catch (e) {
+    const deniedCount = bumpDeniedCount("camera")
+    setString(LAST_STATE_KEY_PREFIX + "camera", "denied")
+    console.log("📷 requestCameraPermission(): permission denied", { deniedCount, error: e })
+    if (deniedCount >= 2) {
+      console.log("📷 requestCameraPermission(): permission permanently denied (best-effort)")
+      await showPinitInfoModal({
+        title: "Camera access is off",
+        message:
+          "Camera access is disabled for PINIT. To use the camera, enable it in your phone settings:\n\nSettings → Apps → PINIT → Permissions → Camera → Allow",
+        okText: "OK",
+      })
+      console.log("📷 requestCameraPermission(): opening settings fallback (manual)")
+    }
     console.log("📷 requestCameraPermission(): denied (getUserMedia)")
     return false
   }
