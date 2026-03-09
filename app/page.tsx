@@ -33,6 +33,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
+import { requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
 
 
@@ -593,25 +594,32 @@ export default function PINITApp() {
   // Continuous location watching
   useEffect(() => {
     let watchId: number | null = null
+    let cancelled = false
 
-    if (typeof window !== 'undefined' && navigator.geolocation) {
+    ;(async () => {
+      if (typeof window === "undefined" || !navigator.geolocation) {
+        console.log("O Geolocation not available")
+        return
+      }
+
       console.log("dY? Setting up location watching...")
-      
+      const allowed = await requestLocationPermission()
+      if (!allowed || cancelled) return
+
       // Start watching location continuously with better accuracy
       watchId = watchLocation({
         enableHighAccuracy: true, // Use high accuracy for real-time updates
         timeout: 15000, // Increase timeout
         maximumAge: 10000, // Reduced to 10 seconds for real-time updates
       })
+    })()
 
-      // Cleanup function
-      return () => {
-        if (watchId !== null) {
-          clearWatch(watchId)
-        }
+    // Cleanup function
+    return () => {
+      cancelled = true
+      if (watchId !== null) {
+        clearWatch(watchId)
       }
-    } else {
-      console.log("O Geolocation not available")
     }
   }, [watchLocation, clearWatch])
 
@@ -4403,7 +4411,9 @@ export default function PINITApp() {
         }}
       >
         <button
-          onClick={() => {
+          onClick={async () => {
+            const allowed = await requestCameraPermission()
+            if (!allowed) return
             setCameraMode("photo")
             setCurrentScreen("camera")
           }}
