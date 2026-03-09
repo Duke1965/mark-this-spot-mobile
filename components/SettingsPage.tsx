@@ -878,31 +878,29 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               </div>
 
               {/* Log out (moved here for easier access) */}
-              {user && (
-                <button
-                  onClick={signOutUser}
-                  style={{
-                    background: "rgba(239, 68, 68, 0.2)",
-                    color: "#EF4444",
-                    padding: "1rem 2rem",
-                    borderRadius: "0.5rem",
-                    border: "2px solid rgba(239, 68, 68, 0.3)",
-                    cursor: "pointer",
-                    fontSize: "1.1rem",
-                    fontWeight: "bold",
-                    transition: "all 0.2s ease",
-                    marginTop: "0.25rem",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"
-                  }}
-                >
-                  Log Out
-                </button>
-              )}
+              <button
+                onClick={signOutUser}
+                style={{
+                  background: "rgba(239, 68, 68, 0.2)",
+                  color: "#EF4444",
+                  padding: "1rem 2rem",
+                  borderRadius: "0.5rem",
+                  border: "2px solid rgba(239, 68, 68, 0.3)",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  transition: "all 0.2s ease",
+                  marginTop: "0.25rem",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"
+                }}
+              >
+                Log Out
+              </button>
 
               <button
                 onClick={() => {
