@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
 
 interface SettingsPageProps {
@@ -278,6 +279,8 @@ function FactoryResetDialog() {
 
 export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState<string | null>(null)
   
   // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
@@ -327,6 +330,32 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       }
     }
   }, [isReturningUser])
+
+  const handleLogout = async () => {
+    try {
+      setLogoutError(null)
+      setIsLoggingOut(true)
+      await signOutUser()
+
+      // Best-effort confirmation (works in real Firebase auth; harmless in demo mode)
+      const stillSignedIn = !!(auth as any)?.currentUser
+      if (stillSignedIn) {
+        throw new Error("Sign out didn't complete. Please try again.")
+      }
+
+      try {
+        localStorage.setItem("pinit-flash-success", "You are logged out.")
+      } catch {
+        // ignore
+      }
+
+      onComplete()
+    } catch (e: any) {
+      setLogoutError(e?.message || "Failed to log out. Please try again.")
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   const handleNext = () => {
     switch (currentStep) {
@@ -879,28 +908,49 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
               {/* Log out (moved here for easier access) */}
               <button
-                onClick={signOutUser}
+                onClick={handleLogout}
+                disabled={isLoggingOut}
                 style={{
                   background: "rgba(239, 68, 68, 0.2)",
                   color: "#EF4444",
                   padding: "1rem 2rem",
                   borderRadius: "0.5rem",
                   border: "2px solid rgba(239, 68, 68, 0.3)",
-                  cursor: "pointer",
+                  cursor: isLoggingOut ? "not-allowed" : "pointer",
                   fontSize: "1.1rem",
                   fontWeight: "bold",
                   transition: "all 0.2s ease",
                   marginTop: "0.25rem",
+                  opacity: isLoggingOut ? 0.75 : 1,
                 }}
                 onMouseEnter={(e) => {
+                  if (isLoggingOut) return
                   e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)"
                 }}
                 onMouseLeave={(e) => {
+                  if (isLoggingOut) return
                   e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"
                 }}
               >
-                Log Out
+                {isLoggingOut ? "Logging out…" : "Log Out"}
               </button>
+
+              {logoutError && (
+                <div
+                  style={{
+                    background: "rgba(239,68,68,0.2)",
+                    border: "1px solid rgba(239,68,68,0.5)",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "0.75rem",
+                    color: "white",
+                    textAlign: "left",
+                    fontSize: "0.95rem",
+                    marginTop: "0.5rem",
+                  }}
+                >
+                  {logoutError}
+                </div>
+              )}
 
               <button
                 onClick={() => {
