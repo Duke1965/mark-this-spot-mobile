@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { reverseGeocode } from "@/lib/reverseGeocode"
 import type { LocationData } from "@/lib/types"
+import { requestLocationPermission } from "@/lib/mobilePermissions"
 
 interface LocationError {
   code: number
@@ -150,8 +151,18 @@ export function useLocationServices() {
     }
   }, [calculateDistance, lastGoodPlaceName, lastGoodLocation])
 
-  const getCurrentLocation = useCallback((options?: PositionOptions): Promise<LocationData> => {
-    return new Promise((resolve, reject) => {
+  const getCurrentLocation = useCallback(async (options?: PositionOptions): Promise<LocationData> => {
+    const allowed = await requestLocationPermission()
+    if (!allowed) {
+      const error = {
+        code: 1,
+        message: getErrorMessage(1),
+      }
+      setError(error)
+      throw error
+    }
+
+    return await new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         const error = {
           code: 0,
