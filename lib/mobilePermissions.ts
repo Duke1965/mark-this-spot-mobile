@@ -226,26 +226,40 @@ export async function requestLocationPermission(): Promise<boolean> {
 }
 
 export async function requestCameraPermission(): Promise<boolean> {
+  console.log("📷 requestCameraPermission(): start")
   const ok = await showExplanationModalOnce({
     key: "camera",
     title: "Enable camera",
     message: "PINIT needs camera access so you can take photos of places you want to remember.",
     confirmText: "Allow camera",
   })
-  if (!ok) return false
+  if (!ok) {
+    console.log("📷 requestCameraPermission(): user cancelled explanation")
+    return false
+  }
 
   if (isNativeCapacitor()) {
     console.log("📷 Permission path: native camera")
-    // Uses the native Camera plugin if available in the Capacitor shell
-    return await requestNativePermission("Camera", { permissions: ["camera"] })
+    // IMPORTANT: PINIT camera UI uses getUserMedia (web-style) via `ReliableCamera`.
+    // In many Capacitor shells there is no Camera plugin installed; blocking here would break the flow.
+    // So: try native permission request if available, otherwise fall back to a getUserMedia preflight
+    // (which triggers the Android permission prompt in a working WebView setup).
+    const nativeOk = await requestNativePermission("Camera", { permissions: ["camera"] })
+    if (nativeOk) {
+      console.log("📷 requestCameraPermission(): native granted")
+      return true
+    }
+    console.log("📷 requestCameraPermission(): native unavailable/denied; falling back to getUserMedia preflight")
   }
 
   console.log("📷 Permission path: web camera")
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true })
     stream.getTracks().forEach((t) => t.stop())
+    console.log("📷 requestCameraPermission(): granted (getUserMedia)")
     return true
   } catch {
+    console.log("📷 requestCameraPermission(): denied (getUserMedia)")
     return false
   }
 }
