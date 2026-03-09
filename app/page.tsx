@@ -33,7 +33,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
-import { requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
+import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
 
 
@@ -4413,6 +4413,8 @@ export default function PINITApp() {
         <button
           onClick={async () => {
             console.log("📷 Camera button pressed")
+            const state = await getCameraPermissionStatus()
+            console.log("📷 Current camera permission state =", state)
             console.log("📷 Camera permission requested")
             const allowed = await requestCameraPermission()
             console.log(`📷 Camera permission ${allowed ? "granted" : "denied"}`)
