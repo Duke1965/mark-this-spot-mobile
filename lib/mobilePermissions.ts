@@ -65,6 +65,15 @@ function bumpDeniedCount(permissionKey: string): number {
   return next
 }
 
+function resetDeniedCount(permissionKey: string) {
+  try {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(DENIED_COUNT_KEY_PREFIX + permissionKey, "0")
+  } catch {
+    // best-effort
+  }
+}
+
 function parseAnyGranted(result: unknown): boolean {
   if (!result || typeof result !== "object") return false
   for (const v of Object.values(result as UnknownRecord)) {
@@ -284,7 +293,25 @@ export async function getCameraPermissionStatus(): Promise<
     if (nativeState === "denied") return "blocked"
   }
 
-  // Web / best-effort: rely on recent history of denials to classify as "blocked"
+  // Web / best-effort:
+  // Prefer the Permissions API if available so we can recover after the user changes settings.
+  try {
+    if (typeof navigator !== "undefined" && "permissions" in navigator) {
+      const status = await (navigator as any).permissions.query({ name: "camera" })
+      if (status?.state === "granted") {
+        resetDeniedCount("camera")
+        setString(LAST_STATE_KEY_PREFIX + "camera", "granted")
+        return "granted"
+      }
+      if (status?.state === "prompt") return "prompt"
+      if (status?.state === "denied") return "blocked"
+    }
+  } catch {
+    // ignore; not supported in some WebViews
+  }
+
+  // Fallback to local best-effort memory, but DO NOT treat repeated denies as permanently blocked
+  // (Android settings changes must be able to recover even if we can't read actual state).
   const deniedCount = getNumber(DENIED_COUNT_KEY_PREFIX + "camera")
   const lastState = (() => {
     try {
@@ -295,7 +322,6 @@ export async function getCameraPermissionStatus(): Promise<
     }
   })()
   if (lastState === "granted") return "granted"
-  if (deniedCount >= 2) return "blocked"
   if (deniedCount >= 1) return "denied"
   return "unknown"
 }
@@ -323,6 +349,11 @@ export async function requestCameraPermission(): Promise<boolean> {
   console.log("📷 requestCameraPermission(): start")
   const currentStatus = await getCameraPermissionStatus()
   console.log("📷 requestCameraPermission(): current permission state =", currentStatus)
+
+  if (currentStatus === "granted") {
+    console.log("📷 requestCameraPermission(): already granted")
+    return true
+  }
 
   if (currentStatus === "blocked") {
     console.log("📷 requestCameraPermission(): permission permanently denied")
@@ -368,21 +399,12 @@ export async function requestCameraPermission(): Promise<boolean> {
     stream.getTracks().forEach((t) => t.stop())
     console.log("📷 requestCameraPermission(): granted (getUserMedia)")
     setString(LAST_STATE_KEY_PREFIX + "camera", "granted")
+    resetDeniedCount("camera")
     return true
   } catch (e) {
     const deniedCount = bumpDeniedCount("camera")
     setString(LAST_STATE_KEY_PREFIX + "camera", "denied")
     console.log("📷 requestCameraPermission(): permission denied", { deniedCount, error: e })
-    if (deniedCount >= 2) {
-      console.log("📷 requestCameraPermission(): permission permanently denied (best-effort)")
-      await showPinitInfoModal({
-        title: "Camera access is off",
-        message:
-          "Camera access is disabled for PINIT. To use the camera, enable it in your phone settings:\n\nSettings → Apps → PINIT → Permissions → Camera → Allow",
-        okText: "OK",
-      })
-      console.log("📷 requestCameraPermission(): opening settings fallback (manual)")
-    }
     console.log("📷 requestCameraPermission(): denied (getUserMedia)")
     return false
   }
