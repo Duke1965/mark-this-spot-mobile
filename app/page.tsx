@@ -211,6 +211,24 @@ export default function PINITApp() {
   const successPopupTimerRef = useRef<number | null>(null)
   const fetchLocationPhotosRef = useRef<null | ((lat: number, lng: number, externalSignal?: AbortSignal, bypassCache?: boolean) => Promise<any[]>)>(null)
 
+  // Flash message bridge (e.g., logout)
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (currentScreen !== "map") return
+      const msg = window.localStorage.getItem("pinit-flash-success")
+      if (!msg) return
+      window.localStorage.removeItem("pinit-flash-success")
+
+      setSuccessMessage(msg)
+      setShowSuccessPopup(true)
+      if (successPopupTimerRef.current) window.clearTimeout(successPopupTimerRef.current)
+      successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
+    } catch {
+      // ignore
+    }
+  }, [currentScreen])
+
   const [showRecommendToggle, setShowRecommendToggle] = useState(false)
   const [showNearbyPins, setShowNearbyPins] = useState(false)
   const [discoveryMode, setDiscoveryMode] = useState(false)
