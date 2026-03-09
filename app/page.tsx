@@ -4412,8 +4412,12 @@ export default function PINITApp() {
       >
         <button
           onClick={async () => {
+            console.log("📷 Camera button pressed")
+            console.log("📷 Camera permission requested")
             const allowed = await requestCameraPermission()
+            console.log(`📷 Camera permission ${allowed ? "granted" : "denied"}`)
             if (!allowed) return
+            console.log("📷 Original camera flow started (open camera screen)")
             setCameraMode("photo")
             setCurrentScreen("camera")
           }}
