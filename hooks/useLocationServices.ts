@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import { reverseGeocode } from "@/lib/reverseGeocode"
 import type { LocationData } from "@/lib/types"
 import { requestLocationPermission } from "@/lib/mobilePermissions"
+import { Capacitor } from "@capacitor/core"
 
 interface LocationError {
   code: number
@@ -90,17 +91,50 @@ export function useLocationServices() {
     return R * c
   }, [])
 
-  // Check permission status on mount
+  const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform()
+
+  // Check permission status on mount (native uses Capacitor, web uses Permissions API)
   useEffect(() => {
-    if ("permissions" in navigator) {
-      navigator.permissions.query({ name: "geolocation" }).then((result) => {
-        setPermissionStatus(result.state)
-        result.addEventListener("change", () => {
+    let cancelled = false
+
+    ;(async () => {
+      if (typeof window === "undefined") return
+
+      if (isNative) {
+        try {
+          const { Geolocation } = await import("@capacitor/geolocation")
+          const res = await Geolocation.checkPermissions()
+          if (cancelled) return
+          const state = (res as any)?.location
+          if (state === "granted" || state === "denied" || state === "prompt" || state === "prompt-with-rationale") {
+            setPermissionStatus(state as any)
+          } else {
+            setPermissionStatus(null)
+          }
+        } catch {
+          setPermissionStatus(null)
+        }
+        return
+      }
+
+      if ("permissions" in navigator) {
+        try {
+          const result = await navigator.permissions.query({ name: "geolocation" })
+          if (cancelled) return
           setPermissionStatus(result.state)
-        })
-      })
+          result.addEventListener("change", () => {
+            setPermissionStatus(result.state)
+          })
+        } catch {
+          // ignore
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [isNative])
 
   // Warm-start from last known location (prevents "stuck on Getting location...")
   useEffect(() => {
@@ -162,6 +196,42 @@ export function useLocationServices() {
       throw error
     }
 
+    if (isNative) {
+      console.log("📍 Using Capacitor native geolocation")
+      setIsLoading(true)
+      setError(null)
+      try {
+        const { Geolocation } = await import("@capacitor/geolocation")
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: options?.timeout ?? 15000,
+          maximumAge: options?.maximumAge ?? 60000,
+        })
+        const locationData: LocationData = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          timestamp: (pos as any).timestamp ?? Date.now(),
+        }
+        setLocation(locationData)
+        setIsLoading(false)
+        persistLastKnownLocation(locationData)
+        await getPlaceName(locationData.latitude, locationData.longitude)
+        return locationData
+      } catch (e: any) {
+        const error: LocationError = {
+          code: 2,
+          message: e?.message || getErrorMessage(2),
+        }
+        setError(error)
+        setIsLoading(false)
+        const cached = readLastKnownLocation()
+        if (cached) setLocation((prev) => prev ?? cached)
+        throw error
+      }
+    }
+
+    console.log("📍 Using browser geolocation fallback")
     return await new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         const error = {
@@ -237,9 +307,72 @@ export function useLocationServices() {
         defaultOptions,
       )
     })
-  }, [calculateDistance, getPlaceName, persistLastKnownLocation, readLastKnownLocation])
+  }, [calculateDistance, getPlaceName, isNative, persistLastKnownLocation, readLastKnownLocation, requestLocationPermission])
 
-  const watchLocation = useCallback((options?: PositionOptions): number => {
+  const watchLocation = useCallback((options?: PositionOptions): string | number => {
+    if (isNative) {
+      console.log("📍 Using Capacitor native geolocation (watch)")
+        try {
+          const start = async () => {
+            const allowed = await requestLocationPermission()
+            if (!allowed) return null
+            const { Geolocation } = await import("@capacitor/geolocation")
+            const id = await Geolocation.watchPosition(
+            {
+              enableHighAccuracy: true,
+              timeout: options?.timeout ?? 15000,
+              maximumAge: options?.maximumAge ?? 10000,
+            },
+            async (pos, err) => {
+              if (err || !pos?.coords) {
+                if (err) {
+                  setError({ code: 2, message: err.message || getErrorMessage(2) })
+                }
+                const cached = readLastKnownLocation()
+                if (cached) setLocation((prev) => prev ?? cached)
+                return
+              }
+              const locationData: LocationData = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+                timestamp: (pos as any).timestamp ?? Date.now(),
+              }
+              setLocation(locationData)
+              setError(null)
+              persistLastKnownLocation(locationData)
+              const now = Date.now()
+              const shouldLookup =
+                !lastPlaceNameLookup.current ||
+                calculateDistance(
+                  lastPlaceNameLookup.current.lat,
+                  lastPlaceNameLookup.current.lng,
+                  locationData.latitude,
+                  locationData.longitude,
+                ) > 0.1 ||
+                now - lastPlaceNameLookup.current.timestamp > 10000
+              if (shouldLookup) {
+                lastPlaceNameLookup.current = {
+                  lat: locationData.latitude,
+                  lng: locationData.longitude,
+                  timestamp: now,
+                }
+                await getPlaceName(locationData.latitude, locationData.longitude)
+              }
+            },
+            )
+            return id
+          }
+          // Fire and return a placeholder id synchronously; page.tsx stores it and uses clearWatch later.
+          // Since this hook is used only for side-effects, returning a string is acceptable.
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          start()
+          return "cap-watch"
+      } catch {
+        return -1
+      }
+    }
+
     if (!navigator.geolocation) {
       setError({
         code: 0,
@@ -306,16 +439,38 @@ export function useLocationServices() {
       },
       defaultOptions,
     )
-  }, [calculateDistance, getPlaceName, persistLastKnownLocation, readLastKnownLocation])
+  }, [calculateDistance, getPlaceName, isNative, persistLastKnownLocation, readLastKnownLocation, requestLocationPermission])
 
-  const clearWatch = useCallback((watchId: number) => {
-    if (navigator.geolocation) {
+  const clearWatch = useCallback((watchId: string | number) => {
+    if (isNative) {
+      ;(async () => {
+        try {
+          const { Geolocation } = await import("@capacitor/geolocation")
+          await Geolocation.clearWatch({ id: String(watchId) })
+        } catch {
+          // ignore
+        }
+      })()
+      return
+    }
+    if (navigator.geolocation && typeof watchId === "number") {
       navigator.geolocation.clearWatch(watchId)
     }
-  }, [])
+  }, [isNative])
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     try {
+      if (isNative) {
+        console.log("📍 Using Capacitor native geolocation (requestPermissions)")
+        const { Geolocation } = await import("@capacitor/geolocation")
+        const res = await Geolocation.requestPermissions()
+        const state = (res as any)?.location
+        if (state === "granted" || state === "denied" || state === "prompt" || state === "prompt-with-rationale") {
+          setPermissionStatus(state as any)
+        }
+        return state === "granted"
+      }
+
       if ("permissions" in navigator) {
         const result = await navigator.permissions.query({ name: "geolocation" })
         if (result.state === "granted") {
@@ -329,7 +484,7 @@ export function useLocationServices() {
     } catch (error) {
       return false
     }
-  }, [getCurrentLocation])
+  }, [getCurrentLocation, isNative])
 
   // Utility functions
 
