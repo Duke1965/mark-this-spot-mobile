@@ -611,16 +611,19 @@ export default function PINITApp() {
 
   // Continuous location watching
   useEffect(() => {
-    let watchId: number | null = null
+    let watchId: string | number | null = null
     let cancelled = false
 
     ;(async () => {
-      if (typeof window === "undefined" || !navigator.geolocation) {
-        console.log("O Geolocation not available")
-        return
+      if (typeof window === "undefined") return
+
+      if (!navigator.geolocation) {
+        // In the Capacitor wrapper we use native geolocation via the hook.
+        console.log("📍 navigator.geolocation unavailable; relying on native geolocation if present")
+      } else {
+        console.log("dY? Setting up location watching...")
       }
 
-      console.log("dY? Setting up location watching...")
       const allowed = await requestLocationPermission()
       if (!allowed || cancelled) return
 
@@ -630,6 +633,11 @@ export default function PINITApp() {
         timeout: 15000, // Increase timeout
         maximumAge: 10000, // Reduced to 10 seconds for real-time updates
       })
+
+      if (watchId === -1) {
+        console.log("⚠️ Location watch could not be started")
+        return
+      }
     })()
 
     // Cleanup function
