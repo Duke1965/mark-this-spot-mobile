@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { MapPin, X, Settings } from "lucide-react"
+import { Capacitor } from "@capacitor/core"
 
 interface LocationPermissionPromptProps {
   onRequestPermission: () => Promise<boolean>
@@ -15,6 +16,8 @@ export function LocationPermissionPrompt({
   const [showPrompt, setShowPrompt] = useState(false)
   const [isRequesting, setIsRequesting] = useState(false)
   const [hasRequestedBefore, setHasRequestedBefore] = useState(false)
+
+  const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform()
 
   useEffect(() => {
     // Check if user has already made a permission decision
@@ -60,7 +63,8 @@ export function LocationPermissionPrompt({
   }
 
   // Don't show if permission already granted or prompt is dismissed
-  if (!showPrompt || permissionStatus === 'granted') {
+  // In the Capacitor wrapper we use native geolocation + our in-app permission flow.
+  if (isNative || !showPrompt || permissionStatus === 'granted') {
     return null
   }
 
