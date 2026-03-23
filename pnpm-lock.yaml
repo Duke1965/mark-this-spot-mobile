@@ -11,6 +11,9 @@ importers:
       '@capacitor/core':
         specifier: ^8.1.0
         version: 8.1.0
+      '@capacitor/geolocation':
+        specifier: ^8.1.0
+        version: 8.1.0(@capacitor/core@8.1.0)
       '@capawesome/capacitor-google-sign-in':
         specifier: ^0.1.1
         version: 0.1.1(@capacitor/core@8.1.0)
@@ -328,6 +331,14 @@ packages:
 
   '@capacitor/core@8.1.0':
     resolution: {integrity: sha512-UfMBMWc1v7J+14AhH03QmeNwV3HZx3qnOWhpwnHfzALEwAwlV/itQOQqcasMQYhOHWL0tiymc5ByaLTn7KKQxw==}
+
+  '@capacitor/geolocation@8.1.0':
+    resolution: {integrity: sha512-dHeGuVlT3ELxxn8WaoRsGjfx8tmziaC0ZuaKhUBCoKFjOue4fAnmLczCMQsYW7OykgiyBh0pirNPwWZ0/LXB7Q==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
+  '@capacitor/synapse@1.0.4':
+    resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
 
   '@capawesome/capacitor-google-sign-in@0.1.1':
     resolution: {integrity: sha512-9A5X57CeOSzTEz4LvAopABBH4YAfA/3NgW2PgUQ4WwrkzZVcolWA+v0d2earoA3kiwPfvOgzb948WWUS0oHv+w==}
@@ -4164,6 +4175,13 @@ snapshots:
   '@capacitor/core@8.1.0':
     dependencies:
       tslib: 2.8.1
+
+  '@capacitor/geolocation@8.1.0(@capacitor/core@8.1.0)':
+    dependencies:
+      '@capacitor/core': 8.1.0
+      '@capacitor/synapse': 1.0.4
+
+  '@capacitor/synapse@1.0.4': {}
 
   '@capawesome/capacitor-google-sign-in@0.1.1(@capacitor/core@8.1.0)':
     dependencies:
