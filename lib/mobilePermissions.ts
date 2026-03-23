@@ -337,11 +337,20 @@ export async function requestLocationPermission(): Promise<boolean> {
   if (!ok) return false
 
   if (isNativeCapacitor()) {
-    console.log("📍 Permission path: native location")
-    return await requestNativePermission("Geolocation")
+    console.log("📍 Using Capacitor native geolocation")
+    try {
+      const { Geolocation } = await import("@capacitor/geolocation")
+      const existing = await Geolocation.checkPermissions()
+      if ((existing as any)?.location === "granted") return true
+      const res = await Geolocation.requestPermissions()
+      return (res as any)?.location === "granted"
+    } catch (e) {
+      console.warn("⚠️ Native location permission request failed", e)
+      return false
+    }
   }
 
-  console.log("📍 Permission path: web location")
+  console.log("📍 Using browser geolocation fallback")
   return true
 }
 
