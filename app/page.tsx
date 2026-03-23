@@ -1172,7 +1172,29 @@ export default function PINITApp() {
   // Handle quick pin with speed-based location calculation
   const handleQuickPin = useCallback(async () => {
     // Guard against re-entry (and recover from rare stuck states)
-    if (quickPinInFlightRef.current || isQuickPinning) return
+    console.log("📌 PIN button pressed")
+    console.log("📌 Auth state:", {
+      user_present: !!user,
+      uid: user?.uid || null,
+      auth_currentUser_present: !!auth?.currentUser,
+    })
+    console.log("📌 Current location state:", {
+      location_present: !!location,
+      lat: location?.latitude ?? null,
+      lng: location?.longitude ?? null,
+      permissionStatus: permissionStatus ?? null,
+      locationLoading: !!locationLoading,
+      locationError: (locationError as any)?.message ?? null,
+      userLocation_state: userLocation ? { lat: userLocation.latitude, lng: userLocation.longitude } : null,
+    })
+
+    if (quickPinInFlightRef.current || isQuickPinning) {
+      console.log("📌 Early return: quick pin already in flight", {
+        quickPinInFlight: quickPinInFlightRef.current,
+        isQuickPinning,
+      })
+      return
+    }
 
     // Clear any previous UI timers/popups
     if (successPopupTimerRef.current) {
@@ -1214,7 +1236,13 @@ export default function PINITApp() {
       }, 25000)
 
       setQuickPinStage("Saving this spot…")
+      console.log("📌 Getting current location...")
       const currentLocation = await getCurrentLocation()
+      console.log("📌 Current location resolved:", {
+        lat: currentLocation?.latitude,
+        lng: currentLocation?.longitude,
+        accuracy: (currentLocation as any)?.accuracy ?? null,
+      })
       
       // NEW: Calculate precise location based on speed and movement
       let pinLatitude = currentLocation.latitude
@@ -1258,10 +1286,14 @@ export default function PINITApp() {
       console.log("🧠 Fetching pin intel (Geoapify + website-first images)...")
       let pinIntelV2: any = null
       try {
+        console.log("🌐 API request about to be made:", {
+          url: `/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`,
+        })
         const resp = await fetch(`/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`, {
           signal: controller.signal,
           cache: 'no-store'
         })
+        console.log("🌐 API request completed:", { ok: resp.ok, status: resp.status })
         if (resp.ok) {
           pinIntelV2 = await resp.json()
         } else {
@@ -1434,7 +1466,12 @@ export default function PINITApp() {
       }, 1500)
     } catch (error) {
       console.error("❌ Failed to create quick pin:", error)
-      setSuccessMessage("Pin failed — try again")
+      const msg = (error as any)?.message ? String((error as any).message) : ""
+      const code = (error as any)?.code
+      const isLocationIssue =
+        code === 1 || code === 2 || code === 3 || /geo|location|position|permission/i.test(msg)
+      console.log("📌 Caught exception during pin flow:", { code, message: msg })
+      setSuccessMessage(isLocationIssue ? "Location unavailable — try again" : "Pin failed — try again")
       setShowSuccessPopup(true)
       successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
     } finally {
@@ -1447,7 +1484,18 @@ export default function PINITApp() {
       setIsQuickPinning(false)
       setQuickPinStage("")
     }
-  }, [getCurrentLocation, isQuickPinning, motionData, addPin])
+  }, [
+    addPin,
+    getCurrentLocation,
+    isQuickPinning,
+    location,
+    locationError,
+    locationLoading,
+    motionData,
+    permissionStatus,
+    user,
+    userLocation,
+  ])
 
   // NEW: Generate intelligent AI content based on location and context
   // Prioritizes Foursquare data (title/name, description) over AI-generated content
