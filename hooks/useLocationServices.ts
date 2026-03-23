@@ -91,7 +91,8 @@ export function useLocationServices() {
     return R * c
   }, [])
 
-  const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform()
+  const isCapacitor = typeof window !== "undefined" && Capacitor.isNativePlatform()
+  const isNative = isCapacitor && Capacitor.isPluginAvailable("Geolocation")
 
   // Check permission status on mount (native uses Capacitor, web uses Permissions API)
   useEffect(() => {
@@ -117,6 +118,12 @@ export function useLocationServices() {
         return
       }
 
+      if (isCapacitor && !isNative) {
+        // Capacitor shell without native geolocation plugin available
+        setPermissionStatus(null)
+        return
+      }
+
       if ("permissions" in navigator) {
         try {
           const result = await navigator.permissions.query({ name: "geolocation" })
@@ -134,7 +141,7 @@ export function useLocationServices() {
     return () => {
       cancelled = true
     }
-  }, [isNative])
+  }, [isCapacitor, isNative])
 
   // Warm-start from last known location (prevents "stuck on Getting location...")
   useEffect(() => {
