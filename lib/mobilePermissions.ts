@@ -16,6 +16,14 @@ function isNativeCapacitor(): boolean {
   return typeof window !== "undefined" && Capacitor.isNativePlatform()
 }
 
+function isGeolocationPluginAvailable(): boolean {
+  try {
+    return typeof window !== "undefined" && Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Geolocation")
+  } catch {
+    return false
+  }
+}
+
 function wasExplained(key: string): boolean {
   try {
     if (typeof window === "undefined") return false
@@ -339,6 +347,10 @@ export async function requestLocationPermission(): Promise<boolean> {
   if (isNativeCapacitor()) {
     console.log("📍 Using Capacitor native geolocation")
     try {
+      if (!isGeolocationPluginAvailable()) {
+        console.log("📍 Using browser geolocation fallback (native plugin not available)")
+        return true
+      }
       const { Geolocation } = await import("@capacitor/geolocation")
       const existing = await Geolocation.checkPermissions()
       if ((existing as any)?.location === "granted") return true
