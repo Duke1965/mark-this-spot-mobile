@@ -6,9 +6,28 @@ import { ArrowLeft } from "lucide-react"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import type { PinData } from "@/lib/types"
 
-export default function PostcardClient({ pinId }: { pinId: string }) {
+const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
+const ROTATE_HINT_KEY = "pinit-postcard-rotate-hint-shown-v1"
+
+export default function PostcardClient({
+  pinId,
+  template,
+  imageUrl,
+  title,
+  description,
+  onBack,
+}: {
+  pinId?: string
+  template?: string
+  imageUrl?: string | null
+  title?: string
+  description?: string
+  onBack?: () => void
+}) {
   const router = useRouter()
   const { pins } = usePinStorage()
+
+  const resolvedTemplate = ALLOWED_TEMPLATES.has(String(template)) ? String(template) : "template-1"
 
   const pin: PinData | null = useMemo(() => {
     if (!pinId) return null
@@ -20,30 +39,45 @@ export default function PostcardClient({ pinId }: { pinId: string }) {
 
   const [imageFailed, setImageFailed] = useState(false)
   const [templateFailed, setTemplateFailed] = useState(false)
+  const [showRotateHint, setShowRotateHint] = useState(false)
 
   useEffect(() => {
     setImageFailed(false)
     setTemplateFailed(false)
     setMessage("")
-  }, [pinId])
+  }, [pinId, resolvedTemplate])
 
-  const title = (pin?.title || pin?.locationName || "").trim() || "Saved Place"
-  const description = (pin?.description || "").trim() || "A spot worth remembering."
-  const imageUrl =
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (sessionStorage.getItem(ROTATE_HINT_KEY)) return
+      sessionStorage.setItem(ROTATE_HINT_KEY, "1")
+      setShowRotateHint(true)
+      const t = window.setTimeout(() => setShowRotateHint(false), 4500)
+      return () => window.clearTimeout(t)
+    } catch {
+      return
+    }
+  }, [])
+
+  const resolvedTitle = (title || pin?.title || pin?.locationName || "").trim() || (pinId ? "Saved Place" : "My Postcard")
+  const resolvedDescription = (description || pin?.description || "").trim() || (pinId ? "A spot worth remembering." : "")
+  const resolvedImageUrl =
+    imageUrl ||
     pin?.mediaUrl ||
     pin?.additionalPhotos?.find((p) => p?.url && p.url !== "/pinit-placeholder.jpg")?.url ||
     null
 
-  if (!pinId) {
+  if (!pinId && !resolvedImageUrl) {
     return (
       <div style={styles.screen}>
-        <Header title="Postcard" onBack={() => router.back()} />
+        <Header title="Postcard" onBack={onBack || (() => router.back())} />
         <div style={styles.content}>
           <div style={styles.errorCard}>
             <div style={styles.errorTitle}>Postcard</div>
-            <div style={styles.errorText}>Missing pinId.</div>
-            <button style={styles.primaryButton} onClick={() => router.push("/")}>
-              Back to Home
+            <div style={styles.errorText}>Missing image.</div>
+            <button style={styles.primaryButton} onClick={() => (onBack ? onBack() : router.push("/"))}>
+              Go back
             </button>
           </div>
         </div>
@@ -51,15 +85,15 @@ export default function PostcardClient({ pinId }: { pinId: string }) {
     )
   }
 
-  if (!pin) {
+  if (pinId && !pin) {
     return (
       <div style={styles.screen}>
-        <Header title="Postcard" onBack={() => router.back()} />
+        <Header title="Postcard" onBack={onBack || (() => router.back())} />
         <div style={styles.content}>
           <div style={styles.errorCard}>
             <div style={styles.errorTitle}>Couldn’t find this pin</div>
             <div style={styles.errorText}>This pin may have been deleted or not synced yet.</div>
-            <button style={styles.primaryButton} onClick={() => router.back()}>
+            <button style={styles.primaryButton} onClick={() => (onBack ? onBack() : router.back())}>
               Go back
             </button>
           </div>
@@ -70,16 +104,32 @@ export default function PostcardClient({ pinId }: { pinId: string }) {
 
   return (
     <div style={styles.screen}>
-      <Header title="Postcard" onBack={() => router.back()} />
+      <Header title="Postcard" onBack={onBack || (() => router.back())} />
 
       <div style={styles.content}>
+        {showRotateHint && (
+          <div
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: 14,
+              padding: "0.75rem 0.9rem",
+              backdropFilter: "blur(10px)",
+              fontWeight: 800,
+              fontSize: "0.9rem",
+              opacity: 0.95,
+            }}
+          >
+            💡 Rotate your phone for a better editing experience
+          </div>
+        )}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
             {/* Background image */}
-            {imageUrl && !imageFailed ? (
+            {resolvedImageUrl && !imageFailed ? (
               <img
-                src={imageUrl}
-                alt={title}
+                src={resolvedImageUrl}
+                alt={resolvedTitle}
                 style={styles.bgImage}
                 onError={() => setImageFailed(true)}
               />
@@ -93,7 +143,7 @@ export default function PostcardClient({ pinId }: { pinId: string }) {
             {/* Template overlay */}
             {!templateFailed ? (
               <img
-                src="/postcards/template-1.png"
+                src={`/postcards/${resolvedTemplate}.png`}
                 alt=""
                 style={styles.template}
                 onError={() => setTemplateFailed(true)}
@@ -104,11 +154,11 @@ export default function PostcardClient({ pinId }: { pinId: string }) {
 
             {/* Text overlay */}
             <div style={styles.textLayer}>
-              <div style={styles.title} title={title}>
-                {title}
+              <div style={styles.title} title={resolvedTitle}>
+                {resolvedTitle}
               </div>
-              <div style={styles.desc} title={description}>
-                {description}
+              <div style={styles.desc} title={resolvedDescription}>
+                {resolvedDescription}
               </div>
 
               {message.trim().length > 0 && (
