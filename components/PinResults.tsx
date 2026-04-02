@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { PinData } from "@/lib/types"
-import { ArrowLeft, Share2, Save, Calendar, MapPin, Bot, MessageSquare, Star } from "lucide-react"
+import { ArrowLeft, Share2, Save, Calendar, MapPin, Bot, MessageSquare, Star, Send } from "lucide-react"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
 
 // Helper to get display title with fallback
@@ -24,6 +25,7 @@ interface PinResultsProps {
 }
 
 export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
+  const router = useRouter()
   const [personalThoughts, setPersonalThoughts] = useState(pin.personalThoughts || "")
   
   // Update personal thoughts when pin changes
@@ -477,7 +479,7 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
         backdropFilter: "blur(15px)",
         borderTop: "1px solid rgba(255,255,255,0.1)"
       }}>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem" }}>
           <button
             onClick={handleShare}
             style={{
@@ -535,6 +537,35 @@ export function PinResults({ pin, onSave, onShare, onBack }: PinResultsProps) {
             Save
           </button>
         </div>
+
+        <button
+          onClick={() => router.push(`/postcard/${pin.id}`)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.5rem",
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "white",
+            fontWeight: "800",
+            padding: "0.85rem 1.25rem",
+            borderRadius: "0.75rem",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            fontSize: "1rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.26)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.16)"
+          }}
+        >
+          <Send size={18} />
+          Send Postcard
+        </button>
       </div>
     </div>
   )
