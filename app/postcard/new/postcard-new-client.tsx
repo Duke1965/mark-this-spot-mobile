@@ -19,10 +19,12 @@ export default function PostcardNewClient() {
   }, [templateParam])
 
   const [mode, setMode] = useState<"chooser" | "camera">("chooser")
+  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setMode("chooser")
+    setError(null)
   }, [template])
 
   const saveDraftAndGo = (imageUrl: string) => {
@@ -36,13 +38,19 @@ export default function PostcardNewClient() {
 
   const onTakePhoto = async () => {
     const allowed = await requestCameraPermission()
-    if (!allowed) return
+    if (!allowed) {
+      setError("Camera permission was denied. You can still choose a photo from your gallery.")
+      return
+    }
     setMode("camera")
   }
 
   const onChooseGallery = async () => {
     const allowed = await requestPhotoPermission()
-    if (!allowed) return
+    if (!allowed) {
+      setError("Photo access was denied. Please allow photo access or take a photo instead.")
+      return
+    }
     fileInputRef.current?.click()
   }
 
@@ -88,7 +96,7 @@ export default function PostcardNewClient() {
           <ArrowLeft size={20} />
           <span style={{ fontWeight: 700 }}>Back</span>
         </button>
-        <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>Create Postcard</div>
+        <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>Add Your Photo</div>
         <div style={{ width: 72 }} />
       </div>
 
@@ -103,37 +111,89 @@ export default function PostcardNewClient() {
       ) : (
         <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
           <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <div
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                borderRadius: 16,
-                padding: 14,
-                backdropFilter: "blur(12px)",
-              }}
-            >
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Selected template</div>
-              <div style={{ opacity: 0.9 }}>{template}</div>
-            </div>
+            {!templateParam || !ALLOWED_TEMPLATES.has(templateParam) ? (
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 16,
+                  padding: 14,
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Choose a template first</div>
+                <div style={{ opacity: 0.9, marginBottom: 12 }}>
+                  We couldn’t find a valid template in the link. Please pick one from the templates screen.
+                </div>
+                <button
+                  onClick={() => router.push("/postcard/templates")}
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "white",
+                    fontWeight: 900,
+                    padding: "0.95rem 1rem",
+                    borderRadius: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  Go to Templates
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 16,
+                  padding: 14,
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Selected template</div>
+                <div style={{ opacity: 0.9 }}>{template}</div>
+              </div>
+            )}
+
+            {error && (
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.18)",
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  borderRadius: 16,
+                  padding: 14,
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Something went wrong</div>
+                <div style={{ opacity: 0.95, lineHeight: 1.35 }}>{error}</div>
+              </div>
+            )}
 
             <button
               onClick={onTakePhoto}
               style={{
                 width: "100%",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.6rem",
-                background: "rgba(255,255,255,0.2)",
-                border: "1px solid rgba(255,255,255,0.2)",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 8,
+                background: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.22)",
                 color: "white",
                 fontWeight: 900,
-                padding: "0.95rem 1rem",
-                borderRadius: 14,
+                padding: "1.1rem 1rem",
+                borderRadius: 16,
                 cursor: "pointer",
               }}
             >
-              <Camera size={18} /> Take Photo
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Camera size={18} /> <span>Take Photo</span>
+              </div>
+              <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
+                Use your camera to capture a new photo.
+              </div>
             </button>
 
             <button
@@ -141,19 +201,24 @@ export default function PostcardNewClient() {
               style={{
                 width: "100%",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.6rem",
-                background: "rgba(255,255,255,0.12)",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 8,
+                background: "rgba(255,255,255,0.1)",
                 border: "1px solid rgba(255,255,255,0.18)",
                 color: "white",
                 fontWeight: 900,
-                padding: "0.95rem 1rem",
-                borderRadius: 14,
+                padding: "1.1rem 1rem",
+                borderRadius: 16,
                 cursor: "pointer",
               }}
             >
-              <Images size={18} /> Choose from Gallery
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Images size={18} /> <span>Choose from Gallery</span>
+              </div>
+              <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
+                Pick an existing photo from your device.
+              </div>
             </button>
 
             <input
@@ -163,12 +228,21 @@ export default function PostcardNewClient() {
               style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (!file) return
+                if (!file) {
+                  setError(null)
+                  return
+                }
                 const reader = new FileReader()
                 reader.onload = () => {
                   const dataUrl = typeof reader.result === "string" ? reader.result : ""
-                  if (!dataUrl) return
+                  if (!dataUrl) {
+                    setError("We couldn’t read that image. Please try another photo.")
+                    return
+                  }
                   saveDraftAndGo(dataUrl)
+                }
+                reader.onerror = () => {
+                  setError("We couldn’t read that image. Please try another photo.")
                 }
                 reader.readAsDataURL(file)
               }}
@@ -179,4 +253,3 @@ export default function PostcardNewClient() {
     </div>
   )
 }
-
