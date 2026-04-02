@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { Camera, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import { useMotionDetection } from "@/hooks/useMotionDetection"
@@ -174,6 +175,7 @@ function InteractiveMainMap({
 }
 
 export default function PINITApp() {
+  const router = useRouter()
 
   // Auth state
   const { user, loading: authLoading } = useAuth()
@@ -4486,16 +4488,8 @@ export default function PINITApp() {
       >
         <button
           onClick={async () => {
-            console.log("📷 Camera button pressed")
-            const state = await getCameraPermissionStatus()
-            console.log("📷 Current camera permission state =", state)
-            console.log("📷 Camera permission requested")
-            const allowed = await requestCameraPermission()
-            console.log(`📷 Camera permission ${allowed ? "granted" : "denied"}`)
-            if (!allowed) return
-            console.log("📷 Original camera flow started (open camera screen)")
-            setCameraMode("photo")
-            setCurrentScreen("camera")
+            // Postcard is now the primary creation flow.
+            router.push("/postcard/templates")
           }}
           style={{
             padding: "0.75rem",
