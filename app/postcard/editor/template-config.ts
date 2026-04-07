@@ -48,7 +48,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       borderRadius: "10px",
     },
     textArea: {
-      top: "calc(44% - 5px)",
+      top: "calc(44% - 1px)",
       left: "calc(7% + 27px)",
       width: "40%",
       height: "44%",
