@@ -31,7 +31,8 @@ export default function PostcardNewClient() {
     try {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ template, imageUrl }))
     } catch {
-      // ignore
+      setError("That photo is too large to open here. Please try a smaller image.")
+      return
     }
     router.push(`/postcard/editor?template=${encodeURIComponent(template)}`)
   }
@@ -230,6 +231,17 @@ export default function PostcardNewClient() {
                   setError(null)
                   return
                 }
+                // Prefer an object URL to avoid large base64 data exceeding sessionStorage quota.
+                try {
+                  const objectUrl = URL.createObjectURL(file)
+                  saveDraftAndGo(objectUrl)
+                  // Allow picking the same file again if needed
+                  e.currentTarget.value = ""
+                  return
+                } catch {
+                  // Fall back to base64 if object URLs are unavailable.
+                }
+
                 const reader = new FileReader()
                 reader.onload = () => {
                   const dataUrl = typeof reader.result === "string" ? reader.result : ""
@@ -238,6 +250,7 @@ export default function PostcardNewClient() {
                     return
                   }
                   saveDraftAndGo(dataUrl)
+                  e.currentTarget.value = ""
                 }
                 reader.onerror = () => {
                   setError("We couldn’t read that image. Please try another photo.")
