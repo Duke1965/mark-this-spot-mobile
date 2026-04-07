@@ -3,6 +3,13 @@ export type PostcardTemplateId = "template-1" | "template-2" | "template-3" | "t
 export type PostcardTextAlign = "left" | "center" | "right"
 
 export type PostcardTemplateConfig = {
+  photoArea?: {
+    top: string
+    left: string
+    width: string
+    height: string
+    borderRadius?: string
+  }
   textArea: {
     top: string
     left: string
@@ -32,9 +39,17 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
     },
   },
   "template-3": {
+    // Template-3 has the photo frame on the RIGHT and writing area on the LEFT.
+    photoArea: {
+      top: "22%",
+      left: "51%",
+      width: "42%",
+      height: "56%",
+      borderRadius: "10px",
+    },
     textArea: {
       top: "calc(44% - 4px)",
-      left: "calc(52% + 13px)",
+      left: "calc(7% + 12px)",
       width: "40%",
       height: "44%",
       align: "left",
