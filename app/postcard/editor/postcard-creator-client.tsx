@@ -278,7 +278,20 @@ export default function PostcardCreatorClient() {
         {showRotateHint && !isLandscape && <div style={styles.hint}>Rotate your phone for easier editing</div>}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
-            <div style={styles.photoMask}>
+            <div
+              style={{
+                ...styles.photoMask,
+                ...(templateConfig.photoArea
+                  ? {
+                      top: templateConfig.photoArea.top,
+                      left: templateConfig.photoArea.left,
+                      width: templateConfig.photoArea.width,
+                      height: templateConfig.photoArea.height,
+                      borderRadius: templateConfig.photoArea.borderRadius ?? styles.photoMask.borderRadius,
+                    }
+                  : null),
+              }}
+            >
               <div
                 style={styles.photoStage}
                 onPointerDown={onPhotoPointerDown}
