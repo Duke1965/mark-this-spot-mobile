@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Camera, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
-import { requestCameraPermission, requestPhotoPermission } from "@/lib/mobilePermissions"
+import { requestCameraPermission } from "@/lib/mobilePermissions"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -46,11 +46,9 @@ export default function PostcardNewClient() {
   }
 
   const onChooseGallery = async () => {
-    const allowed = await requestPhotoPermission()
-    if (!allowed) {
-      setError("Photo access was denied. Please allow photo access or take a photo instead.")
-      return
-    }
+    // In most browsers/environments, the file picker itself handles permissions.
+    // Pre-requesting photo permission can incorrectly fail and block selection.
+    setError(null)
     fileInputRef.current?.click()
   }
 
@@ -253,3 +251,4 @@ export default function PostcardNewClient() {
     </div>
   )
 }
+
