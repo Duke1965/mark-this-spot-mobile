@@ -275,31 +275,33 @@ export default function PostcardCreatorClient() {
         {showRotateHint && !isLandscape && <div style={styles.hint}>Rotate your phone for easier editing</div>}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
-            <div
-              style={styles.photoStage}
-              onPointerDown={onPhotoPointerDown}
-              onPointerMove={onPhotoPointerMove}
-              onPointerUp={onPhotoPointerUp}
-              onPointerCancel={onPhotoPointerUp}
-              onLostPointerCapture={onPhotoPointerUp}
-            >
-              {imageUrl && !imageFailed ? (
-                <img
-                  src={imageUrl}
-                  alt="Postcard background"
-                  style={{
-                    ...styles.bgImage,
-                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
-                  }}
-                  onError={() => setImageFailed(true)}
-                  draggable={false}
-                />
-              ) : (
-                <div style={styles.bgPlaceholder}>
-                  <div style={{ fontSize: "2.25rem" }}>📮</div>
-                  <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
-                </div>
-              )}
+            <div style={styles.photoMask}>
+              <div
+                style={styles.photoStage}
+                onPointerDown={onPhotoPointerDown}
+                onPointerMove={onPhotoPointerMove}
+                onPointerUp={onPhotoPointerUp}
+                onPointerCancel={onPhotoPointerUp}
+                onLostPointerCapture={onPhotoPointerUp}
+              >
+                {imageUrl && !imageFailed ? (
+                  <img
+                    src={imageUrl}
+                    alt="Postcard background"
+                    style={{
+                      ...styles.bgImage,
+                      transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
+                    }}
+                    onError={() => setImageFailed(true)}
+                    draggable={false}
+                  />
+                ) : (
+                  <div style={styles.bgPlaceholder}>
+                    <div style={{ fontSize: "2.25rem" }}>📮</div>
+                    <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {!templateFailed ? (
@@ -458,6 +460,19 @@ const styles: Record<string, any> = {
     boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
     pointerEvents: "auto",
     touchAction: "none",
+  },
+  photoMask: {
+    position: "absolute",
+    // Approximate the visible photo window on the left side of the postcard template.
+    left: "7%",
+    top: "22%",
+    width: "42%",
+    height: "56%",
+    overflow: "hidden",
+    borderRadius: 10,
+    pointerEvents: "auto",
+    touchAction: "none",
+    background: "rgba(0,0,0,0.06)",
   },
   photoStage: {
     position: "absolute",
