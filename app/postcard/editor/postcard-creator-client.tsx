@@ -191,7 +191,7 @@ export default function PostcardCreatorClient() {
       const g = getTwoPointerGesture()
       if (!g) return
       const scaleFactor = g.dist / (gestureRef.current.startDist || 1)
-      const nextScale = Math.min(4, Math.max(0.6, gestureRef.current.startScale * scaleFactor))
+      const nextScale = Math.min(4, Math.max(0.25, gestureRef.current.startScale * scaleFactor))
       const nextRotation = gestureRef.current.startRotation + (g.angle - gestureRef.current.startAngle)
 
       // Translate relative to the moving midpoint (so pinch feels anchored).
