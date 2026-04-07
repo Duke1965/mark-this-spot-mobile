@@ -24,10 +24,10 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
   },
   "template-2": {
     textArea: {
-      top: "40%",
-      left: "51.5%",
-      width: "41%",
-      height: "46%",
+      top: "calc(44% - 12px)",
+      left: "calc(52% + 15px)",
+      width: "40%",
+      height: "44%",
       align: "left",
     },
   },
