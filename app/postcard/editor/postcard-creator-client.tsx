@@ -140,6 +140,7 @@ const styles: Record<string, any> = {
     display: "flex",
     flexDirection: "column",
     zIndex: 1000,
+    pointerEvents: "auto",
   },
   header: {
     padding: "1rem",
@@ -153,6 +154,7 @@ const styles: Record<string, any> = {
     gap: "0.75rem",
     position: "relative",
     zIndex: 2,
+    pointerEvents: "auto",
   },
   backBtn: {
     background: "transparent",
@@ -164,6 +166,8 @@ const styles: Record<string, any> = {
     gap: "0.5rem",
     fontSize: "0.95rem",
     padding: "0.5rem",
+    pointerEvents: "auto",
+    touchAction: "manipulation",
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 800 },
   content: {
@@ -173,12 +177,14 @@ const styles: Record<string, any> = {
     display: "flex",
     flexDirection: "column",
     gap: "1rem",
+    position: "relative",
+    zIndex: 1,
+    pointerEvents: "auto",
   },
   postcardWrap: {
     width: "100%",
     display: "flex",
     justifyContent: "center",
-    pointerEvents: "none",
   },
   postcard: {
     width: "100%",
@@ -200,6 +206,7 @@ const styles: Record<string, any> = {
     objectFit: "cover",
     objectPosition: "center",
     filter: "saturate(1.05) contrast(1.05)",
+    pointerEvents: "none",
   },
   bgPlaceholder: {
     position: "absolute",
@@ -209,6 +216,7 @@ const styles: Record<string, any> = {
     alignItems: "center",
     justifyContent: "center",
     background: "rgba(0,0,0,0.35)",
+    pointerEvents: "none",
   },
   template: {
     position: "absolute",
@@ -264,6 +272,7 @@ const styles: Record<string, any> = {
     backdropFilter: "blur(12px)",
     position: "relative",
     zIndex: 2,
+    pointerEvents: "auto",
   },
   inputLabelRow: {
     display: "flex",
@@ -283,6 +292,8 @@ const styles: Record<string, any> = {
     fontSize: "0.95rem",
     outline: "none",
     resize: "none",
+    pointerEvents: "auto",
+    touchAction: "manipulation",
   },
   note: {
     marginTop: 10,
