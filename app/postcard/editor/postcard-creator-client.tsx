@@ -151,6 +151,8 @@ const styles: Record<string, any> = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.75rem",
+    position: "relative",
+    zIndex: 2,
   },
   backBtn: {
     background: "transparent",
@@ -176,6 +178,7 @@ const styles: Record<string, any> = {
     width: "100%",
     display: "flex",
     justifyContent: "center",
+    pointerEvents: "none",
   },
   postcard: {
     width: "100%",
@@ -187,6 +190,7 @@ const styles: Record<string, any> = {
     background: "rgba(0,0,0,0.25)",
     border: "1px solid rgba(255,255,255,0.18)",
     boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+    pointerEvents: "none",
   },
   bgImage: {
     position: "absolute",
@@ -258,6 +262,8 @@ const styles: Record<string, any> = {
     borderRadius: 16,
     padding: 14,
     backdropFilter: "blur(12px)",
+    position: "relative",
+    zIndex: 2,
   },
   inputLabelRow: {
     display: "flex",
