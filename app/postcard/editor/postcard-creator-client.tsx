@@ -23,6 +23,7 @@ export default function PostcardCreatorClient() {
   const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
   const [showRotateHint, setShowRotateHint] = useState(false)
+  const [isLandscape, setIsLandscape] = useState(false)
 
   // Photo transform state (creation editor only)
   const [tx, setTx] = useState(0)
@@ -85,6 +86,21 @@ export default function PostcardCreatorClient() {
       return () => window.clearTimeout(t)
     } catch {
       return
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mql = window.matchMedia?.("(orientation: landscape)")
+    const update = () => setIsLandscape(!!mql?.matches)
+    update()
+    if (!mql) return
+    // Safari iOS uses addListener/removeListener; modern browsers use addEventListener.
+    if (typeof mql.addListener === "function") mql.addListener(update)
+    else mql.addEventListener?.("change", update)
+    return () => {
+      if (typeof mql.removeListener === "function") mql.removeListener(update)
+      else mql.removeEventListener?.("change", update)
     }
   }, [])
 
@@ -249,8 +265,14 @@ export default function PostcardCreatorClient() {
         }
       />
 
-      <div style={styles.content}>
-        {showRotateHint && <div style={styles.hint}>Rotate your phone for easier editing</div>}
+      <div
+        style={{
+          ...styles.content,
+          flexDirection: isLandscape ? "row" : "column",
+          alignItems: isLandscape ? "flex-start" : "stretch",
+        }}
+      >
+        {showRotateHint && !isLandscape && <div style={styles.hint}>Rotate your phone for easier editing</div>}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
             <div
@@ -422,6 +444,7 @@ const styles: Record<string, any> = {
     display: "flex",
     justifyContent: "center",
     pointerEvents: "auto",
+    flex: "0 0 auto",
   },
   postcard: {
     width: "100%",
@@ -498,16 +521,16 @@ const styles: Record<string, any> = {
     position: "absolute",
     // Template is 3:2 and typically has photo left / writing right.
     // Place text into the right-side writing area.
-    top: "18%",
-    right: "7%",
-    width: "42%",
-    height: "64%",
+    top: "40%",
+    right: "7.5%",
+    width: "41%",
+    height: "46%",
     color: "#0b0b0b",
     fontFamily:
       "'Caveat', 'Patrick Hand', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive",
     fontWeight: 600,
-    fontSize: "1.05rem",
-    lineHeight: 1.25,
+    fontSize: "0.98rem",
+    lineHeight: 1.2,
     letterSpacing: "0.2px",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
@@ -528,6 +551,7 @@ const styles: Record<string, any> = {
     position: "relative",
     zIndex: 2,
     pointerEvents: "auto",
+    flex: "1 1 auto",
   },
   inputLabelRow: {
     display: "flex",
