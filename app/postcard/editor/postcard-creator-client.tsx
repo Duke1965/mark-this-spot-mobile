@@ -18,9 +18,8 @@ export default function PostcardCreatorClient() {
   }, [templateParam])
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageFailed, setImageFailed] = useState(false)
-  const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
+  const [tapCount, setTapCount] = useState(0)
 
   useEffect(() => {
     try {
@@ -33,65 +32,18 @@ export default function PostcardCreatorClient() {
     }
   }, [])
 
-  if (!imageUrl) {
-    return (
-      <div style={styles.screen}>
-        <Header title="Postcard Editor" onBack={() => router.back()} />
-        <div style={styles.content}>
-          <div style={styles.errorCard}>
-            <div style={styles.errorTitle}>No image selected</div>
-            <div style={styles.errorText}>Go back and choose a photo first.</div>
-            <button
-              style={styles.primaryButton}
-              onClick={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)}
-            >
-              Choose Photo
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div style={styles.screen}>
-      <Header title="Postcard Editor" onBack={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)} />
+      <Header title="Postcard Editor Debug" onBack={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)} />
 
       <div style={styles.content}>
-        <div style={styles.postcardWrap}>
-          <div style={styles.postcard}>
-            {imageUrl && !imageFailed ? (
-              <img
-                src={imageUrl}
-                alt="Postcard background"
-                style={styles.bgImage}
-                onError={() => setImageFailed(true)}
-              />
-            ) : (
-              <div style={styles.bgPlaceholder}>
-                <div style={{ fontSize: "2.25rem" }}>📮</div>
-                <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
-              </div>
-            )}
-
-            {!templateFailed ? (
-              <img
-                src={`/postcards/${template}.png`}
-                alt=""
-                style={styles.template}
-                onError={() => setTemplateFailed(true)}
-              />
-            ) : (
-              <div style={styles.templateFallback} />
-            )}
-
-            <div style={styles.textLayer}>
-              {message.trim().length > 0 && (
-                <div style={styles.messageBubble}>
-                  <div style={styles.messageText}>{message}</div>
-                </div>
-              )}
-            </div>
+        <div style={styles.debugCard}>
+          <div style={styles.debugTitle}>Postcard Editor Debug</div>
+          <div style={styles.debugSub}>
+            template: <span style={styles.mono}>{template}</span>
+          </div>
+          <div style={styles.debugSub}>
+            imageUrl in sessionStorage: <span style={styles.mono}>{imageUrl ? "present" : "missing"}</span>
           </div>
         </div>
 
@@ -109,9 +61,20 @@ export default function PostcardCreatorClient() {
             style={styles.textarea}
             rows={3}
           />
-          {templateFailed && (
-            <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>
-          )}
+          <button
+            type="button"
+            style={styles.tapTestButton}
+            onClick={() => {
+              setTapCount((c) => c + 1)
+              try {
+                window.alert("Tap Test: button is clickable")
+              } catch {
+                // ignore
+              }
+            }}
+          >
+            Tap Test ({tapCount})
+          </button>
         </div>
       </div>
     </div>
@@ -181,86 +144,19 @@ const styles: Record<string, any> = {
     zIndex: 1,
     pointerEvents: "auto",
   },
-  postcardWrap: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
-  },
-  postcard: {
+  debugCard: {
     width: "100%",
     maxWidth: 420,
-    aspectRatio: "3 / 2",
-    borderRadius: 18,
-    overflow: "hidden",
-    position: "relative",
-    background: "rgba(0,0,0,0.25)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
-    pointerEvents: "none",
+    alignSelf: "center",
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    borderRadius: 16,
+    padding: 14,
+    backdropFilter: "blur(12px)",
   },
-  bgImage: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    objectPosition: "center",
-    filter: "saturate(1.05) contrast(1.05)",
-    pointerEvents: "none",
-  },
-  bgPlaceholder: {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "rgba(0,0,0,0.35)",
-    pointerEvents: "none",
-  },
-  template: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    objectPosition: "center",
-    pointerEvents: "none",
-  },
-  templateFallback: {
-    position: "absolute",
-    inset: 0,
-    pointerEvents: "none",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.22) 100%)",
-    outline: "2px solid rgba(255,255,255,0.15)",
-    outlineOffset: "-10px",
-  },
-  textLayer: {
-    position: "absolute",
-    inset: 0,
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-    gap: 8,
-    pointerEvents: "none",
-  },
-  messageBubble: {
-    maxWidth: "100%",
-    alignSelf: "flex-start",
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    borderRadius: 14,
-    padding: "10px 12px",
-    backdropFilter: "blur(10px)",
-  },
-  messageText: {
-    fontSize: "0.85rem",
-    lineHeight: 1.3,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
+  debugTitle: { fontSize: "1.05rem", fontWeight: 900, marginBottom: 8 },
+  debugSub: { fontSize: "0.9rem", opacity: 0.92, lineHeight: 1.35 },
+  mono: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" },
   inputCard: {
     width: "100%",
     maxWidth: 420,
@@ -292,6 +188,19 @@ const styles: Record<string, any> = {
     fontSize: "0.95rem",
     outline: "none",
     resize: "none",
+    pointerEvents: "auto",
+    touchAction: "manipulation",
+  },
+  tapTestButton: {
+    marginTop: 12,
+    width: "100%",
+    background: "rgba(255,255,255,0.2)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    color: "white",
+    fontWeight: 900,
+    padding: "0.95rem 1rem",
+    borderRadius: 14,
+    cursor: "pointer",
     pointerEvents: "auto",
     touchAction: "manipulation",
   },
