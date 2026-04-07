@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 160
+const ROTATE_HINT_KEY = "pinit-postcard-rotate-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
@@ -21,22 +22,201 @@ export default function PostcardCreatorClient() {
   const [imageFailed, setImageFailed] = useState(false)
   const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
+  const [showRotateHint, setShowRotateHint] = useState(false)
+
+  // Photo transform state (creation editor only)
+  const [tx, setTx] = useState(0)
+  const [ty, setTy] = useState(0)
+  const [scale, setScale] = useState(1)
+  const [rotation, setRotation] = useState(0) // degrees
+
+  const pointerMapRef = useRef(new Map<number, { x: number; y: number }>())
+  const gestureRef = useRef<{
+    mode: "none" | "drag" | "pinch"
+    startTx: number
+    startTy: number
+    startScale: number
+    startRotation: number
+    startX: number
+    startY: number
+    startDist: number
+    startAngle: number
+  }>({
+    mode: "none",
+    startTx: 0,
+    startTy: 0,
+    startScale: 1,
+    startRotation: 0,
+    startX: 0,
+    startY: 0,
+    startDist: 0,
+    startAngle: 0,
+  })
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY)
       if (!raw) return
-      const parsed = JSON.parse(raw) as { imageUrl?: string }
+      const parsed = JSON.parse(raw) as {
+        imageUrl?: string
+        message?: string
+        transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
+      }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
+      if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
+      if (parsed?.transform) {
+        if (typeof parsed.transform.tx === "number") setTx(parsed.transform.tx)
+        if (typeof parsed.transform.ty === "number") setTy(parsed.transform.ty)
+        if (typeof parsed.transform.scale === "number") setScale(parsed.transform.scale)
+        if (typeof parsed.transform.rotation === "number") setRotation(parsed.transform.rotation)
+      }
     } catch {
       // ignore
     }
   }, [])
 
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (sessionStorage.getItem(ROTATE_HINT_KEY)) return
+      sessionStorage.setItem(ROTATE_HINT_KEY, "1")
+      setShowRotateHint(true)
+      const t = window.setTimeout(() => setShowRotateHint(false), 4500)
+      return () => window.clearTimeout(t)
+    } catch {
+      return
+    }
+  }, [])
+
+  const saveDraft = () => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      const base = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      const next = {
+        ...base,
+        message,
+        transform: { tx, ty, scale, rotation },
+      }
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+  }
+
+  const onDone = () => {
+    saveDraft()
+    router.push("/")
+  }
+
+  const getTwoPointerGesture = () => {
+    const pts = Array.from(pointerMapRef.current.values())
+    if (pts.length !== 2) return null
+    const [a, b] = pts
+    const cx = (a.x + b.x) / 2
+    const cy = (a.y + b.y) / 2
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const dist = Math.hypot(dx, dy)
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI)
+    return { cx, cy, dist, angle }
+  }
+
+  const onPhotoPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    // Only interact with primary pointer types (touch/mouse/pen). Ignore right-click.
+    if (e.button !== 0) return
+    ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
+    pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    const ptsCount = pointerMapRef.current.size
+    if (ptsCount === 1) {
+      gestureRef.current = {
+        ...gestureRef.current,
+        mode: "drag",
+        startTx: tx,
+        startTy: ty,
+        startX: e.clientX,
+        startY: e.clientY,
+        startScale: scale,
+        startRotation: rotation,
+      }
+    } else if (ptsCount === 2) {
+      const g = getTwoPointerGesture()
+      if (g) {
+        gestureRef.current = {
+          ...gestureRef.current,
+          mode: "pinch",
+          startTx: tx,
+          startTy: ty,
+          startScale: scale,
+          startRotation: rotation,
+          startX: g.cx,
+          startY: g.cy,
+          startDist: g.dist || 1,
+          startAngle: g.angle,
+        }
+      }
+    }
+  }
+
+  const onPhotoPointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    if (!pointerMapRef.current.has(e.pointerId)) return
+    pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (gestureRef.current.mode === "drag" && pointerMapRef.current.size === 1) {
+      const dx = e.clientX - gestureRef.current.startX
+      const dy = e.clientY - gestureRef.current.startY
+      setTx(gestureRef.current.startTx + dx)
+      setTy(gestureRef.current.startTy + dy)
+      return
+    }
+
+    if (gestureRef.current.mode === "pinch" && pointerMapRef.current.size === 2) {
+      const g = getTwoPointerGesture()
+      if (!g) return
+      const scaleFactor = g.dist / (gestureRef.current.startDist || 1)
+      const nextScale = Math.min(4, Math.max(0.6, gestureRef.current.startScale * scaleFactor))
+      const nextRotation = gestureRef.current.startRotation + (g.angle - gestureRef.current.startAngle)
+
+      // Translate relative to the moving midpoint (so pinch feels anchored).
+      const dx = g.cx - gestureRef.current.startX
+      const dy = g.cy - gestureRef.current.startY
+      setTx(gestureRef.current.startTx + dx)
+      setTy(gestureRef.current.startTy + dy)
+      setScale(nextScale)
+      setRotation(nextRotation)
+    }
+  }
+
+  const onPhotoPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    pointerMapRef.current.delete(e.pointerId)
+    try {
+      ;(e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId)
+    } catch {
+      // ignore
+    }
+    if (pointerMapRef.current.size === 0) {
+      gestureRef.current.mode = "none"
+      saveDraft()
+    } else if (pointerMapRef.current.size === 1) {
+      // If one finger remains, switch to drag mode anchored at that finger.
+      const remaining = Array.from(pointerMapRef.current.values())[0]
+      gestureRef.current = {
+        ...gestureRef.current,
+        mode: "drag",
+        startTx: tx,
+        startTy: ty,
+        startX: remaining.x,
+        startY: remaining.y,
+        startScale: scale,
+        startRotation: rotation,
+      }
+    }
+  }
+
   if (!imageUrl) {
     return (
       <div style={styles.screen}>
-        <Header title="Postcard Editor" onBack={() => router.back()} />
+        <Header title="Postcard Editor" onBack={() => router.back()} right={<div style={{ width: 72 }} />} />
         <div style={styles.content}>
           <div style={styles.errorCard}>
             <div style={styles.errorTitle}>No image selected</div>
@@ -55,24 +235,49 @@ export default function PostcardCreatorClient() {
 
   return (
     <div style={styles.screen}>
-      <Header title="Postcard Editor" onBack={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)} />
+      <Header
+        title="Postcard Editor"
+        onBack={() => {
+          saveDraft()
+          router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
+        }}
+        right={
+          <button type="button" onClick={onDone} style={styles.doneBtn}>
+            Done
+          </button>
+        }
+      />
 
       <div style={styles.content}>
+        {showRotateHint && <div style={styles.hint}>Rotate your phone for easier editing</div>}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
-            {imageUrl && !imageFailed ? (
-              <img
-                src={imageUrl}
-                alt="Postcard background"
-                style={styles.bgImage}
-                onError={() => setImageFailed(true)}
-              />
-            ) : (
-              <div style={styles.bgPlaceholder}>
-                <div style={{ fontSize: "2.25rem" }}>📮</div>
-                <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
-              </div>
-            )}
+            <div
+              style={styles.photoStage}
+              onPointerDown={onPhotoPointerDown}
+              onPointerMove={onPhotoPointerMove}
+              onPointerUp={onPhotoPointerUp}
+              onPointerCancel={onPhotoPointerUp}
+              onLostPointerCapture={onPhotoPointerUp}
+            >
+              {imageUrl && !imageFailed ? (
+                <img
+                  src={imageUrl}
+                  alt="Postcard background"
+                  style={{
+                    ...styles.bgImage,
+                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
+                  }}
+                  onError={() => setImageFailed(true)}
+                  draggable={false}
+                />
+              ) : (
+                <div style={styles.bgPlaceholder}>
+                  <div style={{ fontSize: "2.25rem" }}>📮</div>
+                  <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
+                </div>
+              )}
+            </div>
 
             {!templateFailed ? (
               <img
@@ -118,7 +323,15 @@ export default function PostcardCreatorClient() {
   )
 }
 
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
+function Header({
+  title,
+  onBack,
+  right,
+}: {
+  title: string
+  onBack: () => void
+  right: React.ReactNode
+}) {
   return (
     <div style={styles.header}>
       <button onClick={onBack} style={styles.backBtn}>
@@ -126,7 +339,7 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
         <span style={{ fontWeight: 700 }}>Back</span>
       </button>
       <div style={styles.headerTitle}>{title}</div>
-      <div style={{ width: 72 }} />
+      <div style={{ width: 72, display: "flex", justifyContent: "flex-end" }}>{right}</div>
     </div>
   )
 }
@@ -170,6 +383,17 @@ const styles: Record<string, any> = {
     touchAction: "manipulation",
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 800 },
+  doneBtn: {
+    background: "rgba(255,255,255,0.15)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    color: "white",
+    fontWeight: 900,
+    padding: "0.55rem 0.9rem",
+    borderRadius: 12,
+    cursor: "pointer",
+    pointerEvents: "auto",
+    touchAction: "manipulation",
+  },
   content: {
     flex: 1,
     overflowY: "auto",
@@ -181,11 +405,24 @@ const styles: Record<string, any> = {
     zIndex: 1,
     pointerEvents: "auto",
   },
+  hint: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 14,
+    padding: "0.75rem 0.9rem",
+    backdropFilter: "blur(10px)",
+    fontWeight: 800,
+    fontSize: "0.9rem",
+    opacity: 0.95,
+  },
   postcardWrap: {
     width: "100%",
     display: "flex",
     justifyContent: "center",
-    pointerEvents: "none",
+    pointerEvents: "auto",
   },
   postcard: {
     width: "100%",
@@ -197,7 +434,14 @@ const styles: Record<string, any> = {
     background: "rgba(0,0,0,0.25)",
     border: "1px solid rgba(255,255,255,0.18)",
     boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
-    pointerEvents: "none",
+    pointerEvents: "auto",
+    touchAction: "none",
+  },
+  photoStage: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "auto",
+    touchAction: "none",
   },
   bgImage: {
     position: "absolute",
@@ -208,6 +452,10 @@ const styles: Record<string, any> = {
     objectPosition: "center",
     filter: "saturate(1.05) contrast(1.05)",
     pointerEvents: "none",
+    transformOrigin: "center center",
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    WebkitTouchCallout: "none",
   },
   bgPlaceholder: {
     position: "absolute",
