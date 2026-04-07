@@ -105,7 +105,8 @@ export default function PostcardCreatorClient() {
 
   const onDone = () => {
     saveDraft()
-    router.push("/")
+    // For now, return to the Postcard flow entry.
+    router.push("/postcard/templates")
   }
 
   const getTwoPointerGesture = () => {
@@ -291,11 +292,9 @@ export default function PostcardCreatorClient() {
             )}
 
             <div style={styles.textLayer}>
-              {message.trim().length > 0 && (
-                <div style={styles.messageBubble}>
-                  <div style={styles.messageText}>{message}</div>
-                </div>
-              )}
+              <div style={styles.messageOnCard} aria-hidden="true">
+                {message}
+              </div>
             </div>
           </div>
         </div>
@@ -495,22 +494,27 @@ const styles: Record<string, any> = {
     gap: 8,
     pointerEvents: "none",
   },
-  messageBubble: {
-    maxWidth: "100%",
-    alignSelf: "flex-start",
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    borderRadius: 14,
-    padding: "10px 12px",
-    backdropFilter: "blur(10px)",
-    pointerEvents: "none",
-  },
-  messageText: {
-    fontSize: "0.85rem",
-    lineHeight: 1.3,
+  messageOnCard: {
+    position: "absolute",
+    // Template is 3:2 and typically has photo left / writing right.
+    // Place text into the right-side writing area.
+    top: "18%",
+    right: "7%",
+    width: "42%",
+    height: "64%",
+    color: "#0b0b0b",
+    fontFamily:
+      "'Caveat', 'Patrick Hand', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive",
+    fontWeight: 600,
+    fontSize: "1.05rem",
+    lineHeight: 1.25,
+    letterSpacing: "0.2px",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
+    overflow: "hidden",
     pointerEvents: "none",
+    // Slight shadow to keep legible over template highlights, but still "ink-like".
+    textShadow: "0 1px 0 rgba(255,255,255,0.35)",
   },
   inputCard: {
     width: "100%",
