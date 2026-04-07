@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { getTemplateConfig } from "./template-config"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -17,6 +18,8 @@ export default function PostcardCreatorClient() {
   const template = useMemo(() => {
     return ALLOWED_TEMPLATES.has(templateParam) ? templateParam : "template-1"
   }, [templateParam])
+
+  const templateConfig = useMemo(() => getTemplateConfig(template), [template])
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageFailed, setImageFailed] = useState(false)
@@ -316,7 +319,17 @@ export default function PostcardCreatorClient() {
             )}
 
             <div style={styles.textLayer}>
-              <div style={styles.messageOnCard} aria-hidden="true">
+              <div
+                style={{
+                  ...styles.messageOnCard,
+                  top: templateConfig.textArea.top,
+                  left: templateConfig.textArea.left,
+                  width: templateConfig.textArea.width,
+                  height: templateConfig.textArea.height || styles.messageOnCard.height,
+                  textAlign: templateConfig.textArea.align || styles.messageOnCard.textAlign,
+                }}
+                aria-hidden="true"
+              >
                 {message}
               </div>
             </div>
