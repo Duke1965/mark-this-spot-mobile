@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import PostcardEditorClient from "./postcard-editor-client"
+import PostcardCreatorClient from "./postcard-creator-client"
 
 export default function PostcardEditorPage() {
   return (
@@ -14,7 +14,7 @@ export default function PostcardEditorPage() {
         />
       }
     >
-      <PostcardEditorClient />
+      <PostcardCreatorClient />
     </Suspense>
   )
 }
