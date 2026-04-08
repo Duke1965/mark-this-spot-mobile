@@ -31,8 +31,8 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
   },
   "template-2": {
     textArea: {
-      top: "calc(44% - 4px)",
-      left: "calc(52% + 13px)",
+      top: "calc(44% - 8px)",
+      left: "calc(52% + 10px)",
       width: "40%",
       height: "44%",
       align: "left",
