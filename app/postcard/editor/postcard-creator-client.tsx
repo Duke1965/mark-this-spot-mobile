@@ -573,7 +573,7 @@ const styles: Record<string, any> = {
     color: "rgba(20, 20, 20, 0.82)",
     fontWeight: 600,
     fontSize: "1.12rem",
-    lineHeight: 1.6,
+    lineHeight: 1.65,
     letterSpacing: "0.35px",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
