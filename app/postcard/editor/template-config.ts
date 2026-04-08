@@ -10,6 +10,10 @@ export type PostcardTemplateConfig = {
     height: string
     borderRadius?: string
   }
+  textStyle?: {
+    fontSize?: string
+    lineHeight?: number
+  }
   textArea: {
     top: string
     left: string
@@ -47,6 +51,10 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       height: "56%",
       borderRadius: "10px",
     },
+    textStyle: {
+      fontSize: "17px",
+      lineHeight: 1.7,
+    },
     textArea: {
       top: "calc(44% + 4px)",
       left: "calc(7% + 27px)",
@@ -70,4 +78,3 @@ export function getTemplateConfig(template: string | undefined | null): Postcard
   const key = (template || "") as PostcardTemplateId
   return TEMPLATE_CONFIG[key] || TEMPLATE_CONFIG["template-1"]
 }
-
