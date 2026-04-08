@@ -22,7 +22,7 @@ export type PostcardTemplateConfig = {
 export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig> = {
   "template-1": {
     textArea: {
-      top: "calc(44% - 8px)",
+      top: "calc(44% - 18px)",
       left: "calc(52% + 15px)",
       width: "40%",
       height: "44%",
