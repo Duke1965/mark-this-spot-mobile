@@ -36,7 +36,6 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       width: "40%",
       height: "44%",
       align: "left",
-      lineHeight: "1.65"
     },
   },
   "template-3": {
