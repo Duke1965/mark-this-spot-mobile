@@ -344,6 +344,10 @@ export default function PostcardCreatorClient() {
                   width: templateConfig.textArea.width,
                   height: templateConfig.textArea.height || styles.messageOnCard.height,
                   textAlign: templateConfig.textArea.align || styles.messageOnCard.textAlign,
+                  ...(templateConfig.textStyle?.fontSize ? { fontSize: templateConfig.textStyle.fontSize } : null),
+                  ...(typeof templateConfig.textStyle?.lineHeight === "number"
+                    ? { lineHeight: templateConfig.textStyle.lineHeight }
+                    : null),
                 }}
                 aria-hidden="true"
               >
