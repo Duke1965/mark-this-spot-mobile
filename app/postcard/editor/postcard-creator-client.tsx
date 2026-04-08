@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
+import { Caveat } from "next/font/google"
+
+const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -335,6 +338,7 @@ export default function PostcardCreatorClient() {
               <div
                 style={{
                   ...styles.messageOnCard,
+                  fontFamily: caveat.style.fontFamily,
                   top: templateConfig.textArea.top,
                   left: templateConfig.textArea.left,
                   width: templateConfig.textArea.width,
@@ -566,19 +570,17 @@ const styles: Record<string, any> = {
     right: "7.5%",
     width: "41%",
     height: "46%",
-    color: "#0b0b0b",
-    fontFamily:
-      "'Caveat', 'Patrick Hand', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive",
+    color: "rgba(20, 20, 20, 0.82)",
     fontWeight: 600,
-    fontSize: "0.98rem",
-    lineHeight: 1.2,
-    letterSpacing: "0.2px",
+    fontSize: "1.12rem",
+    lineHeight: 1.6,
+    letterSpacing: "0.35px",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     overflow: "hidden",
     pointerEvents: "none",
     // Slight shadow to keep legible over template highlights, but still "ink-like".
-    textShadow: "0 1px 0 rgba(255,255,255,0.35)",
+    textShadow: "0 1px 0 rgba(255,255,255,0.28)",
   },
   inputCard: {
     width: "100%",
