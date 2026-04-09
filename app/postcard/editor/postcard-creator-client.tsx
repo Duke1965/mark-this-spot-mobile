@@ -127,8 +127,7 @@ export default function PostcardCreatorClient() {
 
   const onDone = () => {
     saveDraft()
-    // For now, return to the Postcard flow entry.
-    router.push("/postcard/templates")
+    router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)
   }
 
   const getTwoPointerGesture = () => {
