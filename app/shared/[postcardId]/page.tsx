@@ -1,5 +1,9 @@
 import { getAdminFirestore } from "@/lib/firebaseAdmin"
 import Link from "next/link"
+import { getTemplateConfig } from "@/app/postcard/editor/template-config"
+import { Caveat } from "next/font/google"
+
+const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 type StickerItem = {
   id: string
@@ -48,6 +52,7 @@ export default async function SharedPostcardPage({
 
   const data = doc.data() as any
   const template = String(data?.template || "template-1")
+  const templateConfig = getTemplateConfig(template)
   const imageUrl = String(data?.imageUrl || "")
   const message = String(data?.message || "")
   const title = String(data?.title || "My Special Place")
@@ -64,7 +69,20 @@ export default async function SharedPostcardPage({
       <div style={styles.content}>
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
-            <div style={styles.photoMask}>
+            <div
+              style={{
+                ...styles.photoMask,
+                ...(templateConfig.photoArea
+                  ? {
+                      top: templateConfig.photoArea.top,
+                      left: templateConfig.photoArea.left,
+                      width: templateConfig.photoArea.width,
+                      height: templateConfig.photoArea.height,
+                      borderRadius: templateConfig.photoArea.borderRadius ?? styles.photoMask.borderRadius,
+                    }
+                  : null),
+              }}
+            >
               {imageUrl ? (
                 <img
                   src={imageUrl}
@@ -85,7 +103,23 @@ export default async function SharedPostcardPage({
             <img src={`/postcards/${template}.png`} alt="" style={styles.template} />
 
             <div style={styles.textLayer}>
-              <div style={styles.message}>{message}</div>
+              <div
+                style={{
+                  ...styles.message,
+                  fontFamily: caveat.style.fontFamily,
+                  top: templateConfig.textArea.top,
+                  left: templateConfig.textArea.left,
+                  width: templateConfig.textArea.width,
+                  height: templateConfig.textArea.height || styles.message.height,
+                  textAlign: templateConfig.textArea.align || styles.message.textAlign,
+                  ...(templateConfig.textStyle?.fontSize ? { fontSize: templateConfig.textStyle.fontSize } : null),
+                  ...(typeof templateConfig.textStyle?.lineHeight === "number"
+                    ? { lineHeight: templateConfig.textStyle.lineHeight }
+                    : null),
+                }}
+              >
+                {message}
+              </div>
             </div>
 
             <div style={styles.stickersLayer}>
