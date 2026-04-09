@@ -1,0 +1,113 @@
+export type StickerCategory = "old-school" | "new" | "fun"
+
+export type StickerCatalogItem = {
+  id: string
+  imageUrl: string
+  name: string
+  category: StickerCategory
+}
+
+// Sticker list (kept in sync with existing asset filenames).
+export const STICKER_CATALOG: StickerCatalogItem[] = [
+  // Old School
+  { id: "old-1", imageUrl: "/stickers/Old-school-Chillin.png", name: "Chillin", category: "old-school" },
+  { id: "old-2", imageUrl: "/stickers/Old-school-Dreamy.png", name: "Dreamy", category: "old-school" },
+  { id: "old-3", imageUrl: "/stickers/Old-school-Exploring-2.png", name: "Exploring 2", category: "old-school" },
+  { id: "old-4", imageUrl: "/stickers/Old-school-Found-Paradise.png", name: "Found Paradise", category: "old-school" },
+  { id: "old-5", imageUrl: "/stickers/Old-school-Golden-Hour.2.png", name: "Golden Hour 2", category: "old-school" },
+  { id: "old-6", imageUrl: "/stickers/Old-school-Good-Times.png", name: "Good Times", category: "old-school" },
+  { id: "old-7", imageUrl: "/stickers/Old-school-Jet-Lagged.png", name: "Jet Lagged", category: "old-school" },
+  { id: "old-8", imageUrl: "/stickers/Old-school-Just-Us-2.png", name: "Just Us 2", category: "old-school" },
+  { id: "old-9", imageUrl: "/stickers/Old-school-Just-Us-3.png", name: "Just Us 3", category: "old-school" },
+  { id: "old-10", imageUrl: "/stickers/Old-school-Just-Us.png", name: "Just Us", category: "old-school" },
+  { id: "old-11", imageUrl: "/stickers/Old-school-Love-This.png", name: "Love This", category: "old-school" },
+  { id: "old-12", imageUrl: "/stickers/Old-school-Mood-Magic.png", name: "Mood Magic", category: "old-school" },
+  { id: "old-13", imageUrl: "/stickers/Old-school-My-Happy-Place-2.png", name: "My Happy Place 2", category: "old-school" },
+  { id: "old-14", imageUrl: "/stickers/Old-school-No-Filter.png", name: "No Filter", category: "old-school" },
+  { id: "old-15", imageUrl: "/stickers/Old-school-OMG.png", name: "OMG", category: "old-school" },
+  { id: "old-16", imageUrl: "/stickers/Old-school-On-The-Road-Again.png", name: "On The Road Again", category: "old-school" },
+  { id: "old-17", imageUrl: "/stickers/Old-school-PINIT!.png", name: "PINIT!", category: "old-school" },
+  { id: "old-18", imageUrl: "/stickers/Old-school-Pure-Joy.png", name: "Pure Joy", category: "old-school" },
+  { id: "old-19", imageUrl: "/stickers/Old-school-Road-Trip.png", name: "Road Trip", category: "old-school" },
+  { id: "old-20", imageUrl: "/stickers/Old-school-Soul-Mates.png", name: "Soul Mates", category: "old-school" },
+  { id: "old-21", imageUrl: "/stickers/Old-school-Sunset-Funday.png", name: "Sunset Funday", category: "old-school" },
+  { id: "old-22", imageUrl: "/stickers/Old-school-Sunset-Vibes.png", name: "Sunset Vibes", category: "old-school" },
+  { id: "old-23", imageUrl: "/stickers/Old-school-Sweet-Moment.png", name: "Sweet Moment", category: "old-school" },
+  { id: "old-24", imageUrl: "/stickers/Old-school-Swoon.png", name: "Swoon", category: "old-school" },
+  { id: "old-25", imageUrl: "/stickers/Old-school-Together.png", name: "Together", category: "old-school" },
+  { id: "old-26", imageUrl: "/stickers/Old-school-Too-Cool.png", name: "Too Cool", category: "old-school" },
+  { id: "old-27", imageUrl: "/stickers/Old-school-WOW-2.png", name: "WOW 2", category: "old-school" },
+  { id: "old-28", imageUrl: "/stickers/Old-school-WOW-3.png", name: "WOW 3", category: "old-school" },
+  { id: "old-29", imageUrl: "/stickers/Old-school-Wander-Lust.png", name: "Wander Lust", category: "old-school" },
+  { id: "old-30", imageUrl: "/stickers/Old-school-Weekend-Mode.png", name: "Weekend Mode", category: "old-school" },
+  { id: "old-31", imageUrl: "/stickers/Old-school-YASSS.png", name: "YASSS", category: "old-school" },
+
+  // New
+  { id: "new-1", imageUrl: "/stickers/new-Adventure-Time.png", name: "Adventure Time", category: "new" },
+  { id: "new-2", imageUrl: "/stickers/new-Cuties.png", name: "Cuties", category: "new" },
+  { id: "new-3", imageUrl: "/stickers/new-Day-Trip.png", name: "Day Trip", category: "new" },
+  { id: "new-4", imageUrl: "/stickers/new-Dream-Destination.png", name: "Dream Destination", category: "new" },
+  { id: "new-5", imageUrl: "/stickers/new-Dreamy-2.png", name: "Dreamy 2", category: "new" },
+  { id: "new-6", imageUrl: "/stickers/new-Exploring-3.png", name: "Exploring 3", category: "new" },
+  { id: "new-7", imageUrl: "/stickers/new-Exploring.png", name: "Exploring", category: "new" },
+  { id: "new-8", imageUrl: "/stickers/new-Get-Outside.png", name: "Get Outside", category: "new" },
+  { id: "new-9", imageUrl: "/stickers/new-Getaway.png", name: "Getaway", category: "new" },
+  { id: "new-10", imageUrl: "/stickers/new-Golden-Hour-2.png", name: "Golden Hour 2", category: "new" },
+  { id: "new-11", imageUrl: "/stickers/new-Golden-Hour.png", name: "Golden Hour", category: "new" },
+  { id: "new-12", imageUrl: "/stickers/new-Good-Times-2.png", name: "Good Times 2", category: "new" },
+  { id: "new-13", imageUrl: "/stickers/new-Here-We-Go.png", name: "Here We Go", category: "new" },
+  { id: "new-14", imageUrl: "/stickers/new-HoneyMoon-Mode.png", name: "HoneyMoon Mode", category: "new" },
+  { id: "new-15", imageUrl: "/stickers/new-Legendary-Vaycay.png", name: "Legendary Vaycay", category: "new" },
+  { id: "new-16", imageUrl: "/stickers/new-Lost-Again.png", name: "Lost Again", category: "new" },
+  { id: "new-17", imageUrl: "/stickers/new-Love-In-The-Air.png", name: "Love In The Air", category: "new" },
+  { id: "new-18", imageUrl: "/stickers/new-Love-This-2.png", name: "Love This 2", category: "new" },
+  { id: "new-19", imageUrl: "/stickers/new-Making-Memories.png", name: "Making Memories", category: "new" },
+  { id: "new-20", imageUrl: "/stickers/new-Memories.png", name: "Memories", category: "new" },
+  { id: "new-21", imageUrl: "/stickers/new-My-Happy-Place.png", name: "My Happy Place", category: "new" },
+  { id: "new-22", imageUrl: "/stickers/new-Next-Stop-2.png", name: "Next Stop 2", category: "new" },
+  { id: "new-23", imageUrl: "/stickers/new-Next-Stop-Paris.png", name: "Next Stop Paris", category: "new" },
+  { id: "new-24", imageUrl: "/stickers/new-On-The-Road-2.png", name: "On The Road 2", category: "new" },
+  { id: "new-25", imageUrl: "/stickers/new-On-The-Road.png", name: "On The Road", category: "new" },
+  { id: "new-26", imageUrl: "/stickers/new-Picture-Perfect.png", name: "Picture Perfect", category: "new" },
+  { id: "new-27", imageUrl: "/stickers/new-Postcard.png", name: "Postcard", category: "new" },
+  { id: "new-28", imageUrl: "/stickers/new-Send-Help.png", name: "Send Help", category: "new" },
+  { id: "new-29", imageUrl: "/stickers/new-SnapShot.png", name: "SnapShot", category: "new" },
+  { id: "new-30", imageUrl: "/stickers/new-So-Blessed.png", name: "So Blessed", category: "new" },
+  { id: "new-31", imageUrl: "/stickers/new-Too-many-snacks.png", name: "Too many snacks", category: "new" },
+  { id: "new-32", imageUrl: "/stickers/new-Travel-Squad.png", name: "Travel Squad", category: "new" },
+  { id: "new-33", imageUrl: "/stickers/new-Travel-Vibes-2.png", name: "Travel Vibes 2", category: "new" },
+  { id: "new-34", imageUrl: "/stickers/new-Travel-Vibes.png", name: "Travel Vibes", category: "new" },
+  { id: "new-35", imageUrl: "/stickers/new-Unforgetable.png", name: "Unforgetable", category: "new" },
+  { id: "new-36", imageUrl: "/stickers/new-Vacay-Mode.png", name: "Vacay Mode", category: "new" },
+  { id: "new-37", imageUrl: "/stickers/new-WOW-4.png", name: "WOW 4", category: "new" },
+  { id: "new-38", imageUrl: "/stickers/new-WOW.png", name: "WOW", category: "new" },
+  { id: "new-39", imageUrl: "/stickers/new-Wanderlust-2.png", name: "Wanderlust 2", category: "new" },
+  { id: "new-40", imageUrl: "/stickers/new-Wish-You-Were-Here-2.png", name: "Wish You Were Here 2", category: "new" },
+  { id: "new-41", imageUrl: "/stickers/new-Wish-You-Were-Here.png", name: "Wish You Were Here", category: "new" },
+  { id: "new-42", imageUrl: "/stickers/new-YASS!.png", name: "YASS!", category: "new" },
+  { id: "new-43", imageUrl: "/stickers/new-Yummy.png", name: "Yummy", category: "new" },
+
+  // Fun
+  { id: "fun-1", imageUrl: "/stickers/fun-Adventure.png", name: "Adventure", category: "fun" },
+  { id: "fun-2", imageUrl: "/stickers/fun-Cool.png", name: "Cool", category: "fun" },
+  { id: "fun-3", imageUrl: "/stickers/fun-Games.png", name: "Games", category: "fun" },
+  { id: "fun-4", imageUrl: "/stickers/fun-Having--a-Ball.png", name: "Having a Ball", category: "fun" },
+  { id: "fun-5", imageUrl: "/stickers/fun-Party-Hat.png", name: "Party Hat", category: "fun" },
+  { id: "fun-6", imageUrl: "/stickers/fun-Party-Time.png", name: "Party Time", category: "fun" },
+  { id: "fun-7", imageUrl: "/stickers/fun-Pool-Party.png", name: "Pool Party", category: "fun" },
+  { id: "fun-8", imageUrl: "/stickers/fun-Sailing-Away.png", name: "Sailing Away", category: "fun" },
+  { id: "fun-9", imageUrl: "/stickers/fun-Sundowner-Time.png", name: "Sundowner Time", category: "fun" },
+  { id: "fun-10", imageUrl: "/stickers/fun-Sweet.png", name: "Sweet", category: "fun" },
+  { id: "fun-11", imageUrl: "/stickers/fun-Travel-Time.png", name: "Travel Time", category: "fun" },
+  { id: "fun-12", imageUrl: "/stickers/fun-Up-And-Away.png", name: "Up And Away", category: "fun" },
+  { id: "fun-13", imageUrl: "/stickers/fun-Vacation.png", name: "Vacation", category: "fun" },
+  { id: "fun-14", imageUrl: "/stickers/fun-Vibes.png", name: "Vibes", category: "fun" },
+  { id: "fun-15", imageUrl: "/stickers/fun-WaterSport.png", name: "WaterSport", category: "fun" },
+]
+
+export const STICKER_CATEGORIES: Array<{ id: StickerCategory; label: string }> = [
+  { id: "old-school", label: "Old School" },
+  { id: "new", label: "New" },
+  { id: "fun", label: "Fun" },
+]
+
