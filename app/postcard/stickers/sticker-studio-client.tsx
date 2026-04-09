@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "../editor/template-config"
+import { STICKER_CATALOG, STICKER_CATEGORIES, type StickerCategory } from "./sticker-catalog"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -18,18 +19,6 @@ type StickerItem = {
   scale: number
   rotation: number
 }
-
-const STICKER_CATALOG: Array<{ id: string; name: string; imageUrl: string }> = [
-  { id: "old-17", imageUrl: "/stickers/Old-school-PINIT!.png", name: "PINIT!" },
-  { id: "old-21", imageUrl: "/stickers/Old-school-Sunset-Funday.png", name: "Sunset Funday" },
-  { id: "old-14", imageUrl: "/stickers/Old-school-No-Filter.png", name: "No Filter" },
-  { id: "new-27", imageUrl: "/stickers/new-Postcard.png", name: "Postcard" },
-  { id: "new-19", imageUrl: "/stickers/new-Making-Memories.png", name: "Making Memories" },
-  { id: "new-11", imageUrl: "/stickers/new-Golden-Hour.png", name: "Golden Hour" },
-  { id: "fun-5", imageUrl: "/stickers/fun-Party-Hat.png", name: "Party Hat" },
-  { id: "fun-13", imageUrl: "/stickers/fun-Vacation.png", name: "Vacation" },
-  { id: "fun-9", imageUrl: "/stickers/fun-Sundowner-Time.png", name: "Sundowner Time" },
-]
 
 function uid() {
   return `st_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
@@ -55,6 +44,12 @@ export default function StickerStudioClient() {
   })
   const [stickers, setStickers] = useState<StickerItem[]>([])
   const [activeStickerId, setActiveStickerId] = useState<string | null>(null)
+  const [category, setCategory] = useState<StickerCategory>("old-school")
+
+  const stickersRef = useRef<StickerItem[]>([])
+  useEffect(() => {
+    stickersRef.current = stickers
+  }, [stickers])
 
   const postcardRef = useRef<HTMLDivElement>(null)
   const pointerMapRef = useRef(new Map<number, { x: number; y: number }>())
@@ -191,7 +186,7 @@ export default function StickerStudioClient() {
   }
 
   const beginGesture = (stickerId: string, e: React.PointerEvent<HTMLDivElement>) => {
-    const target = stickers.find((s) => s.id === stickerId)
+    const target = stickersRef.current.find((s) => s.id === stickerId)
     if (!target) return
     setActiveStickerId(stickerId)
 
@@ -237,19 +232,23 @@ export default function StickerStudioClient() {
     })
   }
 
-  const onStickerPointerDown = (stickerId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
+  const onStickersPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     if (e.button !== 0) return
     ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
+
+    const targetEl = (e.target as HTMLElement | null)?.closest?.("[data-sticker-id]") as HTMLElement | null
+    const stickerId = targetEl?.dataset?.stickerId || activeStickerId
+    if (!stickerId) return
     beginGesture(stickerId, e)
   }
 
-  const onStickerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onStickersPointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
     const id = gestureRef.current.stickerId
     if (!id) return
     if (!pointerMapRef.current.has(e.pointerId)) return
     pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-    const sticker = stickers.find((s) => s.id === id)
+    const sticker = stickersRef.current.find((s) => s.id === id)
     if (!sticker) return
 
     if (gestureRef.current.mode === "drag" && pointerMapRef.current.size === 1) {
@@ -278,7 +277,7 @@ export default function StickerStudioClient() {
     }
   }
 
-  const onStickerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onStickersPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
     pointerMapRef.current.delete(e.pointerId)
     try {
       ;(e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId)
@@ -288,7 +287,7 @@ export default function StickerStudioClient() {
     if (pointerMapRef.current.size === 0) {
       gestureRef.current.stickerId = null
       gestureRef.current.mode = "none"
-      saveDraft(stickers)
+      saveDraft(stickersRef.current)
     }
   }
 
@@ -360,7 +359,14 @@ export default function StickerStudioClient() {
             </div>
 
             {/* Stickers layer */}
-            <div style={styles.stickersLayer}>
+            <div
+              style={styles.stickersLayer}
+              onPointerDown={onStickersPointerDown}
+              onPointerMove={onStickersPointerMove}
+              onPointerUp={onStickersPointerUp}
+              onPointerCancel={onStickersPointerUp}
+              onLostPointerCapture={onStickersPointerUp}
+            >
               {stickers.map((s) => {
                 const isActive = s.id === activeStickerId
                 return (
@@ -372,11 +378,8 @@ export default function StickerStudioClient() {
                       top: `${s.y}%`,
                       zIndex: isActive ? 5 : 3,
                     }}
-                    onPointerDown={onStickerPointerDown(s.id)}
-                    onPointerMove={onStickerPointerMove}
-                    onPointerUp={onStickerPointerUp}
-                    onPointerCancel={onStickerPointerUp}
-                    onLostPointerCapture={onStickerPointerUp}
+                    data-sticker-id={s.id}
+                    onPointerDown={() => setActiveStickerId(s.id)}
                   >
                     <img
                       src={s.imageUrl}
@@ -397,9 +400,27 @@ export default function StickerStudioClient() {
       </div>
 
       <div style={styles.tray}>
+        <div style={styles.tabsRow}>
+          {STICKER_CATEGORIES.map((c) => {
+            const active = c.id === category
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCategory(c.id)}
+                style={{
+                  ...styles.tab,
+                  ...(active ? styles.tabActive : null),
+                }}
+              >
+                {c.label}
+              </button>
+            )
+          })}
+        </div>
         <div style={styles.trayRow}>
-          {STICKER_CATALOG.map((s) => (
-            <button key={s.id} style={styles.trayBtn} onClick={() => addSticker(s)} type="button">
+          {STICKER_CATALOG.filter((s) => s.category === category).map((s) => (
+            <button key={s.id} style={styles.trayBtn} onClick={() => addSticker(s)} type="button" title={s.name}>
               <img src={s.imageUrl} alt={s.name} style={styles.trayImg} draggable={false} />
             </button>
           ))}
@@ -574,6 +595,27 @@ const styles: Record<string, any> = {
     background: "rgba(30, 58, 138, 0.95)",
     borderTop: "1px solid rgba(255,255,255,0.18)",
     backdropFilter: "blur(15px)",
+  },
+  tabsRow: {
+    display: "flex",
+    gap: 8,
+    paddingBottom: 10,
+    overflowX: "auto",
+  },
+  tab: {
+    flex: "0 0 auto",
+    padding: "0.45rem 0.7rem",
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.08)",
+    color: "white",
+    fontWeight: 800,
+    fontSize: "0.85rem",
+    cursor: "pointer",
+  },
+  tabActive: {
+    background: "rgba(255,255,255,0.18)",
+    border: "1px solid rgba(255,255,255,0.28)",
   },
   trayRow: {
     display: "flex",
