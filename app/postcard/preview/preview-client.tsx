@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "../editor/template-config"
 import { Caveat } from "next/font/google"
+import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
+import { auth } from "@/lib/firebase"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -21,6 +23,8 @@ export default function PreviewClient() {
   const [loadingMeta, setLoadingMeta] = useState(true)
   const [title, setTitle] = useState("My Special Place")
   const [description, setDescription] = useState("A memorable place worth sharing.")
+  const [isSending, setIsSending] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [message, setMessage] = useState("")
@@ -117,6 +121,57 @@ export default function PreviewClient() {
     }
   }, [])
 
+  const onSend = async () => {
+    if (isSending) return
+    setIsSending(true)
+    try {
+      if (!imageUrl) throw new Error("Missing image")
+
+      // Upload photo to Firebase Storage to ensure the shared link has a durable URL.
+      const uid = (auth as any)?.currentUser?.uid as string | undefined
+      const filename = generateImageFilename(uid)
+      const hostedImageUrl = await uploadImageToFirebase(imageUrl, filename)
+
+      const res = await fetch("/api/postcards/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template,
+          imageUrl: hostedImageUrl,
+          message,
+          stickers,
+          title,
+          description,
+          transform: photoTransform,
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || "Failed to create postcard")
+      }
+      const data = (await res.json()) as { postcardId?: string }
+      const postcardId = String(data.postcardId || "")
+      if (!postcardId) throw new Error("Missing postcardId")
+
+      const url = `${window.location.origin}/shared/${encodeURIComponent(postcardId)}`
+      setShareUrl(url)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      try {
+        window.alert(msg)
+      } catch {
+        // ignore
+      }
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const shareText = useMemo(() => {
+    const t = (title || "My Special Place").trim()
+    return `PINIT Postcard: ${t}\n\n${shareUrl || ""}`.trim()
+  }, [title, shareUrl])
+
   return (
     <div
       style={{
@@ -162,13 +217,8 @@ export default function PreviewClient() {
         </button>
         <div style={{ fontSize: "1.125rem", fontWeight: 900 }}>Preview</div>
         <button
-          onClick={() => {
-            try {
-              window.alert("Send coming soon")
-            } catch {
-              // ignore
-            }
-          }}
+          onClick={onSend}
+          disabled={isSending}
           style={{
             background: "rgba(255,255,255,0.15)",
             border: "1px solid rgba(255,255,255,0.22)",
@@ -176,11 +226,12 @@ export default function PreviewClient() {
             fontWeight: 900,
             padding: "0.55rem 0.9rem",
             borderRadius: 12,
-            cursor: "pointer",
+            cursor: isSending ? "not-allowed" : "pointer",
+            opacity: isSending ? 0.7 : 1,
           }}
           type="button"
         >
-          Send
+          {isSending ? "Sending…" : "Send"}
         </button>
       </div>
 
@@ -405,9 +456,74 @@ export default function PreviewClient() {
               placeholder="A memorable place worth sharing."
             />
           </div>
+
+          {shareUrl ? (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                margin: "0 auto",
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 16,
+                padding: 14,
+                backdropFilter: "blur(12px)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>Share link</div>
+              <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
+                  style={shareBtn}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  WhatsApp
+                </a>
+                <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(shareText)}`} style={shareBtn}>
+                  Email
+                </a>
+                <a href={`sms:?&body=${encodeURIComponent(shareText)}`} style={shareBtn}>
+                  SMS
+                </a>
+                <button
+                  type="button"
+                  style={shareBtn}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareUrl)
+                      window.alert("Link copied")
+                    } catch {
+                      window.alert("Copy failed")
+                    }
+                  }}
+                >
+                  Copy Link
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   )
+}
+
+const shareBtn: React.CSSProperties = {
+  background: "rgba(255,255,255,0.15)",
+  border: "1px solid rgba(255,255,255,0.22)",
+  color: "white",
+  fontWeight: 900,
+  padding: "0.7rem 0.9rem",
+  borderRadius: 12,
+  cursor: "pointer",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 }
 
