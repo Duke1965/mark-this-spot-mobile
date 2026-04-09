@@ -36,6 +36,29 @@ import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
+function PostcardIcon({ size = 28 }: { size?: number }) {
+  const s = size
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block" }}
+    >
+      <rect x="3.5" y="6" width="17" height="12" rx="2.2" stroke="currentColor" strokeWidth="1.7" />
+      <line x1="12" y1="7.8" x2="12" y2="16.2" stroke="currentColor" strokeWidth="1.3" opacity="0.9" />
+      <rect x="5.4" y="8.4" width="5.8" height="6.8" rx="1.1" stroke="currentColor" strokeWidth="1.3" opacity="0.9" />
+      <line x1="13.6" y1="9.6" x2="19.2" y2="9.6" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
+      <line x1="13.6" y1="11.7" x2="19.2" y2="11.7" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
+      <line x1="13.6" y1="13.8" x2="18.2" y2="13.8" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
+    </svg>
+  )
+}
+
 
 
 interface GooglePlace {
@@ -4465,7 +4488,7 @@ export default function PINITApp() {
                       }}
                     >
                       -? Top
-                                        </span>
+                    </span>
                   )}
                 </div>
               </div>
@@ -4512,7 +4535,7 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Camera size={28} />
+          <PostcardIcon size={28} />
         </button>
 
         <button
