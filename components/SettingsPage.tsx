@@ -283,7 +283,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [logoutError, setLogoutError] = useState<string | null>(null)
   
   // FIX: Check if user is already authenticated and skip to complete step
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "social" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
     isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
@@ -374,14 +374,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           // Returning users go back to settings menu
           setCurrentStep("settings-menu")
         } else {
-          setCurrentStep("social")
-        }
-        break
-      case "social":
-        if (isReturningUser) {
-          // Returning users go back to main app after saving social accounts
-          onComplete()
-        } else {
           setCurrentStep("location")
         }
         break
@@ -420,20 +412,12 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           setCurrentStep("login")
         }
         break
-      case "social":
-        if (isReturningUser) {
-          // Returning users go back to settings menu
-          setCurrentStep("settings-menu")
-        } else {
-          setCurrentStep("profile")
-        }
-        break
       case "settings-menu":
         // Settings menu goes back to main app
         onBack()
         break
       case "location":
-        setCurrentStep("social")
+        setCurrentStep("profile")
         break
       case "theme":
         setCurrentStep("location")
@@ -568,29 +552,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               </button>
 
               {/* Social Media Settings */}
-              <button
-                onClick={() => setCurrentStep("social")}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <Share2 size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>Social Media</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Instagram, Facebook, LinkedIn, etc.</div>
-                </div>
-              </button>
-
               {/* Location Settings */}
               <button
                 onClick={() => setCurrentStep("location")}
@@ -972,163 +933,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   marginTop: "1rem"
                 }}
               >
-                {isReturningUser ? "Save Changes" : "Continue to Social Setup"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Social Media Setup Step */}
-        {currentStep === "social" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📱</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Connect Social Media</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Add your social media accounts to share your PINIT discoveries easily.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              {/* Instagram */}
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>📸</span>
-                  <span style={{ fontWeight: "bold" }}>Instagram</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="@yourusername"
-                  value={userProfile.socialAccounts.instagram}
-                  onChange={(e) => setUserProfile(prev => ({
-                    ...prev,
-                    socialAccounts: { ...prev.socialAccounts, instagram: e.target.value }
-                  }))}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    fontSize: "0.875rem"
-                  }}
-                />
-              </div>
-
-              {/* X (Twitter) */}
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>𝕏</span>
-                  <span style={{ fontWeight: "bold" }}>X (Twitter)</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="@yourusername"
-                  value={userProfile.socialAccounts.twitter}
-                  onChange={(e) => setUserProfile(prev => ({
-                    ...prev,
-                    socialAccounts: { ...prev.socialAccounts, twitter: e.target.value }
-                  }))}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    fontSize: "0.875rem"
-                  }}
-                />
-              </div>
-
-              {/* Facebook */}
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>👥</span>
-                  <span style={{ fontWeight: "bold" }}>Facebook</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="facebook.com/yourprofile"
-                  value={userProfile.socialAccounts.facebook}
-                  onChange={(e) => setUserProfile(prev => ({
-                    ...prev,
-                    socialAccounts: { ...prev.socialAccounts, facebook: e.target.value }
-                  }))}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    fontSize: "0.875rem"
-                  }}
-                />
-              </div>
-
-              {/* LinkedIn */}
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>💼</span>
-                  <span style={{ fontWeight: "bold" }}>LinkedIn</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="linkedin.com/in/yourprofile"
-                  value={userProfile.socialAccounts.linkedin}
-                  onChange={(e) => setUserProfile(prev => ({
-                    ...prev,
-                    socialAccounts: { ...prev.socialAccounts, linkedin: e.target.value }
-                  }))}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    fontSize: "0.875rem"
-                  }}
-                />
-              </div>
-
-              {/* WhatsApp */}
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>💬</span>
-                  <span style={{ fontWeight: "bold" }}>WhatsApp</span>
-                </div>
-                <p style={{ 
-                  margin: "0.5rem 0 0 0", 
-                  fontSize: "0.875rem", 
-                  opacity: 0.8,
-                  fontStyle: "italic"
-                }}>
-                  WhatsApp sharing is ready! When you share, it will open WhatsApp to let you choose who to send it to.
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  // Save social accounts for returning users
-                  if (isReturningUser) {
-                    localStorage.setItem('userProfile', JSON.stringify(userProfile))
-                  }
-                  handleNext()
-                }}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  marginTop: "1rem"
-                }}
-              >
-                {isReturningUser ? "Save Changes" : "Continue to Location"}
+                {isReturningUser ? "Save Changes" : "Continue"}
               </button>
             </div>
           </div>
