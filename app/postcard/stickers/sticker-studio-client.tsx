@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "../editor/template-config"
 import { STICKER_CATALOG, STICKER_CATEGORIES, type StickerCategory } from "./sticker-catalog"
+import { Caveat } from "next/font/google"
+
+const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -346,11 +349,16 @@ export default function StickerStudioClient() {
               <div
                 style={{
                   ...styles.messageOnCard,
+                  fontFamily: caveat.style.fontFamily,
                   top: templateConfig.textArea.top,
                   left: templateConfig.textArea.left,
                   width: templateConfig.textArea.width,
                   height: templateConfig.textArea.height || styles.messageOnCard.height,
                   textAlign: templateConfig.textArea.align || styles.messageOnCard.textAlign,
+                  ...(templateConfig.textStyle?.fontSize ? { fontSize: templateConfig.textStyle.fontSize } : null),
+                  ...(typeof templateConfig.textStyle?.lineHeight === "number"
+                    ? { lineHeight: templateConfig.textStyle.lineHeight }
+                    : null),
                 }}
                 aria-hidden="true"
               >
