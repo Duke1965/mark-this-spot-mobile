@@ -59,17 +59,10 @@ export async function POST(req: NextRequest) {
     const firestore = getAdminFirestore()
     const nowIso = new Date().toISOString()
 
-    // If Firebase Admin isn't configured in the environment, still return an ID
-    // so the UI can proceed in demo mode.
     if (!firestore) {
-      const postcardId = `demo_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
       return NextResponse.json(
-        {
-          postcardId,
-          demoMode: true,
-          createdAt: nowIso,
-        },
-        { status: 200 }
+        { error: "Sharing not configured", details: "Firebase Admin / Firestore is not configured in this environment." },
+        { status: 500 }
       )
     }
 
