@@ -1,4 +1,5 @@
 import { getAdminFirestore } from "@/lib/firebaseAdmin"
+import Link from "next/link"
 
 type StickerItem = {
   id: string
@@ -111,9 +112,9 @@ export default async function SharedPostcardPage({
           <div style={styles.metaDesc}>{description}</div>
         </div>
 
-        <a href="/" style={styles.cta}>
+        <Link href="/" style={styles.cta}>
           Send one back with PINIT
-        </a>
+        </Link>
       </div>
     </div>
   )
@@ -254,3 +255,4 @@ const styles: Record<string, any> = {
     fontWeight: 800,
   },
 }
+
