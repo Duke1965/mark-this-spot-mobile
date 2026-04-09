@@ -12,6 +12,7 @@ const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "te
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 160
 const ROTATE_HINT_KEY = "pinit-postcard-rotate-hint-shown-v1"
+const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
@@ -29,6 +30,7 @@ export default function PostcardCreatorClient() {
   const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
   const [showRotateHint, setShowRotateHint] = useState(false)
+  const [showPhotoGestureHint, setShowPhotoGestureHint] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
 
   // Photo transform state (creation editor only)
@@ -96,6 +98,18 @@ export default function PostcardCreatorClient() {
   }, [])
 
   useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (sessionStorage.getItem(PHOTO_GESTURE_HINT_KEY)) return
+      sessionStorage.setItem(PHOTO_GESTURE_HINT_KEY, "1")
+      setShowPhotoGestureHint(true)
+      return
+    } catch {
+      return
+    }
+  }, [])
+
+  useEffect(() => {
     if (typeof window === "undefined") return
     const mql = window.matchMedia?.("(orientation: landscape)")
     const update = () => setIsLandscape(!!mql?.matches)
@@ -146,6 +160,7 @@ export default function PostcardCreatorClient() {
   const onPhotoPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     // Only interact with primary pointer types (touch/mouse/pen). Ignore right-click.
     if (e.button !== 0) return
+    if (showPhotoGestureHint) setShowPhotoGestureHint(false)
     ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
     pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -278,6 +293,11 @@ export default function PostcardCreatorClient() {
         }}
       >
         {showRotateHint && !isLandscape && <div style={styles.hint}>Rotate your phone for easier editing</div>}
+        {showPhotoGestureHint && (
+          <div style={styles.hint} onClick={() => setShowPhotoGestureHint(false)} role="button" tabIndex={0}>
+            Use 1 finger to move. Pinch with 2 fingers to resize and rotate.
+          </div>
+        )}
         <div style={styles.postcardWrap}>
           <div style={styles.postcard}>
             <div
