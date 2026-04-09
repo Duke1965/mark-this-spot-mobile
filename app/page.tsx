@@ -4535,7 +4535,7 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <PostcardIcon size={28} />
+          <PostcardIcon size={32} />
         </button>
 
         <button
