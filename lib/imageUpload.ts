@@ -16,35 +16,35 @@ export async function uploadImageToFirebase(
   base64Image: string, 
   filename: string
 ): Promise<string> {
-  try {
-    console.log('📤 Uploading image to Firebase Storage:', filename)
-    
-    // Check if Firebase is configured
-    if (!storage || !storage.ref) {
-      console.warn('⚠️ Firebase Storage not configured, returning original base64 URL')
-      return base64Image
-    }
-    
-    // Convert base64 to blob
-    const response = await fetch(base64Image)
-    const blob = await response.blob()
-    
-    // Create a reference to the storage location
-    const storageRef = ref(storage, `pinit-images/${filename}`)
-    
-    // Upload the blob
-    const uploadResult: UploadResult = await uploadBytes(storageRef, blob)
-    
-    // Get the download URL
-    const downloadURL = await getDownloadURL(uploadResult.ref)
-    
-    console.log('✅ Image uploaded successfully:', downloadURL)
-    return downloadURL
-  } catch (error) {
-    console.error('❌ Error uploading image to Firebase:', error)
-    // Fallback to base64 if upload fails
-    return base64Image
+  console.log('📤 Uploading image to Firebase Storage:', filename)
+
+  // Hard requirement for hosted sharing: we must return a durable hosted URL.
+  if (!storage) {
+    throw new Error("Firebase Storage is not configured")
   }
+
+  // Convert (data URL / blob URL) to blob
+  const response = await fetch(base64Image)
+  if (!response.ok) {
+    throw new Error("Failed to read image data for upload")
+  }
+  const blob = await response.blob()
+
+  // Create a reference to the storage location
+  const storageRef = ref(storage, `pinit-images/${filename}`)
+
+  // Upload the blob
+  const uploadResult: UploadResult = await uploadBytes(storageRef, blob)
+
+  // Get the download URL
+  const downloadURL = await getDownloadURL(uploadResult.ref)
+
+  if (!/^https?:\/\//i.test(downloadURL)) {
+    throw new Error("Image upload did not return a durable URL")
+  }
+
+  console.log('✅ Image uploaded successfully:', downloadURL)
+  return downloadURL
 }
 
 /**
