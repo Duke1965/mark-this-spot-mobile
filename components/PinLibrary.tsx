@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
+import { useRouter } from "next/navigation"
 import type { PinData } from "@/lib/types"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
 
@@ -25,22 +26,15 @@ interface PinLibraryProps {
 }
 
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentTab, setCurrentTab] = useState<"photos" | "videos" | "pins" | "recommended">("pins")
+  const [currentTab, setCurrentTab] = useState<"pins" | "recommended">("pins")
 
   const getTabData = () => {
     console.log("🔍 Current tab:", currentTab, "Total pins:", pins.length)
     console.log("📌 Sample pins:", pins.slice(0, 2))
     
     switch (currentTab) {
-      case "photos":
-        const photos = pins.filter(pin => pin.mediaType === "photo")
-        console.log("📸 Photos found:", photos.length)
-        return photos
-      case "videos":
-        const videos = pins.filter(pin => pin.mediaType === "video")
-        console.log("🎥 Videos found:", videos.length)
-        return videos
       case "pins":
         const regularPins = pins.filter(pin => !pin.isRecommended)
         console.log("📍 Regular pins found:", regularPins.length)
@@ -61,12 +55,10 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
     return matchesSearch
   })
 
-  const renderPinCard = (item: any, type: 'pin' | 'photo' | 'video' | 'recommended') => {
+  const renderPinCard = (item: any, type: "pin" | "recommended") => {
     if (!item || !item.id) return null
 
     const isPin = type === 'pin' || type === 'recommended'
-    const isPhoto = type === 'photo'
-    const isVideo = type === 'video'
     const isPending = item.isPending === true
 
     // PENDING PIN CARD - Simple design with no photos
@@ -319,28 +311,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
               }}
             >
-              {isPin && '📍'}
-              {isPhoto && '📸'}
-              {isVideo && '🎥'}
-              {type === 'recommended' && '⭐'}
+              {type === "recommended" ? "⭐" : "📍"}
             </div>
-            
-            {/* Type Badge */}
-            {isVideo && (
-              <div style={{
-                position: "absolute",
-                top: "4px",
-                right: "4px",
-                background: "rgba(0,0,0,0.7)",
-                color: "white",
-                fontSize: "0.75rem",
-                padding: "2px 4px",
-                borderRadius: "4px",
-                zIndex: 10
-              }}>
-                ▶
-              </div>
-            )}
           </div>
           
           {/* Content area - matches AI Recommendations style */}
@@ -495,36 +467,77 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       {/* Tab Navigation */}
       <div style={{ padding: "1rem", background: "rgba(30, 58, 138, 0.95)", backdropFilter: "blur(15px)", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
         <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem" }}>
-          {[
-            { id: "pins", label: "Pins", icon: "📍" },
-            { id: "photos", label: "Photos", icon: "📸" },
-            { id: "videos", label: "Videos", icon: "🎥" },
-            { id: "recommended", label: "Recommended", icon: "⭐" }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setCurrentTab(tab.id as any)}
-              style={{
-                flex: 1,
-                padding: "0.75rem 0.5rem",
-                borderRadius: "0.75rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: currentTab === tab.id ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "0.25rem",
-                transition: "all 0.2s ease",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <span style={{ fontSize: "1.25rem" }}>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+          <button
+            onClick={() => setCurrentTab("pins")}
+            style={{
+              flex: 1,
+              padding: "0.75rem 0.5rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: currentTab === "pins" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.25rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
+            }}
+            type="button"
+          >
+            <span style={{ fontSize: "1.25rem" }}>📍</span>
+            <span>Pins</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/postcard/library")}
+            style={{
+              flex: 1,
+              padding: "0.75rem 0.5rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.25rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
+            }}
+            type="button"
+          >
+            <span style={{ fontSize: "1.25rem" }}>💌</span>
+            <span>My Postcards</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentTab("recommended")}
+            style={{
+              flex: 1,
+              padding: "0.75rem 0.5rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: currentTab === "recommended" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.25rem",
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(10px)",
+            }}
+            type="button"
+          >
+            <span style={{ fontSize: "1.25rem" }}>⭐</span>
+            <span>Recommended</span>
+          </button>
         </div>
 
         {/* Search */}
@@ -554,21 +567,14 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         {filteredData.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
-              {currentTab === "photos" ? "📸" : 
-               currentTab === "videos" ? "🎥" : 
-               currentTab === "recommended" ? "⭐" : "📍"}
+              {currentTab === "recommended" ? "⭐" : "📍"}
             </div>
-            <h3>No {currentTab} found</h3>
-            <p>Create your first {currentTab.slice(0, -1)} to get started!</p>
+            <h3>No {currentTab === "recommended" ? "recommendations" : "pins"} found</h3>
+            <p>{currentTab === "recommended" ? "Check back later for new recommendations." : "Create your first pin to get started!"}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {filteredData.map((item) => renderPinCard(item, 
-              currentTab === "pins" ? "pin" : 
-              currentTab === "photos" ? "photo" : 
-              currentTab === "videos" ? "video" : 
-              "recommended"
-            ))}
+            {filteredData.map((item) => renderPinCard(item, currentTab === "recommended" ? "recommended" : "pin"))}
           </div>
         )}
       </div>
