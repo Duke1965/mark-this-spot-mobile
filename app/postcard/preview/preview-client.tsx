@@ -131,6 +131,7 @@ export default function PreviewClient() {
       const uid = (auth as any)?.currentUser?.uid as string | undefined
       const filename = generateImageFilename(uid)
       const hostedImageUrl = await uploadImageToFirebase(imageUrl, filename)
+      if (!uid) throw new Error("Please sign in to send a postcard.")
 
       const res = await fetch("/api/postcards/create", {
         method: "POST",
@@ -143,6 +144,7 @@ export default function PreviewClient() {
           title,
           description,
           transform: photoTransform,
+          senderUid: uid,
         }),
       })
       if (!res.ok) {
