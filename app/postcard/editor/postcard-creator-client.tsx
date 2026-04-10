@@ -299,7 +299,14 @@ export default function PostcardCreatorClient() {
           </div>
         )}
         <div style={styles.postcardWrap}>
-          <div style={styles.postcard}>
+          <div
+            style={styles.postcard}
+            onPointerDown={onPhotoPointerDown}
+            onPointerMove={onPhotoPointerMove}
+            onPointerUp={onPhotoPointerUp}
+            onPointerCancel={onPhotoPointerUp}
+            onLostPointerCapture={onPhotoPointerUp}
+          >
             <div
               style={{
                 ...styles.photoMask,
@@ -316,11 +323,6 @@ export default function PostcardCreatorClient() {
             >
               <div
                 style={styles.photoStage}
-                onPointerDown={onPhotoPointerDown}
-                onPointerMove={onPhotoPointerMove}
-                onPointerUp={onPhotoPointerUp}
-                onPointerCancel={onPhotoPointerUp}
-                onLostPointerCapture={onPhotoPointerUp}
               >
                 {imageUrl && !imageFailed ? (
                   <img
