@@ -20,6 +20,7 @@ type CreatePostcardPayload = {
   title: string
   description: string
   transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
+  senderUid: string
 }
 
 function asNumber(n: unknown, def: number) {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     const message = String(body.message || "")
     const title = String(body.title || "My Special Place")
     const description = String(body.description || "A memorable place worth sharing.")
+    const senderUid = String((body as any)?.senderUid || "")
 
     const stickers: StickerItem[] = Array.isArray(body.stickers)
       ? body.stickers
@@ -54,6 +56,9 @@ export async function POST(req: NextRequest) {
 
     if (!imageUrl) {
       return NextResponse.json({ error: "Missing imageUrl" }, { status: 400 })
+    }
+    if (!senderUid) {
+      return NextResponse.json({ error: "Missing senderUid" }, { status: 400 })
     }
 
     const firestore = getAdminFirestore()
@@ -74,6 +79,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       transform: body.transform || null,
+      senderUid,
       createdAt: FieldValue.serverTimestamp(),
       createdAtIso: nowIso,
     })
