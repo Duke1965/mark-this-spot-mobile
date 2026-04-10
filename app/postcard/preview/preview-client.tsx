@@ -473,6 +473,10 @@ export default function PreviewClient() {
                 gap: 10,
               }}
             >
+              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready to share.</div>
+              <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
+                Share it to one or more places below, then tap Done when you’re finished.
+              </div>
               <div style={{ fontWeight: 900 }}>Share link</div>
               <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -503,6 +507,21 @@ export default function PreviewClient() {
                   }}
                 >
                   Copy Link
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+                <button
+                  type="button"
+                  style={{
+                    ...shareBtn,
+                    background: "rgba(255,255,255,0.22)",
+                    border: "1px solid rgba(255,255,255,0.28)",
+                  }}
+                  onClick={() => {
+                    router.push("/")
+                  }}
+                >
+                  Done (Back to Home)
                 </button>
               </div>
             </div>
