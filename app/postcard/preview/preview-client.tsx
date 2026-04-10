@@ -25,6 +25,7 @@ export default function PreviewClient() {
   const [description, setDescription] = useState("A memorable place worth sharing.")
   const [isSending, setIsSending] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [showSent, setShowSent] = useState(false)
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [message, setMessage] = useState("")
@@ -122,6 +123,9 @@ export default function PreviewClient() {
   }, [])
 
   const onSend = async () => {
+    // Once we have a share link, the postcard has been saved.
+    // Allow sharing multiple times, but do not create duplicate saves.
+    if (shareUrl) return
     if (isSending) return
     setIsSending(true)
     try {
@@ -157,6 +161,8 @@ export default function PreviewClient() {
 
       const url = `${window.location.origin}/shared/${encodeURIComponent(postcardId)}`
       setShareUrl(url)
+      setShowSent(true)
+      window.setTimeout(() => setShowSent(false), 2500)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       try {
@@ -186,6 +192,29 @@ export default function PreviewClient() {
         zIndex: 1000,
       }}
     >
+      {showSent && (
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "14px",
+            transform: "translateX(-50%)",
+            zIndex: 2000,
+            background: "rgba(255,255,255,0.18)",
+            border: "1px solid rgba(255,255,255,0.28)",
+            color: "white",
+            padding: "10px 14px",
+            borderRadius: 999,
+            fontWeight: 950,
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          Postcard Sent
+        </div>
+      )}
       <div
         style={{
           padding: "1rem",
@@ -220,7 +249,7 @@ export default function PreviewClient() {
         <div style={{ fontSize: "1.125rem", fontWeight: 900 }}>Preview</div>
         <button
           onClick={onSend}
-          disabled={isSending}
+          disabled={isSending || !!shareUrl}
           style={{
             background: "rgba(255,255,255,0.15)",
             border: "1px solid rgba(255,255,255,0.22)",
@@ -233,7 +262,7 @@ export default function PreviewClient() {
           }}
           type="button"
         >
-          {isSending ? "Sending…" : "Send"}
+          {shareUrl ? "Sent" : isSending ? "Sending…" : "Send"}
         </button>
       </div>
 
