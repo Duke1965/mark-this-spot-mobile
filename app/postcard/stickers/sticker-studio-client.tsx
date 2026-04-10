@@ -159,10 +159,15 @@ export default function StickerStudioClient() {
       scale: 1,
       rotation: 0,
     }
-    const nextStickers = [...stickers, next]
-    setStickers(nextStickers)
+    setStickers((prev) => {
+      const nextStickers = [...prev, next]
+      // Keep ref in sync so the newly added sticker
+      // can be manipulated immediately on the next touch.
+      stickersRef.current = nextStickers
+      saveDraft(nextStickers)
+      return nextStickers
+    })
     setActiveStickerId(next.id)
-    saveDraft(nextStickers)
   }
 
   const getRect = () => postcardRef.current?.getBoundingClientRect() || null
