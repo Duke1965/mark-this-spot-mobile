@@ -5,6 +5,7 @@ import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock,
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
+import { getHintsEnabled, setHintsEnabled, HINTS_ENABLED_KEY } from "@/lib/hints"
 
 interface SettingsPageProps {
   onBack: () => void
@@ -53,6 +54,7 @@ function FactoryResetDialog() {
         localStorage.removeItem('userProfile')
         localStorage.removeItem('pinit-setup-completed')
         localStorage.removeItem('pinit-welcome-seen')
+        localStorage.removeItem(HINTS_ENABLED_KEY)
         
         console.log("⚠️ Factory reset completed")
         
@@ -280,6 +282,7 @@ function FactoryResetDialog() {
 export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [tipsEnabled, setTipsEnabled] = useState(true)
   const [logoutError, setLogoutError] = useState<string | null>(null)
   
   // FIX: Check if user is already authenticated and skip to complete step
@@ -310,6 +313,10 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   })
 
   // Load existing profile for returning users
+  useEffect(() => {
+    setTipsEnabled(getHintsEnabled())
+  }, [])
+
   useEffect(() => {
     if (isReturningUser) {
       try {
@@ -1201,6 +1208,37 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     />
                     Make profile public
                   </label>
+                </div>
+              </div>
+
+              {/* Tips & Hints */}
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  padding: "1rem",
+                  borderRadius: "0.75rem",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>💡</span>
+                  <div style={{ fontWeight: "600", color: "white" }}>Tips & Hints</div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "white", fontSize: "0.875rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={tipsEnabled}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                      setTipsEnabled(next)
+                      setHintsEnabled(next)
+                    }}
+                    style={{ margin: 0 }}
+                  />
+                  Show tips and hints
+                </label>
+                <div style={{ fontSize: "0.8rem", opacity: 0.85, marginTop: "0.4rem", lineHeight: 1.25 }}>
+                  Shows subtle guidance while editing photos and stickers, and when viewing shared postcards.
                 </div>
               </div>
 
