@@ -20,6 +20,7 @@ export default function PostcardNewClient() {
 
   const [mode, setMode] = useState<"chooser" | "camera">("chooser")
   const [error, setError] = useState<string | null>(null)
+  const [isNormalizing, setIsNormalizing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -35,6 +36,56 @@ export default function PostcardNewClient() {
       return
     }
     router.push(`/postcard/editor?template=${encodeURIComponent(template)}`)
+  }
+
+  const normalizeImageToJpegDataUrl = async (src: { file?: File; url?: string }) => {
+    const MAX_DIM = 1600
+    const JPEG_QUALITY = 0.86
+
+    let objectUrl: string | null = null
+    try {
+      const url = src.file ? (objectUrl = URL.createObjectURL(src.file)) : String(src.url || "")
+      if (!url) throw new Error("Missing image")
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.decoding = "async"
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error("Failed to load image"))
+        el.src = url
+      })
+
+      const w = img.naturalWidth || img.width || 0
+      const h = img.naturalHeight || img.height || 0
+      if (!w || !h) throw new Error("Invalid image dimensions")
+
+      const scale = Math.min(1, MAX_DIM / Math.max(w, h))
+      const outW = Math.max(1, Math.round(w * scale))
+      const outH = Math.max(1, Math.round(h * scale))
+
+      const canvas = document.createElement("canvas")
+      canvas.width = outW
+      canvas.height = outH
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("Canvas not available")
+      ctx.drawImage(img, 0, 0, outW, outH)
+
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY))
+      if (!blob) {
+        // Fallback if toBlob is unavailable
+        return canvas.toDataURL("image/jpeg", JPEG_QUALITY)
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : "")
+        r.onerror = () => reject(new Error("Failed to encode image"))
+        r.readAsDataURL(blob)
+      })
+      if (!dataUrl) throw new Error("Failed to encode image")
+      return dataUrl
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
   }
 
   const onTakePhoto = async () => {
@@ -103,8 +154,17 @@ export default function PostcardNewClient() {
         <ReliableCamera
           mode="photo"
           onClose={() => setMode("chooser")}
-          onCapture={(mediaData) => {
-            saveDraftAndGo(mediaData)
+          onCapture={async (mediaData) => {
+            setError(null)
+            setIsNormalizing(true)
+            try {
+              const normalized = await normalizeImageToJpegDataUrl({ url: mediaData })
+              saveDraftAndGo(normalized)
+            } catch {
+              setError("We couldn’t prepare that photo. Please try again with a different image.")
+            } finally {
+              setIsNormalizing(false)
+            }
           }}
         />
       ) : (
@@ -172,6 +232,7 @@ export default function PostcardNewClient() {
 
             <button
               onClick={onTakePhoto}
+              disabled={isNormalizing}
               style={{
                 width: "100%",
                 display: "flex",
@@ -184,7 +245,8 @@ export default function PostcardNewClient() {
                 fontWeight: 900,
                 padding: "1.1rem 1rem",
                 borderRadius: 16,
-                cursor: "pointer",
+                cursor: isNormalizing ? "not-allowed" : "pointer",
+                opacity: isNormalizing ? 0.7 : 1,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -197,6 +259,7 @@ export default function PostcardNewClient() {
 
             <button
               onClick={onChooseGallery}
+              disabled={isNormalizing}
               style={{
                 width: "100%",
                 display: "flex",
@@ -209,7 +272,8 @@ export default function PostcardNewClient() {
                 fontWeight: 900,
                 padding: "1.1rem 1rem",
                 borderRadius: 16,
-                cursor: "pointer",
+                cursor: isNormalizing ? "not-allowed" : "pointer",
+                opacity: isNormalizing ? 0.7 : 1,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -225,38 +289,25 @@ export default function PostcardNewClient() {
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (!file) {
-                  setError(null)
-                  return
-                }
-                // Prefer an object URL to avoid large base64 data exceeding sessionStorage quota.
-                try {
-                  const objectUrl = URL.createObjectURL(file)
-                  saveDraftAndGo(objectUrl)
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
                   // Allow picking the same file again if needed
                   e.currentTarget.value = ""
-                  return
-                } catch {
-                  // Fall back to base64 if object URLs are unavailable.
-                }
-
-                const reader = new FileReader()
-                reader.onload = () => {
-                  const dataUrl = typeof reader.result === "string" ? reader.result : ""
-                  if (!dataUrl) {
-                    setError("We couldn’t read that image. Please try another photo.")
+                  if (!file) {
+                    setError(null)
                     return
                   }
-                  saveDraftAndGo(dataUrl)
-                  e.currentTarget.value = ""
-                }
-                reader.onerror = () => {
-                  setError("We couldn’t read that image. Please try another photo.")
-                }
-                reader.readAsDataURL(file)
-              }}
+                  setError(null)
+                  setIsNormalizing(true)
+                  try {
+                    const normalized = await normalizeImageToJpegDataUrl({ file })
+                    saveDraftAndGo(normalized)
+                  } catch {
+                    setError("That photo couldn’t be prepared. Please try a different image.")
+                  } finally {
+                    setIsNormalizing(false)
+                  }
+                }}
             />
           </div>
         </div>
