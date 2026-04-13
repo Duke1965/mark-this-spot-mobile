@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
 import { Caveat } from "next/font/google"
+import { getHintsEnabled } from "@/lib/hints"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -31,6 +32,7 @@ export default function PostcardCreatorClient() {
   const [message, setMessage] = useState("")
   const [showRotateHint, setShowRotateHint] = useState(false)
   const [showPhotoGestureHint, setShowPhotoGestureHint] = useState(false)
+  const [hintsEnabled, setHintsEnabled] = useState(true)
   const [isLandscape, setIsLandscape] = useState(false)
 
   // Photo transform state (creation editor only)
@@ -119,8 +121,13 @@ export default function PostcardCreatorClient() {
   }, [])
 
   useEffect(() => {
+    setHintsEnabled(getHintsEnabled())
+  }, [])
+
+  useEffect(() => {
     try {
       if (typeof window === "undefined") return
+      if (!hintsEnabled) return
       if (sessionStorage.getItem(ROTATE_HINT_KEY)) return
       sessionStorage.setItem(ROTATE_HINT_KEY, "1")
       setShowRotateHint(true)
@@ -129,11 +136,12 @@ export default function PostcardCreatorClient() {
     } catch {
       return
     }
-  }, [])
+  }, [hintsEnabled])
 
   useEffect(() => {
     try {
       if (typeof window === "undefined") return
+      if (!hintsEnabled) return
       if (sessionStorage.getItem(PHOTO_GESTURE_HINT_KEY)) return
       sessionStorage.setItem(PHOTO_GESTURE_HINT_KEY, "1")
       setShowPhotoGestureHint(true)
@@ -141,7 +149,7 @@ export default function PostcardCreatorClient() {
     } catch {
       return
     }
-  }, [])
+  }, [hintsEnabled])
 
   useEffect(() => {
     if (typeof window === "undefined") return
