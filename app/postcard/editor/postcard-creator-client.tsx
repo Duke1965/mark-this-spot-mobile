@@ -643,7 +643,7 @@ const styles: Record<string, any> = {
     height: "46%",
     color: "rgba(20, 20, 20, 0.82)",
     fontWeight: 600,
-    fontSize: "1.12rem",
+    fontSize: "clamp(16px, 2.2vw, 20px)",
     lineHeight: 1.65,
     letterSpacing: "0.35px",
     whiteSpace: "pre-wrap",
