@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import PostcardCreatorClient from "./postcard-creator-client"
+import EditorErrorBoundary from "./editor-error-boundary"
 
 export default function PostcardEditorPage() {
   return (
@@ -14,7 +15,9 @@ export default function PostcardEditorPage() {
         />
       }
     >
-      <PostcardCreatorClient />
+      <EditorErrorBoundary>
+        <PostcardCreatorClient />
+      </EditorErrorBoundary>
     </Suspense>
   )
 }
