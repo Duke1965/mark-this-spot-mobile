@@ -372,7 +372,7 @@ export default function PreviewClient() {
                     color: "rgba(20, 20, 20, 0.82)",
                     fontFamily: caveat.style.fontFamily,
                     fontWeight: 600,
-                    fontSize: "1.12rem",
+                    fontSize: "clamp(16px, 2.2vw, 20px)",
                     lineHeight: 1.65,
                     letterSpacing: "0.35px",
                     whiteSpace: "pre-wrap",
