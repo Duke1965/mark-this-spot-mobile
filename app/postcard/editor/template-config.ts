@@ -52,7 +52,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       borderRadius: "10px",
     },
     textStyle: {
-      fontSize: "17px",
+      fontSize: "clamp(16px, 2.2vw, 20px)",
       lineHeight: 1.7,
     },
     textArea: {
