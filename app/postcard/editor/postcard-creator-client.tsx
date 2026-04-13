@@ -39,6 +39,17 @@ export default function PostcardCreatorClient() {
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0) // degrees
 
+  const debugIdRef = useRef<string>("")
+  const lastLogRef = useRef<number>(0)
+  const log = (...args: unknown[]) => {
+    // Throttle noisy logs
+    const now = Date.now()
+    if (now - lastLogRef.current < 250) return
+    lastLogRef.current = now
+    // eslint-disable-next-line no-console
+    console.log("🧪 EditorDebug", debugIdRef.current, ...args)
+  }
+
   const pointerMapRef = useRef(new Map<number, { x: number; y: number }>())
   const gestureRef = useRef<{
     mode: "none" | "drag" | "pinch"
@@ -61,6 +72,29 @@ export default function PostcardCreatorClient() {
     startDist: 0,
     startAngle: 0,
   })
+
+  useEffect(() => {
+    debugIdRef.current = `t=${template} ts=${Date.now().toString(16)}`
+    // eslint-disable-next-line no-console
+    console.log("🧪 EditorDebug init", debugIdRef.current, { template })
+  }, [template])
+
+  useEffect(() => {
+    const onErr = (ev: ErrorEvent) => {
+      // eslint-disable-next-line no-console
+      console.error("🚨 Editor window.error", debugIdRef.current, ev.error || ev.message)
+    }
+    const onRej = (ev: PromiseRejectionEvent) => {
+      // eslint-disable-next-line no-console
+      console.error("🚨 Editor unhandledrejection", debugIdRef.current, ev.reason)
+    }
+    window.addEventListener("error", onErr)
+    window.addEventListener("unhandledrejection", onRej)
+    return () => {
+      window.removeEventListener("error", onErr)
+      window.removeEventListener("unhandledrejection", onRej)
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -166,6 +200,7 @@ export default function PostcardCreatorClient() {
 
     const ptsCount = pointerMapRef.current.size
     if (ptsCount === 1) {
+      log("gesture:start drag", { tx, ty, scale, rotation })
       gestureRef.current = {
         ...gestureRef.current,
         mode: "drag",
@@ -179,6 +214,7 @@ export default function PostcardCreatorClient() {
     } else if (ptsCount === 2) {
       const g = getTwoPointerGesture()
       if (g) {
+        log("gesture:start pinch", { tx, ty, scale, rotation, dist: g.dist, angle: g.angle })
         gestureRef.current = {
           ...gestureRef.current,
           mode: "pinch",
@@ -233,6 +269,7 @@ export default function PostcardCreatorClient() {
     }
     if (pointerMapRef.current.size === 0) {
       gestureRef.current.mode = "none"
+      log("gesture:end", { tx, ty, scale, rotation })
       saveDraft()
     } else if (pointerMapRef.current.size === 1) {
       // If one finger remains, switch to drag mode anchored at that finger.
@@ -331,6 +368,15 @@ export default function PostcardCreatorClient() {
                     style={{
                       ...styles.bgImage,
                       transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
+                    }}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      // eslint-disable-next-line no-console
+                      console.log("🧪 EditorDebug image:onLoad", debugIdRef.current, {
+                        srcPrefix: String(img.currentSrc || img.src || "").slice(0, 80),
+                        naturalWidth: img.naturalWidth,
+                        naturalHeight: img.naturalHeight,
+                      })
                     }}
                     onError={() => setImageFailed(true)}
                     draggable={false}
