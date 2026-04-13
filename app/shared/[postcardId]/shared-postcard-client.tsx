@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { Caveat } from "next/font/google"
+import { getHintsEnabled } from "@/lib/hints"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -34,6 +35,11 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
   const templateConfig = useMemo(() => getTemplateConfig(data.template), [data.template])
   const [isLandscape, setIsLandscape] = useState(false)
   const [showHint, setShowHint] = useState(false)
+  const [hintsEnabled, setHintsEnabled] = useState(true)
+
+  useEffect(() => {
+    setHintsEnabled(getHintsEnabled())
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -52,6 +58,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
   useEffect(() => {
     try {
       if (typeof window === "undefined") return
+      if (!hintsEnabled) return
       if (isLandscape) return
       if (sessionStorage.getItem(ORIENTATION_HINT_KEY)) return
       sessionStorage.setItem(ORIENTATION_HINT_KEY, "1")
@@ -61,7 +68,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
     } catch {
       return
     }
-  }, [isLandscape])
+  }, [isLandscape, hintsEnabled])
 
   const t = data.transform || {}
 
