@@ -6,11 +6,13 @@ import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "../editor/template-config"
 import { STICKER_CATALOG, STICKER_CATEGORIES, type StickerCategory } from "./sticker-catalog"
 import { Caveat } from "next/font/google"
+import { getHintsEnabled } from "@/lib/hints"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
+const STICKER_GESTURE_HINT_KEY = "pinit-postcard-sticker-gesture-hint-shown-v1"
 
 type DraftTransform = { tx?: number; ty?: number; scale?: number; rotation?: number }
 type StickerItem = {
@@ -48,6 +50,26 @@ export default function StickerStudioClient() {
   const [stickers, setStickers] = useState<StickerItem[]>([])
   const [activeStickerId, setActiveStickerId] = useState<string | null>(null)
   const [category, setCategory] = useState<StickerCategory>("old-school")
+  const [hintsEnabled, setHintsEnabled] = useState(true)
+  const [showStickerHint, setShowStickerHint] = useState(false)
+
+  useEffect(() => {
+    setHintsEnabled(getHintsEnabled())
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (!hintsEnabled) return
+      if (sessionStorage.getItem(STICKER_GESTURE_HINT_KEY)) return
+      sessionStorage.setItem(STICKER_GESTURE_HINT_KEY, "1")
+      setShowStickerHint(true)
+      const t = window.setTimeout(() => setShowStickerHint(false), 4500)
+      return () => window.clearTimeout(t)
+    } catch {
+      return
+    }
+  }, [hintsEnabled])
 
   const stickersRef = useRef<StickerItem[]>([])
   useEffect(() => {
@@ -242,10 +264,11 @@ export default function StickerStudioClient() {
 
   const onStickersPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     if (e.button !== 0) return
+    if (showStickerHint) setShowStickerHint(false)
     ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
 
     const targetEl = (e.target as HTMLElement | null)?.closest?.("[data-sticker-id]") as HTMLElement | null
-    const stickerId = targetEl?.dataset?.stickerId || activeStickerId
+    const stickerId = targetEl?.dataset?.stickerId
     if (!stickerId) return
     beginGesture(stickerId, e)
   }
@@ -316,6 +339,11 @@ export default function StickerStudioClient() {
   return (
     <div style={styles.screen}>
       <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} />
+      {showStickerHint ? (
+        <div style={styles.hint} role="status" aria-live="polite" onClick={() => setShowStickerHint(false)}>
+          Tap a sticker to add • Drag to move • Pinch to resize and rotate
+        </div>
+      ) : null}
 
       <div style={styles.center}>
         <div style={styles.postcardWrap}>
@@ -392,7 +420,6 @@ export default function StickerStudioClient() {
                       zIndex: isActive ? 5 : 3,
                     }}
                     data-sticker-id={s.id}
-                    onPointerDown={() => setActiveStickerId(s.id)}
                   >
                     <img
                       src={s.imageUrl}
@@ -510,6 +537,23 @@ const styles: Record<string, any> = {
     cursor: "pointer",
     touchAction: "manipulation",
   },
+  hint: {
+    alignSelf: "center",
+    width: "min(560px, 92vw)",
+    marginTop: 10,
+    padding: "0.65rem 0.85rem",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    backdropFilter: "blur(12px)",
+    color: "rgba(255,255,255,0.95)",
+    fontSize: "0.92rem",
+    fontWeight: 700,
+    lineHeight: 1.25,
+    textAlign: "center",
+    pointerEvents: "auto",
+    cursor: "pointer",
+  },
   center: {
     flex: 1,
     overflow: "hidden",
@@ -596,6 +640,7 @@ const styles: Record<string, any> = {
     width: 96,
     height: 96,
     touchAction: "none",
+    pointerEvents: "auto",
   },
   stickerImg: {
     width: "100%",
