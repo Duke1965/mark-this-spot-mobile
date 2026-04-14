@@ -389,10 +389,13 @@ export default function StickerStudioClient() {
       <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
       {showStickerHint ? (
         <div style={styles.hint} role="status" aria-live="polite">
-          <span>Tap a sticker to add • Drag to move • Pinch to resize and rotate</span>
-          <button type="button" onClick={() => setShowStickerHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
-            Hide
-          </button>
+          <div style={styles.hintTopRow}>
+            <div style={styles.hintLabel}>💡 Hint</div>
+            <button type="button" onClick={() => setShowStickerHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+              Hide
+            </button>
+          </div>
+          <div style={styles.hintText}>Tap a sticker to add • Drag to move • Pinch to resize and rotate</div>
         </div>
       ) : null}
 
@@ -626,9 +629,27 @@ const styles: Record<string, any> = {
     pointerEvents: "auto",
     cursor: "pointer",
     display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    gap: 8,
+  },
+  hintTopRow: {
+    display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+  },
+  hintLabel: {
+    fontSize: "0.75rem",
+    opacity: 0.88,
+    fontWeight: 500,
+    letterSpacing: "0.2px",
+  },
+  hintText: {
+    fontSize: "0.92rem",
+    fontWeight: 700,
+    lineHeight: 1.3,
   },
   hintHideBtn: {
     background: "rgba(255,255,255,0.16)",
