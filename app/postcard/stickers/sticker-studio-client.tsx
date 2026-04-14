@@ -64,8 +64,7 @@ export default function StickerStudioClient() {
       if (sessionStorage.getItem(STICKER_GESTURE_HINT_KEY)) return
       sessionStorage.setItem(STICKER_GESTURE_HINT_KEY, "1")
       setShowStickerHint(true)
-      const t = window.setTimeout(() => setShowStickerHint(false), 4500)
-      return () => window.clearTimeout(t)
+      return
     } catch {
       return
     }
@@ -389,8 +388,11 @@ export default function StickerStudioClient() {
     <div style={styles.screen}>
       <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
       {showStickerHint ? (
-        <div style={styles.hint} role="status" aria-live="polite" onClick={() => setShowStickerHint(false)}>
-          Tap a sticker to add • Drag to move • Pinch to resize and rotate
+        <div style={styles.hint} role="status" aria-live="polite">
+          <span>Tap a sticker to add • Drag to move • Pinch to resize and rotate</span>
+          <button type="button" onClick={() => setShowStickerHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+            Hide
+          </button>
         </div>
       ) : null}
 
@@ -623,6 +625,20 @@ const styles: Record<string, any> = {
     textAlign: "center",
     pointerEvents: "auto",
     cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  hintHideBtn: {
+    background: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    color: "white",
+    fontWeight: 900,
+    borderRadius: 999,
+    padding: "0.35rem 0.7rem",
+    cursor: "pointer",
+    flexShrink: 0,
   },
   center: {
     flex: 1,
