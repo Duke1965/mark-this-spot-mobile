@@ -67,8 +67,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
       if (sessionStorage.getItem(ORIENTATION_HINT_KEY)) return
       sessionStorage.setItem(ORIENTATION_HINT_KEY, "1")
       setShowHint(true)
-      const t = window.setTimeout(() => setShowHint(false), 4500)
-      return () => window.clearTimeout(t)
+      return
     } catch {
       return
     }
@@ -109,9 +108,6 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
             }
           : null),
       }}
-      onPointerDown={() => {
-        if (showHint) setShowHint(false)
-      }}
     >
       {!isLandscape ? (
         <div style={styles.header}>
@@ -120,8 +116,11 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
       ) : null}
 
       {showHint && !isLandscape ? (
-        <div style={styles.hint} role="status" aria-live="polite" onClick={() => setShowHint(false)}>
-          Rotate your phone for immersive postcard view
+        <div style={styles.hint} role="status" aria-live="polite">
+          <span>Rotate your phone for immersive postcard view</span>
+          <button type="button" onClick={() => setShowHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+            Hide
+          </button>
         </div>
       ) : null}
 
@@ -301,6 +300,20 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.95,
     textAlign: "center",
     cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  hintHideBtn: {
+    background: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    color: "white",
+    fontWeight: 950,
+    borderRadius: 999,
+    padding: "0.35rem 0.7rem",
+    cursor: "pointer",
+    flexShrink: 0,
   },
   content: {
     flex: 1,
