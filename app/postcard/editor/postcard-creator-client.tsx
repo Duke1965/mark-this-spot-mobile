@@ -337,23 +337,29 @@ export default function PostcardCreatorClient() {
       >
         {showRotateHint && !isLandscape && (
           <div style={styles.hint} role="status" aria-live="polite">
-            <span>Rotate your phone for easier editing</span>
-            <button type="button" onClick={() => setShowRotateHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
-              Hide
-            </button>
+            <div style={styles.hintTopRow}>
+              <div style={styles.hintLabel}>💡 Hint</div>
+              <button type="button" onClick={() => setShowRotateHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+                Hide
+              </button>
+            </div>
+            <div style={styles.hintText}>Rotate your phone for easier editing</div>
           </div>
         )}
         {showPhotoGestureHint && (
           <div style={styles.hint} role="status" aria-live="polite">
-            <span>Use 1 finger to move. Pinch with 2 fingers to resize and rotate.</span>
-            <button
-              type="button"
-              onClick={() => setShowPhotoGestureHint(false)}
-              style={styles.hintHideBtn}
-              aria-label="Hide tip"
-            >
-              Hide
-            </button>
+            <div style={styles.hintTopRow}>
+              <div style={styles.hintLabel}>💡 Hint</div>
+              <button
+                type="button"
+                onClick={() => setShowPhotoGestureHint(false)}
+                style={styles.hintHideBtn}
+                aria-label="Hide tip"
+              >
+                Hide
+              </button>
+            </div>
+            <div style={styles.hintText}>Use 1 finger to move. Pinch with 2 fingers to resize and rotate.</div>
           </div>
         )}
         <div style={styles.postcardWrap}>
@@ -563,9 +569,26 @@ const styles: Record<string, any> = {
     fontSize: "0.9rem",
     opacity: 0.95,
     display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
+  hintTopRow: {
+    display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+  },
+  hintLabel: {
+    fontSize: "0.75rem",
+    opacity: 0.88,
+    fontWeight: 500,
+    letterSpacing: "0.2px",
+  },
+  hintText: {
+    fontSize: "0.9rem",
+    fontWeight: 800,
+    lineHeight: 1.3,
   },
   hintHideBtn: {
     background: "rgba(255,255,255,0.16)",
