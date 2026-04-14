@@ -451,6 +451,7 @@ export default function StickerStudioClient() {
                     key={s.id}
                     style={{
                       ...styles.stickerWrap,
+                      ...(isActive ? styles.stickerWrapActive : null),
                       left: `${s.x}%`,
                       top: `${s.y}%`,
                       zIndex: isActive ? 5 : 3,
@@ -681,6 +682,12 @@ const styles: Record<string, any> = {
     height: 120,
     touchAction: "none",
     pointerEvents: "auto",
+  },
+  // Active sticker gets a larger invisible gesture area to make
+  // mobile pinch/rotate easier even if fingers land slightly outside.
+  stickerWrapActive: {
+    width: 180,
+    height: 180,
   },
   stickerImg: {
     width: "100%",
