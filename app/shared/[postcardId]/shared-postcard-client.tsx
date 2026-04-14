@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { Caveat } from "next/font/google"
@@ -30,12 +30,16 @@ export type SharedPostcardData = {
 }
 
 const ORIENTATION_HINT_KEY = "pinit-shared-rotate-hint-v1"
+const BASE_POSTCARD_W = 420
+const BASE_POSTCARD_H = 280
 
 export default function SharedPostcardClient({ data }: { data: SharedPostcardData }) {
   const templateConfig = useMemo(() => getTemplateConfig(data.template), [data.template])
   const [isLandscape, setIsLandscape] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [hintsEnabled, setHintsEnabled] = useState(true)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const [compositionScale, setCompositionScale] = useState(1)
 
   useEffect(() => {
     setHintsEnabled(getHintsEnabled())
@@ -69,6 +73,28 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
       return
     }
   }, [isLandscape, hintsEnabled])
+
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+
+    const update = () => {
+      const w = el.clientWidth || 0
+      if (!w) return
+      const next = Math.max(0.5, Math.min(3, w / BASE_POSTCARD_W))
+      setCompositionScale(next)
+    }
+
+    update()
+    // Keep scaling in sync on desktop/laptop resizes.
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => update())
+      ro.observe(el)
+      return () => ro.disconnect()
+    }
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [])
 
   const t = data.transform || {}
 
@@ -122,84 +148,98 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
         >
           <div
             style={{
-              ...styles.postcard,
+              ...styles.postcardViewport,
               ...(isLandscape
                 ? {
                     maxWidth: "min(94vw, 980px)",
-                    width: "100%",
                     boxShadow: "0 22px 80px rgba(0,0,0,0.45)",
                   }
                 : null),
             }}
+            ref={viewportRef}
           >
             <div
               style={{
-                ...styles.photoMask,
-                ...(templateConfig.photoArea
-                  ? {
-                      top: templateConfig.photoArea.top,
-                      left: templateConfig.photoArea.left,
-                      width: templateConfig.photoArea.width,
-                      height: templateConfig.photoArea.height,
-                      borderRadius: templateConfig.photoArea.borderRadius ?? styles.photoMask.borderRadius,
-                    }
-                  : null),
+                ...styles.postcardStage,
+                height: BASE_POSTCARD_H * compositionScale,
               }}
             >
-              {data.imageUrl ? (
-                <img
-                  src={data.imageUrl}
-                  alt={data.title}
-                  draggable={false}
-                  style={{
-                    ...styles.bgImage,
-                    transform: `translate3d(${Number(t.tx || 0)}px, ${Number(t.ty || 0)}px, 0) scale(${Number(
-                      t.scale || 1
-                    )}) rotate(${Number(t.rotation || 0)}deg)`,
-                  }}
-                />
-              ) : (
-                <div style={styles.missing}>No image</div>
-              )}
-            </div>
-
-            <img src={`/postcards/${data.template}.png`} alt="" style={styles.template} />
-
-            <div style={styles.textLayer}>
               <div
                 style={{
-                  ...styles.message,
-                  fontFamily: caveat.style.fontFamily,
-                  top: templateConfig.textArea.top,
-                  left: templateConfig.textArea.left,
-                  width: templateConfig.textArea.width,
-                  height: templateConfig.textArea.height || styles.message.height,
-                  textAlign: templateConfig.textArea.align || styles.message.textAlign,
-                  ...(templateConfig.textStyle?.fontSize ? { fontSize: templateConfig.textStyle.fontSize } : null),
-                  ...(typeof templateConfig.textStyle?.lineHeight === "number"
-                    ? { lineHeight: templateConfig.textStyle.lineHeight }
-                    : null),
+                  ...styles.postcard,
+                  transform: `scale(${compositionScale})`,
                 }}
               >
-                {data.message}
-              </div>
-            </div>
-
-            <div style={styles.stickersLayer}>
-              {data.stickers.map((s) => (
-                <img
-                  key={s.id}
-                  src={s.imageUrl}
-                  alt={s.name}
-                  draggable={false}
+                <div
                   style={{
-                    ...styles.stickerImg,
-                    left: `${Number(s.x || 50)}%`,
-                    top: `${Number(s.y || 50)}%`,
-                    transform: `translate(-50%, -50%) scale(${Number(s.scale || 1)}) rotate(${Number(s.rotation || 0)}deg)`,
+                    ...styles.photoMask,
+                    ...(templateConfig.photoArea
+                      ? {
+                          top: templateConfig.photoArea.top,
+                          left: templateConfig.photoArea.left,
+                          width: templateConfig.photoArea.width,
+                          height: templateConfig.photoArea.height,
+                          borderRadius: templateConfig.photoArea.borderRadius ?? styles.photoMask.borderRadius,
+                        }
+                      : null),
                   }}
-                />
-              ))}
+                >
+                  {data.imageUrl ? (
+                    <img
+                      src={data.imageUrl}
+                      alt={data.title}
+                      draggable={false}
+                      style={{
+                        ...styles.bgImage,
+                        transform: `translate3d(${Number(t.tx || 0)}px, ${Number(t.ty || 0)}px, 0) scale(${Number(
+                          t.scale || 1
+                        )}) rotate(${Number(t.rotation || 0)}deg)`,
+                      }}
+                    />
+                  ) : (
+                    <div style={styles.missing}>No image</div>
+                  )}
+                </div>
+
+                <img src={`/postcards/${data.template}.png`} alt="" style={styles.template} />
+
+                <div style={styles.textLayer}>
+                  <div
+                    style={{
+                      ...styles.message,
+                      fontFamily: caveat.style.fontFamily,
+                      top: templateConfig.textArea.top,
+                      left: templateConfig.textArea.left,
+                      width: templateConfig.textArea.width,
+                      height: templateConfig.textArea.height || styles.message.height,
+                      textAlign: templateConfig.textArea.align || styles.message.textAlign,
+                      ...(templateConfig.textStyle?.fontSize ? { fontSize: templateConfig.textStyle.fontSize } : null),
+                      ...(typeof templateConfig.textStyle?.lineHeight === "number"
+                        ? { lineHeight: templateConfig.textStyle.lineHeight }
+                        : null),
+                    }}
+                  >
+                    {data.message}
+                  </div>
+                </div>
+
+                <div style={styles.stickersLayer}>
+                  {data.stickers.map((s) => (
+                    <img
+                      key={s.id}
+                      src={s.imageUrl}
+                      alt={s.name}
+                      draggable={false}
+                      style={{
+                        ...styles.stickerImg,
+                        left: `${Number(s.x || 50)}%`,
+                        top: `${Number(s.y || 50)}%`,
+                        transform: `translate(-50%, -50%) scale(${Number(s.scale || 1)}) rotate(${Number(s.rotation || 0)}deg)`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -271,16 +311,27 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
   },
   postcardWrap: { width: "100%", display: "flex", justifyContent: "center" },
-  postcard: {
+  postcardViewport: {
     width: "100%",
     maxWidth: 420,
-    aspectRatio: "3 / 2",
     borderRadius: 18,
     overflow: "hidden",
     position: "relative",
     background: "rgba(0,0,0,0.25)",
     border: "1px solid rgba(255,255,255,0.18)",
     boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+  },
+  postcardStage: {
+    width: "100%",
+    position: "relative",
+    overflow: "hidden",
+  },
+  postcard: {
+    width: BASE_POSTCARD_W,
+    height: BASE_POSTCARD_H,
+    aspectRatio: "3 / 2",
+    position: "relative",
+    transformOrigin: "top left",
   },
   photoMask: {
     position: "absolute",
