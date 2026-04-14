@@ -270,6 +270,36 @@ export default function StickerStudioClient() {
     if (showStickerHint) setShowStickerHint(false)
     ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
 
+    // If a gesture is already in progress for the active sticker, allow a 2nd finger
+    // to land anywhere on the stickers layer and "join" the pinch gesture.
+    if (
+      pointerMapRef.current.size === 1 &&
+      gestureRef.current.stickerId &&
+      activeStickerId &&
+      gestureRef.current.stickerId === activeStickerId
+    ) {
+      pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const target = stickersRef.current.find((s) => s.id === activeStickerId)
+      const g = getTwoPointerGesture()
+      if (target && g) {
+        const p = clientToPercent(g.cx, g.cy)
+        gestureRef.current = {
+          ...gestureRef.current,
+          stickerId: activeStickerId,
+          mode: "pinch",
+          startCX: p.x,
+          startCY: p.y,
+          startDist: g.dist || 1,
+          startAngle: g.angle,
+          startStickerX: target.x,
+          startStickerY: target.y,
+          startScale: target.scale,
+          startRotation: target.rotation,
+        }
+      }
+      return
+    }
+
     const targetEl = (e.target as HTMLElement | null)?.closest?.("[data-sticker-id]") as HTMLElement | null
     const stickerId = targetEl?.dataset?.stickerId
     if (!stickerId) return
@@ -646,8 +676,9 @@ const styles: Record<string, any> = {
   },
   stickerWrap: {
     position: "absolute",
-    width: 96,
-    height: 96,
+    // Hit area (sticker image is transformed within this box)
+    width: 120,
+    height: 120,
     touchAction: "none",
     pointerEvents: "auto",
   },
