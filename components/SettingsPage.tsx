@@ -317,6 +317,23 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     setTipsEnabled(getHintsEnabled())
   }, [])
 
+  const resetTips = () => {
+    try {
+      // Clear "shown once" session keys so hints can be re-tested.
+      sessionStorage.removeItem("pinit-postcard-rotate-hint-shown-v1")
+      sessionStorage.removeItem("pinit-postcard-photo-gesture-hint-shown-v1")
+      sessionStorage.removeItem("pinit-postcard-sticker-gesture-hint-shown-v1")
+      sessionStorage.removeItem("pinit-shared-rotate-hint-v1")
+      try {
+        window.alert("Tips reset for this session.")
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     if (isReturningUser) {
       try {
@@ -1237,9 +1254,29 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   />
                   Show tips and hints
                 </label>
+                <div style={{ fontSize: "0.8rem", opacity: 0.9, marginTop: "0.4rem", fontWeight: 700 }}>
+                  Tips are {tipsEnabled ? "ON" : "OFF"}
+                </div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.85, marginTop: "0.4rem", lineHeight: 1.25 }}>
                   Shows subtle guidance while editing photos and stickers, and when viewing shared postcards.
                 </div>
+                <button
+                  type="button"
+                  onClick={resetTips}
+                  style={{
+                    marginTop: "0.75rem",
+                    width: "100%",
+                    background: "rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(255,255,255,0.22)",
+                    color: "white",
+                    fontWeight: 900,
+                    padding: "0.85rem 1rem",
+                    borderRadius: "0.75rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Reset tips
+                </button>
               </div>
 
               <button
