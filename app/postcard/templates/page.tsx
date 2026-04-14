@@ -112,10 +112,6 @@ export default function PostcardTemplatesPage() {
               </button>
             ))}
           </div>
-
-          <div style={{ marginTop: "1rem", fontSize: "0.85rem", opacity: 0.85, lineHeight: 1.35 }}>
-            If a template image is missing, add it to `public/postcards/`.
-          </div>
         </div>
       </div>
     </div>
