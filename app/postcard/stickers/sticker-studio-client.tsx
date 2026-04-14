@@ -464,7 +464,7 @@ export default function StickerStudioClient() {
                       draggable={false}
                       style={{
                         ...styles.stickerImg,
-                        transform: `translate(-50%, -50%) scale(${s.scale}) rotate(${s.rotation}deg)`,
+                        transform: `scale(${s.scale}) rotate(${s.rotation}deg)`,
                         outline: isActive ? "2px solid rgba(255,255,255,0.35)" : "none",
                       }}
                     />
@@ -682,6 +682,9 @@ const styles: Record<string, any> = {
     height: 120,
     touchAction: "none",
     pointerEvents: "auto",
+    // Center the hit box on the sticker anchor point so the gesture
+    // zone matches what the user sees and stays consistent at edges.
+    transform: "translate(-50%, -50%)",
   },
   // Active sticker gets a larger invisible gesture area to make
   // mobile pinch/rotate easier even if fingers land slightly outside.
