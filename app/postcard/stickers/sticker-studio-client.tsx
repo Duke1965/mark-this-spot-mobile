@@ -617,7 +617,7 @@ const styles: Record<string, any> = {
     width: "min(560px, 92vw)",
     marginTop: 10,
     padding: "0.65rem 0.85rem",
-    borderRadius: 999,
+    borderRadius: 12,
     background: "rgba(255,255,255,0.12)",
     border: "1px solid rgba(255,255,255,0.16)",
     backdropFilter: "blur(12px)",
