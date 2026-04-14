@@ -131,8 +131,7 @@ export default function PostcardCreatorClient() {
       if (sessionStorage.getItem(ROTATE_HINT_KEY)) return
       sessionStorage.setItem(ROTATE_HINT_KEY, "1")
       setShowRotateHint(true)
-      const t = window.setTimeout(() => setShowRotateHint(false), 4500)
-      return () => window.clearTimeout(t)
+      return
     } catch {
       return
     }
@@ -202,7 +201,6 @@ export default function PostcardCreatorClient() {
   const onPhotoPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     // Only interact with primary pointer types (touch/mouse/pen). Ignore right-click.
     if (e.button !== 0) return
-    if (showPhotoGestureHint) setShowPhotoGestureHint(false)
     ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
     pointerMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -337,10 +335,25 @@ export default function PostcardCreatorClient() {
           alignItems: isLandscape ? "flex-start" : "stretch",
         }}
       >
-        {showRotateHint && !isLandscape && <div style={styles.hint}>Rotate your phone for easier editing</div>}
+        {showRotateHint && !isLandscape && (
+          <div style={styles.hint} role="status" aria-live="polite">
+            <span>Rotate your phone for easier editing</span>
+            <button type="button" onClick={() => setShowRotateHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+              Hide
+            </button>
+          </div>
+        )}
         {showPhotoGestureHint && (
-          <div style={styles.hint} onClick={() => setShowPhotoGestureHint(false)} role="button" tabIndex={0}>
-            Use 1 finger to move. Pinch with 2 fingers to resize and rotate.
+          <div style={styles.hint} role="status" aria-live="polite">
+            <span>Use 1 finger to move. Pinch with 2 fingers to resize and rotate.</span>
+            <button
+              type="button"
+              onClick={() => setShowPhotoGestureHint(false)}
+              style={styles.hintHideBtn}
+              aria-label="Hide tip"
+            >
+              Hide
+            </button>
           </div>
         )}
         <div style={styles.postcardWrap}>
@@ -549,6 +562,20 @@ const styles: Record<string, any> = {
     fontWeight: 800,
     fontSize: "0.9rem",
     opacity: 0.95,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  hintHideBtn: {
+    background: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    color: "white",
+    fontWeight: 900,
+    borderRadius: 999,
+    padding: "0.35rem 0.7rem",
+    cursor: "pointer",
+    flexShrink: 0,
   },
   postcardWrap: {
     width: "100%",
