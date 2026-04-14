@@ -174,6 +174,19 @@ export default function StickerStudioClient() {
     router.push(`/postcard/preview?template=${encodeURIComponent(template)}`)
   }
 
+  const removeActiveSticker = () => {
+    const id = activeStickerId
+    if (!id) return
+    setStickers((prev) => {
+      const nextStickers = prev.filter((s) => s.id !== id)
+      stickersRef.current = nextStickers
+      saveDraft(nextStickers)
+      const nextActive = nextStickers.length ? nextStickers[nextStickers.length - 1].id : null
+      setActiveStickerId(nextActive)
+      return nextStickers
+    })
+  }
+
   const addSticker = (s: { id: string; name: string; imageUrl: string }) => {
     const next: StickerItem = {
       id: uid(),
@@ -361,7 +374,7 @@ export default function StickerStudioClient() {
   if (!imageUrl) {
     return (
       <div style={styles.screen}>
-        <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} />
+          <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
         <div style={styles.center}>
           <div style={styles.emptyCard}>
             <div style={styles.emptyTitle}>No image selected</div>
@@ -374,7 +387,7 @@ export default function StickerStudioClient() {
 
   return (
     <div style={styles.screen}>
-      <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} />
+      <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
       {showStickerHint ? (
         <div style={styles.hint} role="status" aria-live="polite" onClick={() => setShowStickerHint(false)}>
           Tap a sticker to add • Drag to move • Pinch to resize and rotate
@@ -511,10 +524,12 @@ function TopBar({
   title,
   onBack,
   onDone,
+  onRemove,
 }: {
   title: string
   onBack: () => void
   onDone: () => void
+  onRemove?: () => void
 }) {
   return (
     <div style={styles.header}>
@@ -523,9 +538,16 @@ function TopBar({
         <span style={{ fontWeight: 700 }}>Back</span>
       </button>
       <div style={styles.headerTitle}>{title}</div>
-      <button onClick={onDone} style={styles.doneBtn} type="button">
-        Done
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {onRemove ? (
+          <button onClick={onRemove} style={styles.removeBtn} type="button">
+            Remove
+          </button>
+        ) : null}
+        <button onClick={onDone} style={styles.doneBtn} type="button">
+          Done
+        </button>
+      </div>
     </div>
   )
 }
@@ -573,6 +595,17 @@ const styles: Record<string, any> = {
     borderRadius: 12,
     cursor: "pointer",
     touchAction: "manipulation",
+  },
+  removeBtn: {
+    background: "rgba(239, 68, 68, 0.14)",
+    border: "1px solid rgba(239, 68, 68, 0.28)",
+    color: "rgba(255,255,255,0.98)",
+    fontWeight: 900,
+    padding: "0.55rem 0.8rem",
+    borderRadius: 12,
+    cursor: "pointer",
+    touchAction: "manipulation",
+    whiteSpace: "nowrap",
   },
   hint: {
     alignSelf: "center",
