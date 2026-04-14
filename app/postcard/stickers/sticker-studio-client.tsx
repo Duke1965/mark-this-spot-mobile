@@ -139,6 +139,9 @@ export default function StickerStudioClient() {
             rotation: Number(s.rotation ?? 0),
           }))
         setStickers(loaded)
+        // In this flow, we treat stickers as "placed" in sequence:
+        // only the most recently added sticker stays editable.
+        if (loaded.length) setActiveStickerId(loaded[loaded.length - 1].id)
       }
     } catch {
       // ignore
@@ -270,6 +273,9 @@ export default function StickerStudioClient() {
     const targetEl = (e.target as HTMLElement | null)?.closest?.("[data-sticker-id]") as HTMLElement | null
     const stickerId = targetEl?.dataset?.stickerId
     if (!stickerId) return
+    // Lock older stickers once a new one is chosen.
+    // Only the active (most recent) sticker remains editable.
+    if (activeStickerId && stickerId !== activeStickerId) return
     beginGesture(stickerId, e)
   }
 
@@ -634,6 +640,9 @@ const styles: Record<string, any> = {
     position: "absolute",
     inset: 0,
     zIndex: 4,
+    // Critical: allow 2-finger pinch/rotate gestures to be handled
+    // by our PointerEvent logic instead of browser pinch-zoom.
+    touchAction: "none",
   },
   stickerWrap: {
     position: "absolute",
