@@ -46,6 +46,8 @@ export default function PreviewClient() {
       const parsed = JSON.parse(raw) as any
       if (typeof parsed?.imageUrl === "string") setImageUrl(parsed.imageUrl)
       if (typeof parsed?.message === "string") setMessage(parsed.message)
+      if (typeof parsed?.title === "string" && parsed.title.trim()) setTitle(String(parsed.title))
+      if (typeof parsed?.description === "string" && parsed.description.trim()) setDescription(String(parsed.description))
       if (parsed?.transform) {
         setPhotoTransform({
           tx: Number(parsed.transform.tx ?? 0),
@@ -80,6 +82,18 @@ export default function PreviewClient() {
       try {
         const raw = sessionStorage.getItem(DRAFT_KEY)
         const parsed = raw ? (JSON.parse(raw) as any) : null
+
+        // If pin flow (or other) provided explicit metadata, keep it.
+        const draftTitle = typeof parsed?.title === "string" ? parsed.title.trim() : ""
+        const draftDesc = typeof parsed?.description === "string" ? parsed.description.trim() : ""
+        if (draftTitle || draftDesc) {
+          if (!cancelled) {
+            if (draftTitle) setTitle(draftTitle)
+            if (draftDesc) setDescription(draftDesc)
+            setLoadingMeta(false)
+          }
+          return
+        }
 
         // Best-effort metadata fetch using existing place intel system, if coordinates exist.
         const lat = Number(parsed?.latitude ?? parsed?.lat)
