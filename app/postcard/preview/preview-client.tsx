@@ -163,6 +163,13 @@ export default function PreviewClient() {
       setShareUrl(url)
       setShowSent(true)
       window.setTimeout(() => setShowSent(false), 2500)
+      // Postcard has been successfully hosted + saved.
+      // Clear draft so old creations don't linger.
+      try {
+        sessionStorage.removeItem(DRAFT_KEY)
+      } catch {
+        // ignore
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       try {
