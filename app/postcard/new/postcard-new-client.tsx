@@ -24,6 +24,15 @@ export default function PostcardNewClient() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    // Starting a new postcard should reset any previous draft.
+    try {
+      sessionStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
     setMode("chooser")
     setError(null)
   }, [template])
