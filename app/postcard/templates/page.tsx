@@ -56,8 +56,8 @@ export default function PostcardTemplatesPage() {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         <div style={{ maxWidth: 520, margin: "0 auto" }}>
-          <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.75rem" }}>
-            Choose a template.
+          <div style={{ fontSize: "0.9rem", opacity: 0.85, marginBottom: "0.75rem" }}>
+            Choose a template to create your postcard
           </div>
 
           <div
