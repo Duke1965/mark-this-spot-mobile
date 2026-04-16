@@ -9,6 +9,8 @@ import { requestCameraPermission } from "@/lib/mobilePermissions"
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 
+type DraftSource = "camera" | "gallery"
+
 export default function PostcardNewClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,15 +39,46 @@ export default function PostcardNewClient() {
     setError(null)
   }, [template])
 
-  const saveDraftAndGo = (imageUrl: string) => {
+  const saveDraftAndGo = (
+    imageUrl: string,
+    extras?: {
+      source?: DraftSource
+      latitude?: number
+      longitude?: number
+      locationName?: string
+      title?: string
+      description?: string
+    }
+  ) => {
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ template, imageUrl }))
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ template, imageUrl, ...(extras || {}) }))
     } catch {
       setError("That photo is too large to open here. Please try a smaller image.")
       return
     }
     router.push(`/postcard/editor?template=${encodeURIComponent(template)}`)
   }
+
+  const getBestEffortCoords = () =>
+    new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+      try {
+        if (typeof navigator === "undefined") return resolve(null)
+        const geo = navigator.geolocation
+        if (!geo?.getCurrentPosition) return resolve(null)
+        geo.getCurrentPosition(
+          (pos) => {
+            const lat = Number(pos?.coords?.latitude)
+            const lon = Number(pos?.coords?.longitude)
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return resolve(null)
+            resolve({ latitude: lat, longitude: lon })
+          },
+          () => resolve(null),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+        )
+      } catch {
+        resolve(null)
+      }
+    })
 
   const normalizeImageToJpegDataUrl = async (src: { file?: File; url?: string }) => {
     const MAX_DIM = 1600
@@ -166,9 +199,14 @@ export default function PostcardNewClient() {
           onCapture={async (mediaData) => {
             setError(null)
             setIsNormalizing(true)
+            const coordsPromise = getBestEffortCoords()
             try {
               const normalized = await normalizeImageToJpegDataUrl({ url: mediaData })
-              saveDraftAndGo(normalized)
+              const coords = await coordsPromise
+              saveDraftAndGo(normalized, {
+                source: "camera",
+                ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : undefined),
+              })
             } catch {
               setError("We couldn’t prepare that photo. Please try again with a different image.")
             } finally {
@@ -310,7 +348,11 @@ export default function PostcardNewClient() {
                   setIsNormalizing(true)
                   try {
                     const normalized = await normalizeImageToJpegDataUrl({ file })
-                    saveDraftAndGo(normalized)
+                    saveDraftAndGo(normalized, {
+                      source: "gallery",
+                      title: "",
+                      description: "",
+                    })
                   } catch {
                     setError("That photo couldn’t be prepared. Please try a different image.")
                   } finally {
