@@ -1038,7 +1038,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 onClick={() => {
                   applyTheme("light")
                   setUserProfile(prev => ({ ...prev, theme: "light" }))
-                  setTimeout(handleNext, 500)
                 }}
                 style={{
                   background: userProfile.theme === "light" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
@@ -1062,7 +1061,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 onClick={() => {
                   applyTheme("dark")
                   setUserProfile(prev => ({ ...prev, theme: "dark" }))
-                  setTimeout(handleNext, 500)
                 }}
                 style={{
                   background: userProfile.theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
