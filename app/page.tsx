@@ -203,6 +203,21 @@ export default function PINITApp() {
   // Auth state
   const { user, loading: authLoading } = useAuth()
 
+  // Apply persisted theme early (V1).
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      const raw = localStorage.getItem("pinit-theme")
+      const theme = raw === "light" || raw === "dark" ? raw : null
+      if (theme) {
+        document.body.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
   // Core state
   const [currentScreen, setCurrentScreen] = useState<
     | "map"
