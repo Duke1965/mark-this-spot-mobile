@@ -4539,7 +4539,7 @@ export default function PINITApp() {
           }}
         >
           <PostcardIcon size={40} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Create</div>
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Write</div>
         </button>
 
         <button
@@ -4569,7 +4569,7 @@ export default function PINITApp() {
           }}
         >
           <Library size={35} style={{ color: "var(--pinit-fg)" }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Library</div>
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>My Places</div>
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
@@ -4623,7 +4623,7 @@ export default function PINITApp() {
           }}
         >
           <Star size={35} style={{ color: "var(--pinit-fg)" }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Explore</div>
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Discover</div>
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
