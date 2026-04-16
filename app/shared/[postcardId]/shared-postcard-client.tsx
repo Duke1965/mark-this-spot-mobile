@@ -117,10 +117,13 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
 
       {showHint && !isLandscape ? (
         <div style={styles.hint} role="status" aria-live="polite">
-          <span>Rotate your phone for immersive postcard view</span>
-          <button type="button" onClick={() => setShowHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
-            Hide
-          </button>
+          <div style={styles.hintTopRow}>
+            <div style={styles.hintLabel}>💡 Hint</div>
+            <button type="button" onClick={() => setShowHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
+              Hide
+            </button>
+          </div>
+          <div style={styles.hintText}>Rotate your phone for immersive postcard view</div>
         </div>
       ) : null}
 
@@ -301,9 +304,27 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     cursor: "pointer",
     display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    gap: 8,
+  },
+  hintTopRow: {
+    display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+  },
+  hintLabel: {
+    fontSize: "0.75rem",
+    opacity: 0.88,
+    fontWeight: 500,
+    letterSpacing: "0.2px",
+  },
+  hintText: {
+    fontSize: "0.9rem",
+    fontWeight: 850,
+    lineHeight: 1.3,
   },
   hintHideBtn: {
     background: "rgba(255,255,255,0.16)",
@@ -386,11 +407,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(20, 20, 20, 0.82)",
     fontWeight: 600,
     fontSize: "clamp(16px, 2.2vw, 20px)",
-    lineHeight: 1.65,
+    lineHeight: 1.58,
     letterSpacing: "0.35px",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     overflow: "hidden",
+    boxSizing: "border-box",
+    paddingRight: 10,
     textShadow: "0 1px 0 rgba(255,255,255,0.28)",
   },
   stickersLayer: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 4 },
