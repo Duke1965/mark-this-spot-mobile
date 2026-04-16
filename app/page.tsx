@@ -4522,8 +4522,10 @@ export default function PINITApp() {
             color: "var(--pinit-fg)",
             cursor: "pointer",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: "0.35rem",
             borderRadius: "0.5rem",
             transition: "all 0.2s ease",
           }}
@@ -4536,7 +4538,8 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <PostcardIcon size={32} />
+          <PostcardIcon size={40} />
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Create</div>
         </button>
 
         <button
@@ -4548,8 +4551,10 @@ export default function PINITApp() {
             color: "var(--pinit-fg)",
             cursor: "pointer",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: "0.35rem",
             position: "relative",
             borderRadius: "0.5rem",
             transition: "all 0.2s ease",
@@ -4563,7 +4568,8 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Library size={28} style={{ color: "var(--pinit-fg)" }} />
+          <Library size={35} style={{ color: "var(--pinit-fg)" }} />
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Library</div>
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
@@ -4595,18 +4601,20 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "white",
+            color: "var(--pinit-fg)",
             cursor: "pointer",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: "0.35rem",
             position: "relative",
             borderRadius: "0.5rem",
             transition: "all 0.2s ease",
           }}
           title="dY Recommendations"
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
           }}
           onMouseLeave={(e) => {
@@ -4614,7 +4622,8 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Star size={28} style={{ color: "white" }} />
+          <Star size={35} style={{ color: "var(--pinit-fg)" }} />
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Explore</div>
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
