@@ -525,7 +525,7 @@ export default function PreviewClient() {
                 gap: 10,
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready to share.</div>
+              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready</div>
               <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
                 Share it to one or more places below, then tap Done when you’re finished.
               </div>
