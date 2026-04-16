@@ -19,19 +19,44 @@ body {
 }
 
 body {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
-  color: white;
+  /* Theme variables (default = dark) */
+  --pinit-bg: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+  --pinit-fg: #ffffff;
+  --pinit-panel: rgba(30, 58, 138, 0.95);
+  --pinit-card: rgba(255, 255, 255, 0.1);
+  --pinit-card-2: rgba(255, 255, 255, 0.08);
+  --pinit-border: rgba(255, 255, 255, 0.18);
+  --pinit-border-2: rgba(255, 255, 255, 0.14);
+  --pinit-btn: rgba(255, 255, 255, 0.15);
+  --pinit-btn-border: rgba(255, 255, 255, 0.22);
+
+  background: var(--pinit-bg);
+  color: var(--pinit-fg);
 }
 
 /* Theme switching (V1) */
 body[data-theme="dark"] {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
-  color: white;
+  --pinit-bg: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+  --pinit-fg: #ffffff;
+  --pinit-panel: rgba(30, 58, 138, 0.95);
+  --pinit-card: rgba(255, 255, 255, 0.1);
+  --pinit-card-2: rgba(255, 255, 255, 0.08);
+  --pinit-border: rgba(255, 255, 255, 0.18);
+  --pinit-border-2: rgba(255, 255, 255, 0.14);
+  --pinit-btn: rgba(255, 255, 255, 0.15);
+  --pinit-btn-border: rgba(255, 255, 255, 0.22);
 }
 
 body[data-theme="light"] {
-  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0f2fe 100%);
-  color: #0f172a;
+  --pinit-bg: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0f2fe 100%);
+  --pinit-fg: #0f172a;
+  --pinit-panel: rgba(255, 255, 255, 0.92);
+  --pinit-card: rgba(15, 23, 42, 0.06);
+  --pinit-card-2: rgba(15, 23, 42, 0.04);
+  --pinit-border: rgba(15, 23, 42, 0.12);
+  --pinit-border-2: rgba(15, 23, 42, 0.10);
+  --pinit-btn: rgba(15, 23, 42, 0.06);
+  --pinit-btn-border: rgba(15, 23, 42, 0.12);
 }
 
 /* Prevent text selection on buttons */
