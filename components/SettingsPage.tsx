@@ -284,6 +284,17 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [tipsEnabled, setTipsEnabled] = useState(true)
   const [logoutError, setLogoutError] = useState<string | null>(null)
+
+  const applyTheme = (theme: "light" | "dark") => {
+    try {
+      if (typeof window === "undefined") return
+      document.body.dataset.theme = theme
+      document.documentElement.style.colorScheme = theme
+      localStorage.setItem("pinit-theme", theme)
+    } catch {
+      // ignore
+    }
+  }
   
   // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
@@ -1025,6 +1036,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               {/* Light Theme */}
               <button
                 onClick={() => {
+                  applyTheme("light")
                   setUserProfile(prev => ({ ...prev, theme: "light" }))
                   setTimeout(handleNext, 500)
                 }}
@@ -1048,6 +1060,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               {/* Dark Theme */}
               <button
                 onClick={() => {
+                  applyTheme("dark")
                   setUserProfile(prev => ({ ...prev, theme: "dark" }))
                   setTimeout(handleNext, 500)
                 }}
@@ -1098,64 +1111,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "350px", margin: "0 auto" }}>
-              {/* Export Data */}
-              <button
-                onClick={() => {
-                  console.log("📤 Exporting user data")
-                  // This would integrate with usePinStorage exportPins function
-                }}
-                style={{
-                  background: "rgba(255,255,255,0.15)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>📤</span>
-                  <div style={{ textAlign: "left" }}>
-                    <div style={{ fontWeight: "600" }}>Export My Data</div>
-                    <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Download all pins & settings</div>
-                  </div>
-                </div>
-              </button>
-
-              {/* Create Backup */}
-              <button
-                onClick={() => {
-                  console.log("📦 Creating data backup")
-                  // This would integrate with usePinStorage createBackup function
-                }}
-                style={{
-                  background: "rgba(255,255,255,0.15)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <span style={{ fontSize: "1.5rem" }}>💾</span>
-                  <div style={{ textAlign: "left" }}>
-                    <div style={{ fontWeight: "600" }}>Create Backup</div>
-                    <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Safe copy of your data</div>
-                  </div>
-                </div>
-              </button>
-
               {/* Factory Reset - DANGEROUS SECTION */}
               <div style={{
                 background: "rgba(239, 68, 68, 0.15)",
