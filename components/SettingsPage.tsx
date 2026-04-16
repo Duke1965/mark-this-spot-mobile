@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, User, Settings, Palette, MapPin, Share2, LogOut, Mail, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { ArrowLeft, User, Settings, MapPin, Share2, LogOut, Mail, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -284,20 +284,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [tipsEnabled, setTipsEnabled] = useState(true)
   const [logoutError, setLogoutError] = useState<string | null>(null)
-
-  const applyTheme = (theme: "light" | "dark") => {
-    try {
-      if (typeof window === "undefined") return
-      document.body.dataset.theme = theme
-      document.documentElement.style.colorScheme = theme
-      localStorage.setItem("pinit-theme", theme)
-    } catch {
-      // ignore
-    }
-  }
   
   // FIX: Check if user is already authenticated and skip to complete step
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "location" | "theme" | "data" | "debug" | "complete" | "settings-menu">(
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "location" | "data" | "debug" | "complete" | "settings-menu">(
     isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
@@ -305,7 +294,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     email: "",
     avatar: "",
     homeLocation: "",
-    theme: "light" as "light" | "dark",
     socialAccounts: {
       instagram: "",
       twitter: "",
@@ -413,9 +401,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         }
         break
       case "location":
-        setCurrentStep("theme")
-        break
-      case "theme":
         setCurrentStep("data")
         break
       case "data":
@@ -454,11 +439,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       case "location":
         setCurrentStep("profile")
         break
-      case "theme":
-        setCurrentStep("location")
-        break
       case "complete":
-        setCurrentStep("theme")
+        setCurrentStep("location")
         break
       default:
         onBack()
@@ -608,30 +590,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: "600" }}>Location</div>
                   <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Home location preferences</div>
-                </div>
-              </button>
-
-              {/* Theme Settings */}
-              <button
-                onClick={() => setCurrentStep("theme")}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <Palette size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>Appearance</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Light/dark theme</div>
                 </div>
               </button>
 
@@ -1017,82 +975,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   marginTop: "1rem"
                 }}
               >
-                Continue to Theme
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Theme Setup Step */}
-        {currentStep === "theme" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎨</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Choose Your Theme</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Select your preferred appearance for PINIT.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              {/* Light Theme */}
-              <button
-                onClick={() => {
-                  applyTheme("light")
-                  setUserProfile(prev => ({ ...prev, theme: "light" }))
-                }}
-                style={{
-                  background: userProfile.theme === "light" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.5rem",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem"
-                }}
-              >
-                <span style={{ fontSize: "1.5rem" }}>☀️</span>
-                Light Mode
-              </button>
-
-              {/* Dark Theme */}
-              <button
-                onClick={() => {
-                  applyTheme("dark")
-                  setUserProfile(prev => ({ ...prev, theme: "dark" }))
-                }}
-                style={{
-                  background: userProfile.theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.5rem",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem"
-                }}
-              >
-                <span style={{ fontSize: "1.5rem" }}>🌙</span>
-                Dark Mode
-              </button>
-
-              <button
-                onClick={handleNext}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  marginTop: "1rem"
-                }}
-              >
                 Continue to Data Settings
               </button>
             </div>
@@ -1345,7 +1227,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 <p style={{ margin: 0, fontSize: "0.875rem" }}>👤 {userProfile.name}</p>
                 <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📧 {userProfile.email}</p>
                 <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📍 {userProfile.homeLocation || "Not set"}</p>
-                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>🎨 {userProfile.theme} mode</p>
               </div>
 
               <button
@@ -1429,7 +1310,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             marginBottom: "2rem",
             gap: "0.5rem"
           }}>
-            {["login", "profile", "social", "location", "theme", "data", "debug", "complete"].map((step, index) => (
+            {["login", "profile", "social", "location", "data", "debug", "complete"].map((step, index) => (
               <div
                 key={step}
                 style={{
