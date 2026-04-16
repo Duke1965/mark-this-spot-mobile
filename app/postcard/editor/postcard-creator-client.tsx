@@ -453,7 +453,7 @@ export default function PostcardCreatorClient() {
 
         <div style={styles.inputCard}>
           <div style={styles.inputLabelRow}>
-            <div style={styles.inputLabel}>Message</div>
+            <div style={styles.inputLabel}>Your message</div>
             <div style={styles.charCount}>
               {message.length}/{MAX_MESSAGE_LEN}
             </div>
