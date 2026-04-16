@@ -209,7 +209,7 @@ export default function PostcardLibraryDetailClient() {
               </div>
             </div>
 
-            <div style={styles.cardTitle}>Your postcard is ready to share.</div>
+            <div style={styles.cardTitle}>Your postcard is ready</div>
             <div style={styles.cardText}>You can share it again at any time.</div>
 
             <div style={{ marginTop: 10, fontWeight: 900 }}>Share link</div>
@@ -256,7 +256,7 @@ export default function PostcardLibraryDetailClient() {
                 window.open(`/shared/${encodeURIComponent(postcardId)}`, "_blank", "noopener,noreferrer")
               }}
             >
-              Open public link
+              View postcard
             </button>
           </div>
         ) : null}
