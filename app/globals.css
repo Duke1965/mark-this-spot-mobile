@@ -23,6 +23,17 @@ body {
   color: white;
 }
 
+/* Theme switching (V1) */
+body[data-theme="dark"] {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+  color: white;
+}
+
+body[data-theme="light"] {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0f2fe 100%);
+  color: #0f172a;
+}
+
 /* Prevent text selection on buttons */
 button {
   -webkit-user-select: none;
