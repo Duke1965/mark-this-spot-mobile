@@ -1087,7 +1087,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     }}
                     style={{ margin: 0 }}
                   />
-                  Show tips and hints
+                  Show tips
                 </label>
                 <div style={{ fontSize: "0.8rem", opacity: 0.9, marginTop: "0.4rem", fontWeight: 700 }}>
                   Tips are {tipsEnabled ? "ON" : "OFF"}
