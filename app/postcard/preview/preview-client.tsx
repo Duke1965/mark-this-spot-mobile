@@ -13,6 +13,8 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 
+type DraftSource = "camera" | "gallery" | "unknown"
+
 export default function PreviewClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,6 +25,7 @@ export default function PreviewClient() {
   const [loadingMeta, setLoadingMeta] = useState(true)
   const [title, setTitle] = useState("My Special Place")
   const [description, setDescription] = useState("A memorable place worth sharing.")
+  const [draftSource, setDraftSource] = useState<DraftSource>("unknown")
   const [isSending, setIsSending] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [showSent, setShowSent] = useState(false)
@@ -46,8 +49,17 @@ export default function PreviewClient() {
       const parsed = JSON.parse(raw) as any
       if (typeof parsed?.imageUrl === "string") setImageUrl(parsed.imageUrl)
       if (typeof parsed?.message === "string") setMessage(parsed.message)
-      if (typeof parsed?.title === "string" && parsed.title.trim()) setTitle(String(parsed.title))
-      if (typeof parsed?.description === "string" && parsed.description.trim()) setDescription(String(parsed.description))
+      const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
+      setDraftSource(src)
+
+      if (src === "gallery") {
+        // Gallery postcards should start with editable, empty metadata.
+        setTitle(typeof parsed?.title === "string" ? String(parsed.title) : "")
+        setDescription(typeof parsed?.description === "string" ? String(parsed.description) : "")
+      } else {
+        if (typeof parsed?.title === "string" && parsed.title.trim()) setTitle(String(parsed.title))
+        if (typeof parsed?.description === "string" && parsed.description.trim()) setDescription(String(parsed.description))
+      }
       if (parsed?.transform) {
         setPhotoTransform({
           tx: Number(parsed.transform.tx ?? 0),
@@ -82,6 +94,17 @@ export default function PreviewClient() {
       try {
         const raw = sessionStorage.getItem(DRAFT_KEY)
         const parsed = raw ? (JSON.parse(raw) as any) : null
+        const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
+
+        // Gallery postcards should not attempt place metadata fetching.
+        if (src === "gallery") {
+          if (!cancelled) {
+            setTitle(typeof parsed?.title === "string" ? String(parsed.title) : "")
+            setDescription(typeof parsed?.description === "string" ? String(parsed.description) : "")
+            setLoadingMeta(false)
+          }
+          return
+        }
 
         // If pin flow (or other) provided explicit metadata, keep it.
         const draftTitle = typeof parsed?.title === "string" ? parsed.title.trim() : ""
@@ -486,7 +509,7 @@ export default function PreviewClient() {
                 fontSize: "0.95rem",
                 outline: "none",
               }}
-              placeholder="My Special Place"
+              placeholder={draftSource === "gallery" ? "Add a place title" : "My Special Place"}
             />
 
             <div style={{ fontWeight: 900, marginTop: 6 }}>Description</div>
@@ -505,7 +528,7 @@ export default function PreviewClient() {
                 outline: "none",
                 resize: "none",
               }}
-              placeholder="A memorable place worth sharing."
+              placeholder={draftSource === "gallery" ? "Add a short description of this place or photo" : "A memorable place worth sharing."}
             />
           </div>
 
