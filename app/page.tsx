@@ -4316,7 +4316,7 @@ export default function PINITApp() {
                     borderRadius: "0.25rem",
                   }}
                 >
-                  Tap to PINIT!
+                  Tap to pin this place
                 </span>
                 <div
                   style={{
