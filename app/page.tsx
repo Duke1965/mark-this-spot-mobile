@@ -2898,11 +2898,11 @@ export default function PINITApp() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+          background: "var(--pinit-bg)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "white",
+          color: "var(--pinit-fg)",
         }}
       >
         <div style={{ textAlign: "center" }}>
@@ -3244,10 +3244,10 @@ export default function PINITApp() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+          background: "var(--pinit-bg)",
           display: "flex",
           flexDirection: "column",
-          color: "white",
+          color: "var(--pinit-fg)",
           zIndex: 1000
         }}
       >
@@ -3255,22 +3255,22 @@ export default function PINITApp() {
         <div
           style={{
             padding: "1rem",
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "var(--pinit-panel)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             backdropFilter: "blur(15px)",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
+            borderBottom: "1px solid var(--pinit-border)",
           }}
         >
           <button
             onClick={handlePinEditCancel}
             style={{
-              background: "rgba(255,255,255,0.15)",
-              color: "white",
+              background: "var(--pinit-btn)",
+              color: "var(--pinit-fg)",
               padding: "0.75rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
+              border: "1px solid var(--pinit-btn-border)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -3288,11 +3288,11 @@ export default function PINITApp() {
             onClick={() => handlePinEditDone()}
             disabled={isUpdatingPinLocation}
             style={{
-              background: isUpdatingPinLocation ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.15)",
-              color: "white",
+              background: isUpdatingPinLocation ? "var(--pinit-card-2)" : "var(--pinit-btn)",
+              color: "var(--pinit-fg)",
               padding: "0.75rem 1.5rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
+              border: "1px solid var(--pinit-btn-border)",
               cursor: isUpdatingPinLocation ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
@@ -3345,14 +3345,14 @@ export default function PINITApp() {
             >
               <div
                 style={{
-                  background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                  background: "var(--pinit-panel)",
                   borderRadius: "1.5rem",
                   padding: "1.5rem",
                   maxWidth: "90%",
                   width: "100%",
                   maxHeight: "80vh",
                   overflow: "auto",
-                  border: "2px solid rgba(255,255,255,0.3)",
+                  border: "2px solid var(--pinit-border)",
                   backdropFilter: "blur(15px)"
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -3362,7 +3362,7 @@ export default function PINITApp() {
                   fontWeight: "600", 
                   marginBottom: "1rem",
                   textAlign: "center",
-                  color: "white"
+                  color: "var(--pinit-fg)"
                 }}>
                   We found these nearby places:
                 </h3>
@@ -3458,9 +3458,9 @@ export default function PINITApp() {
                 style={{
                   width: "100%",
                   maxWidth: "520px",
-                  background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                  background: "var(--pinit-panel)",
                   borderRadius: "1.25rem",
-                  border: "2px solid rgba(255,255,255,0.25)",
+                  border: "2px solid var(--pinit-border)",
                   backdropFilter: "blur(15px)",
                   padding: "1.25rem",
                   boxShadow: "0 20px 60px rgba(0,0,0,0.35)"
@@ -3469,10 +3469,10 @@ export default function PINITApp() {
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
                   <div>
-                    <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "white" }}>
+                    <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--pinit-fg)" }}>
                       We found this place
                     </div>
-                    <div style={{ fontSize: "0.875rem", opacity: 0.9, color: "white", marginTop: "0.25rem" }}>
+                    <div style={{ fontSize: "0.875rem", opacity: 0.9, color: "var(--pinit-fg)", marginTop: "0.25rem" }}>
                       Maps aren’t always perfect. If this doesn’t look right, move the pin slightly or search for the correct name.
                     </div>
                   </div>
@@ -3487,11 +3487,11 @@ export default function PINITApp() {
                       lastDoneLocationRef.current = null
                     }}
                     style={{
-                      background: "rgba(255,255,255,0.12)",
-                      color: "white",
+                      background: "var(--pinit-btn)",
+                      color: "var(--pinit-fg)",
                       padding: "0.5rem 0.75rem",
                       borderRadius: "0.75rem",
-                      border: "1px solid rgba(255,255,255,0.2)",
+                      border: "1px solid var(--pinit-btn-border)",
                       cursor: "pointer",
                       fontWeight: 700
                     }}
@@ -3818,10 +3818,10 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        background: "var(--pinit-bg)",
         display: "flex",
         flexDirection: "column",
-        color: "white",
+        color: "var(--pinit-fg)",
         padding: "2rem",
       }}
     >
@@ -3921,7 +3921,7 @@ export default function PINITApp() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+            background: "var(--pinit-bg)",
             zIndex: 1000,
             display: "flex",
             flexDirection: "column",
@@ -3932,7 +3932,7 @@ export default function PINITApp() {
         >
           <div style={{ fontSize: "4rem", marginBottom: "2rem" }}>o.</div>
           <h3 style={{ 
-            color: "white", 
+            color: "var(--pinit-fg)", 
             marginBottom: "1rem", 
             fontSize: "1.5rem",
             fontWeight: "bold",
@@ -3941,7 +3941,8 @@ export default function PINITApp() {
             {successMessage}
           </h3>
           <p style={{ 
-            color: "rgba(255,255,255,0.9)", 
+            color: "var(--pinit-fg)", 
+            opacity: 0.9,
             marginBottom: "3rem", 
             fontSize: "1.1rem",
             textAlign: "center",
@@ -4062,7 +4063,7 @@ export default function PINITApp() {
             padding: "0.5rem",
             border: "none",
             background: "transparent",
-            color: "white",
+            color: "var(--pinit-fg)",
             cursor: "pointer",
             borderRadius: "0.5rem",
             display: "flex",
@@ -4071,7 +4072,7 @@ export default function PINITApp() {
             transition: "all 0.2s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
           }}
           onMouseLeave={(e) => {
@@ -4214,7 +4215,7 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+                background: "var(--pinit-bg)",
               }}
             >
               <InteractiveMainMap
@@ -4533,7 +4534,7 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "white",
+            color: "var(--pinit-fg)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -4542,7 +4543,7 @@ export default function PINITApp() {
             transition: "all 0.2s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
           }}
           onMouseLeave={(e) => {
@@ -4559,7 +4560,7 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "white",
+            color: "var(--pinit-fg)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -4569,7 +4570,7 @@ export default function PINITApp() {
             transition: "all 0.2s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+            e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
           }}
           onMouseLeave={(e) => {
@@ -4577,7 +4578,7 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Library size={28} style={{ color: "white" }} />
+          <Library size={28} style={{ color: "var(--pinit-fg)" }} />
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
@@ -4595,7 +4596,7 @@ export default function PINITApp() {
                 justifyContent: "center",
                 fontSize: "0.75rem",
                 fontWeight: "bold",
-                border: "2px solid white",
+                border: "2px solid var(--pinit-fg)",
               }}
             >
               {getUnviewedPendingPinsCount()}
