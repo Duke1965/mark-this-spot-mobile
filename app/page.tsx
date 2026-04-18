@@ -3110,9 +3110,9 @@ export default function PINITApp() {
     description: rec.description,
     category: rec.category,
     location: place,
-    rating: 4.0 + Math.random() * 1.0, // Generate random rating
+    rating: 4,
     isAISuggestion: rec.isAISuggestion || false,
-    confidence: 0.7 + Math.random() * 0.3, // Generate confidence
+    confidence: 0.5,
     reason: rec.description,
     timestamp: new Date(rec.timestamp)
   }
