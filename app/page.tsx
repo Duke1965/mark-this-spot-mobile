@@ -32,6 +32,7 @@ import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/tren
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
+import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
@@ -1100,7 +1101,9 @@ export default function PINITApp() {
         audioUrl: null,
         timestamp: new Date().toISOString(),
         title: place.name || "Nearby Place",
-        description: `${place.categories?.join(", ") || "Place"} • ${place.distance_m}m away`,
+        description: sanitizePlaceDescription(
+          `${place.categories?.join(", ") || "Place"} • ${place.distance_m}m away`
+        ),
         tags: place.categories || [],
         isRecommended: true,
         rating: undefined,
@@ -1459,7 +1462,9 @@ export default function PINITApp() {
         // Use AI-generated title (which prioritizes place name if available)
         title: aiTextResult?.title || placeName || "Untitled Location",
         // Use AI-generated description or place description
-        description: aiTextResult?.description || placeDescription || locationDescription || "Pinned location",
+        description: sanitizePlaceDescription(
+          aiTextResult?.description || placeDescription || locationDescription || "Pinned location"
+        ),
         tags: ["pinit", "travel"],
         // Additional photos (empty for now - image resolver coming in Step B-F)
         additionalPhotos: [],
@@ -1595,25 +1600,20 @@ export default function PINITApp() {
     // PRIORITY 1: Use Mapbox description if available (from placeDescription parameter)
     let description = ""
     if (placeDescription && placeDescription.trim() && placeDescription !== "undefined") {
-      // Use Mapbox description if available
-      description = placeDescription
+      description = sanitizePlaceDescription(placeDescription)
       console.log("🧠 Using Mapbox description:", description.substring(0, 100))
     } else {
-      // Fall back to AI-generated description only if no Mapbox data
-      // But make it more location-specific using placeName if available
       if (placeName && placeName !== "Location" && placeName !== "PINIT Placeholder" && placeName !== "Unknown Place") {
-        // We have a place name but no description - create a simple, location-specific description
         if (motionData.isMoving && motionData.speed > 5) {
-          description = `Discovered ${placeName} while traveling at ${motionData.speed.toFixed(1)} km/h. A great spot worth remembering!`
+          description = `Noticed ${placeName} along the way (${motionData.speed.toFixed(1)} km/h).`
         } else {
-          description = `Found ${placeName}. A special location worth exploring and sharing.`
+          description = `${placeName} — add your own note after you visit.`
         }
       } else {
-        // No place name either - use generic context-based description
         if (motionData.isMoving && motionData.speed > 5) {
-          description = `Discovered this amazing spot while traveling ${motionData.speed.toFixed(1)} km/h! ${context} - perfect for capturing memories and sharing with friends.`
+          description = `Something worth saving near ${context} (${motionData.speed.toFixed(1)} km/h).`
         } else {
-          description = `Found this special place in ${context}. A wonderful location to remember and share with others.`
+          description = `A spot in ${context} worth saving on your map.`
         }
       }
       console.log("🧠 No Mapbox description available, using generated description:", description.substring(0, 100))
@@ -1645,10 +1645,10 @@ export default function PINITApp() {
     }
     
     console.log("🧠 AI Generated Content:", { title, description, locationName, tags })
-    
+
     return {
       title,
-      description,
+      description: sanitizePlaceDescription(description),
       locationName,
       tags
     }
@@ -2429,7 +2429,11 @@ export default function PINITApp() {
           aiTextResult = {
             ...aiTextResult,
             title: placeName,
-            description: aiTextResult?.description || placeDescription || `A location worth exploring in ${aiContext.city || aiContext.region || 'this area'}.`
+            description: sanitizePlaceDescription(
+              aiTextResult?.description ||
+                placeDescription ||
+                `A place in ${aiContext.city || aiContext.region || "this area"}.`
+            )
           }
         }
       }
@@ -2443,7 +2447,9 @@ export default function PINITApp() {
       // Map to old format for compatibility
       let aiGeneratedContent = {
         title: aiTextResult?.title || placeName || editingPin.title,
-        description: aiTextResult?.description || placeDescription || editingPin.description || "",
+        description: sanitizePlaceDescription(
+          aiTextResult?.description || placeDescription || editingPin.description || ""
+        ),
         locationName: placeName || aiTextResult?.title || editingPin.locationName,
           tags: editingPin.tags || []
       }
