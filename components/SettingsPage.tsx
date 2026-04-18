@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, User, Settings, MapPin, Share2, LogOut, Mail, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { ArrowLeft, Settings, MapPin, LogOut, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -15,7 +15,6 @@ interface SettingsPageProps {
 
 // Factory Reset Dialog Component
 function FactoryResetDialog() {
-  const { user } = useAuth()
   const [showDialog, setShowDialog] = useState(false)
   const [password, setPassword] = useState("")
   const [confirmed, setConfirmed] = useState(false)
@@ -286,7 +285,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [logoutError, setLogoutError] = useState<string | null>(null)
   
   // FIX: Check if user is already authenticated and skip to complete step
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "profile" | "location" | "data" | "debug" | "complete" | "settings-menu">(
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "location" | "data" | "debug" | "complete" | "settings-menu">(
     isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
@@ -389,14 +388,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         break
       case "login":
         if (user) {
-          setCurrentStep("profile")
-        }
-        break
-      case "profile":
-        if (isReturningUser) {
-          // Returning users go back to settings menu
-          setCurrentStep("settings-menu")
-        } else {
           setCurrentStep("location")
         }
         break
@@ -425,19 +416,12 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       case "login":
         setCurrentStep("welcome")
         break
-      case "profile":
-        if (isReturningUser) {
-          setCurrentStep("settings-menu")
-        } else {
-          setCurrentStep("login")
-        }
-        break
       case "settings-menu":
         // Settings menu goes back to main app
         onBack()
         break
       case "location":
-        setCurrentStep("profile")
+        setCurrentStep("login")
         break
       case "complete":
         setCurrentStep("location")
@@ -458,7 +442,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("profile"), 1000)
+        setTimeout(() => setCurrentStep("location"), 1000)
       }
     } catch (error) {
       console.error("Google login failed:", error)
@@ -476,7 +460,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("profile"), 1000)
+        setTimeout(() => setCurrentStep("location"), 1000)
       }
     } catch (error) {
       console.error("Facebook login failed:", error)
@@ -544,31 +528,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
-              {/* Profile Settings */}
-              <button
-                onClick={() => setCurrentStep("profile")}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <User size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>Profile & Account</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Name, email, avatar</div>
-                </div>
-              </button>
-
-              {/* Social Media Settings */}
               {/* Location Settings */}
               <button
                 onClick={() => setCurrentStep("location")}
@@ -640,6 +599,47 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>System health, debugging tools</div>
                 </div>
               </button>
+
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  style={{
+                    background: "rgba(239, 68, 68, 0.2)",
+                    color: "#EF4444",
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    border: "2px solid rgba(239, 68, 68, 0.35)",
+                    cursor: isLoggingOut ? "not-allowed" : "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    opacity: isLoggingOut ? 0.75 : 1,
+                  }}
+                >
+                  <LogOut size={20} />
+                  {isLoggingOut ? "Signing out…" : "Sign out"}
+                </button>
+              ) : null}
+              {logoutError && user ? (
+                <div
+                  style={{
+                    background: "rgba(239,68,68,0.2)",
+                    border: "1px solid rgba(239,68,68,0.5)",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "0.75rem",
+                    color: "white",
+                    textAlign: "left",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  {logoutError}
+                </div>
+              ) : null}
             </div>
           </div>
         )}
@@ -811,124 +811,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* Profile Step */}
-        {currentStep === "profile" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👤</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Complete Your Profile</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Let&apos;s set up your PINIT profile to personalize your experience.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              {/* Profile Avatar */}
-              <div style={{
-                width: "100px",
-                height: "100px",
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.2)",
-                margin: "0 auto 1rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "2rem"
-              }}>
-                {userProfile.avatar ? (
-                  <img 
-                    src={userProfile.avatar} 
-                    alt="Profile" 
-                    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-                  />
-                ) : (
-                  "👤"
-                )}
-              </div>
-
-              {/* Profile Info */}
-              <div style={{ textAlign: "left", background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem" }}>
-                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Name</p>
-                <p style={{ margin: 0, fontSize: "1rem", fontWeight: "bold" }}>
-                  {userProfile.name || "Test User"}
-                </p>
-                
-                <p style={{ margin: "1rem 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Email</p>
-                <p style={{ margin: 0, fontSize: "1rem" }}>
-                  {userProfile.email || "user@example.com"}
-                </p>
-              </div>
-
-              {/* Log out (moved here for easier access) */}
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                style={{
-                  background: "rgba(239, 68, 68, 0.2)",
-                  color: "#EF4444",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "2px solid rgba(239, 68, 68, 0.3)",
-                  cursor: isLoggingOut ? "not-allowed" : "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  transition: "all 0.2s ease",
-                  marginTop: "0.25rem",
-                  opacity: isLoggingOut ? 0.75 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (isLoggingOut) return
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.3)"
-                }}
-                onMouseLeave={(e) => {
-                  if (isLoggingOut) return
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"
-                }}
-              >
-                {isLoggingOut ? "Logging out…" : "Log Out"}
-              </button>
-
-              {logoutError && (
-                <div
-                  style={{
-                    background: "rgba(239,68,68,0.2)",
-                    border: "1px solid rgba(239,68,68,0.5)",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "0.75rem",
-                    color: "white",
-                    textAlign: "left",
-                    fontSize: "0.95rem",
-                    marginTop: "0.5rem",
-                  }}
-                >
-                  {logoutError}
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  // Save profile for returning users
-                  if (isReturningUser) {
-                    localStorage.setItem('userProfile', JSON.stringify(userProfile))
-                  }
-                  handleNext()
-                }}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  marginTop: "1rem"
-                }}
-              >
-                {isReturningUser ? "Save Changes" : "Continue"}
-              </button>
-            </div>
           </div>
         )}
 
@@ -1218,17 +1100,10 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Your profile is all set up. You&apos;re ready to start discovering and sharing amazing places!
+              You&apos;re ready to start discovering and sharing amazing places.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              <div style={{ background: "rgba(255,255,255,0.1)", padding: "1rem", borderRadius: "0.5rem", textAlign: "left" }}>
-                <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.8 }}>Profile Summary</p>
-                <p style={{ margin: 0, fontSize: "0.875rem" }}>👤 {userProfile.name}</p>
-                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📧 {userProfile.email}</p>
-                <p style={{ margin: "0.25rem 0", fontSize: "0.875rem" }}>📍 {userProfile.homeLocation || "Not set"}</p>
-              </div>
-
               <button
                 onClick={onComplete}
                 style={{
@@ -1283,7 +1158,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     email: "user@example.com",
                     avatar: "https://via.placeholder.com/150"
                   }))
-                  setTimeout(() => setCurrentStep("profile"), 1000)
+                  setTimeout(() => setCurrentStep("location"), 1000)
                 }}
                 style={{
                   background: "rgba(255,255,255,0.2)",
@@ -1310,7 +1185,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             marginBottom: "2rem",
             gap: "0.5rem"
           }}>
-            {["login", "profile", "social", "location", "data", "debug", "complete"].map((step, index) => (
+            {["login", "location", "data", "debug", "complete"].map((step) => (
               <div
                 key={step}
                 style={{
