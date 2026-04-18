@@ -1,7 +1,8 @@
 // Client-side helper for pin text generation
 // Calls the server-side API route
 
-import { resolvePinContext, resolveTitleFallback, type PinContext } from './pinText'
+import { resolvePinContext, resolveTitleFallback, normalizeText, type PinContext } from './pinText'
+import { areaOnlyFallbackDescription, sanitizePlaceDescription } from './sanitizePlaceDescription'
 
 export type PinAiResult = {
   title: string;
@@ -22,7 +23,10 @@ export async function generatePinTextForPlace(rawPinData: any): Promise<PinAiRes
     const fallbackTitle = resolveTitleFallback(ctx);
     return {
       title: fallbackTitle,
-      description: "A pinned location worth exploring.",
+      description: areaOnlyFallbackDescription({
+        city: normalizeText(ctx.city),
+        region: normalizeText(ctx.region),
+      }),
       confidence: "low",
       used_fallback: true,
     };
@@ -42,19 +46,19 @@ export async function generatePinTextForPlace(rawPinData: any): Promise<PinAiRes
     }
 
     const result: PinAiResult = await response.json();
-    return result;
+    return {
+      ...result,
+      description: sanitizePlaceDescription(result.description),
+    };
   } catch (error) {
     console.warn("⚠️ Failed to generate AI pin text, using fallback:", error);
     const fallbackTitle = resolveTitleFallback(ctx);
     return {
       title: fallbackTitle,
-      description: ctx.city 
-        ? `Pinned near ${ctx.city}${ctx.address ? `: ${ctx.address}` : ""}.`
-        : ctx.region
-        ? `Pinned spot in ${ctx.region}${ctx.address ? `: ${ctx.address}` : ""}.`
-        : ctx.address
-        ? `Pinned at ${ctx.address}.`
-        : "A pinned location worth exploring.",
+      description: areaOnlyFallbackDescription({
+        city: normalizeText(ctx.city),
+        region: normalizeText(ctx.region),
+      }),
       confidence: "low",
       used_fallback: true,
     };
