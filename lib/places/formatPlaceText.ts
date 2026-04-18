@@ -3,6 +3,8 @@
  * No generic fluff; stable, short strings for UI.
  */
 
+import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
+
 export type PlaceTextInput = {
   name?: string
   categories?: string[]
@@ -91,11 +93,8 @@ export function buildDescription(place: PlaceTextInput | null | undefined): stri
   if (locality) parts.push(`${cat} in ${locality}.`)
   else parts.push(`${cat}.`)
 
-  const addr = (place.address || '').trim()
-  if (addr && addr.length <= 80 && !addr.toLowerCase().includes('unnamed')) {
-    parts.push(addr.endsWith('.') ? addr : `${addr}.`)
-  }
+  // Street lines belong in structured address fields, not in the prose description (V1 cleanup).
 
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
+  return sanitizePlaceDescription(parts.join(' ').replace(/\s+/g, ' ').trim())
 }
 
