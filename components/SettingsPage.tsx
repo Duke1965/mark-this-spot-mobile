@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Settings, MapPin, LogOut, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { ArrowLeft, Settings, LogOut, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -285,14 +285,13 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [logoutError, setLogoutError] = useState<string | null>(null)
   
   // FIX: Check if user is already authenticated and skip to complete step
-  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "location" | "data" | "debug" | "complete" | "settings-menu">(
+  const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "data" | "debug" | "complete" | "settings-menu">(
     isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
   )
   const [userProfile, setUserProfile] = useState({
     name: "",
     email: "",
     avatar: "",
-    homeLocation: "",
     socialAccounts: {
       instagram: "",
       twitter: "",
@@ -388,11 +387,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         break
       case "login":
         if (user) {
-          setCurrentStep("location")
+          setCurrentStep("data")
         }
-        break
-      case "location":
-        setCurrentStep("data")
         break
       case "data":
         setCurrentStep("debug")
@@ -420,11 +416,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         // Settings menu goes back to main app
         onBack()
         break
-      case "location":
-        setCurrentStep("login")
-        break
       case "complete":
-        setCurrentStep("location")
+        setCurrentStep("debug")
         break
       default:
         onBack()
@@ -442,7 +435,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("location"), 1000)
+        setTimeout(() => setCurrentStep("data"), 1000)
       }
     } catch (error) {
       console.error("Google login failed:", error)
@@ -460,7 +453,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("location"), 1000)
+        setTimeout(() => setCurrentStep("data"), 1000)
       }
     } catch (error) {
       console.error("Facebook login failed:", error)
@@ -528,30 +521,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
-              {/* Location Settings */}
-              <button
-                onClick={() => setCurrentStep("location")}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <MapPin size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>Location</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Home location preferences</div>
-                </div>
-              </button>
-
               {/* Privacy & Data Settings */}
               <button
                 onClick={() => setCurrentStep("data")}
@@ -811,55 +780,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* Location Setup Step */}
-        {currentStep === "location" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📍</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Set Your Home Location</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              This helps PINIT understand your area for better recommendations.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
-              <input
-                type="text"
-                placeholder="Enter your city or address"
-                value={userProfile.homeLocation}
-                onChange={(e) => setUserProfile(prev => ({
-                  ...prev,
-                  homeLocation: e.target.value
-                }))}
-                style={{
-                  width: "100%",
-                  padding: "1rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  fontSize: "1rem"
-                }}
-              />
-
-              <button
-                onClick={handleNext}
-                style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  padding: "1rem 2rem",
-                  borderRadius: "0.5rem",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  marginTop: "1rem"
-                }}
-              >
-                Continue to Data Settings
-              </button>
-            </div>
           </div>
         )}
 
@@ -1158,7 +1078,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     email: "user@example.com",
                     avatar: "https://via.placeholder.com/150"
                   }))
-                  setTimeout(() => setCurrentStep("location"), 1000)
+                  setTimeout(() => setCurrentStep("data"), 1000)
                 }}
                 style={{
                   background: "rgba(255,255,255,0.2)",
@@ -1185,7 +1105,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             marginBottom: "2rem",
             gap: "0.5rem"
           }}>
-            {["login", "location", "data", "debug", "complete"].map((step) => (
+            {["login", "data", "debug", "complete"].map((step) => (
               <div
                 key={step}
                 style={{
