@@ -12,6 +12,57 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
+import { getHintsEnabled } from '@/lib/hints'
+
+/** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
+const RECS_MAP_MARKER_HINT_DISMISSED_KEY = 'pinit-recommendations-marker-hint-dismissed-v1'
+
+const mapMarkerHintStyles = {
+  hint: {
+    width: '100%',
+    maxWidth: 420,
+    margin: '0 auto',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: 14,
+    padding: '0.75rem 0.9rem',
+    backdropFilter: 'blur(10px)',
+    fontWeight: 800,
+    fontSize: '0.9rem',
+    opacity: 0.95,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'stretch',
+    gap: 8,
+  },
+  hintTopRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  hintLabel: {
+    fontSize: '0.75rem',
+    opacity: 0.88,
+    fontWeight: 500,
+    letterSpacing: '0.2px',
+  },
+  hintText: {
+    fontSize: '0.9rem',
+    fontWeight: 800,
+    lineHeight: 1.3,
+  },
+  hintHideBtn: {
+    background: 'rgba(255,255,255,0.16)',
+    border: '1px solid rgba(255,255,255,0.22)',
+    color: 'white',
+    fontWeight: 900,
+    borderRadius: 999,
+    padding: '0.35rem 0.7rem',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+}
 
 interface Recommendation {
   id: string
@@ -80,7 +131,9 @@ export default function AIRecommendationsHub({
     placeDescription?: string | null
   } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
-  
+  const [hintsEnabled, setHintsEnabled] = useState(true)
+  const [showMapMarkerHint, setShowMapMarkerHint] = useState(false)
+
   // NEW: Add ref to track the user location marker
   // Google Maps CSS removed - migrating to Mapbox
   
@@ -97,6 +150,32 @@ export default function AIRecommendationsHub({
       setIsInitialized(true)
     }
   }, [location, isInitialized])
+
+  useEffect(() => {
+    setHintsEnabled(getHintsEnabled())
+  }, [])
+
+  useEffect(() => {
+    if (!hintsEnabled) return
+    try {
+      if (typeof window === 'undefined') return
+      if (sessionStorage.getItem(RECS_MAP_MARKER_HINT_DISMISSED_KEY) === '1') return
+      setShowMapMarkerHint(true)
+    } catch {
+      // ignore
+    }
+  }, [hintsEnabled])
+
+  const dismissMapMarkerHint = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(RECS_MAP_MARKER_HINT_DISMISSED_KEY, '1')
+      }
+    } catch {
+      // ignore
+    }
+    setShowMapMarkerHint(false)
+  }, [])
   
   // Map view - Mapbox implementation
   const mapRef = useRef<HTMLDivElement>(null)
@@ -1868,6 +1947,25 @@ export default function AIRecommendationsHub({
         <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
           Personalized for you based on your behavior
         </p>
+
+        {viewMode === 'map' && hintsEnabled && showMapMarkerHint && (
+          <div style={{ marginTop: '14px' }} role="status" aria-live="polite">
+            <div style={mapMarkerHintStyles.hint}>
+              <div style={mapMarkerHintStyles.hintTopRow}>
+                <div style={mapMarkerHintStyles.hintLabel}>💡 Hint</div>
+                <button
+                  type="button"
+                  onClick={dismissMapMarkerHint}
+                  style={mapMarkerHintStyles.hintHideBtn}
+                  aria-label="Hide tip"
+                >
+                  Hide
+                </button>
+              </div>
+              <div style={mapMarkerHintStyles.hintText}>Tap a marker to open the list</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* View Mode Tabs - Map view disabled (migrating to Mapbox) */}
@@ -1929,7 +2027,7 @@ export default function AIRecommendationsHub({
               }}
             />
 
-            {/* Legend (replaces the old two-button overlay) */}
+            {/* Map controls: filter + legend (hint moved to header) */}
             <div style={{
               position: 'absolute',
               top: '14px',
@@ -1943,9 +2041,6 @@ export default function AIRecommendationsHub({
               backdropFilter: 'blur(10px)',
               boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 800, opacity: 0.95, marginBottom: 6 }}>
-                Tap a marker to open the list
-              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, opacity: 0.95 }}>
                 {/* Toggle (All / Users / AI) */}
                 <div style={{
