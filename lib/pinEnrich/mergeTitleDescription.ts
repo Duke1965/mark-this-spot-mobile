@@ -1,4 +1,5 @@
 import type { WebsiteMeta } from '@/lib/images/websiteMeta'
+import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 
 type PlaceLike = {
   name?: string
@@ -146,6 +147,6 @@ export function mergeTitleDescription(input: {
   }
   if (!description) description = baseDescription || 'Pinned location.'
 
-  return { title, description }
+  return { title, description: sanitizePlaceDescription(description) }
 }
 
