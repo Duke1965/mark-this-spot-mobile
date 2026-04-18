@@ -5,6 +5,7 @@ import Link from "next/link"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
+import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -96,6 +97,11 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
   }, [])
 
   const t = data.transform || {}
+
+  const displayDescription = useMemo(
+    () => sanitizePlaceDescription(data.description),
+    [data.description]
+  )
 
   return (
     <div
@@ -250,7 +256,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
           <>
             <div style={styles.metaCard}>
               <div style={styles.metaTitle}>{data.title}</div>
-              <div style={styles.metaDesc}>{data.description}</div>
+              <div style={styles.metaDesc}>{displayDescription}</div>
             </div>
 
             <Link href="/" style={styles.cta}>
@@ -261,7 +267,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
           <div style={styles.landscapeFooter}>
             <div style={styles.landscapeMeta}>
               <div style={styles.landscapeTitle}>{data.title}</div>
-              <div style={styles.landscapeDesc}>{data.description}</div>
+              <div style={styles.landscapeDesc}>{displayDescription}</div>
             </div>
             <Link href="/" style={styles.landscapeCta}>
               Send one back
