@@ -96,6 +96,20 @@ interface Recommendation {
   isCompleted?: boolean
 }
 
+/** Lat/lng from stored place data only — never use user location as a fallback. */
+function getPlaceCoordinatesFromRecommendation(rec: Recommendation): { lat: number; lng: number } | null {
+  const lat = rec?.data?.geometry?.location?.lat ?? rec?.data?.lat ?? rec?.data?.location?.lat
+  const lng = rec?.data?.geometry?.location?.lng ?? rec?.data?.lng ?? rec?.data?.location?.lng
+  if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng }
+  }
+  return null
+}
+
+function filterPlaceRecommendationsOnly(list: Recommendation[]): Recommendation[] {
+  return list.filter((rec) => getPlaceCoordinatesFromRecommendation(rec) !== null)
+}
+
 // NEW: Pin Management System Interfaces
 interface Place {
   id: string
@@ -534,9 +548,9 @@ export default function PINITApp() {
         setCurrentScreen("map")
         console.log("🔄 Authenticated user - always starting on main map screen")
         
-        // Restore recommendations
+        // Restore recommendations (drop legacy non-place items without coordinates)
         if (parsedState.recommendations && Array.isArray(parsedState.recommendations)) {
-          setRecommendations(parsedState.recommendations)
+          setRecommendations(filterPlaceRecommendationsOnly(parsedState.recommendations as Recommendation[]))
         }
         
         // Restore other important state
@@ -1122,23 +1136,6 @@ export default function PINITApp() {
     console.log("dY- Recommendations state changed:", recommendations.length, "recommendations")
     console.log("dY- Recommendations content:", recommendations)
   }, [recommendations])
-
-  // Handle AI recommendations - ADD TO RECOMMENDATIONS LIST
-  const handleAIRecommendations = useCallback((newRecommendations: Recommendation[]) => {
-    console.log("dY- AI generated recommendations:", newRecommendations)
-    console.log("dY- Current recommendations count before:", recommendations.length)
-    
-    setRecommendations((prev) => {
-      // Avoid duplicates by checking IDs
-      const existingIds = new Set(prev.map((r) => r.id))
-      const uniqueRecommendations = newRecommendations.filter((r) => !existingIds.has(r.id))
-      
-      console.log("dY- Unique new recommendations:", uniqueRecommendations.length)
-      console.log("dY- Total recommendations after adding:", prev.length + uniqueRecommendations.length)
-      
-      return [...prev, ...uniqueRecommendations]
-    })
-  }, [recommendations.length])
 
   // Handle notification tap - GO TO RECOMMENDATIONS PAGE
   const handleNotificationTap = useCallback(() => {
@@ -3104,23 +3101,22 @@ export default function PINITApp() {
         onBack={() => setCurrentScreen("map")}
         userLocation={location}
         onSharePin={handleShareFromResults}
-          // NEW: Pass recommendations to the component (convert to expected format)
-  initialRecommendations={recommendations.map(rec => ({
+          // Place-based items only — real coordinates from rec.data (no user-location fallback)
+  initialRecommendations={filterPlaceRecommendationsOnly(recommendations).map((rec) => {
+            const place = getPlaceCoordinatesFromRecommendation(rec)!
+            return {
     id: rec.id,
     title: rec.title,
     description: rec.description,
     category: rec.category,
-    location: {
-      // IMPORTANT: place recommendations must render at their own coordinates (not the user's current location)
-      lat: rec?.data?.geometry?.location?.lat ?? rec?.data?.lat ?? rec?.data?.location?.lat ?? location?.latitude ?? -33.9,
-      lng: rec?.data?.geometry?.location?.lng ?? rec?.data?.lng ?? rec?.data?.location?.lng ?? location?.longitude ?? 18.4
-    },
+    location: place,
     rating: 4.0 + Math.random() * 1.0, // Generate random rating
     isAISuggestion: rec.isAISuggestion || false,
     confidence: 0.7 + Math.random() * 0.3, // Generate confidence
     reason: rec.description,
     timestamp: new Date(rec.timestamp)
-  }))}
+  }
+          })}
       />
     )
   }
@@ -4015,7 +4011,6 @@ export default function PINITApp() {
         isMoving={motionData.isMoving}
         lastActivity={lastActivity}
         onSuggestionAction={handleProactiveSuggestion}
-        onRecommendationGenerated={handleAIRecommendations}
         onNotificationTap={handleNotificationTap}
       />
 
