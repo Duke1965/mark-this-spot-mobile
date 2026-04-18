@@ -13,6 +13,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
 import { getHintsEnabled } from '@/lib/hints'
+import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 
 /** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
 const RECS_MAP_MARKER_HINT_DISMISSED_KEY = 'pinit-recommendations-marker-hint-dismissed-v1'
@@ -292,7 +293,7 @@ export default function AIRecommendationsHub({
               .map((r) => ({
                 id: r.id,
                 title: r.title,
-                description: r.description,
+                description: sanitizePlaceDescription(r.description),
                 category: r.category,
                 location: r.location,
                 rating: r.rating,
@@ -602,7 +603,9 @@ export default function AIRecommendationsHub({
         out.push({
           id: pin.id,
           title: pin.title || pin.locationName || 'User Recommendation',
-          description: pin.description || pin.personalThoughts || 'A recommended place',
+          description: sanitizePlaceDescription(
+            pin.description || pin.personalThoughts || 'A recommended place'
+          ),
           category: pin.category || 'general',
           location: { lat, lng },
           rating: typeof pin.rating === 'number' && Number.isFinite(pin.rating) ? pin.rating : 4,
@@ -863,7 +866,9 @@ export default function AIRecommendationsHub({
                       const placeTitle = selectedPlace.name || 'Interesting Place'
                       const placeCategories = selectedPlace.categories || []
                       const categoryStr = placeCategories.join(', ') || selectedPlace.category || category
-                      const placeDescription = `${categoryStr} • ${selectedPlace.distance_m ? `${selectedPlace.distance_m}m away` : 'Nearby'}`
+                      const placeDescription = sanitizePlaceDescription(
+                        `${categoryStr} • ${selectedPlace.distance_m ? `${selectedPlace.distance_m}m away` : 'Nearby'}`
+                      )
                       
                       console.log(`🧠 AI Recommendation using Foursquare data for ${placeTitle}:`, {
                         categories: placeCategories,
@@ -967,9 +972,12 @@ export default function AIRecommendationsHub({
                     
                     // Use Mapbox's real title and description - prioritize actual data over generic text
                     const placeTitle = place.name || 'Local Spot'
-                    const placeDescription = place.description || 
-                      (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
-                       `A recommended ${category.toLowerCase()} location nearby`)
+                    const placeDescription = sanitizePlaceDescription(
+                      place.description ||
+                        (place.category
+                          ? `${place.category} near you`
+                          : `A ${category.toLowerCase()} place nearby`)
+                    )
                     
                     console.log(`🧠 New User Recommendation using Mapbox data for ${placeTitle}:`, {
                       hasDescription: !!place.description,
@@ -1093,9 +1101,12 @@ export default function AIRecommendationsHub({
                 if (recLat && recLng && isFinite(recLat) && isFinite(recLng)) {
                   // Use EXACT coordinates from Mapbox (no rounding or approximation)
                   placeTitle = place.name || `Hidden Gem #${i + 1}`
-                  placeDescription = place.description || 
-                    (place.category ? `Discover this ${place.category.toLowerCase()} spot` : 
-                     "A cool spot I think you'll love!")
+                  placeDescription = sanitizePlaceDescription(
+                    place.description ||
+                      (place.category
+                        ? `${place.category} near you`
+                        : 'A place nearby')
+                  )
                   category = place.category || 'adventure'
                   // DETERMINISTIC: Use fixed rating based on place ID instead of random
                   const placeId = place.id || ''
