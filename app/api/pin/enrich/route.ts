@@ -11,6 +11,7 @@ import { fetchFacebookPreview } from '@/lib/pinEnrich/facebookPreview'
 import { downloadAndUploadImage } from '@/lib/pinEnrich/imageStore'
 import { getCached, setCached, getCacheKey } from '@/lib/pinEnrich/cache'
 import type { EnrichedPin } from '@/lib/pinEnrich/types'
+import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -138,6 +139,9 @@ export async function POST(request: NextRequest) {
       description = facebookPreview.description
     } else if (wikidata?.description) {
       description = wikidata.description
+    }
+    if (description) {
+      description = sanitizePlaceDescription(description)
     }
     
     // Step 7: Build final EnrichedPin
