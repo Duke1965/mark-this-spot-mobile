@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import { auth, firestore } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
+import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { Caveat } from "next/font/google"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
@@ -98,6 +99,11 @@ export default function PostcardLibraryDetailClient() {
   }, [data?.title, shareUrl])
 
   const templateConfig = useMemo(() => getTemplateConfig(data?.template), [data?.template])
+
+  const displayDescription = useMemo(
+    () => sanitizePlaceDescription(data?.description),
+    [data?.description]
+  )
 
   return (
     <div style={styles.screen}>
@@ -211,6 +217,9 @@ export default function PostcardLibraryDetailClient() {
 
             <div style={styles.cardTitle}>Your postcard is ready</div>
             <div style={styles.cardText}>You can share it again at any time.</div>
+            {displayDescription ? (
+              <div style={{ ...styles.cardText, marginTop: 10 }}>{displayDescription}</div>
+            ) : null}
 
             <div style={{ marginTop: 10, fontWeight: 900 }}>Share link</div>
             <div style={{ opacity: 0.92, wordBreak: "break-all", marginTop: 6 }}>{shareUrl}</div>
