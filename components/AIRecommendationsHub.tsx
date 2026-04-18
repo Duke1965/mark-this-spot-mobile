@@ -308,21 +308,6 @@ export default function AIRecommendationsHub({
     [getIdToken]
   )
   
-  // Helper function to categorize places based on their types (must be defined before functions that use it)
-  const getCategoryFromTypes = useCallback((types: string[]): string => {
-    if (types.includes('restaurant') || types.includes('cafe') || types.includes('food')) {
-      return 'Food & Dining'
-    } else if (types.includes('park') || types.includes('natural_feature')) {
-      return 'Nature & Parks'
-    } else if (types.includes('museum') || types.includes('art_gallery') || types.includes('tourist_attraction')) {
-      return 'Culture & Arts'
-    } else if (types.includes('shopping_mall') || types.includes('store')) {
-      return 'Shopping'
-    } else {
-      return 'Location Discovery'
-    }
-  }, [])
-  
   // NEW: Request management to prevent duplicate API calls
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -597,228 +582,45 @@ export default function AIRecommendationsHub({
     return categoryMap[category] || categoryMap['general']
   }, [])
   
-  // Generate mock USER recommendations using REAL places from Mapbox API (different from AI mocks)
-  const generateMockUserRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
-    try {
-      // Using pin-intel gateway (Foursquare) for nearby travel POIs
-      // Categories: restaurants, coffee shops, historical buildings, tourist attractions, etc.
-      // Already filtered for travel-related places only
-      const response = await fetch(`/api/pinit/pin-intel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lng, precision: 5 }),
-        signal
-      })
-
-      if (signal?.aborted) {
-        return []
-      }
-
-      if (response.ok) {
-        const data = await response.json()
-        // pin-intel gateway returns {places: [...]}
-        const places = data.places || []
-        
-        if (places.length === 0) {
-          return []
-        }
-
-        // DETERMINISTIC: Sort by ID and take places 4-7 (different from AI which takes 0-3)
-        // This ensures AI and User mocks show different places
-        const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.id || ''
-          const idB = b.id || ''
-          return idA.localeCompare(idB)
-        }).slice(4, 8) // Take different places than AI mocks
-
-        return sortedPlaces.map((place: any, index: number) => {
-          // Foursquare format: { lat, lng } directly on the place object
-          const placeLat = place.lat || place.location?.lat || lat
-          const placeLng = place.lng || place.location?.lng || lng
-          
-          // Foursquare doesn't provide photos in pin-intel response
-          const photoUrl = undefined
-
-          const placeCategories = place.categories || []
-          const category = placeCategories.join(', ') || place.category || "general"
-
-          return {
-            id: `mock-user-${place.id || index}`,
-            title: place.name || "Local Place",
-            description: `${category} • ${place.distance_m ? `${place.distance_m}m away` : 'Nearby'}`,
-            category: category,
-            location: {
-              lat: placeLat,
-              lng: placeLng,
-            },
-            rating: 4.0,
-            isAISuggestion: false, // User recommendations
-            confidence: 0,
-            reason: "Recommended by community members",
-            timestamp: new Date(),
-            photoUrl: photoUrl || undefined,
-            mediaUrl: photoUrl || undefined,
-            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0])
-          }
-        })
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        return []
-      }
-      console.error('Error fetching mock user recommendations:', error)
-    }
-    
-    return []
-  }, [getFallbackImage, getCategoryFromTypes])
-  
-  // NEW: Get user recommendations from localStorage pins, with gradual mock fade-out
+  /** User recommendations from saved pins only — valid coordinates required; no mock padding (V1). */
   const getUserRecommendations = useCallback(async (): Promise<Recommendation[]> => {
     try {
       const pinsJson = localStorage.getItem('pinit-pins') || '[]'
       const pins: any[] = JSON.parse(pinsJson)
-      
-      // Filter pins that are recommended by users (not AI)
-      const userRecommendedPins = pins.filter(pin => 
-        pin.isRecommended && !pin.isAISuggestion
+
+      const userRecommendedPins = pins.filter(
+        (pin) => pin.isRecommended && !pin.isAISuggestion
       )
-      
-      // Convert pins to Recommendation format
-      const realUserRecs = userRecommendedPins.map(pin => ({
-        id: pin.id,
-        title: pin.title || pin.locationName || "User Recommendation",
-        description: pin.description || pin.personalThoughts || "A recommended place",
-        category: pin.category || "general",
-        location: {
-          lat: pin.latitude,
-          lng: pin.longitude
-        },
-        rating: pin.rating || 4.0,
-        isAISuggestion: false, // User recommendations
-        confidence: 0,
-        reason: "Recommended by community",
-        timestamp: new Date(pin.timestamp),
-        photoUrl: pin.mediaUrl || undefined,
-        mediaUrl: pin.mediaUrl || undefined,
-        fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || "general")
-      }))
-      
-      // GRADUAL FADE-OUT: Add mock user recommendations if we have few real ones
-      // Get AI confidence to determine fade-out level
-      const aiConfidence = insights.userPersonality?.confidence || 0
-      const realRecCount = realUserRecs.length
-      
-      // Calculate how many mock recommendations to show based on confidence and real count
-      // At confidence 0: show 4 mocks, at confidence 0.3: show 0 mocks
-      // Also fade out if we have real recommendations
-      let mockCount = 0
-      if (realRecCount === 0 && aiConfidence < 0.3) {
-        // Full mocks when no real recommendations and low confidence
-        mockCount = Math.max(0, Math.floor(4 * (1 - (aiConfidence / 0.3))))
-      } else if (realRecCount > 0 && realRecCount < 4) {
-        // Partial mocks when we have some real recommendations
-        mockCount = Math.max(0, 4 - realRecCount)
-        // Further reduce based on confidence
-        mockCount = Math.floor(mockCount * (1 - (aiConfidence / 0.3)))
-      }
-      
-      if (mockCount > 0 && location && location.latitude && location.longitude) {
-        // Fetch real places from Mapbox for mock user recommendations
-        try {
-          const mockUserRecs = await generateMockUserRecommendations(location.latitude, location.longitude)
-          // Take only the number we need
-          const selectedMocks = mockUserRecs.slice(0, mockCount)
-          console.log(`👥 Adding ${selectedMocks.length} mock user recommendations (${realRecCount} real, confidence: ${aiConfidence.toFixed(2)})`)
-          return [...realUserRecs, ...selectedMocks]
-        } catch (error) {
-          console.error('Error fetching mock user recommendations:', error)
+
+      const out: Recommendation[] = []
+      for (const pin of userRecommendedPins) {
+        const lat = pin.latitude
+        const lng = pin.longitude
+        if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+          continue
         }
-      }
-      
-      return realUserRecs
-    } catch (error) {
-      console.error('Error loading user recommendations:', error)
-      // Return mock recommendations as fallback
-      if (location && location.latitude && location.longitude) {
-        try {
-          return await generateMockUserRecommendations(location.latitude, location.longitude)
-        } catch (err) {
-          console.error('Error fetching fallback mock user recommendations:', err)
-        }
-      }
-      return []
-    }
-  }, [getFallbackImage, insights.userPersonality?.confidence, location, generateMockUserRecommendations])
-
-
-  // Generate mock AI recommendations using REAL places from Mapbox API
-  const generateMockAIRecommendations = useCallback(async (lat: number, lng: number, signal?: AbortSignal): Promise<Recommendation[]> => {
-    try {
-      // Using Mapbox Search API for nearby travel POIs (restaurants, cafes, monuments, museums, art galleries, churches, tourism)
-      const response = await fetch(`/api/places/search?lat=${lat}&lng=${lng}&radius=5000&limit=8&categories=restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism`, {
-        signal
-      })
-
-      if (signal?.aborted) {
-        return []
-      }
-
-      if (response.ok) {
-        const data = await response.json()
-        // Mapbox Search returns {pois: [...]}
-        const places = data.pois || []
-        
-        if (places.length === 0) {
-          return []
-        }
-
-        // DETERMINISTIC: Sort by ID and take first 4 for AI mocks
-        const sortedPlaces = [...places].sort((a: any, b: any) => {
-          const idA = a.id || ''
-          const idB = b.id || ''
-          return idA.localeCompare(idB)
-        }).slice(0, 4)
-
-        return sortedPlaces.map((place: any, index: number) => {
-          const placeLat = place.location?.lat || lat
-          const placeLng = place.location?.lng || lng
-          
-          // Mapbox doesn't provide photos, so no photoUrl
-          const photoUrl = undefined
-
-          const category = place.category || "general"
-
-          return {
-            id: `mock-ai-${place.id || index}`,
-            title: place.name || "Local Place",
-            description: place.description || 
-              (place.category ? `A great ${place.category.toLowerCase()} spot in your area` : 
-               "A recommended location nearby"),
-            category: category,
-            location: {
-              lat: placeLat,
-              lng: placeLng,
-            },
-            rating: 4.0,
-            isAISuggestion: true,
-            confidence: 20, // Low confidence for mock data
-            reason: "Local area discovery - exploring your neighborhood",
-            timestamp: new Date(),
-            photoUrl: photoUrl || undefined,
-            mediaUrl: photoUrl || undefined,
-            fallbackImage: photoUrl ? undefined : getFallbackImage(category.toLowerCase().split(' ')[0])
-          }
+        out.push({
+          id: pin.id,
+          title: pin.title || pin.locationName || 'User Recommendation',
+          description: pin.description || pin.personalThoughts || 'A recommended place',
+          category: pin.category || 'general',
+          location: { lat, lng },
+          rating: typeof pin.rating === 'number' && Number.isFinite(pin.rating) ? pin.rating : 4,
+          isAISuggestion: false,
+          confidence: 0,
+          reason: 'Recommended by community',
+          timestamp: new Date(pin.timestamp),
+          photoUrl: pin.mediaUrl || undefined,
+          mediaUrl: pin.mediaUrl || undefined,
+          fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || 'general'),
         })
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        return []
-      }
-      console.error('Error fetching mock AI recommendations:', error)
+      return out
+    } catch (error) {
+      console.error('Error loading user recommendations:', error)
+      return []
     }
-    
-    return []
-  }, [getFallbackImage, getCategoryFromTypes])
+  }, [getFallbackImage])
 
   // Get learning status when component mounts
   useEffect(() => {
@@ -1203,92 +1005,9 @@ export default function AIRecommendationsHub({
                 }
               } catch (error) {
                 console.log('🧠 Error fetching local places for new user:', error)
-                
-                // Fallback to mock AI recommendations if API fails
-                // NEW LOGIC: Show mock recommendations until 3+ real user recommendations exist in the area
-                // Count real user recommendations within 5km radius
-                const userRecommendationsInArea = recommendations.filter(rec => {
-                  if (rec.isAISuggestion) return false // Skip AI suggestions
-                  
-                  // Calculate distance from current location to recommendation
-                  const lat1 = location.latitude
-                  const lng1 = location.longitude
-                  const lat2 = rec.location.lat
-                  const lng2 = rec.location.lng
-                  
-                  const R = 6371 // Earth radius in km
-                  const dLat = (lat2 - lat1) * Math.PI / 180
-                  const dLng = (lng2 - lng1) * Math.PI / 180
-                  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                           Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                           Math.sin(dLng / 2) * Math.sin(dLng / 2)
-                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-                  const distance = R * c // Distance in km
-                  
-                  return distance <= 5 // Within 5km
-                }).length
-                
-                // Show up to 4 mock recommendations if less than 3 real user recommendations in area
-                const mockCount = userRecommendationsInArea < 3 ? 4 : 0
-                
-                if (mockCount > 0) {
-                  try {
-                    const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
-                    if (!signal.aborted && mockRecommendations.length > 0) {
-                      const selectedMocks = mockRecommendations.slice(0, mockCount)
-                      aiRecs.push(...selectedMocks)
-                      console.log(`🧠 Using ${selectedMocks.length} mock AI recommendations (${userRecommendationsInArea} real user recs in area - need 3+)`)
-                    }
-                  } catch (mockError) {
-                    console.error('Error fetching mock AI recommendations:', mockError)
-                  }
-                } else {
-                  console.log(`🧠 Skipping mock recommendations - ${userRecommendationsInArea} real user recommendations already exist in this area`)
-                }
               }
             } else {
               console.log('🧠 Skipping API request - too soon since last request (rate limiting)')
-              
-              // NEW LOGIC: Show mock recommendations until 3+ real user recommendations exist in the area
-              // Count real user recommendations within 5km radius
-              const userRecommendationsInArea = recommendations.filter(rec => {
-                if (rec.isAISuggestion) return false // Skip AI suggestions
-                
-                // Calculate distance from current location to recommendation
-                const lat1 = location.latitude
-                const lng1 = location.longitude
-                const lat2 = rec.location.lat
-                const lng2 = rec.location.lng
-                
-                const R = 6371 // Earth radius in km
-                const dLat = (lat2 - lat1) * Math.PI / 180
-                const dLng = (lng2 - lng1) * Math.PI / 180
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                         Math.sin(dLng / 2) * Math.sin(dLng / 2)
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-                const distance = R * c // Distance in km
-                
-                return distance <= 5 // Within 5km
-              }).length
-              
-              // Show up to 4 mock recommendations if less than 3 real user recommendations in area
-              const mockCount = userRecommendationsInArea < 3 ? 4 : 0
-              
-              if (mockCount > 0) {
-                try {
-                  const mockRecommendations = await generateMockAIRecommendations(location.latitude, location.longitude, signal)
-                  if (!signal.aborted && mockRecommendations.length > 0) {
-                    const selectedMocks = mockRecommendations.slice(0, mockCount)
-                    aiRecs.push(...selectedMocks)
-                    console.log(`🧠 Using ${selectedMocks.length} cached/mock AI recommendations (${userRecommendationsInArea} real user recs in area - need 3+)`)
-                  }
-                } catch (mockError) {
-                  console.error('Error fetching mock AI recommendations:', mockError)
-                }
-              } else {
-                console.log(`🧠 Skipping mock recommendations - ${userRecommendationsInArea} real user recommendations already exist in this area`)
-              }
             }
           }
           
@@ -1495,7 +1214,7 @@ export default function AIRecommendationsHub({
         try {
           const userRecs = await getUserRecommendations()
           if (userRecs.length > 0) {
-            console.log(`👥 Loaded ${userRecs.length} user recommendations (including mocks)`)
+            console.log(`👥 Loaded ${userRecs.length} user recommendations from pins`)
             setRecommendations(prev => {
               // Remove duplicates by ID
               const existingIds = new Set(prev.map(r => r.id))
@@ -2378,51 +2097,33 @@ export default function AIRecommendationsHub({
                       {rec.description}
                     </p>
                     
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
-                          📍 {rec.rating.toFixed(1)}/5
-                        </span>
-                        {rec.isAISuggestion && (
-                          <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
-                            🎯 {Math.round(rec.confidence)}%
-                          </span>
-                        )}
-                        <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
-                          📍 {rec.title.includes('Current Location') ? 'Current Location' : 'Nearby Area'}
-                        </span>
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                        <button 
-                          onClick={() => {
-                            console.log('🗺️ Navigating to location:', rec.location)
-                            // Switch to map view and center on this location
-                            setViewMode('map')
-                            // Google Maps removed - map centering disabled
-                          }}
-                          style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '6px',
-                            padding: '4px 8px',
-                            color: 'white',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
-                          }}
-                        >
-                          🗺️ Map
-                        </button>
-                        
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          console.log('🗺️ Switching to map view for:', rec.location)
+                          setViewMode('map')
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          color: 'white',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                        }}
+                      >
+                        🗺️ Map
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2440,14 +2141,14 @@ export default function AIRecommendationsHub({
                 </div>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>
                   {isShowingCluster ? 
-                    'No Recommendations in This Cluster' : 
-                    'No AI Recommendations Yet'
+                    'No recommendations in this cluster' : 
+                    'No recommendations yet'
                   }
                 </h4>
                 <p style={{ margin: 0, opacity: 0.8, fontSize: '14px' }}>
                   {isShowingCluster ? 
-                    'This cluster appears to be empty. Try another location!' :
-                    'Start pinning places and the AI will learn your preferences!'
+                    'Try another area on the map.' :
+                    'Explore the map or add recommendations from places you visit.'
                   }
                 </p>
               </div>
@@ -2691,19 +2392,6 @@ export default function AIRecommendationsHub({
             <h2 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '12px', marginTop: 0 }}>
               {selectedRecommendation.title || 'Location'}
             </h2>
-
-            {/* Rating */}
-            {selectedRecommendation.rating && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <div style={{ fontSize: '1.2rem' }}>⭐</div>
-                <span style={{ color: 'white', fontSize: '1.1rem', fontWeight: 'bold' }}>
-                  {selectedRecommendation.rating.toFixed(1)}
-                </span>
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
-                  / 5.0
-                </span>
-              </div>
-            )}
 
             {/* Description */}
             {selectedRecommendation.description && (
