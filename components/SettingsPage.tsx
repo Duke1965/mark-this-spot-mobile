@@ -1,11 +1,45 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Settings, LogOut, Lock, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { ArrowLeft, Settings, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
 import { getHintsEnabled, setHintsEnabled, HINTS_ENABLED_KEY } from "@/lib/hints"
+
+function GoogleLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.75 1.22 9.25 3.62l6.92-6.92C36.01 2.37 30.44 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.05 6.26C12.59 13.36 17.86 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.15 24.5c0-1.65-.15-3.24-.43-4.78H24v9.06h12.43c-.54 2.9-2.18 5.36-4.66 7.01l7.5 5.82C43.52 37.73 46.15 31.6 46.15 24.5z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.61 28.39a14.47 14.47 0 0 1 0-8.78l-8.05-6.26A23.98 23.98 0 0 0 0 24c0 3.87.93 7.53 2.56 10.65l8.05-6.26z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.44 0 11.86-2.12 15.82-5.74l-7.5-5.82c-2.08 1.4-4.73 2.23-8.32 2.23-6.14 0-11.41-3.86-13.39-9.99l-8.05 6.26C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  )
+}
+
+function FacebookLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="#1877F2"
+        d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07c0 6.02 4.39 11.02 10.13 11.93v-8.44H7.08v-3.49h3.05V9.43c0-3.03 1.79-4.7 4.54-4.7 1.31 0 2.69.24 2.69.24v2.98h-1.52c-1.5 0-1.97.94-1.97 1.9v2.29h3.35l-.54 3.49h-2.81V24c5.74-.91 10.13-5.91 10.13-11.93z"
+      />
+    </svg>
+  )
+}
 
 interface SettingsPageProps {
   onBack: () => void
@@ -283,6 +317,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [tipsEnabled, setTipsEnabled] = useState(true)
   const [logoutError, setLogoutError] = useState<string | null>(null)
+  const [showInternalTools, setShowInternalTools] = useState(false)
   
   // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "data" | "debug" | "complete" | "settings-menu">(
@@ -313,6 +348,25 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   useEffect(() => {
     setTipsEnabled(getHintsEnabled())
   }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      const urlFlag = new URLSearchParams(window.location.search).get("internal") === "1"
+      const storedFlag = localStorage.getItem("pinit-internal-tools") === "1"
+      setShowInternalTools(urlFlag || storedFlag)
+    } catch {
+      setShowInternalTools(false)
+    }
+  }, [])
+
+  // Guard: keep technical steps out of normal user flow
+  useEffect(() => {
+    if (showInternalTools) return
+    if (currentStep === "data" || currentStep === "debug") {
+      setCurrentStep(user ? "complete" : "login")
+    }
+  }, [currentStep, showInternalTools, user])
 
   const resetTips = () => {
     try {
@@ -386,9 +440,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         setCurrentStep("login")
         break
       case "login":
-        if (user) {
-          setCurrentStep("data")
-        }
+        if (user) setCurrentStep(showInternalTools ? "data" : "complete")
         break
       case "data":
         setCurrentStep("debug")
@@ -417,7 +469,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         onBack()
         break
       case "complete":
-        setCurrentStep("debug")
+        setCurrentStep(showInternalTools ? "debug" : "settings-menu")
         break
       default:
         onBack()
@@ -435,7 +487,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("data"), 1000)
+        setTimeout(() => setCurrentStep(showInternalTools ? "data" : "complete"), 650)
       }
     } catch (error) {
       console.error("Google login failed:", error)
@@ -453,7 +505,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           avatar: user.photoURL || "https://via.placeholder.com/150"
         }))
         // Auto-advance to next step on successful login
-        setTimeout(() => setCurrentStep("data"), 1000)
+        setTimeout(() => setCurrentStep(showInternalTools ? "data" : "complete"), 650)
       }
     } catch (error) {
       console.error("Facebook login failed:", error)
@@ -521,53 +573,45 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
-              {/* Privacy & Data Settings */}
-              <button
-                onClick={() => setCurrentStep("data")}
+              <div
                 style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.14)",
                   borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
+                  padding: "1rem",
+                  textAlign: "left",
                 }}
               >
-                <Lock size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>Privacy & Data</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Data management, privacy settings</div>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>Legal</div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", opacity: 0.92 }}>
+                  <a href="/terms" style={{ color: "white", fontWeight: 800, textDecoration: "underline" }}>
+                    Terms of Use
+                  </a>
+                  <a href="/privacy" style={{ color: "white", fontWeight: 800, textDecoration: "underline" }}>
+                    Privacy Policy
+                  </a>
                 </div>
-              </button>
+              </div>
 
-              {/* Debug Settings */}
-              <button
-                onClick={() => setCurrentStep("debug")}
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <Bug size={24} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "600" }}>System & Debug</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>System health, debugging tools</div>
-                </div>
-              </button>
+              {showInternalTools ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep("debug")}
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "white",
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 800,
+                    textAlign: "left",
+                  }}
+                >
+                  Internal tools
+                </button>
+              ) : null}
 
               {user ? (
                 <button
@@ -679,8 +723,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             ) : (
               // User not logged in - show sign-in options
               <>
-                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔐</div>
-                <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In to PINIT</h1>
+                <div style={{ fontSize: "2.5rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.35rem" }}>PINIT</div>
+                <div style={{ fontSize: "1rem", opacity: 0.9, marginBottom: "1.5rem" }}>Sign in to save and share places</div>
                 <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
                   Choose your preferred way to sign in and start discovering amazing places.
                 </p>
@@ -704,11 +748,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     onClick={handleGoogleLogin}
                     disabled={loading}
                     style={{
-                      background: "rgba(255,255,255,0.2)",
-                      color: "white",
+                      background: "white",
+                      color: "#111827",
                       padding: "1rem 2rem",
                       borderRadius: "0.5rem",
-                      border: "none",
+                      border: "1px solid rgba(17,24,39,0.12)",
                       cursor: loading ? "not-allowed" : "pointer",
                       fontSize: "1.1rem",
                       fontWeight: "bold",
@@ -719,14 +763,14 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                       opacity: loading ? 0.6 : 1
                     }}
                   >
-                    {loading ? "⏳" : "🔍"} Continue with Google
+                    {loading ? "⏳" : <GoogleLogo />} Continue with Google
                   </button>
 
                   <button
                     onClick={handleFacebookLogin}
                     disabled={loading}
                     style={{
-                      background: "rgba(255,255,255,0.2)",
+                      background: "#1877F2",
                       color: "white",
                       padding: "1rem 2rem",
                       borderRadius: "0.5rem",
@@ -741,7 +785,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                       opacity: loading ? 0.6 : 1
                     }}
                   >
-                    {loading ? "⏳" : "📘"} Continue with Facebook
+                    {loading ? "⏳" : <FacebookLogo />} Continue with Facebook
                   </button>
 
                   <div style={{ 
@@ -777,14 +821,26 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   >
                     {loading ? "⏳" : "📧"} Continue with Email
                   </button>
+
+                  <div style={{ marginTop: 10, fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.35 }}>
+                    By continuing, you agree to our{" "}
+                    <a href="/terms" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
+                      Terms of Use
+                    </a>{" "}
+                    and{" "}
+                    <a href="/privacy" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
+                      Privacy Policy
+                    </a>
+                    .
+                  </div>
                 </div>
               </>
             )}
           </div>
         )}
 
-        {/* Data Management Step */}
-        {currentStep === "data" && (
+        {/* Data Management Step (internal only) */}
+        {showInternalTools && currentStep === "data" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>💾</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Data Management</h1>
@@ -936,8 +992,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           </div>
         )}
 
-        {/* Debug Step */}
-        {currentStep === "debug" && (
+        {/* Debug Step (internal only) */}
+        {showInternalTools && currentStep === "debug" && (
           <div style={{ padding: "1rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
               <Bug className="w-8 h-8 text-white" />
@@ -1078,7 +1134,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     email: "user@example.com",
                     avatar: "https://via.placeholder.com/150"
                   }))
-                  setTimeout(() => setCurrentStep("data"), 1000)
+                  setTimeout(() => setCurrentStep(showInternalTools ? "data" : "complete"), 650)
                 }}
                 style={{
                   background: "rgba(255,255,255,0.2)",
@@ -1097,27 +1153,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           </div>
         )}
 
-        {/* Progress Indicator */}
-        {currentStep !== "welcome" && (
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "2rem",
-            gap: "0.5rem"
-          }}>
-            {["login", "data", "debug", "complete"].map((step) => (
-              <div
-                key={step}
-                style={{
-                  width: "12px",
-                  height: "12px",
-                  borderRadius: "50%",
-                  background: currentStep === step ? "white" : "rgba(255,255,255,0.3)"
-                }}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
