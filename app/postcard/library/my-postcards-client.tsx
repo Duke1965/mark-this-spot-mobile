@@ -27,11 +27,6 @@ export default function MyPostcardsClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const clientProjectId =
-    (typeof process !== "undefined" && (process.env as any)?.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-      ? String((process.env as any).NEXT_PUBLIC_FIREBASE_PROJECT_ID)
-      : "") || "unknown"
-
   useEffect(() => {
     const unsub = (auth as any)?.onAuthStateChanged?.((u: any) => {
       setUid(u?.uid ? String(u.uid) : null)
@@ -168,15 +163,6 @@ export default function MyPostcardsClient() {
       </div>
 
       <div style={styles.content}>
-        <div style={styles.debugStrip} role="status" aria-live="polite">
-          <div style={{ fontWeight: 900, marginBottom: 4 }}>Debug</div>
-          <div style={{ opacity: 0.95, lineHeight: 1.25 }}>
-            UID: <span style={{ fontWeight: 900 }}>{uid || "—"}</span>
-          </div>
-          <div style={{ opacity: 0.95, lineHeight: 1.25 }}>
-            Project: <span style={{ fontWeight: 900 }}>{clientProjectId}</span>
-          </div>
-        </div>
         {body}
       </div>
     </div>
@@ -219,15 +205,6 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     overflowY: "auto",
     padding: "1rem",
-  },
-  debugStrip: {
-    width: "min(520px, 100%)",
-    margin: "0 auto 12px",
-    background: "rgba(255,255,255,0.08)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    borderRadius: 16,
-    padding: 12,
-    backdropFilter: "blur(12px)",
   },
   card: {
     width: "min(520px, 100%)",
