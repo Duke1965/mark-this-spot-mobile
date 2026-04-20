@@ -79,7 +79,6 @@ export default function MyPostcardsClient() {
         console.error("🚨 MyPostcards query failed", {
           msg,
           uid,
-          clientProjectId,
         })
         if (!cancelled) setError(msg || "Failed to load postcards")
       } finally {
