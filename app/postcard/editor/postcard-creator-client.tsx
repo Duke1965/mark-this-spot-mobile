@@ -359,7 +359,7 @@ export default function PostcardCreatorClient() {
                 Hide
               </button>
             </div>
-            <div style={styles.hintText}>Use 1 finger to move. Pinch with 2 fingers to resize and rotate.</div>
+            <div style={styles.hintText}>Move your photo with 1 finger. Pinch with 2 fingers to resize and rotate it behind the frame.</div>
           </div>
         )}
         <div style={styles.postcardWrap}>
