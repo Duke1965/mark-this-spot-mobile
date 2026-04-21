@@ -17,6 +17,8 @@ import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 
 /** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
 const RECS_MAP_MARKER_HINT_DISMISSED_KEY = 'pinit-recommendations-marker-hint-dismissed-v1'
+/** Per-user (local) dismissal so removed items don’t keep reappearing. */
+const RECS_DISMISSED_IDS_KEY = 'pinit-recommendations-dismissed-ids-v1'
 
 const mapMarkerHintStyles = {
   hint: {
@@ -190,6 +192,7 @@ export default function AIRecommendationsHub({
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
+  const [dismissedRecommendationIds, setDismissedRecommendationIds] = useState<Set<string>>(() => new Set())
   
   // NEW: Load cached recommendations - will be defined after getLocationCacheKey and clusterPins
   
@@ -264,13 +267,21 @@ export default function AIRecommendationsHub({
       const data = await resp.json()
       const serverRecs: Recommendation[] = Array.isArray(data?.recommendations) ? data.recommendations : []
       if (serverRecs.length > 0) {
-        setRecommendations(serverRecs)
-        setClusteredPins(clusterPinsImpl(serverRecs))
+        const visible = serverRecs.filter((r) => !dismissedRecommendationIds.has(String(r.id)))
+        setRecommendations(visible)
+        setClusteredPins(clusterPinsImpl(visible))
       }
     } catch {
       // ignore
     }
-  }, [getIdToken, location?.lat, location?.latitude, location?.lng, location?.longitude])
+  }, [
+    dismissedRecommendationIds,
+    getIdToken,
+    location?.lat,
+    location?.latitude,
+    location?.lng,
+    location?.longitude,
+  ])
 
   // Firestore-backed recommendations (community + personalized AI) for this area.
   useEffect(() => {
@@ -645,6 +656,38 @@ export default function AIRecommendationsHub({
       })
     }
   }, [getLearningStatus])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECS_DISMISSED_IDS_KEY)
+      const arr = raw ? (JSON.parse(raw) as any) : []
+      if (Array.isArray(arr)) {
+        setDismissedRecommendationIds(new Set(arr.filter((v) => typeof v === 'string')))
+      }
+    } catch {
+      setDismissedRecommendationIds(new Set())
+    }
+  }, [])
+
+  const dismissRecommendation = useCallback((rec: Recommendation) => {
+    const id = rec?.id ? String(rec.id) : ""
+    if (!id) return
+
+    setDismissedRecommendationIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      try {
+        localStorage.setItem(RECS_DISMISSED_IDS_KEY, JSON.stringify(Array.from(next)))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+
+    // Update UI immediately (both main + any filtered list).
+    setRecommendations((prev) => prev.filter((r) => String(r.id) !== id))
+    setFilteredRecommendations((prev) => prev.filter((r) => String(r.id) !== id))
+  }, [])
 
   // Debug location data
   useEffect(() => {
@@ -2134,6 +2177,35 @@ export default function AIRecommendationsHub({
                         }}
                       >
                         🗺️ Map
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const label = rec.isAISuggestion ? "this recommendation" : "this item"
+                          if (confirm(`Remove ${label} from your list?`)) {
+                            dismissRecommendation(rec)
+                          }
+                        }}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.18)',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          color: 'white',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+                        }}
+                      >
+                        ✕ Remove
                       </button>
                     </div>
                   </div>
