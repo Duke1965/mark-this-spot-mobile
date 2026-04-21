@@ -350,23 +350,8 @@ export default function PostcardCreatorClient() {
             <div style={styles.hintText}>Rotate your phone for easier editing</div>
           </div>
         )}
-        {showPhotoGestureHint && (
-          <div
-            style={{
-              ...styles.hint,
-              ...(isLandscape
-                ? {
-                    maxWidth: "100%",
-                    width: "100%",
-                    padding: "0.55rem 0.7rem",
-                    borderRadius: 12,
-                    gap: 6,
-                  }
-                : null),
-            }}
-            role="status"
-            aria-live="polite"
-          >
+        {!isLandscape && showPhotoGestureHint && (
+          <div style={styles.hint} role="status" aria-live="polite">
             <div style={styles.hintTopRow}>
               <div style={styles.hintLabel}>💡 Hint</div>
               <button
@@ -378,12 +363,7 @@ export default function PostcardCreatorClient() {
                 Hide
               </button>
             </div>
-            <div
-              style={{
-                ...styles.hintText,
-                ...(isLandscape ? { fontSize: "0.82rem", lineHeight: 1.25 } : null),
-              }}
-            >
+            <div style={styles.hintText}>
               Move your photo with 1 finger. Pinch with 2 fingers to resize and rotate it behind the frame.
             </div>
           </div>
@@ -399,8 +379,8 @@ export default function PostcardCreatorClient() {
               ...styles.postcard,
               ...(isLandscape
                 ? {
-                    maxWidth: "min(68vw, 720px)",
-                    boxShadow: "0 14px 44px rgba(0,0,0,0.35)",
+                    maxWidth: "min(78vw, 920px)",
+                    boxShadow: "0 18px 60px rgba(0,0,0,0.42)",
                   }
                 : null),
             }}
@@ -490,37 +470,96 @@ export default function PostcardCreatorClient() {
           </div>
         </div>
 
-        <div
-          style={{
-            ...(isLandscape
-              ? {
-                  width: "min(360px, 34vw)",
-                  maxWidth: "min(360px, 34vw)",
-                  alignSelf: "stretch",
-                  overflowY: "auto",
-                  maxHeight: "100%",
-                }
-              : null),
-            ...styles.inputCard,
-          }}
-        >
-          <div style={styles.inputLabelRow}>
-            <div style={styles.inputLabel}>Your message</div>
-            <div style={styles.charCount}>
-              {message.length}/{MAX_MESSAGE_LEN}
+        {isLandscape ? (
+          <div
+            style={{
+              width: "min(300px, 22vw)",
+              maxWidth: "min(300px, 22vw)",
+              minWidth: 240,
+              alignSelf: "stretch",
+              overflowY: "auto",
+              maxHeight: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {showPhotoGestureHint ? (
+              <div
+                style={{
+                  ...styles.hint,
+                  maxWidth: "100%",
+                  width: "100%",
+                  padding: "0.45rem 0.6rem",
+                  borderRadius: 12,
+                  gap: 6,
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                <div style={styles.hintTopRow}>
+                  <div style={styles.hintLabel}>💡 Hint</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPhotoGestureHint(false)}
+                    style={{
+                      ...styles.hintHideBtn,
+                      padding: "0.25rem 0.55rem",
+                    }}
+                    aria-label="Hide tip"
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div style={{ ...styles.hintText, fontSize: "0.78rem", lineHeight: 1.2, fontWeight: 750 }}>
+                  Move your photo with 1 finger. Pinch with 2 fingers to resize and rotate it behind the frame.
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                ...styles.inputCard,
+                width: "100%",
+                maxWidth: "100%",
+                alignSelf: "stretch",
+                padding: 12,
+              }}
+            >
+              <div style={styles.inputLabelRow}>
+                <div style={styles.inputLabel}>Your message</div>
+                <div style={styles.charCount}>
+                  {message.length}/{MAX_MESSAGE_LEN}
+                </div>
+              </div>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LEN))}
+                placeholder="Write a message…"
+                style={styles.textarea}
+                rows={6}
+              />
+              {templateFailed && <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>}
             </div>
           </div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LEN))}
-            placeholder="Write a message…"
-            style={styles.textarea}
-            rows={3}
-          />
-          {templateFailed && (
-            <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>
-          )}
-        </div>
+        ) : (
+          <div style={styles.inputCard}>
+            <div style={styles.inputLabelRow}>
+              <div style={styles.inputLabel}>Your message</div>
+              <div style={styles.charCount}>
+                {message.length}/{MAX_MESSAGE_LEN}
+              </div>
+            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LEN))}
+              placeholder="Write a message…"
+              style={styles.textarea}
+              rows={3}
+            />
+            {templateFailed && <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>}
+          </div>
+        )}
       </div>
     </div>
   )
