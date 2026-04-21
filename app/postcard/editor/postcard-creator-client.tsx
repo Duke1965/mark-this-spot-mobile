@@ -582,8 +582,9 @@ function Header({
         ...styles.header,
         ...(compact
           ? {
-              padding: "0.6rem 0.75rem",
-              paddingTop: "0.6rem",
+              padding: "0.4rem 0.6rem",
+              paddingTop: "0.4rem",
+              gap: "0.5rem",
             }
           : null),
       }}
@@ -592,7 +593,7 @@ function Header({
         <ArrowLeft size={20} />
         <span style={{ fontWeight: 700 }}>Back</span>
       </button>
-      <div style={styles.headerTitle}>{title}</div>
+      <div style={{ ...styles.headerTitle, ...(compact ? { fontSize: "1rem" } : null) }}>{title}</div>
       <div style={{ width: 72, display: "flex", justifyContent: "flex-end" }}>{right}</div>
     </div>
   )
