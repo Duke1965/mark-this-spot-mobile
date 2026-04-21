@@ -296,7 +296,7 @@ export default function PostcardCreatorClient() {
   if (!imageUrl) {
     return (
       <div style={styles.screen}>
-        <Header title="Postcard Editor" onBack={() => router.back()} right={<div style={{ width: 72 }} />} />
+        <Header title="Postcard Editor" onBack={() => router.back()} right={<div style={{ width: 72 }} />} compact={isLandscape} />
         <div style={styles.content}>
           <div style={styles.errorCard}>
             <div style={styles.errorTitle}>No image selected</div>
@@ -326,6 +326,7 @@ export default function PostcardCreatorClient() {
             Done
           </button>
         }
+        compact={isLandscape}
       />
 
       <div
@@ -333,6 +334,9 @@ export default function PostcardCreatorClient() {
           ...styles.content,
           flexDirection: isLandscape ? "row" : "column",
           alignItems: isLandscape ? "flex-start" : "stretch",
+          padding: isLandscape ? "0.6rem" : styles.content.padding,
+          gap: isLandscape ? "0.6rem" : styles.content.gap,
+          overflowY: isLandscape ? "hidden" : styles.content.overflowY,
         }}
       >
         {showRotateHint && !isLandscape && (
@@ -347,7 +351,22 @@ export default function PostcardCreatorClient() {
           </div>
         )}
         {showPhotoGestureHint && (
-          <div style={styles.hint} role="status" aria-live="polite">
+          <div
+            style={{
+              ...styles.hint,
+              ...(isLandscape
+                ? {
+                    maxWidth: "100%",
+                    width: "100%",
+                    padding: "0.55rem 0.7rem",
+                    borderRadius: 12,
+                    gap: 6,
+                  }
+                : null),
+            }}
+            role="status"
+            aria-live="polite"
+          >
             <div style={styles.hintTopRow}>
               <div style={styles.hintLabel}>💡 Hint</div>
               <button
@@ -359,12 +378,32 @@ export default function PostcardCreatorClient() {
                 Hide
               </button>
             </div>
-            <div style={styles.hintText}>Move your photo with 1 finger. Pinch with 2 fingers to resize and rotate it behind the frame.</div>
+            <div
+              style={{
+                ...styles.hintText,
+                ...(isLandscape ? { fontSize: "0.82rem", lineHeight: 1.25 } : null),
+              }}
+            >
+              Move your photo with 1 finger. Pinch with 2 fingers to resize and rotate it behind the frame.
+            </div>
           </div>
         )}
-        <div style={styles.postcardWrap}>
+        <div
+          style={{
+            ...styles.postcardWrap,
+            ...(isLandscape ? { flex: "1 1 auto", minWidth: 0 } : null),
+          }}
+        >
           <div
-            style={styles.postcard}
+            style={{
+              ...styles.postcard,
+              ...(isLandscape
+                ? {
+                    maxWidth: "min(68vw, 720px)",
+                    boxShadow: "0 14px 44px rgba(0,0,0,0.35)",
+                  }
+                : null),
+            }}
             onPointerDown={onPhotoPointerDown}
             onPointerMove={onPhotoPointerMove}
             onPointerUp={onPhotoPointerUp}
@@ -451,7 +490,20 @@ export default function PostcardCreatorClient() {
           </div>
         </div>
 
-        <div style={styles.inputCard}>
+        <div
+          style={{
+            ...(isLandscape
+              ? {
+                  width: "min(360px, 34vw)",
+                  maxWidth: "min(360px, 34vw)",
+                  alignSelf: "stretch",
+                  overflowY: "auto",
+                  maxHeight: "100%",
+                }
+              : null),
+            ...styles.inputCard,
+          }}
+        >
           <div style={styles.inputLabelRow}>
             <div style={styles.inputLabel}>Your message</div>
             <div style={styles.charCount}>
@@ -478,13 +530,25 @@ function Header({
   title,
   onBack,
   right,
+  compact,
 }: {
   title: string
   onBack: () => void
   right: React.ReactNode
+  compact?: boolean
 }) {
   return (
-    <div style={styles.header}>
+    <div
+      style={{
+        ...styles.header,
+        ...(compact
+          ? {
+              padding: "0.6rem 0.75rem",
+              paddingTop: "0.6rem",
+            }
+          : null),
+      }}
+    >
       <button onClick={onBack} style={styles.backBtn}>
         <ArrowLeft size={20} />
         <span style={{ fontWeight: 700 }}>Back</span>
