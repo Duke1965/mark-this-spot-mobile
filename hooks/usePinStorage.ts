@@ -233,6 +233,22 @@ export function usePinStorage() {
   const removePin = useCallback((pinId: string) => {
     setPins((prev) => prev.filter((pin) => pin.id !== pinId))
     console.log("🗑️ Pin removed:", pinId)
+
+    // Best-effort cloud delete (so library stays in sync across devices).
+    ;(async () => {
+      try {
+        const user: any = (auth as any)?.currentUser
+        if (!user?.getIdToken) return
+        const token = await user.getIdToken()
+        await fetch("/api/pins/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: pinId }),
+        })
+      } catch {
+        // ignore
+      }
+    })()
   }, [])
 
   const clearPins = useCallback(() => {
