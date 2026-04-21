@@ -93,6 +93,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             cursor: 'pointer',
             opacity: 0.9,
+            display: 'flex',
+            flexDirection: 'column',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
@@ -150,12 +152,19 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             </div>
           </div>
           
-          {onPinDelete ? (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          {/* Date line */}
+          <div style={{ marginTop: 12, fontSize: '12px', opacity: 0.8 }}>
+            {new Date(item.timestamp).toLocaleDateString()}
+          </div>
+
+          {/* Bottom row: left tags (none for pending), right actions */}
+          <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+            <div />
+            {onPinDelete ? (
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation() // Prevent card click
+                  e.stopPropagation()
                   if (confirm('Remove this pin from your library?')) {
                     onPinDelete(item.id)
                   }
@@ -171,8 +180,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 <Trash2 size={14} />
                 Remove
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       )
     }
@@ -207,7 +216,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           transition: 'all 0.2s ease',
           boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
           cursor: 'pointer',
-          position: 'relative'
+          display: 'flex',
+          flexDirection: 'column',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
@@ -220,7 +230,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
+        {/* Card content */}
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px' }}>
           {/* Thumbnail image - matches AI Recommendations style */}
           <div style={{
             width: '60px',
@@ -353,17 +364,34 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           </p>
         )}
         
-        {/* Bottom section - Date and Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
-              <Calendar size={12} style={{ display: "inline", marginRight: "4px" }} />
-              {new Date(item.timestamp).toLocaleDateString()}
-            </span>
+        {/* Date line */}
+        <div style={{ marginTop: 8, fontSize: '11px', opacity: 0.8, whiteSpace: 'nowrap' }}>
+          <Calendar size={12} style={{ display: "inline", marginRight: "4px" }} />
+          {new Date(item.timestamp).toLocaleDateString()}
+        </div>
+
+        {/* Bottom row: left tags, right actions (sits at bottom of card) */}
+        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {(item.tags && item.tags.length > 0 ? item.tags.slice(0, 3) : []).map((tag: string, index: number) => (
+              <span
+                key={index}
+                style={{
+                  fontSize: '11px',
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  color: 'rgba(255,255,255,0.8)'
+                }}
+              >
+                #{tag}
+              </span>
+            ))}
           </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-            <button 
+
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 onPinSelect(item)
@@ -388,6 +416,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             >
               📍 View
             </button>
+
             {onPinDelete ? (
               <button
                 type="button"
@@ -411,26 +440,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             ) : null}
           </div>
         </div>
-        
-        {/* Tags */}
-        {item.tags && item.tags.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.25rem', marginTop: '8px', flexWrap: 'wrap' }}>
-            {item.tags.slice(0, 3).map((tag: string, index: number) => (
-              <span
-                key={index}
-                style={{
-                  fontSize: '11px',
-                  background: 'rgba(255,255,255,0.1)',
-                  padding: '4px 8px',
-                  borderRadius: '8px',
-                  color: 'rgba(255,255,255,0.8)'
-                }}
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     )
   }
