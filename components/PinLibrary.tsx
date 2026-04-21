@@ -131,13 +131,13 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                   PINNED
                 </h4>
                 <span style={{
-                  background: 'rgba(255, 165, 0, 0.3)',
-                  color: '#FFA500',
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  color: '#EF4444',
                   padding: '4px 10px',
                   borderRadius: '12px',
                   fontSize: '11px',
                   fontWeight: '600',
-                  border: '1px solid rgba(255, 165, 0, 0.5)'
+                  border: '1px solid rgba(239, 68, 68, 0.35)'
                 }}>
                   Pending
                 </span>
