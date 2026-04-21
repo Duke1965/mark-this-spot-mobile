@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
-import { getAdminAuth, getAdminFirestore } from "@/lib/firebaseAdmin"
+import { getAdminApp, getAdminFirestore } from "@/lib/firebaseAdmin"
+import { getAuth } from "firebase-admin/auth"
 
 export const runtime = "nodejs"
 
 async function getUidFromRequest(req: Request): Promise<string | null> {
-  const auth = getAdminAuth()
-  if (!auth) return null
+  const app = getAdminApp()
+  if (!app) return null
+  const auth = getAuth(app)
   const header = req.headers.get("authorization") || ""
   const token = header.replace(/^Bearer\s+/i, "").trim()
   if (!token) return null
