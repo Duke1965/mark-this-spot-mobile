@@ -207,7 +207,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           backdropFilter: 'blur(15px)',
           transition: 'all 0.2s ease',
           boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          position: 'relative'
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
@@ -220,6 +221,45 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
         }}
       >
+        {/* Delete Button */}
+        {onPinDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (confirm('Remove this pin from your library?')) {
+                onPinDelete(item.id)
+              }
+            }}
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              background: 'rgba(239, 68, 68, 0.9)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              color: 'white',
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s ease',
+              zIndex: 10,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 1)'
+              e.currentTarget.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
+          >
+            <Trash2 size={14} />
+            Remove
+          </button>
+        )}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
           {/* Thumbnail image - matches AI Recommendations style */}
           <div style={{
