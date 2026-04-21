@@ -30,6 +30,22 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
   const [searchTerm, setSearchTerm] = useState("")
   const [currentTab, setCurrentTab] = useState<"pins" | "recommended">("pins")
 
+  // Match the Recommendations list button styling.
+  const removeBtnStyle: React.CSSProperties = {
+    background: 'rgba(239, 68, 68, 0.18)',
+    border: '1px solid rgba(239, 68, 68, 0.35)',
+    borderRadius: '6px',
+    padding: '4px 8px',
+    color: 'white',
+    fontSize: '11px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px'
+  }
+
   const getTabData = () => {
     console.log("🔍 Current tab:", currentTab, "Total pins:", pins.length)
     console.log("📌 Sample pins:", pins.slice(0, 2))
@@ -135,45 +151,29 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             </div>
           </div>
           
-          {/* Delete Button */}
-          {onPinDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation() // Prevent card click
-                if (confirm('Are you sure you want to delete this pin?')) {
-                  onPinDelete(item.id)
-                }
-              }}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                background: 'rgba(239, 68, 68, 0.9)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                padding: '6px 10px',
-                color: 'white',
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                transition: 'all 0.2s ease',
-                zIndex: 10
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(239, 68, 68, 1)'
-                e.currentTarget.style.transform = 'scale(1.05)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'
-                e.currentTarget.style.transform = 'scale(1)'
-              }}
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-          )}
+          {onPinDelete ? (
+            <div style={{ position: 'absolute', top: 12, right: 12 }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation() // Prevent card click
+                  if (confirm('Remove this pin from your library?')) {
+                    onPinDelete(item.id)
+                  }
+                }}
+                style={removeBtnStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+                }}
+              >
+                <Trash2 size={14} />
+                Remove
+              </button>
+            </div>
+          ) : null}
         </div>
       )
     }
@@ -221,45 +221,29 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
         }}
       >
-        {/* Delete Button */}
-        {onPinDelete && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              if (confirm('Remove this pin from your library?')) {
-                onPinDelete(item.id)
-              }
-            }}
-            style={{
-              position: 'absolute',
-              top: '12px',
-              right: '12px',
-              background: 'rgba(239, 68, 68, 0.9)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              color: 'white',
-              fontSize: '12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.2s ease',
-              zIndex: 10,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 1)'
-              e.currentTarget.style.transform = 'scale(1.05)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-          >
-            <Trash2 size={14} />
-            Remove
-          </button>
-        )}
+        {onPinDelete ? (
+          <div style={{ position: 'absolute', top: 12, right: 12 }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm('Remove this pin from your library?')) {
+                  onPinDelete(item.id)
+                }
+              }}
+              style={removeBtnStyle}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+              }}
+            >
+              <Trash2 size={14} />
+              Remove
+            </button>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
           {/* Thumbnail image - matches AI Recommendations style */}
           <div style={{
