@@ -93,7 +93,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             cursor: 'pointer',
             opacity: 0.9,
-            position: 'relative' // For absolute positioning of delete button
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
@@ -152,7 +151,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           </div>
           
           {onPinDelete ? (
-            <div style={{ position: 'absolute', top: 12, right: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
               <button
                 type="button"
                 onClick={(e) => {
@@ -221,29 +220,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
         }}
       >
-        {onPinDelete ? (
-          <div style={{ position: 'absolute', top: 12, right: 12 }}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (confirm('Remove this pin from your library?')) {
-                  onPinDelete(item.id)
-                }
-              }}
-              style={removeBtnStyle}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
-              }}
-            >
-              <Trash2 size={14} />
-              Remove
-            </button>
-          </div>
-        ) : null}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
           {/* Thumbnail image - matches AI Recommendations style */}
           <div style={{
@@ -386,7 +362,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             </span>
           </div>
           
-          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
             <button 
               onClick={(e) => {
                 e.stopPropagation()
@@ -412,6 +388,27 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             >
               📍 View
             </button>
+            {onPinDelete ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (confirm('Remove this pin from your library?')) {
+                    onPinDelete(item.id)
+                  }
+                }}
+                style={removeBtnStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+                }}
+              >
+                <Trash2 size={14} />
+                Remove
+              </button>
+            ) : null}
           </div>
         </div>
         
