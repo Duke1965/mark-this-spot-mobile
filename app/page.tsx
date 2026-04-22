@@ -4325,8 +4325,7 @@ export default function PINITApp() {
                       fontSize: "1rem",
                       fontWeight: 950,
                       letterSpacing: "0.2px",
-                      textShadow:
-                        "0 0 14px rgba(0,0,0,0.75), 0 0 28px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.65)",
+                      textShadow: "0 2px 2px rgba(0,0,0,0.82), 0 0 10px rgba(0,0,0,0.32)",
                     }}
                   >
                     Tap to PIN this spot
@@ -4337,7 +4336,7 @@ export default function PINITApp() {
                       fontSize: "0.78rem",
                       opacity: 0.92,
                       fontWeight: 750,
-                      textShadow: "0 0 12px rgba(0,0,0,0.65), 0 0 22px rgba(0,0,0,0.45), 0 3px 12px rgba(0,0,0,0.55)",
+                      textShadow: "0 2px 2px rgba(0,0,0,0.78), 0 0 8px rgba(0,0,0,0.28)",
                     }}
                   >
                     Save places as you pass them
@@ -4347,7 +4346,7 @@ export default function PINITApp() {
                       marginTop: "0.4rem",
                       fontSize: "0.72rem",
                       opacity: 0.9,
-                      textShadow: "0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4), 0 3px 12px rgba(0,0,0,0.5)",
+                      textShadow: "0 2px 2px rgba(0,0,0,0.72), 0 0 8px rgba(0,0,0,0.24)",
                     }}
                   >
                     {getVoiceHintText()}
