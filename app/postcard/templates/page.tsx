@@ -1,12 +1,37 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import DraftExitDialog from "../_components/DraftExitDialog"
 
 const TEMPLATES = ["template-1", "template-2", "template-3", "template-4"] as const
+const DRAFT_KEY = "pinit-postcard-draft-v1"
 
 export default function PostcardTemplatesPage() {
   const router = useRouter()
+  const [exitOpen, setExitOpen] = useState(false)
+  const [hasDraft, setHasDraft] = useState(false)
+
+  useEffect(() => {
+    try {
+      setHasDraft(!!sessionStorage.getItem(DRAFT_KEY))
+    } catch {
+      setHasDraft(false)
+    }
+  }, [])
+
+  const exitToHome = () => {
+    router.push("/")
+  }
+
+  const onBack = () => {
+    if (hasDraft) {
+      setExitOpen(true)
+      return
+    }
+    exitToHome()
+  }
 
   return (
     <div
@@ -34,7 +59,7 @@ export default function PostcardTemplatesPage() {
         }}
       >
         <button
-          onClick={() => router.back()}
+          onClick={onBack}
           style={{
             background: "transparent",
             border: "none",
@@ -114,6 +139,25 @@ export default function PostcardTemplatesPage() {
           </div>
         </div>
       </div>
+
+      <DraftExitDialog
+        open={exitOpen}
+        onSave={() => {
+          // Draft already lives in sessionStorage; keep it and exit.
+          setExitOpen(false)
+          exitToHome()
+        }}
+        onDiscard={() => {
+          try {
+            sessionStorage.removeItem(DRAFT_KEY)
+          } catch {
+            // ignore
+          }
+          setExitOpen(false)
+          exitToHome()
+        }}
+        onCancel={() => setExitOpen(false)}
+      />
     </div>
   )
 }
