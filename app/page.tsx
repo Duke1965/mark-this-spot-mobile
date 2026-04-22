@@ -4202,24 +4202,11 @@ export default function PINITApp() {
                 overflow: "hidden",
                 zIndex: 1,
                 background: "var(--pinit-bg)",
-                // Make it feel like a muted "capture" preview, not a browsable map.
-                filter: "saturate(0.65) contrast(0.85) brightness(0.75)",
               }}
             >
               <InteractiveMainMap
                 lat={userLocation?.latitude || location?.latitude || -25.7479}
                 lng={userLocation?.longitude || location?.longitude || 28.2293}
-              />
-
-              {/* Subtle dark overlay to de-emphasize the map */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.22)",
-                  zIndex: 2,
-                  pointerEvents: "none",
-                }}
               />
 
               {/* Speed-based pinning indicator */}
@@ -4333,11 +4320,36 @@ export default function PINITApp() {
                     pointerEvents: "none",
                   }}
                 >
-                  <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.2px" }}>Tap to PINIT this spot</div>
-                  <div style={{ marginTop: "0.25rem", fontSize: "0.78rem", opacity: 0.92, fontWeight: 700 }}>
+                  <div
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 950,
+                      letterSpacing: "0.2px",
+                      textShadow:
+                        "0 0 10px rgba(0,0,0,0.55), 0 0 18px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.45)",
+                    }}
+                  >
+                    Tap to PIN this spot
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "0.25rem",
+                      fontSize: "0.78rem",
+                      opacity: 0.92,
+                      fontWeight: 750,
+                      textShadow: "0 0 10px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.35)",
+                    }}
+                  >
                     Save places as you pass them
                   </div>
-                  <div style={{ marginTop: "0.4rem", fontSize: "0.72rem", opacity: 0.9 }}>
+                  <div
+                    style={{
+                      marginTop: "0.4rem",
+                      fontSize: "0.72rem",
+                      opacity: 0.9,
+                      textShadow: "0 0 10px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3)",
+                    }}
+                  >
                     {getVoiceHintText()}
                   </div>
                 </div>
