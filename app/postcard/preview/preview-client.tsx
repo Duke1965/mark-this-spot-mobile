@@ -7,6 +7,7 @@ import { getTemplateConfig } from "../editor/template-config"
 import { Caveat } from "next/font/google"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { auth } from "@/lib/firebase"
+import { usePostcardExit } from "../_components/usePostcardExit"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -17,6 +18,7 @@ type DraftSource = "camera" | "gallery" | "unknown"
 
 export default function PreviewClient() {
   const router = useRouter()
+  const { handleExit, exitDialog } = usePostcardExit({ router })
   const searchParams = useSearchParams()
   const templateParam = (searchParams.get("template") || "").trim()
   const template = useMemo(() => (ALLOWED_TEMPLATES.has(templateParam) ? templateParam : "template-1"), [templateParam])
@@ -595,7 +597,7 @@ export default function PreviewClient() {
                     border: "1px solid rgba(255,255,255,0.28)",
                   }}
                   onClick={() => {
-                    router.push("/")
+            handleExit(() => router.push("/"))
                   }}
                 >
                   Done (Back to Home)
@@ -605,6 +607,8 @@ export default function PreviewClient() {
           ) : null}
         </div>
       </div>
+
+      {exitDialog}
     </div>
   )
 }
