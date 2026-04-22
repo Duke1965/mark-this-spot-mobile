@@ -205,7 +205,7 @@ function InteractiveMainMap({
     <MapboxMap
       center={{ lat, lng }}
       zoom={13}
-      interactive={true}
+      interactive={false}
       // Keep the main "Shazam circle" map clean (no POI markers here).
       showPOIs={false}
     />
@@ -792,11 +792,11 @@ export default function PINITApp() {
   }
 
   const getVoiceHintText = () => {
-    if (typeof window === "undefined") return 'Or say: “Hey Siri / Hey Google, pin this spot.”'
+    if (typeof window === "undefined") return "Or say 'Hey Siri / Hey Google, pin this spot'"
     const ua = navigator.userAgent || ""
-    if (/iPhone|iPad|iPod/i.test(ua)) return 'Or say: “Hey Siri, pin this spot.”'
-    if (/Android/i.test(ua)) return 'Or say: “Hey Google, pin this spot.”'
-    return 'Or say: “Hey Siri / Hey Google, pin this spot.”'
+    if (/iPhone|iPad|iPod/i.test(ua)) return "Or say 'Hey Siri, pin this spot'"
+    if (/Android/i.test(ua)) return "Or say 'Hey Google, pin this spot'"
+    return "Or say 'Hey Siri / Hey Google, pin this spot'"
   }
 
   // Retry logic with exponential backoff
@@ -4202,11 +4202,24 @@ export default function PINITApp() {
                 overflow: "hidden",
                 zIndex: 1,
                 background: "var(--pinit-bg)",
+                // Make it feel like a muted "capture" preview, not a browsable map.
+                filter: "saturate(0.65) contrast(0.85) brightness(0.75)",
               }}
             >
               <InteractiveMainMap
                 lat={userLocation?.latitude || location?.latitude || -25.7479}
                 lng={userLocation?.longitude || location?.longitude || 28.2293}
+              />
+
+              {/* Subtle dark overlay to de-emphasize the map */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.22)",
+                  zIndex: 2,
+                  pointerEvents: "none",
+                }}
               />
 
               {/* Speed-based pinning indicator */}
@@ -4309,28 +4322,24 @@ export default function PINITApp() {
                   size={48}
                   style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))" }}
                 />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Tap to pin this place
-                </span>
                 <div
                   style={{
-                    marginTop: "0.55rem",
-                    fontSize: "0.75rem",
-                    opacity: 0.9,
-                    textShadow: "0 2px 6px rgba(0,0,0,0.45)",
+                    color: "white",
+                    textShadow: "0 2px 6px rgba(0,0,0,0.65)",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "0.25rem",
                     maxWidth: 220,
                     lineHeight: 1.25,
                     pointerEvents: "none",
                   }}
                 >
-                  {getVoiceHintText()}
+                  <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.2px" }}>Tap to PINIT this spot</div>
+                  <div style={{ marginTop: "0.25rem", fontSize: "0.78rem", opacity: 0.92, fontWeight: 700 }}>
+                    Save places as you pass them
+                  </div>
+                  <div style={{ marginTop: "0.4rem", fontSize: "0.72rem", opacity: 0.9 }}>
+                    {getVoiceHintText()}
+                  </div>
                 </div>
               </>
             )}
