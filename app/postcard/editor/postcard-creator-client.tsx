@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
+import { usePostcardExit } from "../_components/usePostcardExit"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -17,6 +18,7 @@ const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
+  const { handleExit, exitDialog } = usePostcardExit({ router })
   const searchParams = useSearchParams()
   const templateParam = (searchParams.get("template") || "").trim()
 
@@ -298,7 +300,7 @@ export default function PostcardCreatorClient() {
       <div style={styles.screen}>
         <Header
           title="Postcard Editor"
-          onBack={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)}
+          onBack={() => handleExit(() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`))}
           right={<div style={{ width: 72 }} />}
           compact={isLandscape}
         />
@@ -314,6 +316,7 @@ export default function PostcardCreatorClient() {
             </button>
           </div>
         </div>
+        {exitDialog}
       </div>
     )
   }
@@ -323,8 +326,10 @@ export default function PostcardCreatorClient() {
       <Header
         title="Postcard Editor"
         onBack={() => {
-          saveDraft()
-          router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
+          handleExit(() => {
+            saveDraft()
+            router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
+          })
         }}
         right={
           <button type="button" onClick={onDone} style={styles.doneBtn}>
@@ -566,6 +571,8 @@ export default function PostcardCreatorClient() {
           </div>
         )}
       </div>
+
+      {exitDialog}
     </div>
   )
 }
