@@ -296,7 +296,12 @@ export default function PostcardCreatorClient() {
   if (!imageUrl) {
     return (
       <div style={styles.screen}>
-        <Header title="Postcard Editor" onBack={() => router.back()} right={<div style={{ width: 72 }} />} compact={isLandscape} />
+        <Header
+          title="Postcard Editor"
+          onBack={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)}
+          right={<div style={{ width: 72 }} />}
+          compact={isLandscape}
+        />
         <div style={styles.content}>
           <div style={styles.errorCard}>
             <div style={styles.errorTitle}>No image selected</div>
