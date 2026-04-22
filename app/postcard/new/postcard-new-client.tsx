@@ -172,7 +172,7 @@ export default function PostcardNewClient() {
         }}
       >
         <button
-          onClick={() => (mode === "camera" ? setMode("chooser") : router.back())}
+          onClick={() => (mode === "camera" ? setMode("chooser") : router.push("/postcard/templates"))}
           style={{
             background: "transparent",
             border: "none",
