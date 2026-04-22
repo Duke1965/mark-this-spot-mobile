@@ -766,27 +766,29 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     {loading ? "⏳" : <GoogleLogo />} Continue with Google
                   </button>
 
-                  <button
-                    onClick={handleFacebookLogin}
-                    disabled={loading}
-                    style={{
-                      background: "#1877F2",
-                      color: "white",
-                      padding: "1rem 2rem",
-                      borderRadius: "0.5rem",
-                      border: "none",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      fontSize: "1.1rem",
-                      fontWeight: "bold",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.5rem",
-                      opacity: loading ? 0.6 : 1
-                    }}
-                  >
-                    {loading ? "⏳" : <FacebookLogo />} Continue with Facebook
-                  </button>
+                  {showInternalTools ? (
+                    <button
+                      onClick={handleFacebookLogin}
+                      disabled={loading}
+                      style={{
+                        background: "#1877F2",
+                        color: "white",
+                        padding: "1rem 2rem",
+                        borderRadius: "0.5rem",
+                        border: "none",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        fontSize: "1.1rem",
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        opacity: loading ? 0.6 : 1
+                      }}
+                    >
+                      {loading ? "⏳" : <FacebookLogo />} Continue with Facebook
+                    </button>
+                  ) : null}
 
                   <div style={{ 
                     display: "flex", 
