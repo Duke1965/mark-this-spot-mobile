@@ -457,8 +457,8 @@ export default function PreviewClient() {
                       position: "absolute",
                       left: `${s.x}%`,
                       top: `${s.y}%`,
-                      width: 96,
-                      height: 96,
+                      width: 120,
+                      height: 120,
                       transform: `translate(-50%, -50%) scale(${s.scale}) rotate(${s.rotation}deg)`,
                       transformOrigin: "center center",
                     }}
