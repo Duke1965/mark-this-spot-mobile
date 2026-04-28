@@ -569,7 +569,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Settings</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Manage your PINIT account and preferences.
+              Manage your PINIT account.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
