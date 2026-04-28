@@ -25,19 +25,25 @@ export type PostcardTemplateConfig = {
 
 export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig> = {
   "template-1": {
+    textStyle: {
+      lineHeight: 1.52,
+    },
     textArea: {
-      top: "calc(44% - 18px)",
+      top: "calc(44% - 22px)",
       left: "calc(52% + 15px)",
-      width: "40%",
+      width: "38%",
       height: "44%",
       align: "left",
     },
   },
   "template-2": {
+    textStyle: {
+      lineHeight: 1.52,
+    },
     textArea: {
-      top: "calc(44% - 6px)",
+      top: "calc(44% - 10px)",
       left: "calc(52% + 10px)",
-      width: "40%",
+      width: "38%",
       height: "44%",
       align: "left",
     },
@@ -53,21 +59,24 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
     },
     textStyle: {
       fontSize: "clamp(16px, 2.2vw, 20px)",
-      lineHeight: 1.7,
+      lineHeight: 1.6,
     },
     textArea: {
-      top: "calc(44% + 2px)",
+      top: "calc(44% - 2px)",
       left: "calc(7% + 27px)",
-      width: "40%",
+      width: "38%",
       height: "44%",
       align: "left",
     },
   },
   "template-4": {
+    textStyle: {
+      lineHeight: 1.52,
+    },
     textArea: {
-      top: "calc(44% - 24px)",
+      top: "calc(44% - 28px)",
       left: "calc(52% + 8px)",
-      width: "40%",
+      width: "38%",
       height: "44%",
       align: "left",
     },
