@@ -4316,7 +4316,7 @@ export default function PINITApp() {
                     padding: "0.25rem 0.5rem",
                     borderRadius: "0.25rem",
                     maxWidth: 220,
-                    lineHeight: 1.25,
+                    lineHeight: 1.4,
                     pointerEvents: "none",
                   }}
                 >
@@ -4332,8 +4332,8 @@ export default function PINITApp() {
                   </div>
                   <div
                     style={{
-                      marginTop: "0.25rem",
-                      fontSize: "0.78rem",
+                      marginTop: "0.35rem",
+                      fontSize: "1rem",
                       opacity: 0.92,
                       fontWeight: 750,
                       textShadow: "0 2px 2px rgba(0,0,0,0.78), 0 0 8px rgba(0,0,0,0.28)",
@@ -4343,8 +4343,8 @@ export default function PINITApp() {
                   </div>
                   <div
                     style={{
-                      marginTop: "0.4rem",
-                      fontSize: "0.72rem",
+                      marginTop: "0.45rem",
+                      fontSize: "1rem",
                       opacity: 0.9,
                       textShadow: "0 2px 2px rgba(0,0,0,0.72), 0 0 8px rgba(0,0,0,0.24)",
                     }}
