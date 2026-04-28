@@ -40,6 +40,7 @@ export default function StickerStudioClient() {
   const templateConfig = useMemo(() => getTemplateConfig(template), [template])
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [noPhoto, setNoPhoto] = useState(false)
   const [message, setMessage] = useState("")
   const [photoTransform, setPhotoTransform] = useState<Required<DraftTransform>>({
     tx: 0,
@@ -111,11 +112,13 @@ export default function StickerStudioClient() {
       if (!raw) return
       const parsed = JSON.parse(raw) as {
         imageUrl?: string
+        noPhoto?: boolean
         message?: string
         transform?: DraftTransform
         stickers?: Array<Partial<StickerItem>>
       }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
+      if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
       if (typeof parsed?.message === "string") setMessage(parsed.message)
       if (parsed?.transform) {
         setPhotoTransform({
@@ -370,20 +373,6 @@ export default function StickerStudioClient() {
     }
   }
 
-  if (!imageUrl) {
-    return (
-      <div style={styles.screen}>
-          <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
-        <div style={styles.center}>
-          <div style={styles.emptyCard}>
-            <div style={styles.emptyTitle}>No image selected</div>
-            <div style={styles.emptyText}>Go back to the editor and choose a photo first.</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div style={styles.screen}>
       <TopBar title="Decorate Your Postcard" onBack={onBack} onDone={onDone} onRemove={activeStickerId ? removeActiveSticker : undefined} />
@@ -417,15 +406,22 @@ export default function StickerStudioClient() {
                   : null),
               }}
             >
-              <img
-                src={imageUrl}
-                alt="Postcard background"
-                style={{
-                  ...styles.bgImage,
-                  transform: `translate3d(${photoTransform.tx}px, ${photoTransform.ty}px, 0) scale(${photoTransform.scale}) rotate(${photoTransform.rotation}deg)`,
-                }}
-                draggable={false}
-              />
+              {imageUrl && !noPhoto ? (
+                <img
+                  src={imageUrl}
+                  alt="Postcard background"
+                  style={{
+                    ...styles.bgImage,
+                    transform: `translate3d(${photoTransform.tx}px, ${photoTransform.ty}px, 0) scale(${photoTransform.scale}) rotate(${photoTransform.rotation}deg)`,
+                  }}
+                  draggable={false}
+                />
+              ) : (
+                <div style={styles.bgPlaceholder}>
+                  <div style={{ fontSize: "2.25rem" }}>📮</div>
+                  <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No photo</div>
+                </div>
+              )}
             </div>
 
             {/* Template overlay */}
@@ -708,6 +704,16 @@ const styles: Record<string, any> = {
     userSelect: "none",
     WebkitUserSelect: "none",
     WebkitTouchCallout: "none",
+  },
+  bgPlaceholder: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(0,0,0,0.35)",
+    pointerEvents: "none",
   },
   template: {
     position: "absolute",
