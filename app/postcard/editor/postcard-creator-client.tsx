@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ImageMinus, ImageUp } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
@@ -29,6 +29,7 @@ export default function PostcardCreatorClient() {
   const templateConfig = useMemo(() => getTemplateConfig(template), [template])
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [noPhoto, setNoPhoto] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
   const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
@@ -42,6 +43,9 @@ export default function PostcardCreatorClient() {
   const [ty, setTy] = useState(0)
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0) // degrees
+
+  const [isReplacingPhoto, setIsReplacingPhoto] = useState(false)
+  const photoFileInputRef = useRef<HTMLInputElement>(null)
 
   const debugIdRef = useRef<string>("")
   const lastLogRef = useRef<number>(0)
@@ -106,10 +110,12 @@ export default function PostcardCreatorClient() {
       if (!raw) return
       const parsed = JSON.parse(raw) as {
         imageUrl?: string
+        noPhoto?: boolean
         message?: string
         transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
       }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
+      if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
       if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
       if (parsed?.transform) {
         if (typeof parsed.transform.tx === "number") setTx(parsed.transform.tx)
@@ -121,6 +127,16 @@ export default function PostcardCreatorClient() {
       // ignore
     }
   }, [])
+
+  const updateDraft = (overrides: Record<string, unknown>) => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      const base = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...base, ...overrides }))
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     setHintsEnabled(getHintsEnabled())
@@ -179,6 +195,116 @@ export default function PostcardCreatorClient() {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next))
     } catch {
       // ignore
+    }
+  }
+
+  const normalizeImageToJpegDataUrl = async (src: { file?: File; url?: string }) => {
+    const MAX_DIM = 1600
+    const JPEG_QUALITY = 0.86
+
+    let objectUrl: string | null = null
+    try {
+      const url = src.file ? (objectUrl = URL.createObjectURL(src.file)) : String(src.url || "")
+      if (!url) throw new Error("Missing image")
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.decoding = "async"
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error("Failed to load image"))
+        el.src = url
+      })
+
+      const w = img.naturalWidth || img.width || 0
+      const h = img.naturalHeight || img.height || 0
+      if (!w || !h) throw new Error("Invalid image dimensions")
+
+      const scale = Math.min(1, MAX_DIM / Math.max(w, h))
+      const outW = Math.max(1, Math.round(w * scale))
+      const outH = Math.max(1, Math.round(h * scale))
+
+      const canvas = document.createElement("canvas")
+      canvas.width = outW
+      canvas.height = outH
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("Canvas not available")
+      ctx.drawImage(img, 0, 0, outW, outH)
+
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY))
+      if (!blob) return canvas.toDataURL("image/jpeg", JPEG_QUALITY)
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : "")
+        r.onerror = () => reject(new Error("Failed to encode image"))
+        r.readAsDataURL(blob)
+      })
+      if (!dataUrl) throw new Error("Failed to encode image")
+      return dataUrl
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }
+
+  const createBlankJpegDataUrl = () => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 8
+    canvas.height = 8
+    const ctx = canvas.getContext("2d")
+    if (ctx) {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+    return canvas.toDataURL("image/jpeg", 0.9)
+  }
+
+  const resetTransformDefaults = () => {
+    setTx(0)
+    setTy(0)
+    setScale(1)
+    setRotation(0)
+  }
+
+  const onRemovePhoto = () => {
+    const blank = createBlankJpegDataUrl()
+    setNoPhoto(true)
+    setImageFailed(false)
+    setImageUrl(blank)
+    resetTransformDefaults()
+    updateDraft({
+      imageUrl: blank,
+      noPhoto: true,
+      message,
+      transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
+    })
+  }
+
+  const onChooseAnotherPhoto = () => {
+    photoFileInputRef.current?.click()
+  }
+
+  const onPhotoFileSelected: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const file = e.target.files?.[0]
+    e.currentTarget.value = ""
+    if (!file) return
+
+    setIsReplacingPhoto(true)
+    try {
+      const normalized = await normalizeImageToJpegDataUrl({ file })
+      setNoPhoto(false)
+      setImageFailed(false)
+      setImageUrl(normalized)
+      resetTransformDefaults()
+      updateDraft({
+        imageUrl: normalized,
+        noPhoto: false,
+        message,
+        transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
+      })
+    } catch {
+      // ignore
+    } finally {
+      setIsReplacingPhoto(false)
     }
   }
 
@@ -295,32 +421,6 @@ export default function PostcardCreatorClient() {
     }
   }
 
-  if (!imageUrl) {
-    return (
-      <div style={styles.screen}>
-        <Header
-          title="Postcard Editor"
-          onBack={() => handleExit(() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`))}
-          right={<div style={{ width: 72 }} />}
-          compact={isLandscape}
-        />
-        <div style={styles.content}>
-          <div style={styles.errorCard}>
-            <div style={styles.errorTitle}>No image selected</div>
-            <div style={styles.errorText}>Go back and choose a photo first.</div>
-            <button
-              style={styles.primaryButton}
-              onClick={() => router.push(`/postcard/new?template=${encodeURIComponent(template)}`)}
-            >
-              Choose Photo
-            </button>
-          </div>
-        </div>
-        {exitDialog}
-      </div>
-    )
-  }
-
   return (
     <div style={styles.screen}>
       <Header
@@ -417,7 +517,7 @@ export default function PostcardCreatorClient() {
               <div
                 style={styles.photoStage}
               >
-                {imageUrl && !imageFailed ? (
+                {imageUrl && !noPhoto && !imageFailed ? (
                   <img
                     src={imageUrl}
                     alt="Postcard background"
@@ -440,7 +540,7 @@ export default function PostcardCreatorClient() {
                 ) : (
                   <div style={styles.bgPlaceholder}>
                     <div style={{ fontSize: "2.25rem" }}>📮</div>
-                    <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No image</div>
+                    <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No photo</div>
                   </div>
                 )}
               </div>
@@ -549,6 +649,16 @@ export default function PostcardCreatorClient() {
                 style={styles.textarea}
                 rows={6}
               />
+              <div style={styles.photoActionsRow}>
+                <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
+                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose Another Photo"}
+                </button>
+                {!noPhoto && imageUrl ? (
+                  <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
+                    <ImageMinus size={16} /> Remove Photo
+                  </button>
+                ) : null}
+              </div>
               {templateFailed && <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>}
             </div>
           </div>
@@ -567,10 +677,28 @@ export default function PostcardCreatorClient() {
               style={styles.textarea}
               rows={3}
             />
+            <div style={styles.photoActionsRow}>
+              <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
+                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose Another Photo"}
+              </button>
+              {!noPhoto && imageUrl ? (
+                <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
+                  <ImageMinus size={16} /> Remove Photo
+                </button>
+              ) : null}
+            </div>
             {templateFailed && <div style={styles.note}>Template missing: add `public/postcards/template-1.png`.</div>}
           </div>
         )}
       </div>
+
+      <input
+        ref={photoFileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={onPhotoFileSelected}
+      />
 
       {exitDialog}
     </div>
@@ -863,6 +991,36 @@ const styles: Record<string, any> = {
     resize: "none",
     pointerEvents: "auto",
     touchAction: "manipulation",
+  },
+  photoActionsRow: {
+    marginTop: 10,
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoActionBtn: {
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    color: "white",
+    fontWeight: 900,
+    borderRadius: 12,
+    padding: "0.55rem 0.7rem",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  photoActionBtnDanger: {
+    background: "rgba(239,68,68,0.18)",
+    border: "1px solid rgba(239,68,68,0.32)",
+    color: "white",
+    fontWeight: 900,
+    borderRadius: 12,
+    padding: "0.55rem 0.7rem",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
   },
   note: {
     marginTop: 10,
