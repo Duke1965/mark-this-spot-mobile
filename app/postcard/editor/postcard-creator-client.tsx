@@ -13,7 +13,6 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 160
-const ROTATE_HINT_KEY = "pinit-postcard-rotate-hint-shown-v1"
 const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
@@ -33,10 +32,10 @@ export default function PostcardCreatorClient() {
   const [imageFailed, setImageFailed] = useState(false)
   const [templateFailed, setTemplateFailed] = useState(false)
   const [message, setMessage] = useState("")
-  const [showRotateHint, setShowRotateHint] = useState(false)
   const [showPhotoGestureHint, setShowPhotoGestureHint] = useState(false)
   const [hintsEnabled, setHintsEnabled] = useState(true)
-  const [isLandscape, setIsLandscape] = useState(false)
+  // V1: portrait-only creation flow
+  const isLandscape = false
 
   // Photo transform state (creation editor only)
   const [tx, setTx] = useState(0)
@@ -146,19 +145,6 @@ export default function PostcardCreatorClient() {
     try {
       if (typeof window === "undefined") return
       if (!hintsEnabled) return
-      if (sessionStorage.getItem(ROTATE_HINT_KEY)) return
-      sessionStorage.setItem(ROTATE_HINT_KEY, "1")
-      setShowRotateHint(true)
-      return
-    } catch {
-      return
-    }
-  }, [hintsEnabled])
-
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return
-      if (!hintsEnabled) return
       if (sessionStorage.getItem(PHOTO_GESTURE_HINT_KEY)) return
       sessionStorage.setItem(PHOTO_GESTURE_HINT_KEY, "1")
       setShowPhotoGestureHint(true)
@@ -167,21 +153,6 @@ export default function PostcardCreatorClient() {
       return
     }
   }, [hintsEnabled])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const mql = window.matchMedia?.("(orientation: landscape)")
-    const update = () => setIsLandscape(!!mql?.matches)
-    update()
-    if (!mql) return
-    // Safari iOS uses addListener/removeListener; modern browsers use addEventListener.
-    if (typeof mql.addListener === "function") mql.addListener(update)
-    else mql.addEventListener?.("change", update)
-    return () => {
-      if (typeof mql.removeListener === "function") mql.removeListener(update)
-      else mql.removeEventListener?.("change", update)
-    }
-  }, [])
 
   const saveDraft = () => {
     try {
@@ -449,17 +420,7 @@ export default function PostcardCreatorClient() {
           overflowY: isLandscape ? "hidden" : styles.content.overflowY,
         }}
       >
-        {showRotateHint && !isLandscape && (
-          <div style={styles.hint} role="status" aria-live="polite">
-            <div style={styles.hintTopRow}>
-              <div style={styles.hintLabel}>💡 Hint</div>
-              <button type="button" onClick={() => setShowRotateHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
-                Hide
-              </button>
-            </div>
-            <div style={styles.hintText}>Rotate your phone for easier editing</div>
-          </div>
-        )}
+        {/* V1: portrait-only editing (no rotate hint) */}
         {!isLandscape && showPhotoGestureHint && (
           <div style={styles.hint} role="status" aria-live="polite">
             <div style={styles.hintTopRow}>
