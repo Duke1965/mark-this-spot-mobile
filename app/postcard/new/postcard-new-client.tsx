@@ -8,6 +8,12 @@ import { requestCameraPermission } from "@/lib/mobilePermissions"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
+const TEMPLATE_LABELS: Record<string, string> = {
+  "template-1": "Classic",
+  "template-2": "Vintage Blue",
+  "template-3": "Airmail",
+  "template-4": "Sunset",
+}
 
 type DraftSource = "camera" | "gallery"
 
@@ -257,8 +263,8 @@ export default function PostcardNewClient() {
                   backdropFilter: "blur(12px)",
                 }}
               >
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Selected template</div>
-                <div style={{ opacity: 0.9 }}>{template}</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Style</div>
+                <div style={{ opacity: 0.9 }}>{TEMPLATE_LABELS[template] || template}</div>
               </div>
             )}
 
