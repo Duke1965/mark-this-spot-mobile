@@ -21,12 +21,37 @@ export default function TermsPage() {
           backdropFilter: "blur(12px)",
         }}
       >
-        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>Terms of Use</div>
-        <div style={{ opacity: 0.92, lineHeight: 1.45 }}>
-          This is a placeholder Terms of Use page for PINIT.
-          <br />
-          <br />
-          Replace this content with your official terms before public launch.
+        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>PINIT Terms of Use</div>
+        <div style={{ opacity: 0.94, lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            PINIT is provided as a tool for saving places, creating postcards, and sharing links.
+          </div>
+          <div>
+            You are responsible for the content you create and share using PINIT, including photos, messages, stickers, titles,
+            and descriptions.
+          </div>
+          <div>
+            Do not upload or share unlawful, harmful, offensive, or infringing content.
+          </div>
+          <div>
+            PINIT may rely on third-party services such as maps, authentication, storage, and place data providers.
+          </div>
+          <div>
+            PINIT is provided “as is” without warranties. Location and place data may not always be perfectly accurate, and PINIT
+            is not responsible for decisions made based on app data.
+          </div>
+          <div>
+            Accounts may be disabled for abuse or misuse.
+          </div>
+          <div>
+            These terms may be updated from time to time.
+          </div>
+          <div>
+            Contact:{" "}
+            <a href="mailto:support@app-titude.co" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
+              support@app-titude.co
+            </a>
+          </div>
         </div>
       </div>
     </div>
