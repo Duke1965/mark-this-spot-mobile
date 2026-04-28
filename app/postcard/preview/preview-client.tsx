@@ -33,6 +33,7 @@ export default function PreviewClient() {
   const [showSent, setShowSent] = useState(false)
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [noPhoto, setNoPhoto] = useState(false)
   const [message, setMessage] = useState("")
   const [photoTransform, setPhotoTransform] = useState<{ tx: number; ty: number; scale: number; rotation: number }>({
     tx: 0,
@@ -50,6 +51,7 @@ export default function PreviewClient() {
       if (!raw) return
       const parsed = JSON.parse(raw) as any
       if (typeof parsed?.imageUrl === "string") setImageUrl(parsed.imageUrl)
+      if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
       if (typeof parsed?.message === "string") setMessage(parsed.message)
       const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
       setDraftSource(src)
@@ -356,7 +358,7 @@ export default function PreviewClient() {
                     : null),
                 }}
               >
-                {imageUrl ? (
+                {imageUrl && !noPhoto ? (
                   <img
                     src={imageUrl}
                     alt="Postcard background"
