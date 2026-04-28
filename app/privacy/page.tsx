@@ -1,6 +1,20 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+
 export const dynamic = "force-dynamic"
 
 export default function PrivacyPage() {
+  const router = useRouter()
+  const onBack = () => {
+    try {
+      if (typeof window !== "undefined" && window.history.length > 1) router.back()
+      else router.push("/")
+    } catch {
+      router.push("/")
+    }
+  }
+
   return (
     <div
       style={{
@@ -21,6 +35,21 @@ export default function PrivacyPage() {
           backdropFilter: "blur(12px)",
         }}
       >
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: 900,
+            padding: "0.4rem 0.25rem",
+            marginBottom: 8,
+          }}
+        >
+          ← Back
+        </button>
         <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>PINIT Privacy Policy</div>
         <div style={{ opacity: 0.94, lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontWeight: 900, marginTop: 2 }}>Information PINIT may collect</div>
