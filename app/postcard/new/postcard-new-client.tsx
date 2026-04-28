@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Camera, Images } from "lucide-react"
+import { ArrowLeft, Camera, FileText, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { requestCameraPermission } from "@/lib/mobilePermissions"
 
@@ -136,6 +136,20 @@ export default function PostcardNewClient() {
     }
   }
 
+  const createBlankJpegDataUrl = () => {
+    // A tiny blank image keeps the existing postcard flow intact
+    // (draft expects an imageUrl; preview/send expects an uploadable image).
+    const canvas = document.createElement("canvas")
+    canvas.width = 8
+    canvas.height = 8
+    const ctx = canvas.getContext("2d")
+    if (ctx) {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+    return canvas.toDataURL("image/jpeg", 0.9)
+  }
+
   const onTakePhoto = async () => {
     const allowed = await requestCameraPermission()
     if (!allowed) {
@@ -150,6 +164,23 @@ export default function PostcardNewClient() {
     // Pre-requesting photo permission can incorrectly fail and block selection.
     setError(null)
     fileInputRef.current?.click()
+  }
+
+  const onCreateWithoutPhoto = async () => {
+    setError(null)
+    setIsNormalizing(true)
+    try {
+      const blank = createBlankJpegDataUrl()
+      saveDraftAndGo(blank, {
+        source: "gallery",
+        title: "",
+        description: "",
+      })
+    } catch {
+      setError("We couldn’t start a blank postcard. Please try again.")
+    } finally {
+      setIsNormalizing(false)
+    }
   }
 
   return (
@@ -334,6 +365,33 @@ export default function PostcardNewClient() {
               </div>
               <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
                 Pick an existing photo from your device.
+              </div>
+            </button>
+
+            <button
+              onClick={onCreateWithoutPhoto}
+              disabled={isNormalizing}
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 8,
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                color: "white",
+                fontWeight: 900,
+                padding: "1.1rem 1rem",
+                borderRadius: 16,
+                cursor: isNormalizing ? "not-allowed" : "pointer",
+                opacity: isNormalizing ? 0.7 : 1,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <FileText size={18} /> <span>Create without photo</span>
+              </div>
+              <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
+                Start with just the style, message, and stickers.
               </div>
             </button>
 
