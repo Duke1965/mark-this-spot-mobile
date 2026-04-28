@@ -49,6 +49,7 @@ export default function PostcardNewClient() {
     imageUrl: string,
     extras?: {
       source?: DraftSource
+      noPhoto?: boolean
       latitude?: number
       longitude?: number
       locationName?: string
@@ -173,6 +174,7 @@ export default function PostcardNewClient() {
       const blank = createBlankJpegDataUrl()
       saveDraftAndGo(blank, {
         source: "gallery",
+        noPhoto: true,
         title: "",
         description: "",
       })
