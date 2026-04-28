@@ -6,6 +6,12 @@ import { ArrowLeft } from "lucide-react"
 import { usePostcardExit } from "../_components/usePostcardExit"
 
 const TEMPLATES = ["template-1", "template-2", "template-3", "template-4"] as const
+const TEMPLATE_LABELS: Record<(typeof TEMPLATES)[number], string> = {
+  "template-1": "Classic",
+  "template-2": "Vintage Blue",
+  "template-3": "Airmail",
+  "template-4": "Sunset",
+}
 
 export default function PostcardTemplatesPage() {
   const router = useRouter()
@@ -64,7 +70,7 @@ export default function PostcardTemplatesPage() {
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         <div style={{ maxWidth: 520, margin: "0 auto" }}>
           <div style={{ fontSize: "0.9rem", opacity: 0.85, marginBottom: "0.75rem" }}>
-            Choose a template to create your postcard
+            Choose a postcard style
           </div>
 
           <div
@@ -111,10 +117,9 @@ export default function PostcardTemplatesPage() {
                       el.style.display = "none"
                     }}
                   />
-                  <div style={{ position: "absolute", opacity: 0.85, fontWeight: 800 }}>{t}</div>
                 </div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: "0.95rem" }}>
-                  {t.replace("-", " ").replace("template", "Template")}
+                  {TEMPLATE_LABELS[t]}
                 </div>
               </button>
             ))}
