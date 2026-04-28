@@ -29,7 +29,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       lineHeight: 1.48,
     },
     textArea: {
-      top: "calc(44% - 24px)",
+      top: "calc(44% - 22px)",
       left: "calc(52% + 15px)",
       width: "37%",
       height: "44%",
@@ -41,7 +41,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       lineHeight: 1.48,
     },
     textArea: {
-      top: "calc(44% - 12px)",
+      top: "calc(44% - 10px)",
       left: "calc(52% + 10px)",
       width: "37%",
       height: "44%",
@@ -62,7 +62,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       lineHeight: 1.56,
     },
     textArea: {
-      top: "calc(44% - 4px)",
+      top: "calc(44% - 2px)",
       left: "calc(7% + 27px)",
       width: "37%",
       height: "44%",
@@ -74,7 +74,7 @@ export const TEMPLATE_CONFIG: Record<PostcardTemplateId, PostcardTemplateConfig>
       lineHeight: 1.48,
     },
     textArea: {
-      top: "calc(44% - 30px)",
+      top: "calc(44% - 28px)",
       left: "calc(52% + 8px)",
       width: "37%",
       height: "44%",
