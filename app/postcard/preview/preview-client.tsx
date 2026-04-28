@@ -260,7 +260,7 @@ export default function PreviewClient() {
           role="status"
           aria-live="polite"
         >
-          Postcard Sent
+          Postcard Created
         </div>
       )}
       <div
@@ -310,7 +310,7 @@ export default function PreviewClient() {
           }}
           type="button"
         >
-          {shareUrl ? "Sent" : isSending ? "Sending…" : "Send"}
+          {shareUrl ? "Created" : isSending ? "Creating…" : "Create Postcard"}
         </button>
       </div>
 
