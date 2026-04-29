@@ -1498,7 +1498,7 @@ export default function PINITApp() {
       const isLocationIssue =
         code === 1 || code === 2 || code === 3 || /geo|location|position|permission/i.test(msg)
       console.log("📌 Caught exception during pin flow:", { code, message: msg })
-      setSuccessMessage(isLocationIssue ? "Location unavailable — try again" : "Pin failed — try again")
+      setSuccessMessage(isLocationIssue ? "Location not available — please enable location access" : "Pin failed — try again")
       setShowSuccessPopup(true)
       successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
     } finally {
@@ -2914,7 +2914,7 @@ export default function PINITApp() {
         mediaType={capturedMedia.type}
         onPlatformSelect={handlePlatformSelect}
         enablePositioning={capturedMedia.shareKind !== "pin"}
-        onBack={() => {}} // Empty function - no UI back button
+        onBack={() => setCurrentScreen("map")}
       />
     )
   }
@@ -3818,7 +3818,7 @@ export default function PINITApp() {
         permissionStatus={permissionStatus}
       />
 
-      {/* Success Popup - Simple "Pinned Successfully" message */}
+      {/* Success Popup - success/error-aware message */}
       {showSuccessPopup && (
         <div
           style={{
@@ -3829,7 +3829,10 @@ export default function PINITApp() {
             background: "rgba(30, 58, 138, 0.98)",
             padding: "2rem 3rem",
             borderRadius: "1.5rem",
-            border: "2px solid rgba(34, 197, 94, 0.5)",
+            border:
+              /not available|failed|unable|error/i.test(successMessage)
+                ? "2px solid rgba(245, 158, 11, 0.55)"
+                : "2px solid rgba(34, 197, 94, 0.5)",
             zIndex: 10000,
             textAlign: "center",
             minWidth: "280px",
@@ -3843,12 +3846,12 @@ export default function PINITApp() {
             marginBottom: "1rem",
             animation: "bounceIn 0.5s ease-out"
           }}>
-            ✅
+            {/not available|failed|unable|error/i.test(successMessage) ? "⚠️" : "✅"}
           </div>
           <div style={{ 
             fontSize: "1.5rem", 
             fontWeight: "700", 
-            color: "#22C55E",
+            color: /not available|failed|unable|error/i.test(successMessage) ? "#F59E0B" : "#22C55E",
             marginBottom: "0.5rem",
             letterSpacing: "0.5px"
           }}>
