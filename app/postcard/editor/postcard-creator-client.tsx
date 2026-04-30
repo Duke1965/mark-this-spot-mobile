@@ -12,7 +12,7 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
-const MAX_MESSAGE_LEN = 160
+const MAX_MESSAGE_LEN = 60
 const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
