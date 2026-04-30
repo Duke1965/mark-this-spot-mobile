@@ -21,6 +21,17 @@ export function useMotionDetection() {
 
   const positionHistoryRef = useRef<Array<{ lat: number; lng: number; timestamp: number; accuracy: number }>>([])
   const watchIdRef = useRef<number | null>(null)
+  const startedAtRef = useRef<number>(Date.now())
+  const stableIsMovingRef = useRef<boolean>(false)
+  const movingSinceRef = useRef<number | null>(null)
+  const stoppedSinceRef = useRef<number | null>(null)
+
+  // V1 tuning: reduce GPS-noise flicker.
+  const SPEED_MOVING_KMH = 6 // ~5–8 km/h suggested; pick 6 as stable baseline
+  const ON_DEBOUNCE_MS = 2500 // require movement sustained before turning ON
+  const OFF_DEBOUNCE_MS = 4000 // require stop sustained before turning OFF
+  const STARTUP_GRACE_MS = 4000 // ignore cached/early readings after app open
+  const MAX_FIRST_READING_STALENESS_MS = 3000 // ignore obviously stale cached first reading
 
   // Calculate distance between two points in kilometers
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -76,8 +87,39 @@ export function useMotionDetection() {
     // Calculate average speed
     const avgSpeed = totalTime > 0 ? totalDistance / totalTime : 0
 
-    // Determine if moving (threshold: 1 km/h = ~0.28 m/s)
-    const isMoving = avgSpeed > 1 && totalDistance > 0.01 // Moving faster than 1 km/h and moved at least 10m
+    // Candidate moving state (noise-resistant): require realistic speed
+    // and some actual displacement over the sample window.
+    const candidateMoving = avgSpeed >= SPEED_MOVING_KMH && totalDistance >= 0.02 // >= 20m over recent samples
+
+    // Debounce to avoid flicker.
+    const now = Date.now()
+    const stable = stableIsMovingRef.current
+    let nextStable = stable
+
+    if (now - startedAtRef.current < STARTUP_GRACE_MS) {
+      // On app open, avoid false "moving" from cached/stale readings.
+      movingSinceRef.current = null
+      stoppedSinceRef.current = null
+      nextStable = false
+    } else if (candidateMoving) {
+      stoppedSinceRef.current = null
+      if (!stable) {
+        if (movingSinceRef.current === null) movingSinceRef.current = now
+        if (now - movingSinceRef.current >= ON_DEBOUNCE_MS) nextStable = true
+      } else {
+        movingSinceRef.current = null
+      }
+    } else {
+      movingSinceRef.current = null
+      if (stable) {
+        if (stoppedSinceRef.current === null) stoppedSinceRef.current = now
+        if (now - stoppedSinceRef.current >= OFF_DEBOUNCE_MS) nextStable = false
+      } else {
+        stoppedSinceRef.current = null
+      }
+    }
+
+    stableIsMovingRef.current = nextStable
 
     // Calculate acceleration (change in speed)
     let acceleration = 0
@@ -92,7 +134,7 @@ export function useMotionDetection() {
     const confidence = Math.max(0, Math.min(1, (100 - avgAccuracy) / 100)) // Better accuracy = higher confidence
 
     setMotionData({
-      isMoving,
+      isMoving: nextStable,
       speed: Math.max(0, avgSpeed),
       acceleration,
       lastPosition: recent[recent.length - 1]
@@ -106,7 +148,8 @@ export function useMotionDetection() {
     })
 
     console.log("🚶‍♂️ Motion Analysis:", {
-      isMoving,
+      isMoving: nextStable,
+      candidateMoving,
       speed: avgSpeed.toFixed(2) + " km/h",
       distance: (totalDistance * 1000).toFixed(0) + "m",
       confidence: (confidence * 100).toFixed(0) + "%",
@@ -120,6 +163,13 @@ export function useMotionDetection() {
       return
     }
 
+    // Reset state on app open/mount.
+    startedAtRef.current = Date.now()
+    stableIsMovingRef.current = false
+    movingSinceRef.current = null
+    stoppedSinceRef.current = null
+    positionHistoryRef.current = []
+
     // Optimize motion detection for mobile battery life
     const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
@@ -130,6 +180,12 @@ export function useMotionDetection() {
     }
 
     const handlePosition = (position: GeolocationPosition) => {
+      // Ignore obviously stale cached first reading (common after reopen).
+      const now = Date.now()
+      if (positionHistoryRef.current.length === 0 && now - position.timestamp > MAX_FIRST_READING_STALENESS_MS) {
+        return
+      }
+
       const newPosition = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
