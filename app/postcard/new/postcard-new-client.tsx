@@ -40,8 +40,9 @@ export default function PostcardNewClient() {
       if (!raw) return
       const parsed = JSON.parse(raw) as any
       const hasImage = typeof parsed?.imageUrl === "string" && parsed.imageUrl.length > 20
+      const hasNoPhoto = !!parsed?.noPhoto
       const hasTemplate = typeof parsed?.template === "string" && ALLOWED_TEMPLATES.has(parsed.template.trim())
-      if (hasImage && hasTemplate) {
+      if ((hasImage || hasNoPhoto) && hasTemplate) {
         setExistingDraft({ template: parsed.template.trim() })
         setDraftPromptOpen(true)
       }
@@ -78,7 +79,7 @@ export default function PostcardNewClient() {
   }
 
   const saveDraftAndGo = (
-    imageUrl: string,
+    imageUrl: string | null,
     extras?: {
       source?: DraftSource
       noPhoto?: boolean
@@ -90,7 +91,14 @@ export default function PostcardNewClient() {
     }
   ) => {
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ template, imageUrl, ...(extras || {}) }))
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          template,
+          ...(typeof imageUrl === "string" ? { imageUrl } : null),
+          ...(extras || {}),
+        })
+      )
     } catch {
       setError("That photo is too large to open here. Please try a smaller image.")
       return
@@ -169,20 +177,6 @@ export default function PostcardNewClient() {
     }
   }
 
-  const createBlankJpegDataUrl = () => {
-    // A tiny blank image keeps the existing postcard flow intact
-    // (draft expects an imageUrl; preview/send expects an uploadable image).
-    const canvas = document.createElement("canvas")
-    canvas.width = 8
-    canvas.height = 8
-    const ctx = canvas.getContext("2d")
-    if (ctx) {
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-    return canvas.toDataURL("image/jpeg", 0.9)
-  }
-
   const onTakePhoto = async () => {
     const allowed = await requestCameraPermission()
     if (!allowed) {
@@ -203,8 +197,7 @@ export default function PostcardNewClient() {
     setError(null)
     setIsNormalizing(true)
     try {
-      const blank = createBlankJpegDataUrl()
-      saveDraftAndGo(blank, {
+      saveDraftAndGo(null, {
         source: "gallery",
         noPhoto: true,
         title: "",
