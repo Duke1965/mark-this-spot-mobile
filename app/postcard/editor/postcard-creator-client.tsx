@@ -127,6 +127,22 @@ export default function PostcardCreatorClient() {
     }
   }, [])
 
+  // If the URL lost its template param (e.g. refresh), recover it from draft.
+  useEffect(() => {
+    try {
+      if (ALLOWED_TEMPLATES.has(templateParam)) return
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as any
+      const draftTemplate = typeof parsed?.template === "string" ? parsed.template.trim() : ""
+      if (!ALLOWED_TEMPLATES.has(draftTemplate)) return
+      router.replace(`/postcard/editor?template=${encodeURIComponent(draftTemplate)}`)
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const updateDraft = (overrides: Record<string, unknown>) => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY)
@@ -136,6 +152,17 @@ export default function PostcardCreatorClient() {
       // ignore
     }
   }
+
+  // Auto-save during editing so accidental refresh doesn't lose work.
+  useEffect(() => {
+    updateDraft({
+      template,
+      message,
+      noPhoto,
+      ...(typeof imageUrl === "string" ? { imageUrl } : null),
+      transform: { tx, ty, scale, rotation },
+    })
+  }, [template, message, noPhoto, imageUrl, tx, ty, scale, rotation])
 
   useEffect(() => {
     setHintsEnabled(getHintsEnabled())
