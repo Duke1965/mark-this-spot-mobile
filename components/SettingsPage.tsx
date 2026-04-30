@@ -665,7 +665,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Set up your account to start saving and sharing places you love.
+              Set up your account to save places and create postcards to share them.
             </p>
             <button
               onClick={handleNext}
