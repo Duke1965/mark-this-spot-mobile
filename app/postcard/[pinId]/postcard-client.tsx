@@ -105,6 +105,28 @@ export default function PostcardClient({
         const normalized = await normalizeImageToJpegDataUrlFromBlob(blob)
 
         if (cancelled) return
+
+        // Avoid silently overwriting an in-progress postcard draft.
+        try {
+          const existingRaw = sessionStorage.getItem(DRAFT_KEY)
+          if (existingRaw) {
+            const existing = JSON.parse(existingRaw) as any
+            const hasImage = typeof existing?.imageUrl === "string" && existing.imageUrl.length > 20
+            const hasTemplate = typeof existing?.template === "string" && ALLOWED_TEMPLATES.has(existing.template.trim())
+            if (hasImage && hasTemplate) {
+              const ok = window.confirm(
+                "You already have an in-progress postcard draft. Replace it with this pin’s postcard?"
+              )
+              if (!ok) {
+                router.replace(`/postcard/editor?template=${encodeURIComponent(existing.template.trim())}`)
+                return
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         sessionStorage.setItem(
           DRAFT_KEY,
           JSON.stringify({
