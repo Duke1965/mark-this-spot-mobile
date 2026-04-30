@@ -244,18 +244,6 @@ export default function PostcardCreatorClient() {
     }
   }
 
-  const createBlankJpegDataUrl = () => {
-    const canvas = document.createElement("canvas")
-    canvas.width = 8
-    canvas.height = 8
-    const ctx = canvas.getContext("2d")
-    if (ctx) {
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-    return canvas.toDataURL("image/jpeg", 0.9)
-  }
-
   const resetTransformDefaults = () => {
     setTx(0)
     setTy(0)
@@ -264,13 +252,11 @@ export default function PostcardCreatorClient() {
   }
 
   const onRemovePhoto = () => {
-    const blank = createBlankJpegDataUrl()
     setNoPhoto(true)
     setImageFailed(false)
-    setImageUrl(blank)
+    setImageUrl(null)
     resetTransformDefaults()
     updateDraft({
-      imageUrl: blank,
       noPhoto: true,
       message,
       transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
