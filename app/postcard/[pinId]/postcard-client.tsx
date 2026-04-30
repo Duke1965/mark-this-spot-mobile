@@ -112,8 +112,9 @@ export default function PostcardClient({
           if (existingRaw) {
             const existing = JSON.parse(existingRaw) as any
             const hasImage = typeof existing?.imageUrl === "string" && existing.imageUrl.length > 20
+            const hasNoPhoto = !!existing?.noPhoto
             const hasTemplate = typeof existing?.template === "string" && ALLOWED_TEMPLATES.has(existing.template.trim())
-            if (hasImage && hasTemplate) {
+            if ((hasImage || hasNoPhoto) && hasTemplate) {
               const ok = window.confirm(
                 "You already have an in-progress postcard draft. Replace it with this pin’s postcard?"
               )
