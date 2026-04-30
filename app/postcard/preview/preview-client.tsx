@@ -14,6 +14,7 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 60
+const META_EDITED_KEY = "metaEdited"
 
 type DraftSource = "camera" | "gallery" | "unknown"
 
@@ -57,13 +58,21 @@ export default function PreviewClient() {
       const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
       setDraftSource(src)
 
+      const metaEdited = !!parsed?.[META_EDITED_KEY]
+
       if (src === "gallery") {
         // Gallery postcards should start with editable, empty metadata.
-        setTitle(typeof parsed?.title === "string" ? String(parsed.title) : "")
-        setDescription(typeof parsed?.description === "string" ? String(parsed.description) : "")
+        setTitle(typeof parsed?.title === "string" ? String(parsed.title).slice(0, 120) : "")
+        setDescription(typeof parsed?.description === "string" ? String(parsed.description).slice(0, 240) : "")
       } else {
-        if (typeof parsed?.title === "string" && parsed.title.trim()) setTitle(String(parsed.title))
-        if (typeof parsed?.description === "string" && parsed.description.trim()) setDescription(String(parsed.description))
+        // If user has edited metadata, always restore what they entered (even if blank).
+        if (metaEdited) {
+          if (typeof parsed?.title === "string") setTitle(String(parsed.title).slice(0, 120))
+          if (typeof parsed?.description === "string") setDescription(String(parsed.description).slice(0, 240))
+        } else {
+          if (typeof parsed?.title === "string" && parsed.title.trim()) setTitle(String(parsed.title))
+          if (typeof parsed?.description === "string" && parsed.description.trim()) setDescription(String(parsed.description))
+        }
       }
       if (parsed?.transform) {
         setPhotoTransform({
@@ -92,6 +101,24 @@ export default function PreviewClient() {
     }
   }, [])
 
+  const saveMetaToDraft = useMemo(() => {
+    return (next: { title?: string; description?: string; metaEdited?: boolean }) => {
+      try {
+        const raw = sessionStorage.getItem(DRAFT_KEY)
+        const base = raw ? (JSON.parse(raw) as any) : {}
+        const merged = {
+          ...base,
+          ...(typeof next.title === "string" ? { title: next.title } : null),
+          ...(typeof next.description === "string" ? { description: next.description } : null),
+          ...(next.metaEdited ? { [META_EDITED_KEY]: true } : null),
+        }
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(merged))
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -100,12 +127,23 @@ export default function PreviewClient() {
         const raw = sessionStorage.getItem(DRAFT_KEY)
         const parsed = raw ? (JSON.parse(raw) as any) : null
         const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
+        const metaEdited = !!parsed?.[META_EDITED_KEY]
 
         // Gallery postcards should not attempt place metadata fetching.
         if (src === "gallery") {
           if (!cancelled) {
             setTitle(typeof parsed?.title === "string" ? String(parsed.title) : "")
             setDescription(typeof parsed?.description === "string" ? String(parsed.description) : "")
+            setLoadingMeta(false)
+          }
+          return
+        }
+
+        // If the user has edited title/description, never overwrite with fetched metadata.
+        if (metaEdited) {
+          if (!cancelled) {
+            if (typeof parsed?.title === "string") setTitle(String(parsed.title))
+            if (typeof parsed?.description === "string") setDescription(String(parsed.description))
             setLoadingMeta(false)
           }
           return
@@ -278,7 +316,10 @@ export default function PreviewClient() {
         }}
       >
         <button
-          onClick={() => router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)}
+          onClick={() => {
+            saveMetaToDraft({ title, description })
+            router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)
+          }}
           style={{
             background: "transparent",
             border: "none",
@@ -505,7 +546,11 @@ export default function PreviewClient() {
             <div style={{ fontWeight: 900 }}>Title</div>
             <input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value
+                setTitle(v)
+                saveMetaToDraft({ title: v, metaEdited: true })
+              }}
               style={{
                 width: "100%",
                 borderRadius: 12,
@@ -522,7 +567,11 @@ export default function PreviewClient() {
             <div style={{ fontWeight: 900, marginTop: 6 }}>Description</div>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value
+                setDescription(v)
+                saveMetaToDraft({ description: v, metaEdited: true })
+              }}
               rows={3}
               style={{
                 width: "100%",
