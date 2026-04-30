@@ -4593,7 +4593,7 @@ export default function PINITApp() {
           }}
         >
           <Library size={35} style={{ color: "var(--pinit-fg)" }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>My Places</div>
+          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Library</div>
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
