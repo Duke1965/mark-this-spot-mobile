@@ -22,7 +22,7 @@ type StickerItem = {
 export type SharedPostcardData = {
   postcardId: string
   template: string
-  imageUrl: string
+  imageUrl: string | null
   message: string
   title: string
   description: string
@@ -205,9 +205,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
                         )}) rotate(${Number(t.rotation || 0)}deg)`,
                       }}
                     />
-                  ) : (
-                    <div style={styles.missing}>No image</div>
-                  )}
+                  ) : null}
                 </div>
 
                 <img src={`/postcards/${data.template}.png`} alt="" style={styles.template} />
