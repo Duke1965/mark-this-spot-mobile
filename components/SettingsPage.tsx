@@ -727,9 +727,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               <>
                 <div style={{ fontSize: "2.5rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.35rem" }}>PINIT</div>
                 <div style={{ fontSize: "1rem", opacity: 0.9, marginBottom: "1.5rem" }}>Sign in to save and share places</div>
-                <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-                  Choose your preferred way to sign in and start discovering amazing places.
-                </p>
 
                 {/* Error Message */}
                 {error && (
