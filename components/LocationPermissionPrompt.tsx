@@ -152,7 +152,7 @@ export function LocationPermissionPrompt({
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
           }}
         >
-          Enable Location Access
+          Enable location
         </h2>
 
         {/* Description */}
@@ -168,7 +168,7 @@ export function LocationPermissionPrompt({
         >
           {!hasRequestedBefore ? (
             <>
-              PINIT needs access to your location to help you discover and pin amazing places near you! 📍
+              PINIT uses your location to save the place you’re passing and suggest nearby spots.
             </>
           ) : (
             <>
@@ -180,39 +180,46 @@ export function LocationPermissionPrompt({
 
         {/* Buttons */}
         {!hasRequestedBefore ? (
-          <button
-            onClick={handleRequestPermission}
-            disabled={isRequesting}
-            style={{
-              width: '100%',
-              background: 'white',
-              color: '#667eea',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '15px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: isRequesting ? 'not-allowed' : 'pointer',
-              opacity: isRequesting ? 0.7 : 1,
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-              transition: 'transform 0.2s ease',
-              marginBottom: '10px'
-            }}
-            onMouseDown={(e) => {
-              if (!isRequesting) {
-                e.currentTarget.style.transform = 'scale(0.95)'
-              }
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-          >
-            {isRequesting ? 'Requesting...' : 'Allow Location Access'}
-          </button>
+          <div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <button
+              type="button"
+              onClick={handleDismiss}
+              disabled={isRequesting}
+              style={{
+                flex: 1,
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                color: "white",
+                borderRadius: 14,
+                padding: "0.95rem 1rem",
+                fontSize: "0.95rem",
+                fontWeight: 900,
+                cursor: isRequesting ? "not-allowed" : "pointer",
+                opacity: isRequesting ? 0.7 : 1,
+              }}
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              onClick={handleRequestPermission}
+              disabled={isRequesting}
+              style={{
+                flex: 1,
+                background: "rgba(255,255,255,0.22)",
+                border: "1px solid rgba(255,255,255,0.28)",
+                color: "white",
+                borderRadius: 14,
+                padding: "0.95rem 1rem",
+                fontSize: "0.95rem",
+                fontWeight: 900,
+                cursor: isRequesting ? "not-allowed" : "pointer",
+                opacity: isRequesting ? 0.7 : 1,
+              }}
+            >
+              {isRequesting ? "Requesting…" : "Allow"}
+            </button>
+          </div>
         ) : (
           <div
             style={{
@@ -248,16 +255,18 @@ export function LocationPermissionPrompt({
           onClick={handleDismiss}
           style={{
             width: '100%',
-            background: 'transparent',
-            color: 'rgba(255, 255, 255, 0.8)',
-            border: 'none',
-            padding: '10px',
-            fontSize: '14px',
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            color: 'white',
+            borderRadius: '14px',
+            padding: '0.95rem 1rem',
+            fontSize: '0.95rem',
+            fontWeight: 900,
             cursor: 'pointer',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
           }}
         >
-          {hasRequestedBefore ? 'Close' : 'Maybe Later'}
+          Not now
         </button>
       </div>
 
