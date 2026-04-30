@@ -579,29 +579,6 @@ export default function PreviewClient() {
               }}
               placeholder={draftSource === "gallery" ? "Add a place title" : "My Special Place"}
             />
-
-            <div style={{ fontWeight: 900, marginTop: 6 }}>Description</div>
-            <textarea
-              value={description}
-              onChange={(e) => {
-                const v = e.target.value
-                setDescription(v)
-                saveMetaToDraft({ description: v, metaEdited: true })
-              }}
-              rows={3}
-              style={{
-                width: "100%",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.16)",
-                background: "rgba(0,0,0,0.18)",
-                color: "white",
-                padding: "10px 12px",
-                fontSize: "0.95rem",
-                outline: "none",
-                resize: "none",
-              }}
-              placeholder={draftSource === "gallery" ? "Add a short description of this place or photo" : "A memorable place worth sharing."}
-            />
           </div>
 
           {shareUrl ? (
