@@ -10,6 +10,7 @@ import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { Caveat } from "next/font/google"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
+const MAX_MESSAGE_LEN = 60
 
 type PostcardDoc = {
   senderUid?: string
@@ -192,7 +193,7 @@ export default function PostcardLibraryDetailClient() {
                     }}
                     aria-hidden="true"
                   >
-                    {String(data?.message || "")}
+                    {String(data?.message || "").slice(0, MAX_MESSAGE_LEN)}
                   </div>
                 </div>
 
@@ -399,8 +400,8 @@ const styles: Record<string, React.CSSProperties> = {
   stickersLayer: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 4 },
   stickerImg: {
     position: "absolute",
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
     transformOrigin: "center center",
     pointerEvents: "none",
   },
