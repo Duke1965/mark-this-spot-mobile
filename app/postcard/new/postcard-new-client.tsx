@@ -29,12 +29,22 @@ export default function PostcardNewClient() {
   const [mode, setMode] = useState<"chooser" | "camera">("chooser")
   const [error, setError] = useState<string | null>(null)
   const [isNormalizing, setIsNormalizing] = useState(false)
+  const [existingDraft, setExistingDraft] = useState<{ template: string } | null>(null)
+  const [draftPromptOpen, setDraftPromptOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Starting a new postcard should reset any previous draft.
+    // If a draft exists, don't silently wipe it. Offer resume/replace.
     try {
-      sessionStorage.removeItem(DRAFT_KEY)
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as any
+      const hasImage = typeof parsed?.imageUrl === "string" && parsed.imageUrl.length > 20
+      const hasTemplate = typeof parsed?.template === "string" && ALLOWED_TEMPLATES.has(parsed.template.trim())
+      if (hasImage && hasTemplate) {
+        setExistingDraft({ template: parsed.template.trim() })
+        setDraftPromptOpen(true)
+      }
     } catch {
       // ignore
     }
@@ -44,6 +54,28 @@ export default function PostcardNewClient() {
     setMode("chooser")
     setError(null)
   }, [template])
+
+  const onResumeDraft = () => {
+    const t = existingDraft?.template
+    if (!t) return
+    setDraftPromptOpen(false)
+    router.replace(`/postcard/editor?template=${encodeURIComponent(t)}`)
+  }
+
+  const onStartNew = () => {
+    try {
+      sessionStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+    setExistingDraft(null)
+    setDraftPromptOpen(false)
+  }
+
+  const onCancelDraftPrompt = () => {
+    setDraftPromptOpen(false)
+    router.push("/postcard/templates")
+  }
 
   const saveDraftAndGo = (
     imageUrl: string,
@@ -197,6 +229,52 @@ export default function PostcardNewClient() {
         zIndex: 1000,
       }}
     >
+      {draftPromptOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 5000,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              width: "min(420px, 92vw)",
+              background: "rgba(30, 58, 138, 0.98)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: 16,
+              padding: 14,
+              color: "white",
+              boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
+              backdropFilter: "blur(14px)",
+            }}
+          >
+            <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Resume your postcard draft?</div>
+            <div style={{ marginTop: 6, opacity: 0.92, lineHeight: 1.35, fontSize: "0.92rem" }}>
+              You have an in-progress postcard. You can continue it, or start a new one.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+              <button type="button" onClick={onResumeDraft} style={btnPrimary}>
+                Resume Draft
+              </button>
+              <button type="button" onClick={onStartNew} style={btnDanger}>
+                Start New (Discard Draft)
+              </button>
+              <button type="button" onClick={onCancelDraftPrompt} style={btnSecondary}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div
         style={{
           padding: "1rem",
@@ -431,5 +509,33 @@ export default function PostcardNewClient() {
       )}
     </div>
   )
+}
+
+const baseBtn: React.CSSProperties = {
+  width: "100%",
+  borderRadius: 14,
+  padding: "0.85rem 1rem",
+  fontWeight: 950,
+  cursor: "pointer",
+  border: "1px solid rgba(255,255,255,0.2)",
+}
+
+const btnPrimary: React.CSSProperties = {
+  ...baseBtn,
+  background: "rgba(255,255,255,0.22)",
+  color: "white",
+}
+
+const btnSecondary: React.CSSProperties = {
+  ...baseBtn,
+  background: "rgba(255,255,255,0.12)",
+  color: "white",
+}
+
+const btnDanger: React.CSSProperties = {
+  ...baseBtn,
+  background: "rgba(239,68,68,0.22)",
+  border: "1px solid rgba(239,68,68,0.35)",
+  color: "white",
 }
 
