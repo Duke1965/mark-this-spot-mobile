@@ -597,7 +597,7 @@ export default function PreviewClient() {
                 gap: 10,
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready</div>
+              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready to share</div>
               <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
                 Share it using one or more options below, then tap Done when you’re finished.
               </div>
@@ -630,7 +630,7 @@ export default function PreviewClient() {
                     }
                   }}
                 >
-                  Copy Link
+                  Copy link
                 </button>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
