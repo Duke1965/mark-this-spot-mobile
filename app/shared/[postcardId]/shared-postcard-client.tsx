@@ -261,7 +261,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
             </div>
 
             <Link href="/" style={styles.cta}>
-              Send one back with PINIT
+              Get PINIT to reply
             </Link>
           </>
         ) : (
@@ -271,7 +271,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               <div style={styles.landscapeDesc}>{displayDescription}</div>
             </div>
             <Link href="/" style={styles.landscapeCta}>
-              Send one back
+              Get PINIT to reply
             </Link>
           </div>
         )}
