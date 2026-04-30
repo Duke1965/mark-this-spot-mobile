@@ -622,7 +622,7 @@ export default function PreviewClient() {
             >
               <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready</div>
               <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
-                Share it to one or more places below, then tap Done when you’re finished.
+                Share it using one or more options below, then tap Done when you’re finished.
               </div>
               <div style={{ fontWeight: 900 }}>Share link</div>
               <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
