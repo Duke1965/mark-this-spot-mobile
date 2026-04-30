@@ -552,9 +552,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         </button>
         
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Settings size={20} />
+          {currentStep === "settings-menu" ? <Settings size={20} /> : null}
           <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>
-            {currentStep === "settings-menu" ? "Settings" : "PINIT Setup"}
+            {currentStep === "settings-menu" ? "Settings" : ""}
           </span>
         </div>
 
@@ -660,10 +660,12 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         {/* Welcome Step */}
         {currentStep === "welcome" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
+            <div style={{ fontSize: "2.6rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.75rem" }}>
+              PINIT
+            </div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Let&apos;s set up your account to make the most of your travel discoveries.
+              Set up your account to start saving and sharing places you love.
             </p>
             <button
               onClick={handleNext}
@@ -1075,7 +1077,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         {/* Complete Step */}
         {currentStep === "complete" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
+            <div style={{ fontSize: "2.6rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.75rem" }}>
+              PINIT
+            </div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
               You&apos;re ready to start discovering and sharing amazing places.
