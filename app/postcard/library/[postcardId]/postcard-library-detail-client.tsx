@@ -169,9 +169,7 @@ export default function PostcardLibraryDetailClient() {
                         )}) rotate(${Number(data?.transform?.rotation || 0)}deg)`,
                       }}
                     />
-                  ) : (
-                    <div style={styles.missing}>No image</div>
-                  )}
+                  ) : null}
                 </div>
 
                 <img src={`/postcards/${String(data?.template || "template-1")}.png`} alt="" style={styles.template} />
