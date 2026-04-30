@@ -225,13 +225,17 @@ export default function PreviewClient() {
     if (isSending) return
     setIsSending(true)
     try {
-      if (!imageUrl) throw new Error("Missing image")
+      const uid = (auth as any)?.currentUser?.uid as string | undefined
+      if (!uid) throw new Error("Please sign in to send a postcard.")
 
       // Upload photo to Firebase Storage to ensure the shared link has a durable URL.
-      const uid = (auth as any)?.currentUser?.uid as string | undefined
-      const filename = generateImageFilename(uid)
-      const hostedImageUrl = await uploadImageToFirebase(imageUrl, filename)
-      if (!uid) throw new Error("Please sign in to send a postcard.")
+      // For "no photo" postcards, skip uploading and store null.
+      let hostedImageUrl: string | null = null
+      if (!noPhoto) {
+        if (!imageUrl) throw new Error("Missing image")
+        const filename = generateImageFilename(uid)
+        hostedImageUrl = await uploadImageToFirebase(imageUrl, filename)
+      }
 
       const res = await fetch("/api/postcards/create", {
         method: "POST",
@@ -239,6 +243,7 @@ export default function PreviewClient() {
         body: JSON.stringify({
           template,
           imageUrl: hostedImageUrl,
+          noPhoto,
           message,
           stickers,
           title,
@@ -436,23 +441,7 @@ export default function PreviewClient() {
                       WebkitTouchCallout: "none",
                     }}
                   />
-                ) : (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(0,0,0,0.35)",
-                      color: "white",
-                      fontWeight: 800,
-                    }}
-                  >
-                    No image
-                  </div>
-                )}
+                ) : null}
               </div>
 
               {/* Template */}
