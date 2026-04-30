@@ -13,6 +13,7 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const STICKER_GESTURE_HINT_KEY = "pinit-postcard-sticker-gesture-hint-shown-v1"
+const MAX_MESSAGE_LEN = 60
 
 type DraftTransform = { tx?: number; ty?: number; scale?: number; rotation?: number }
 type StickerItem = {
@@ -119,7 +120,7 @@ export default function StickerStudioClient() {
       }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
       if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
-      if (typeof parsed?.message === "string") setMessage(parsed.message)
+      if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
       if (parsed?.transform) {
         setPhotoTransform({
           tx: Number(parsed.transform.tx ?? 0),
