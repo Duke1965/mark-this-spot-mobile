@@ -38,7 +38,7 @@ export default async function SharedPostcardPage({
 
   const data = doc.data() as any
   const template = String(data?.template || "template-1")
-  const imageUrl = String(data?.imageUrl || "")
+  const imageUrl: string | null = typeof data?.imageUrl === "string" && data.imageUrl.trim() ? String(data.imageUrl) : null
   const message = String(data?.message || "")
   const title = String(data?.title || "My Special Place")
   const description = String(data?.description || "A memorable place worth sharing.")
