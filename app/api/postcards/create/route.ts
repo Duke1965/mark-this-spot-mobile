@@ -14,7 +14,8 @@ type StickerItem = {
 
 type CreatePostcardPayload = {
   template: string
-  imageUrl: string
+  imageUrl?: string | null
+  noPhoto?: boolean
   message: string
   stickers: StickerItem[]
   title: string
@@ -33,7 +34,8 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as Partial<CreatePostcardPayload>
 
     const template = String(body.template || "template-1")
-    const imageUrl = String(body.imageUrl || "")
+    const noPhoto = !!(body as any)?.noPhoto
+    const imageUrl = typeof (body as any)?.imageUrl === "string" ? String((body as any).imageUrl) : ""
     const message = String(body.message || "")
     const title = String(body.title || "My Special Place")
     const description = String(body.description || "A memorable place worth sharing.")
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
           .filter((s) => !!s.id && !!s.imageUrl)
       : []
 
-    if (!imageUrl) {
+    if (!noPhoto && !imageUrl) {
       return NextResponse.json({ error: "Missing imageUrl" }, { status: 400 })
     }
     if (!senderUid) {
@@ -73,7 +75,8 @@ export async function POST(req: NextRequest) {
 
     const docRef = await firestore.collection("postcards").add({
       template,
-      imageUrl,
+      imageUrl: noPhoto ? null : imageUrl,
+      noPhoto,
       message,
       stickers,
       title,
