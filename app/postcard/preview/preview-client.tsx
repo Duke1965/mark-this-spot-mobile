@@ -13,6 +13,7 @@ const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
+const MAX_MESSAGE_LEN = 60
 
 type DraftSource = "camera" | "gallery" | "unknown"
 
@@ -52,7 +53,7 @@ export default function PreviewClient() {
       const parsed = JSON.parse(raw) as any
       if (typeof parsed?.imageUrl === "string") setImageUrl(parsed.imageUrl)
       if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
-      if (typeof parsed?.message === "string") setMessage(parsed.message)
+      if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
       const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
       setDraftSource(src)
 
