@@ -151,6 +151,22 @@ export default function StickerStudioClient() {
     }
   }, [])
 
+  // If the URL lost its template param (e.g. refresh), recover it from draft.
+  useEffect(() => {
+    try {
+      if (ALLOWED_TEMPLATES.has(templateParam)) return
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as any
+      const draftTemplate = typeof parsed?.template === "string" ? parsed.template.trim() : ""
+      if (!ALLOWED_TEMPLATES.has(draftTemplate)) return
+      router.replace(`/postcard/stickers?template=${encodeURIComponent(draftTemplate)}`)
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const saveDraft = (nextStickers: StickerItem[]) => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY)
@@ -159,6 +175,11 @@ export default function StickerStudioClient() {
         DRAFT_KEY,
         JSON.stringify({
           ...base,
+          template,
+          ...(typeof imageUrl === "string" ? { imageUrl } : null),
+          noPhoto,
+          message,
+          transform: photoTransform,
           stickers: nextStickers,
         })
       )
