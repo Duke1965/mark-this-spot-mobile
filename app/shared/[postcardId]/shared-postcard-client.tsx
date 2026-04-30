@@ -33,6 +33,7 @@ export type SharedPostcardData = {
 const ORIENTATION_HINT_KEY = "pinit-shared-rotate-hint-v1"
 const BASE_POSTCARD_W = 420
 const BASE_POSTCARD_H = 280
+const MAX_MESSAGE_LEN = 60
 
 export default function SharedPostcardClient({ data }: { data: SharedPostcardData }) {
   const templateConfig = useMemo(() => getTemplateConfig(data.template), [data.template])
@@ -227,7 +228,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
                         : null),
                     }}
                   >
-                    {data.message}
+                    {String(data.message || "").slice(0, MAX_MESSAGE_LEN)}
                   </div>
                 </div>
 
@@ -425,8 +426,8 @@ const styles: Record<string, React.CSSProperties> = {
   stickersLayer: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 4 },
   stickerImg: {
     position: "absolute",
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
     transformOrigin: "center center",
     pointerEvents: "none",
   },
