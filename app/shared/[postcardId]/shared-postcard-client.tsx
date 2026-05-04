@@ -6,6 +6,7 @@ import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
+import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -23,6 +24,9 @@ export type SharedPostcardData = {
   postcardId: string
   template: string
   imageUrl: string | null
+  latitude?: number | null
+  longitude?: number | null
+  locationName?: string | null
   message: string
   title: string
   description: string
@@ -258,7 +262,21 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               <div style={styles.metaDesc}>{displayDescription}</div>
             </div>
 
-            <Link href="/" style={styles.cta}>
+            <button
+              type="button"
+              style={styles.goThere}
+              onClick={() =>
+                openGoogleMapsNavigation({
+                  latitude: data.latitude,
+                  longitude: data.longitude,
+                  placeName: data.locationName?.trim() || String(data.title || "").trim(),
+                })
+              }
+            >
+              Go there
+            </button>
+
+            <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
               Get PINIT to reply
             </Link>
           </>
@@ -268,9 +286,24 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               <div style={styles.landscapeTitle}>{data.title}</div>
               <div style={styles.landscapeDesc}>{displayDescription}</div>
             </div>
-            <Link href="/" style={styles.landscapeCta}>
-              Get PINIT to reply
-            </Link>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+              <button
+                type="button"
+                style={styles.landscapeGoThere}
+                onClick={() =>
+                  openGoogleMapsNavigation({
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    placeName: data.locationName?.trim() || String(data.title || "").trim(),
+                  })
+                }
+              >
+                Go there
+              </button>
+              <Link href="/" style={styles.landscapeCta}>
+                Get PINIT to reply
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -452,6 +485,19 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0.95rem 1rem",
     borderRadius: 14,
   },
+  goThere: {
+    width: "100%",
+    maxWidth: 420,
+    textAlign: "center",
+    background: "rgba(255,255,255,0.14)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    color: "white",
+    fontWeight: 900,
+    padding: "0.95rem 1rem",
+    borderRadius: 14,
+    cursor: "pointer",
+    marginTop: 10,
+  },
   landscapeFooter: {
     width: "100%",
     maxWidth: "min(94vw, 980px)",
@@ -475,6 +521,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 14,
     flexShrink: 0,
     whiteSpace: "nowrap",
+  },
+  landscapeGoThere: {
+    textAlign: "center",
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    color: "white",
+    fontWeight: 950,
+    padding: "0.75rem 0.95rem",
+    borderRadius: 14,
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+    cursor: "pointer",
   },
   card: {
     margin: "3rem auto",
