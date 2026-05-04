@@ -46,10 +46,18 @@ export default async function SharedPostcardPage({
 
   const stickers = Array.isArray(data?.stickers) ? data.stickers : []
 
+  const lat = Number(data?.latitude)
+  const lng = Number(data?.longitude)
+  const locationName =
+    typeof data?.locationName === "string" && String(data.locationName).trim() ? String(data.locationName).trim() : null
+
   const payload: SharedPostcardData = {
     postcardId,
     template,
     imageUrl,
+    latitude: Number.isFinite(lat) ? lat : null,
+    longitude: Number.isFinite(lng) ? lng : null,
+    locationName,
     message,
     title,
     description,
