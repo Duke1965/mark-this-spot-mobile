@@ -47,6 +47,10 @@ export default function PreviewClient() {
     Array<{ id: string; name: string; imageUrl: string; x: number; y: number; scale: number; rotation: number }>
   >([])
 
+  const [draftLatitude, setDraftLatitude] = useState<number | null>(null)
+  const [draftLongitude, setDraftLongitude] = useState<number | null>(null)
+  const [draftLocationName, setDraftLocationName] = useState<string | null>(null)
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY)
@@ -95,6 +99,16 @@ export default function PreviewClient() {
             rotation: Number(s.rotation ?? 0),
           }))
         setStickers(loaded)
+      }
+
+      const lat = Number(parsed?.latitude ?? parsed?.lat)
+      const lon = Number(parsed?.longitude ?? parsed?.lon ?? parsed?.lng)
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        setDraftLatitude(lat)
+        setDraftLongitude(lon)
+      }
+      if (typeof parsed?.locationName === "string" && parsed.locationName.trim()) {
+        setDraftLocationName(String(parsed.locationName).trim())
       }
     } catch {
       // ignore
@@ -248,6 +262,10 @@ export default function PreviewClient() {
           stickers,
           title,
           description,
+          ...(draftLatitude != null && draftLongitude != null
+            ? { latitude: draftLatitude, longitude: draftLongitude }
+            : null),
+          ...(draftLocationName ? { locationName: draftLocationName } : null),
           transform: photoTransform,
           senderUid: uid,
         }),
