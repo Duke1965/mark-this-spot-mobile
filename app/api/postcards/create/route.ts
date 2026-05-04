@@ -20,6 +20,9 @@ type CreatePostcardPayload = {
   stickers: StickerItem[]
   title: string
   description: string
+  latitude?: number | null
+  longitude?: number | null
+  locationName?: string | null
   transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
   senderUid: string
 }
@@ -40,6 +43,15 @@ export async function POST(req: NextRequest) {
     const title = String(body.title || "My Special Place")
     const description = String(body.description || "A memorable place worth sharing.")
     const senderUid = String((body as any)?.senderUid || "")
+
+    const latRaw = Number((body as any)?.latitude ?? (body as any)?.lat)
+    const lngRaw = Number((body as any)?.longitude ?? (body as any)?.lon ?? (body as any)?.lng)
+    const latitude = Number.isFinite(latRaw) ? latRaw : null
+    const longitude = Number.isFinite(lngRaw) ? lngRaw : null
+    const locationName =
+      typeof (body as any)?.locationName === "string" && String((body as any).locationName).trim()
+        ? String((body as any).locationName).trim()
+        : null
 
     const stickers: StickerItem[] = Array.isArray(body.stickers)
       ? body.stickers
@@ -81,6 +93,8 @@ export async function POST(req: NextRequest) {
       stickers,
       title,
       description,
+      ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
+      ...(locationName ? { locationName } : {}),
       transform: body.transform || null,
       senderUid,
       createdAt: FieldValue.serverTimestamp(),
