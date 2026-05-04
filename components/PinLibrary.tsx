@@ -5,6 +5,7 @@ import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, 
 import { useRouter } from "next/navigation"
 import type { PinData } from "@/lib/types"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
+import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 
 // Helper to get display title with fallback
 function getDisplayTitle(pin: PinData): string {
@@ -160,27 +161,59 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           {/* Bottom row: left tags (none for pending), right actions */}
           <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
             <div />
-            {onPinDelete ? (
+            <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm('Remove this pin from your library?')) {
-                    onPinDelete(item.id)
-                  }
+                  openGoogleMapsNavigation({
+                    latitude: item.latitude,
+                    longitude: item.longitude,
+                    placeName: item.locationName?.trim() || getDisplayTitle(item),
+                  })
                 }}
-                style={removeBtnStyle}
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  color: "white",
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  whiteSpace: "nowrap",
+                }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
                 }}
               >
-                <Trash2 size={14} />
-                Remove
+                Go there
               </button>
-            ) : null}
+              {onPinDelete ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm("Remove this pin from your library?")) {
+                      onPinDelete(item.id)
+                    }
+                  }}
+                  style={removeBtnStyle}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.28)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.18)"
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Remove
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       )
@@ -415,6 +448,37 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               }}
             >
               📍 View
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                openGoogleMapsNavigation({
+                  latitude: item.latitude,
+                  longitude: item.longitude,
+                  placeName: item.locationName?.trim() || getDisplayTitle(item),
+                })
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                color: 'white',
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+              }}
+            >
+              Go there
             </button>
 
             {onPinDelete ? (
