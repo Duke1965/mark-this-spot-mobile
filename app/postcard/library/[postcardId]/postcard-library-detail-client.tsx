@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { Caveat } from "next/font/google"
+import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const MAX_MESSAGE_LEN = 60
@@ -19,6 +20,9 @@ type PostcardDoc = {
   createdAtIso?: string
   template?: string
   imageUrl?: string
+  latitude?: number
+  longitude?: number
+  locationName?: string
   message?: string
   stickers?: Array<{ id: string; name: string; imageUrl: string; x: number; y: number; scale: number; rotation: number }>
   transform?: { tx?: number; ty?: number; scale?: number; rotation?: number } | null
@@ -70,7 +74,9 @@ export default function PostcardLibraryDetailClient() {
         const d = snap.data() as any
         const senderUid = d?.senderUid ? String(d.senderUid) : ""
         if (!senderUid || senderUid !== uid) throw new Error("You don’t have access to this postcard.")
-        if (!cancelled)
+        if (!cancelled) {
+          const lat = Number(d?.latitude)
+          const lng = Number(d?.longitude)
           setData({
             senderUid,
             title: d?.title,
@@ -78,10 +84,14 @@ export default function PostcardLibraryDetailClient() {
             createdAtIso: d?.createdAtIso,
             template: d?.template,
             imageUrl: d?.imageUrl,
+            latitude: Number.isFinite(lat) ? lat : undefined,
+            longitude: Number.isFinite(lng) ? lng : undefined,
+            locationName: typeof d?.locationName === "string" ? d.locationName : undefined,
             message: d?.message,
             stickers: Array.isArray(d?.stickers) ? d.stickers : [],
             transform: d?.transform || null,
           })
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         if (!cancelled) setError(msg || "Failed to load")
@@ -256,6 +266,20 @@ export default function PostcardLibraryDetailClient() {
                 Done
               </button>
             </div>
+
+            <button
+              type="button"
+              style={{ ...shareBtn, width: "100%", marginTop: 10 }}
+              onClick={() =>
+                openGoogleMapsNavigation({
+                  latitude: data?.latitude,
+                  longitude: data?.longitude,
+                  placeName: data?.locationName?.trim() || String(data?.title || "").trim(),
+                })
+              }
+            >
+              Go there
+            </button>
 
             <button
               type="button"
