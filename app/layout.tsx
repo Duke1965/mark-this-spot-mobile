@@ -4,10 +4,14 @@ import "./globals.css"
 import RegisterSW from "@/components/RegisterSW"
 
 export const metadata: Metadata = {
-  title: "PINIT",
-  description: "Pin places fast, like Shazam for locations.",
+  title: "Mappo",
+  description: "Postcards from anywhere.",
   manifest: "/manifest.webmanifest",
   themeColor: "#111111",
+  icons: {
+    icon: "/brand/mappo/mappo-app-icon-1024.png",
+    apple: "/brand/mappo/mappo-app-icon-1024.png",
+  },
 }
 
 
