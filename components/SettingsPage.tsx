@@ -7,6 +7,8 @@ import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
 import { getHintsEnabled, setHintsEnabled, HINTS_ENABLED_KEY } from "@/lib/hints"
 
+const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-full-transparent.png"
+
 function GoogleLogo({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
@@ -569,7 +571,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Settings</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Manage your PINIT account.
+              Manage your Mappo account.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
@@ -660,12 +662,14 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         {/* Welcome Step */}
         {currentStep === "welcome" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "2.6rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.75rem" }}>
-              PINIT
-            </div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
+            <img
+              src={MAPPO_LOGO_SRC}
+              alt="Mappo"
+              style={{ width: "min(220px, 70vw)", height: "auto", margin: "0 auto 0.75rem", display: "block" }}
+            />
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to Mappo!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Set up your account to save places and create postcards to share them.
+              Postcards from anywhere.
             </p>
             <button
               onClick={handleNext}
@@ -694,7 +698,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👋</div>
                 <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome back, {user.displayName}!</h1>
                 <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-                  You&apos;re already signed in to PINIT
+                  You&apos;re already signed in to Mappo
                 </p>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
@@ -718,15 +722,19 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                       e.currentTarget.style.background = "rgba(255,255,255,0.2)"
                     }}
                   >
-                    Continue to PINIT
+                    Continue to Mappo
                   </button>
                 </div>
               </>
             ) : (
               // User not logged in - show sign-in options
               <>
-                <div style={{ fontSize: "2.5rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.35rem" }}>PINIT</div>
-                <div style={{ fontSize: "1rem", opacity: 0.9, marginBottom: "1.5rem" }}>Sign in to save and share places</div>
+                <img
+                  src={MAPPO_LOGO_SRC}
+                  alt="Mappo"
+                  style={{ width: "min(200px, 68vw)", height: "auto", margin: "0 auto 0.35rem", display: "block" }}
+                />
+                <div style={{ fontSize: "1rem", opacity: 0.9, marginBottom: "1.5rem" }}>Postcards from anywhere.</div>
 
                 {/* Error Message */}
                 {error && (
@@ -846,7 +854,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>💾</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Data Management</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Manage your PINIT data, backups, and privacy settings.
+              Manage your Mappo data, backups, and privacy settings.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "350px", margin: "0 auto" }}>
@@ -1074,12 +1082,14 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         {/* Complete Step */}
         {currentStep === "complete" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "2.6rem", fontWeight: 950, letterSpacing: "0.6px", marginBottom: "0.75rem" }}>
-              PINIT
-            </div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to PINIT!</h1>
+            <img
+              src={MAPPO_LOGO_SRC}
+              alt="Mappo"
+              style={{ width: "min(220px, 70vw)", height: "auto", margin: "0 auto 0.75rem", display: "block" }}
+            />
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to Mappo!</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              You&apos;re ready to start discovering and sharing amazing places.
+              Postcards from anywhere.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
@@ -1097,7 +1107,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   marginTop: "1rem"
                 }}
               >
-                Start Using PINIT
+                Start Using Mappo
               </button>
             </div>
           </div>
@@ -1109,7 +1119,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📧</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In with Email</h1>
             <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Enter your email to create or sign in to your PINIT account.
+              Enter your email to create or sign in to your Mappo account.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "300px", margin: "0 auto" }}>
