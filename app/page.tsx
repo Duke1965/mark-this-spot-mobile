@@ -39,6 +39,7 @@ import { getCameraPermissionStatus, requestCameraPermission, requestLocationPerm
 
 const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-stacked.png"
 const MAPPO_HOME_BG_SRC = "/brand/mappo/mappo-home-bg.png"
+const MAPPO_HOME_TEXT_COLOR = "#4f3b2b"
 
 function PostcardIcon({ size = 28 }: { size?: number }) {
   const s = size
@@ -4375,7 +4376,7 @@ export default function PINITApp() {
             marginTop: "0.9rem",
             opacity: 0.78,
             fontSize: "0.9rem",
-            color: "#4f3b2b",
+            color: MAPPO_HOME_TEXT_COLOR,
             textShadow: "0 1px 8px rgba(255,255,255,0.65)",
             fontWeight: 750,
             pointerEvents: "none",
@@ -4547,7 +4548,7 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "var(--pinit-fg)",
+            color: MAPPO_HOME_TEXT_COLOR,
             cursor: "pointer",
             display: "flex",
             flexDirection: "column",
@@ -4567,7 +4568,7 @@ export default function PINITApp() {
           }}
         >
           <PostcardIcon size={40} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Write</div>
+          <div style={{ fontSize: "0.72rem", opacity: 0.95, lineHeight: 1, textAlign: "center" }}>Write</div>
         </button>
 
         <button
@@ -4576,7 +4577,7 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "var(--pinit-fg)",
+            color: MAPPO_HOME_TEXT_COLOR,
             cursor: "pointer",
             display: "flex",
             flexDirection: "column",
@@ -4596,8 +4597,8 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Library size={35} style={{ color: "var(--pinit-fg)" }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Library</div>
+          <Library size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+          <div style={{ fontSize: "0.72rem", opacity: 0.72, lineHeight: 1, textAlign: "center" }}>Library</div>
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
@@ -4629,7 +4630,7 @@ export default function PINITApp() {
             padding: "0.75rem",
             border: "none",
             background: "transparent",
-            color: "var(--pinit-fg)",
+            color: MAPPO_HOME_TEXT_COLOR,
             cursor: "pointer",
             display: "flex",
             flexDirection: "column",
@@ -4650,8 +4651,8 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Star size={35} style={{ color: "var(--pinit-fg)" }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.88, lineHeight: 1, textAlign: "center" }}>Discover</div>
+          <Star size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+          <div style={{ fontSize: "0.72rem", opacity: 0.72, lineHeight: 1, textAlign: "center" }}>Discover</div>
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
