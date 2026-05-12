@@ -37,6 +37,8 @@ import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
+const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-full-transparent.png"
+
 function PostcardIcon({ size = 28 }: { size?: number }) {
   const s = size
   return (
@@ -828,7 +830,7 @@ export default function PINITApp() {
 
   // Share to social media platform
   const shareToPlatform = async (platform: string, imageUrl: string, mediaData?: any) => {
-    const locationName = mediaData?.placeName || mediaData?.location || mediaData?.title || "PINIT Location"
+    const locationName = mediaData?.placeName || mediaData?.location || mediaData?.title || "Mappo Location"
     const description = mediaData?.description || mediaData?.personalThoughts || ""
     const shareText = `${locationName}${description ? ` - ${description}` : ''}`
     
@@ -851,7 +853,7 @@ export default function PINITApp() {
             
             await navigator.share({
               title: locationName,
-              text: `${shareText}\n\n📍 Shared via PINIT`,
+              text: `${shareText}\n\n📍 Shared via Mappo`,
               files: [imageFile]
             })
             console.log('📤 Shared to WhatsApp via Web Share API')
@@ -869,7 +871,7 @@ export default function PINITApp() {
         
         // Fallback: WhatsApp Web API - opens WhatsApp with message (user can attach image manually)
         // Format: https://wa.me/?text=URL_ENCODED_TEXT
-        const whatsappText = encodeURIComponent(`${shareText}\n\n📍 Shared via PINIT`)
+        const whatsappText = encodeURIComponent(`${shareText}\n\n📍 Shared via Mappo`)
         const whatsappUrl = `https://wa.me/?text=${whatsappText}`
         window.open(whatsappUrl, '_blank')
         console.log('📤 Opening WhatsApp with message (user can attach image)')
@@ -885,7 +887,7 @@ export default function PINITApp() {
       case 'twitter':
       case 'x':
         // Twitter/X sharing
-        const twitterText = encodeURIComponent(`${shareText} #PINIT`)
+        const twitterText = encodeURIComponent(`${shareText} #Mappo`)
         const twitterUrl = `https://twitter.com/intent/tweet?text=${twitterText}`
         window.open(twitterUrl, '_blank')
         console.log('📤 Opening Twitter/X with message')
@@ -2746,7 +2748,7 @@ export default function PINITApp() {
         audioUrl: null,
         timestamp: new Date().toISOString(),
         // Use Foursquare place name as title, with user review
-        title: `PINIT Recommendation - ${placeTitle}`,
+        title: `Mappo Recommendation - ${placeTitle}`,
         // Combine user review with place description if available
         description: placeDescription 
           ? `${review}\n\n${placeDescription}` 
@@ -2779,7 +2781,7 @@ export default function PINITApp() {
       
       setShowRecommendationForm(false)
       setRecommendationData(null)
-      setSuccessMessage("PINIT Recommendation sent!")
+      setSuccessMessage("Mappo Recommendation sent!")
       setShowSuccessPopup(true)
       setTimeout(() => setShowSuccessPopup(false), 3000)
       setTimeout(() => setCurrentScreen("map"), 100)
@@ -2894,8 +2896,11 @@ export default function PINITApp() {
         }}
       >
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📌</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: "600", marginBottom: "0.5rem" }}>PINIT</div>
+          <img
+            src={MAPPO_LOGO_SRC}
+            alt="Mappo"
+            style={{ width: "min(200px, 70vw)", height: "auto", margin: "0 auto 0.75rem", display: "block" }}
+          />
           <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>Loading...</div>
         </div>
       </div>
@@ -2972,7 +2977,7 @@ export default function PINITApp() {
               mediaType: capturedMedia.type,
               audioUrl: null,
               title: placeTitle || (isVideo ? "Camera Video" : "Camera Photo"),
-              description: placeDescription || contentData.comments || (isVideo ? "Video taken with PINIT camera" : "Photo taken with PINIT camera"),
+              description: placeDescription || contentData.comments || (isVideo ? "Video taken with Mappo camera" : "Photo taken with Mappo camera"),
               tags: ["camera", isVideo ? "video" : "photo", "personal"],
               personalThoughts: contentData.comments || "",
               timestamp: new Date().toISOString(),
@@ -3004,7 +3009,7 @@ export default function PINITApp() {
             const isVideo = capturedMedia.type === "video"
             setRecommendationData({
               mediaUrl: isVideo ? capturedMedia.url : (contentData.finalImageUrl || capturedMedia.url),
-              locationName: capturedMedia.placeName || capturedMedia.location || capturedMedia.title || "PINIT Location",
+              locationName: capturedMedia.placeName || capturedMedia.location || capturedMedia.title || "Mappo Location",
               platform: selectedPlatform,
               aiTitle: capturedMedia.title,
               aiDescription: capturedMedia.description,
@@ -3044,7 +3049,7 @@ export default function PINITApp() {
               mediaType: capturedMedia.type,
               audioUrl: null,
               title: placeTitle || (isVideo ? "Camera Video" : "Camera Photo"),
-              description: placeDescription || contentData.comments || (isVideo ? "Video taken with PINIT camera" : "Photo taken with PINIT camera"),
+              description: placeDescription || contentData.comments || (isVideo ? "Video taken with Mappo camera" : "Photo taken with Mappo camera"),
               tags: ["camera", isVideo ? "video" : "photo", "personal"],
               personalThoughts: contentData.comments || "",
               timestamp: new Date().toISOString(),
@@ -3968,7 +3973,7 @@ export default function PINITApp() {
                 setShowRecommendationPopup(false)
                 setRecommendationData({
                   mediaUrl: finalImageData?.finalImageUrl || capturedMedia?.url || "",
-                  locationName: capturedMedia?.placeName || capturedMedia?.location || capturedMedia?.title || "PINIT Location",
+                  locationName: capturedMedia?.placeName || capturedMedia?.location || capturedMedia?.title || "Mappo Location",
                   platform: selectedPlatform,
                   aiTitle: capturedMedia?.title,
                   aiDescription: capturedMedia?.description,
@@ -4371,17 +4376,17 @@ export default function PINITApp() {
           textAlign: "center",
         }}
       >
-        <h1
+        <img
+          src={MAPPO_LOGO_SRC}
+          alt="Mappo"
           style={{
-            margin: 0,
-            fontSize: "3rem",
-            fontWeight: "bold",
-            color: "white",
-            textShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            width: "min(240px, 72vw)",
+            height: "auto",
+            display: "block",
+            margin: "0 auto",
+            filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))",
           }}
-        >
-          PINIT
-        </h1>
+        />
         <p
           style={{
             margin: "0.25rem 0 0 0",
@@ -4392,7 +4397,7 @@ export default function PINITApp() {
             fontWeight: "500",
           }}
         >
-          Find It. Pin It. Share It.
+          Postcards from anywhere.
         </p>
         <p
           style={{
