@@ -37,7 +37,7 @@ import MapboxMap from "@/components/map/MapboxMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
-const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-full-transparent.png"
+const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-stacked.png"
 const MAPPO_HOME_BG_SRC = "/brand/mappo/mappo-home-bg.png"
 
 function PostcardIcon({ size = 28 }: { size?: number }) {
@@ -4126,7 +4126,7 @@ export default function PINITApp() {
             width: "290px",
             height: "290px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.28) 22%, transparent 58%)",
+            background: "radial-gradient(circle, rgba(199, 238, 229, 0.5) 0%, rgba(199, 238, 229, 0.24) 24%, transparent 60%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4143,7 +4143,7 @@ export default function PINITApp() {
             height: "325px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.22) 22%, transparent 58%)",
+              "radial-gradient(circle, rgba(199, 238, 229, 0.38) 0%, rgba(199, 238, 229, 0.18) 24%, transparent 60%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.4s" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4160,7 +4160,7 @@ export default function PINITApp() {
             height: "360px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 22%, transparent 58%)",
+              "radial-gradient(circle, rgba(199, 238, 229, 0.3) 0%, rgba(199, 238, 229, 0.12) 24%, transparent 60%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.8s" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4175,11 +4175,11 @@ export default function PINITApp() {
             width: "250px",
             height: "250px",
             borderRadius: "50%",
-            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(255,255,255,0.95)",
-            background: "rgba(255,255,255,0.05)",
+            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(199, 238, 229, 0.88)",
+            background: "rgba(238, 248, 244, 0.18)",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
-            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 24px rgba(34, 197, 94, 0.28)" : "0 10px 26px rgba(78, 63, 43, 0.16)",
+            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 22px rgba(34, 197, 94, 0.24)" : "0 8px 20px rgba(78, 63, 43, 0.12)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -4196,13 +4196,13 @@ export default function PINITApp() {
           onMouseEnter={(e) => {
             if (!isQuickPinning) {
               e.currentTarget.style.transform = "scale(1.05)"
-              e.currentTarget.style.boxShadow = "0 12px 30px rgba(78, 63, 43, 0.2)"
+              e.currentTarget.style.boxShadow = "0 10px 24px rgba(78, 63, 43, 0.16)"
             }
           }}
           onMouseLeave={(e) => {
             if (!isQuickPinning) {
               e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = motionData.isMoving && motionData.speed > 5 ? "0 8px 24px rgba(34, 197, 94, 0.28)" : "0 10px 26px rgba(78, 63, 43, 0.16)"
+              e.currentTarget.style.boxShadow = motionData.isMoving && motionData.speed > 5 ? "0 8px 22px rgba(34, 197, 94, 0.24)" : "0 8px 20px rgba(78, 63, 43, 0.12)"
             }
           }}
         >
@@ -4215,7 +4215,7 @@ export default function PINITApp() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 zIndex: 1,
-                background: "var(--pinit-bg)",
+                background: "#eef8f4",
               }}
             >
               <InteractiveMainMap
@@ -4370,6 +4370,19 @@ export default function PINITApp() {
             )}
           </div>
         </button>
+        <div
+          style={{
+            marginTop: "0.9rem",
+            opacity: 0.78,
+            fontSize: "0.9rem",
+            color: "#4f3b2b",
+            textShadow: "0 1px 8px rgba(255,255,255,0.65)",
+            fontWeight: 750,
+            pointerEvents: "none",
+          }}
+        >
+          📍 {motionData.isMoving ? "Driving..." : (locationName || (locationLoading ? "Getting location..." : "Location unavailable"))}
+        </div>
       </div>
 
       {/* Mappo brand mark */}
@@ -4381,7 +4394,7 @@ export default function PINITApp() {
           transform: "translateX(-50%)",
           textAlign: "center",
           zIndex: 8,
-          width: "min(220px, 58vw)",
+          width: "min(178px, 48vw)",
           pointerEvents: "none",
         }}
       >
@@ -4396,18 +4409,6 @@ export default function PINITApp() {
             filter: "drop-shadow(0 3px 10px rgba(70, 52, 35, 0.14))",
           }}
         />
-        <p
-          style={{
-            margin: "0.45rem 0 0 0",
-            opacity: 0.76,
-            fontSize: "0.9rem",
-            color: "#4f3b2b",
-            textShadow: "0 1px 8px rgba(255,255,255,0.65)",
-            fontWeight: 750,
-          }}
-        >
-          📍 {motionData.isMoving ? "Driving..." : (locationName || (locationLoading ? "Getting location..." : "Location unavailable"))}
-        </p>
       </div>
 
       {/* ENHANCED: Real Google Places Discovery Panel */}
