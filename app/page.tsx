@@ -38,6 +38,7 @@ import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
 const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-full-transparent.png"
+const MAPPO_HOME_BG_SRC = "/brand/mappo/mappo-home-bg.png"
 
 function PostcardIcon({ size = 28 }: { size?: number }) {
   const s = size
@@ -3810,11 +3811,16 @@ export default function PINITApp() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "var(--pinit-bg)",
+        backgroundColor: "#f4efe6",
+        backgroundImage: `url(${MAPPO_HOME_BG_SRC})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+        backgroundRepeat: "no-repeat",
         display: "flex",
         flexDirection: "column",
         color: "var(--pinit-fg)",
         padding: "2rem",
+        overflow: "hidden",
       }}
     >
       {/* Location Permission Prompt */}
@@ -4103,7 +4109,7 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "16%",
+          top: "27%",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
@@ -4117,10 +4123,10 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "320px",
-            height: "320px",
+            width: "290px",
+            height: "290px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
+            background: "radial-gradient(circle, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.28) 22%, transparent 58%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4133,11 +4139,11 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "360px",
-            height: "360px",
+            width: "325px",
+            height: "325px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.5) 15%, rgba(255,255,255,0.2) 35%, transparent 50%)",
+              "radial-gradient(circle, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.22) 22%, transparent 58%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.4s" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4150,11 +4156,11 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "400px",
-            height: "400px",
+            width: "360px",
+            height: "360px",
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 15%, rgba(255,255,255,0.1) 35%, transparent 50%)",
+              "radial-gradient(circle, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 22%, transparent 58%)",
             animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.8s" : "none",
             willChange: "transform, opacity",
             zIndex: 1,
@@ -4166,14 +4172,14 @@ export default function PINITApp() {
           onClick={handleQuickPin}
           disabled={isQuickPinning}
           style={{
-            width: "280px",
-            height: "280px",
+            width: "250px",
+            height: "250px",
             borderRadius: "50%",
             border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(255,255,255,0.95)",
             background: "rgba(255,255,255,0.05)",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
-            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+            boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 24px rgba(34, 197, 94, 0.28)" : "0 10px 26px rgba(78, 63, 43, 0.16)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -4190,13 +4196,13 @@ export default function PINITApp() {
           onMouseEnter={(e) => {
             if (!isQuickPinning) {
               e.currentTarget.style.transform = "scale(1.05)"
-              e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"
+              e.currentTarget.style.boxShadow = "0 12px 30px rgba(78, 63, 43, 0.2)"
             }
           }}
           onMouseLeave={(e) => {
             if (!isQuickPinning) {
               e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = motionData.isMoving && motionData.speed > 5 ? "0 8px 32px rgba(34, 197, 94, 0.4)" : "0 8px 32px rgba(0,0,0,0.3)"
+              e.currentTarget.style.boxShadow = motionData.isMoving && motionData.speed > 5 ? "0 8px 24px rgba(34, 197, 94, 0.28)" : "0 10px 26px rgba(78, 63, 43, 0.16)"
             }
           }}
         >
@@ -4366,46 +4372,38 @@ export default function PINITApp() {
         </button>
       </div>
 
-      {/* PINIT Branding - Moved to center */}
+      {/* Mappo brand mark */}
       <div
         style={{
           position: "absolute",
-          top: "55%",
+          top: "calc(env(safe-area-inset-top, 0px) + 1.25rem)",
           left: "50%",
           transform: "translateX(-50%)",
           textAlign: "center",
+          zIndex: 8,
+          width: "min(220px, 58vw)",
+          pointerEvents: "none",
         }}
       >
         <img
           src={MAPPO_LOGO_SRC}
           alt="Mappo"
           style={{
-            width: "min(240px, 72vw)",
+            width: "100%",
             height: "auto",
             display: "block",
             margin: "0 auto",
-            filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))",
+            filter: "drop-shadow(0 3px 10px rgba(70, 52, 35, 0.14))",
           }}
         />
         <p
           style={{
-            margin: "0.25rem 0 0 0",
-            fontSize: "1.1rem",
-            opacity: 0.95,
-            color: "white",
-            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
-            fontWeight: "500",
-          }}
-        >
-          Postcards from anywhere.
-        </p>
-        <p
-          style={{
-            margin: "0.5rem 0 0 0",
-            opacity: 0.95,
-            fontSize: "1rem",
-            color: "white",
-            textShadow: "0 2px 6px rgba(0,0,0,0.4)",
+            margin: "0.45rem 0 0 0",
+            opacity: 0.76,
+            fontSize: "0.9rem",
+            color: "#4f3b2b",
+            textShadow: "0 1px 8px rgba(255,255,255,0.65)",
+            fontWeight: 750,
           }}
         >
           📍 {motionData.isMoving ? "Driving..." : (locationName || (locationLoading ? "Getting location..." : "Location unavailable"))}
