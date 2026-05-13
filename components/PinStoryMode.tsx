@@ -55,8 +55,8 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
           left: 0,
           right: 0,
           bottom: 0,
-            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-          color: "white",
+            backgroundColor: "#eef8f4",
+          color: "#3a2e1e",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -75,9 +75,9 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             style={{
               padding: "0.75rem 1.5rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.15)",
-              color: "white",
+              border: "1px solid rgba(79,59,43,0.12)",
+              background: "rgba(79,59,43,0.06)",
+              color: "#3a2e1e",
               cursor: "pointer",
               fontSize: "1rem",
               fontWeight: "bold",
@@ -100,8 +100,8 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         display: "flex",
         flexDirection: "column",
       }}
@@ -117,11 +117,11 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
           alignItems: "center",
           justifyContent: "space-between",
           zIndex: 10,
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "rgba(255,255,255,0.88)",
             borderRadius: "0.75rem",
           padding: "0.75rem",
             backdropFilter: "blur(15px)",
-            border: "1px solid rgba(255,255,255,0.2)",
+            border: "1px solid rgba(79,59,43,0.12)",
         }}
       >
         <button
@@ -129,9 +129,9 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
           style={{
             padding: "0.75rem",
             borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.15)",
-            color: "white",
+            border: "1px solid rgba(79,59,43,0.12)",
+            background: "rgba(79,59,43,0.06)",
+            color: "#3a2e1e",
             cursor: "pointer",
             transition: "all 0.2s ease",
             backdropFilter: "blur(10px)",
@@ -152,9 +152,9 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
           style={{
             padding: "0.75rem",
             borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.15)",
-            color: "white",
+            border: "1px solid rgba(79,59,43,0.12)",
+            background: "rgba(79,59,43,0.06)",
+            color: "#3a2e1e",
             cursor: "pointer",
             transition: "all 0.2s ease",
             backdropFilter: "blur(10px)",
@@ -171,13 +171,13 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             position: "absolute",
             top: "5rem",
             right: "1rem",
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "rgba(255,255,255,0.88)",
             borderRadius: "0.75rem",
             padding: "1rem",
             zIndex: 20,
             minWidth: "200px",
             backdropFilter: "blur(15px)",
-            border: "1px solid rgba(255,255,255,0.2)",
+            border: "1px solid rgba(79,59,43,0.12)",
           }}
         >
           <h3 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", fontWeight: "bold" }}>Playback Settings</h3>
@@ -205,7 +205,7 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
               borderRadius: "0.25rem",
               border: "none",
               background: "#3B82F6",
-              color: "white",
+              color: "#3a2e1e",
               cursor: "pointer",
               fontSize: "0.875rem",
             }}
@@ -292,7 +292,7 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
                     style={{
                       width: "100%",
                       height: "32px",
-                      background: "rgba(255,255,255,0.1)",
+                      background: "rgba(79,59,43,0.04)",
                       borderRadius: "0.25rem",
                     }}
                   />
@@ -311,7 +311,7 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
           left: "1rem",
           right: "1rem",
           height: "4px",
-          background: "rgba(255,255,255,0.3)",
+          background: "rgba(79,59,43,0.1)",
           borderRadius: "2px",
           overflow: "hidden",
         }}
@@ -349,8 +349,8 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             padding: "0.75rem",
             borderRadius: "50%",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
+            background: "rgba(79,59,43,0.06)",
+            color: "#3a2e1e",
             cursor: "pointer",
           }}
         >
@@ -364,7 +364,7 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             borderRadius: "50%",
             border: "none",
             background: isPlaying ? "#EF4444" : "#10B981",
-            color: "white",
+            color: "#3a2e1e",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -380,8 +380,8 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
             padding: "0.75rem",
             borderRadius: "50%",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
+            background: "rgba(79,59,43,0.06)",
+            color: "#3a2e1e",
             cursor: "pointer",
           }}
         >
@@ -395,8 +395,8 @@ export function PinStoryMode({ pins, onBack }: PinStoryModeProps) {
               padding: "0.75rem",
               borderRadius: "50%",
               border: "none",
-              background: "rgba(255,255,255,0.2)",
-              color: "white",
+              background: "rgba(79,59,43,0.06)",
+              color: "#3a2e1e",
               cursor: "pointer",
             }}
           >
