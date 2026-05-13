@@ -35,12 +35,12 @@ export default function DraftExitDialog({
       <div
         style={{
           width: "min(420px, 92vw)",
-          background: "rgba(30, 58, 138, 0.98)",
-          border: "1px solid rgba(255,255,255,0.18)",
+          background: "rgba(255,255,255,0.96)",
+          border: "1px solid rgba(79,59,43,0.12)",
           borderRadius: 16,
           padding: 14,
-          color: "white",
-          boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
+          color: "#3a2e1e",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
           backdropFilter: "blur(14px)",
         }}
       >
@@ -71,25 +71,25 @@ const baseBtn: React.CSSProperties = {
   padding: "0.85rem 1rem",
   fontWeight: 950,
   cursor: "pointer",
-  border: "1px solid rgba(255,255,255,0.2)",
+  border: "1px solid rgba(79,59,43,0.15)",
 }
 
 const btnPrimary: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(255,255,255,0.22)",
-  color: "white",
+  background: "rgba(79,59,43,0.1)",
+  color: "#4f3b2b",
 }
 
 const btnSecondary: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(255,255,255,0.12)",
-  color: "white",
+  background: "rgba(79,59,43,0.05)",
+  color: "#4f3b2b",
 }
 
 const btnDanger: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(239,68,68,0.22)",
-  border: "1px solid rgba(239,68,68,0.35)",
-  color: "white",
+  background: "rgba(239,68,68,0.12)",
+  border: "1px solid rgba(239,68,68,0.25)",
+  color: "#b91c1c",
 }
 
