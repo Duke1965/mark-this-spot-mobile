@@ -1789,6 +1789,51 @@ export default function AIRecommendationsHub({
         ))}
       </div>
 
+      {/* Map legend — shown above the map when in map view */}
+      {viewMode === "map" && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          padding: '8px 20px 0',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            background: 'rgba(255,255,255,0.72)',
+            border: '1px solid rgba(79,59,43,0.1)',
+            borderRadius: 999,
+            padding: '6px 16px',
+            fontSize: 12,
+            color: '#4f3b2b',
+            backdropFilter: 'blur(10px)',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: 'rgba(16,185,129,0.95)',
+                display: 'inline-block',
+              }} />
+              Users
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: 'rgba(59,130,246,0.95)',
+                display: 'inline-block',
+              }} />
+              AI
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Content Area */}
       <div style={{ flex: 1, padding: '20px', overflow: 'hidden' }}>
         {viewMode === "map" && (
@@ -1812,92 +1857,7 @@ export default function AIRecommendationsHub({
               }}
             />
 
-            {/* Map controls: filter + legend (hint moved to header) */}
-            <div style={{
-              position: 'absolute',
-              top: '14px',
-              left: '14px',
-              zIndex: 5,
-              background: 'rgba(15, 23, 42, 0.55)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              borderRadius: '12px',
-              padding: '10px 12px',
-              color: 'white',
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, opacity: 0.95 }}>
-                {/* Toggle (All / Users / AI) */}
-                <div style={{
-                  display: 'flex',
-                  gap: '6px',
-                  padding: '6px',
-                  borderRadius: '14px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.10)'
-                }}>
-                  {([
-                    { key: "all", label: "All" },
-                    { key: "user", label: "Users" },
-                    { key: "ai", label: "AI" }
-                  ] as const).map((tab) => {
-                    const active = recommendationFilter === tab.key
-                    return (
-                      <button
-                        key={tab.key}
-                        onClick={() => setRecommendationFilter(tab.key)}
-                        style={{
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          background: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)',
-                          color: active ? '#0f172a' : 'rgba(255,255,255,0.92)',
-                          borderRadius: '12px',
-                          padding: '8px 12px',
-                          fontSize: '12px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          minWidth: '64px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = active ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.14)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.08)'
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Key */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    display: 'inline-block',
-                    background: 'rgba(16,185,129,0.95)',
-                    border: '2px solid rgba(255,255,255,0.9)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
-                  }} />
-                  <span>Users</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: 'rgba(59,130,246,0.95)',
-                    border: '2px solid rgba(255,255,255,0.95)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
-                    display: 'inline-block'
-                  }} />
-                  <span>AI</span>
-                </div>
-              </div>
-            </div>
+            {/* In-map overlay removed — legend moved outside map frame */}
           </div>
         )}
 
