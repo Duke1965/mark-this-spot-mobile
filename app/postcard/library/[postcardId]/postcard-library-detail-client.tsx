@@ -106,7 +106,7 @@ export default function PostcardLibraryDetailClient() {
 
   const shareText = useMemo(() => {
     const title = String(data?.title || "My Special Place").trim()
-    return `PINIT Postcard: ${title}\n\n${shareUrl}`.trim()
+    return `Mappo Postcard: ${title}\n\n${shareUrl}`.trim()
   }, [data?.title, shareUrl])
 
   const templateConfig = useMemo(() => getTemplateConfig(data?.template), [data?.template])
@@ -262,7 +262,7 @@ export default function PostcardLibraryDetailClient() {
               >
                 Copy Link
               </button>
-              <button type="button" style={{ ...shareBtn, background: "rgba(255,255,255,0.22)" }} onClick={() => router.push("/")}>
+              <button type="button" style={{ ...shareBtn, background: "rgba(79,59,43,0.12)" }} onClick={() => router.push("/")}>
                 Done
               </button>
             </div>
@@ -283,7 +283,7 @@ export default function PostcardLibraryDetailClient() {
 
             <button
               type="button"
-              style={{ ...shareBtn, width: "100%", marginTop: 12, background: "rgba(255,255,255,0.08)" }}
+              style={{ ...shareBtn, width: "100%", marginTop: 12, background: "rgba(255,255,255,0.65)" }}
               onClick={() => {
                 window.open(`/shared/${encodeURIComponent(postcardId)}`, "_blank", "noopener,noreferrer")
               }}
@@ -298,9 +298,9 @@ export default function PostcardLibraryDetailClient() {
 }
 
 const shareBtn: React.CSSProperties = {
-  background: "rgba(255,255,255,0.15)",
-  border: "1px solid rgba(255,255,255,0.22)",
-  color: "white",
+  background: "rgba(79,59,43,0.08)",
+  border: "1px solid rgba(79,59,43,0.15)",
+  color: "#4f3b2b",
   fontWeight: 900,
   padding: "0.7rem 0.9rem",
   borderRadius: 12,
@@ -315,17 +315,21 @@ const styles: Record<string, React.CSSProperties> = {
   screen: {
     position: "fixed",
     inset: 0,
-    background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-    color: "white",
+    backgroundImage: "url(/brand/mappo/mappo-library-bg.png)",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundColor: "#eef8f4",
+    color: "#3a2e1e",
     display: "flex",
     flexDirection: "column",
   },
   header: {
     padding: "1rem",
-    paddingTop: "3rem",
-    background: "rgba(30, 58, 138, 0.95)",
-    borderBottom: "1px solid rgba(255,255,255,0.2)",
-    backdropFilter: "blur(15px)",
+    paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+    background: "rgba(255,255,255,0.7)",
+    borderBottom: "1px solid rgba(0,0,0,0.08)",
+    backdropFilter: "blur(18px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -335,7 +339,7 @@ const styles: Record<string, React.CSSProperties> = {
   backBtn: {
     background: "transparent",
     border: "none",
-    color: "white",
+    color: "#4f3b2b",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -347,14 +351,14 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     width: "min(520px, 100%)",
     margin: "0 auto",
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 16,
     padding: 14,
     backdropFilter: "blur(12px)",
   },
   cardTitle: { fontWeight: 900, fontSize: "1.05rem", marginBottom: 6 },
-  cardText: { opacity: 0.92, lineHeight: 1.35 },
+  cardText: { opacity: 0.75, lineHeight: 1.35 },
   previewWrap: { width: "100%", display: "flex", justifyContent: "center", marginBottom: 12 },
   previewCard: {
     width: "100%",
@@ -363,9 +367,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 18,
     overflow: "hidden",
     position: "relative",
-    background: "rgba(0,0,0,0.25)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    boxShadow: "0 18px 60px rgba(0,0,0,0.25)",
+    background: "rgba(0,0,0,0.06)",
+    border: "1px solid rgba(79,59,43,0.1)",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.1)",
   },
   photoMask: {
     position: "absolute",
