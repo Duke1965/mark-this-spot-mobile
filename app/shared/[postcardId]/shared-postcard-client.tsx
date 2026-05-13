@@ -122,7 +122,9 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
     >
       {!isLandscape ? (
         <div style={styles.header}>
+          <Link href="/" style={styles.homeBtn}>← Home</Link>
           <div style={styles.headerTitle}>Shared Postcard</div>
+          <div style={{ width: 60 }} />
         </div>
       ) : null}
 
@@ -277,7 +279,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
             </button>
 
             <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
-              Get PINIT to reply
+              Get Mappo to reply
             </Link>
           </>
         ) : (
@@ -301,7 +303,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
                 Go there
               </button>
               <Link href="/" style={styles.landscapeCta}>
-                Get PINIT to reply
+                Get Mappo to reply
               </Link>
             </div>
           </div>
@@ -314,25 +316,44 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     minHeight: "100dvh",
-    background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-    color: "white",
+    backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundColor: "#eef8f4",
+    color: "#3a2e1e",
     display: "flex",
     flexDirection: "column",
   },
   header: {
     padding: "1rem",
-    paddingTop: "3rem",
-    background: "rgba(30, 58, 138, 0.95)",
-    borderBottom: "1px solid rgba(255,255,255,0.2)",
-    backdropFilter: "blur(15px)",
+    paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+    background: "rgba(255,255,255,0.7)",
+    borderBottom: "1px solid rgba(0,0,0,0.08)",
+    backdropFilter: "blur(18px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "0.5rem",
   },
-  headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center" },
+  headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 },
+  homeBtn: {
+    background: "rgba(79,59,43,0.1)",
+    color: "#4f3b2b",
+    padding: "0.5rem 0.75rem",
+    borderRadius: "0.75rem",
+    border: "1px solid rgba(79,59,43,0.12)",
+    textDecoration: "none",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    flexShrink: 0,
+  },
   hint: {
     width: "min(560px, 92vw)",
     alignSelf: "center",
     marginTop: 10,
-    background: "rgba(255,255,255,0.12)",
-    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.65)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 999,
     padding: "0.6rem 0.9rem",
     backdropFilter: "blur(10px)",
@@ -355,7 +376,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hintLabel: {
     fontSize: "0.75rem",
-    opacity: 0.88,
+    opacity: 0.7,
     fontWeight: 500,
     letterSpacing: "0.2px",
   },
@@ -365,9 +386,9 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.3,
   },
   hintHideBtn: {
-    background: "rgba(255,255,255,0.16)",
-    border: "1px solid rgba(255,255,255,0.22)",
-    color: "white",
+    background: "rgba(79,59,43,0.08)",
+    border: "1px solid rgba(79,59,43,0.15)",
+    color: "#4f3b2b",
     fontWeight: 950,
     borderRadius: 999,
     padding: "0.35rem 0.7rem",
@@ -389,9 +410,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 18,
     overflow: "hidden",
     position: "relative",
-    background: "rgba(0,0,0,0.25)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+    background: "rgba(0,0,0,0.06)",
+    border: "1px solid rgba(79,59,43,0.1)",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.1)",
   },
   postcardStage: {
     width: "100%",
@@ -465,22 +486,22 @@ const styles: Record<string, React.CSSProperties> = {
   metaCard: {
     width: "100%",
     maxWidth: 420,
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 16,
     padding: 14,
     backdropFilter: "blur(12px)",
   },
   metaTitle: { fontWeight: 900, fontSize: "1.05rem", marginBottom: 6 },
-  metaDesc: { opacity: 0.9, lineHeight: 1.35 },
+  metaDesc: { opacity: 0.7, lineHeight: 1.35 },
   cta: {
     width: "100%",
     maxWidth: 420,
     textDecoration: "none",
     textAlign: "center",
-    background: "rgba(255,255,255,0.2)",
-    border: "1px solid rgba(255,255,255,0.2)",
-    color: "white",
+    background: "rgba(79,59,43,0.1)",
+    border: "1px solid rgba(79,59,43,0.15)",
+    color: "#4f3b2b",
     fontWeight: 900,
     padding: "0.95rem 1rem",
     borderRadius: 14,
@@ -489,9 +510,9 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     maxWidth: 420,
     textAlign: "center",
-    background: "rgba(255,255,255,0.14)",
-    border: "1px solid rgba(255,255,255,0.2)",
-    color: "white",
+    background: "rgba(255,255,255,0.72)",
+    border: "1px solid rgba(79,59,43,0.12)",
+    color: "#4f3b2b",
     fontWeight: 900,
     padding: "0.95rem 1rem",
     borderRadius: 14,
@@ -509,13 +530,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   landscapeMeta: { flex: 1, minWidth: 0 },
   landscapeTitle: { fontWeight: 950, fontSize: "1.05rem", lineHeight: 1.15 },
-  landscapeDesc: { opacity: 0.9, lineHeight: 1.25, fontSize: "0.92rem", marginTop: 3 },
+  landscapeDesc: { opacity: 0.7, lineHeight: 1.25, fontSize: "0.92rem", marginTop: 3 },
   landscapeCta: {
     textDecoration: "none",
     textAlign: "center",
-    background: "rgba(255,255,255,0.18)",
-    border: "1px solid rgba(255,255,255,0.22)",
-    color: "white",
+    background: "rgba(79,59,43,0.1)",
+    border: "1px solid rgba(79,59,43,0.15)",
+    color: "#4f3b2b",
     fontWeight: 950,
     padding: "0.75rem 0.95rem",
     borderRadius: 14,
@@ -524,9 +545,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   landscapeGoThere: {
     textAlign: "center",
-    background: "rgba(255,255,255,0.12)",
-    border: "1px solid rgba(255,255,255,0.2)",
-    color: "white",
+    background: "rgba(255,255,255,0.65)",
+    border: "1px solid rgba(79,59,43,0.12)",
+    color: "#4f3b2b",
     fontWeight: 950,
     padding: "0.75rem 0.95rem",
     borderRadius: 14,
@@ -537,15 +558,15 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     margin: "3rem auto",
     width: "min(520px, 92vw)",
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 16,
     padding: 16,
     backdropFilter: "blur(12px)",
     textAlign: "center",
   },
   title: { fontSize: "1.25rem", fontWeight: 900, marginBottom: 8 },
-  text: { opacity: 0.9, lineHeight: 1.35 },
+  text: { opacity: 0.75, lineHeight: 1.35 },
   missing: {
     position: "absolute",
     inset: 0,
