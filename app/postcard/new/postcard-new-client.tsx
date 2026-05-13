@@ -215,8 +215,12 @@ export default function PostcardNewClient() {
       style={{
         position: "fixed",
         inset: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundImage: "url(/brand/mappo/mappo-create-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         display: "flex",
         flexDirection: "column",
         zIndex: 1000,
@@ -240,12 +244,12 @@ export default function PostcardNewClient() {
           <div
             style={{
               width: "min(420px, 92vw)",
-              background: "rgba(30, 58, 138, 0.98)",
-              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(255,255,255,0.96)",
+              border: "1px solid rgba(79,59,43,0.12)",
               borderRadius: 16,
               padding: 14,
-              color: "white",
-              boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
+              color: "#3a2e1e",
+              boxShadow: "0 18px 60px rgba(0,0,0,0.18)",
               backdropFilter: "blur(14px)",
             }}
           >
@@ -271,10 +275,10 @@ export default function PostcardNewClient() {
       <div
         style={{
           padding: "1rem",
-          paddingTop: "3rem",
-          background: "rgba(30, 58, 138, 0.95)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          backdropFilter: "blur(15px)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          background: "rgba(255,255,255,0.7)",
+          borderBottom: "1px solid rgba(0,0,0,0.08)",
+          backdropFilter: "blur(18px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -286,7 +290,7 @@ export default function PostcardNewClient() {
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
+            color: "#4f3b2b",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -330,8 +334,8 @@ export default function PostcardNewClient() {
             {!templateParam || !ALLOWED_TEMPLATES.has(templateParam) ? (
               <div
                 style={{
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.72)",
+                  border: "1px solid rgba(79,59,43,0.1)",
                   borderRadius: 16,
                   padding: 14,
                   backdropFilter: "blur(12px)",
@@ -345,9 +349,9 @@ export default function PostcardNewClient() {
                   onClick={() => router.push("/postcard/templates")}
                   style={{
                     width: "100%",
-                    background: "rgba(255,255,255,0.2)",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    color: "white",
+                    background: "rgba(79,59,43,0.1)",
+                    border: "1px solid rgba(79,59,43,0.15)",
+                    color: "#4f3b2b",
                     fontWeight: 900,
                     padding: "0.95rem 1rem",
                     borderRadius: 14,
@@ -360,8 +364,8 @@ export default function PostcardNewClient() {
             ) : (
               <div
                 style={{
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.72)",
+                  border: "1px solid rgba(79,59,43,0.1)",
                   borderRadius: 16,
                   padding: 14,
                   backdropFilter: "blur(12px)",
@@ -396,12 +400,13 @@ export default function PostcardNewClient() {
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: 8,
-                background: "rgba(255,255,255,0.16)",
-                border: "1px solid rgba(255,255,255,0.22)",
-                color: "white",
+                background: "rgba(255,255,255,0.78)",
+                border: "1px solid rgba(79,59,43,0.12)",
+                color: "#3a2e1e",
                 fontWeight: 900,
                 padding: "1.1rem 1rem",
                 borderRadius: 16,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                 cursor: isNormalizing ? "not-allowed" : "pointer",
                 opacity: isNormalizing ? 0.7 : 1,
               }}
@@ -423,12 +428,13 @@ export default function PostcardNewClient() {
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: 8,
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                color: "white",
+                background: "rgba(255,255,255,0.65)",
+                border: "1px solid rgba(79,59,43,0.1)",
+                color: "#3a2e1e",
                 fontWeight: 900,
                 padding: "1.1rem 1rem",
                 borderRadius: 16,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                 cursor: isNormalizing ? "not-allowed" : "pointer",
                 opacity: isNormalizing ? 0.7 : 1,
               }}
@@ -450,12 +456,13 @@ export default function PostcardNewClient() {
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: 8,
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                color: "white",
+                background: "rgba(255,255,255,0.65)",
+                border: "1px solid rgba(79,59,43,0.1)",
+                color: "#3a2e1e",
                 fontWeight: 900,
                 padding: "1.1rem 1rem",
                 borderRadius: 16,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                 cursor: isNormalizing ? "not-allowed" : "pointer",
                 opacity: isNormalizing ? 0.7 : 1,
               }}
@@ -510,25 +517,25 @@ const baseBtn: React.CSSProperties = {
   padding: "0.85rem 1rem",
   fontWeight: 950,
   cursor: "pointer",
-  border: "1px solid rgba(255,255,255,0.2)",
+  border: "1px solid rgba(79,59,43,0.12)",
 }
 
 const btnPrimary: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(255,255,255,0.22)",
-  color: "white",
+  background: "rgba(79,59,43,0.1)",
+  color: "#4f3b2b",
 }
 
 const btnSecondary: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(255,255,255,0.12)",
-  color: "white",
+  background: "rgba(255,255,255,0.6)",
+  color: "#4f3b2b",
 }
 
 const btnDanger: React.CSSProperties = {
   ...baseBtn,
-  background: "rgba(239,68,68,0.22)",
-  border: "1px solid rgba(239,68,68,0.35)",
-  color: "white",
+  background: "rgba(239,68,68,0.15)",
+  border: "1px solid rgba(239,68,68,0.3)",
+  color: "#b91c1c",
 }
 
