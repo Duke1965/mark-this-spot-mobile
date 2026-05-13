@@ -33,11 +33,11 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
 
   // Match the Recommendations list button styling.
   const removeBtnStyle: React.CSSProperties = {
-    background: 'rgba(239, 68, 68, 0.18)',
-    border: '1px solid rgba(239, 68, 68, 0.35)',
+    background: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
     borderRadius: '6px',
     padding: '4px 8px',
-    color: 'white',
+    color: '#b91c1c',
     fontSize: '11px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
@@ -85,27 +85,27 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           key={item.id} 
           onClick={() => onPinSelect(item)}
           style={{
-            background: 'rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.72)',
             padding: '18px',
             borderRadius: '16px',
-            border: '2px dashed rgba(255,255,255,0.3)',
-            backdropFilter: 'blur(15px)',
+            border: '2px dashed rgba(79,59,43,0.18)',
+            backdropFilter: 'blur(12px)',
             transition: 'all 0.2s ease',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
             cursor: 'pointer',
             opacity: 0.9,
             display: 'flex',
             flexDirection: 'column',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.85)'
             e.currentTarget.style.transform = 'translateY(-2px)'
-            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.72)'
             e.currentTarget.style.transform = 'translateY(0)'
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -114,12 +114,12 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               width: '60px',
               height: '60px',
               borderRadius: '12px',
-              background: 'rgba(255,255,255,0.1)',
+              background: 'rgba(79,59,43,0.06)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '32px',
-              border: '2px dashed rgba(255,255,255,0.3)',
+              border: '2px dashed rgba(79,59,43,0.15)',
               flexShrink: 0
             }}>
               📍
@@ -173,21 +173,21 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                   })
                 }}
                 style={{
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(79,59,43,0.08)",
+                  border: "1px solid rgba(79,59,43,0.15)",
                   borderRadius: "6px",
                   padding: "4px 8px",
-                  color: "white",
+                  color: "#4f3b2b",
                   fontSize: "11px",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.15)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.08)"
                 }}
               >
                 Go there
@@ -241,26 +241,26 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         key={item.id} 
         onClick={() => onPinSelect(item)}
         style={{
-          background: 'rgba(255,255,255,0.1)',
+          background: 'rgba(255,255,255,0.78)',
           padding: '18px',
           borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.2)',
-          backdropFilter: 'blur(15px)',
+          border: '1px solid rgba(79,59,43,0.1)',
+          backdropFilter: 'blur(12px)',
           transition: 'all 0.2s ease',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+          e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
           e.currentTarget.style.transform = 'translateY(-2px)'
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+          e.currentTarget.style.background = 'rgba(255,255,255,0.78)'
           e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
         }}
       >
         {/* Card content */}
@@ -270,16 +270,16 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             width: '60px',
             height: '100%',
             borderRadius: '12px',
-            background: 'rgba(255,255,255,0.1)',
+            background: 'rgba(79,59,43,0.06)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '24px',
-            border: '1px solid rgba(255,255,255,0.2)',
+            border: '1px solid rgba(79,59,43,0.1)',
             overflow: 'hidden',
             flexShrink: 0,
             position: 'relative',
-            minHeight: '60px' // Ensure minimum height for image container
+            minHeight: '60px'
           }}>
             {/* Priority: Direct mediaUrl from pin, then first photo from additionalPhotos */}
             {item.mediaUrl ? (
@@ -352,7 +352,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 position: item.mediaUrl || firstPhoto?.url ? 'absolute' : 'relative',
                 top: 0,
                 left: 0,
-                background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
+                background: 'rgba(79,59,43,0.08)'
               }}
             >
               {type === "recommended" ? "⭐" : "📍"}
@@ -370,11 +370,11 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             
             {/* Location */}
             <span style={{
-              background: 'rgba(255,255,255,0.1)',
+              background: 'rgba(79,59,43,0.08)',
               padding: '4px 8px',
               borderRadius: '8px',
               fontSize: '11px',
-              color: 'rgba(255,255,255,0.8)',
+              color: 'rgba(79,59,43,0.7)',
               alignSelf: 'flex-start',
               marginBottom: '8px'
             }}>
@@ -411,10 +411,10 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 key={index}
                 style={{
                   fontSize: '11px',
-                  background: 'rgba(255,255,255,0.1)',
+                  background: 'rgba(79,59,43,0.08)',
                   padding: '4px 8px',
                   borderRadius: '8px',
-                  color: 'rgba(255,255,255,0.8)'
+                  color: 'rgba(79,59,43,0.65)'
                 }}
               >
                 #{tag}
@@ -430,21 +430,21 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 onPinSelect(item)
               }}
               style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(79,59,43,0.08)',
+                border: '1px solid rgba(79,59,43,0.15)',
                 borderRadius: '6px',
                 padding: '4px 8px',
-                color: 'white',
+                color: '#4f3b2b',
                 fontSize: '11px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.08)'
               }}
             >
               📍 View
@@ -461,21 +461,21 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 })
               }}
               style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(79,59,43,0.08)',
+                border: '1px solid rgba(79,59,43,0.15)',
                 borderRadius: '6px',
                 padding: '4px 8px',
-                color: 'white',
+                color: '#4f3b2b',
                 fontSize: '11px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.08)'
               }}
             >
               Go there
@@ -515,51 +515,57 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+      backgroundImage: "url(/brand/mappo/mappo-library-bg.png)",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#eef8f4",
       display: "flex",
       flexDirection: "column",
-      color: "white",
+      color: "#3a2e1e",
       zIndex: 1000
     }}>
       {/* Header */}
       <div style={{
         padding: "1rem",
-        background: "rgba(30, 58, 138, 0.95)",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+        background: "rgba(255,255,255,0.7)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        backdropFilter: "blur(15px)",
-        borderBottom: "1px solid rgba(255,255,255,0.2)",
+        backdropFilter: "blur(18px)",
+        borderBottom: "1px solid rgba(0,0,0,0.08)",
       }}>
         <button
           onClick={onBack}
           style={{
-            background: "rgba(255,255,255,0.15)",
-            color: "white",
+            background: "rgba(79,59,43,0.12)",
+            color: "#4f3b2b",
             padding: "0.75rem",
             borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.2)",
+            border: "1px solid rgba(79,59,43,0.15)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
             transition: "all 0.2s ease",
-            backdropFilter: "blur(10px)",
           }}
         >
           <ArrowLeft size={20} />
           Back
         </button>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>PINIT Library</span>
-        </div>
+        <img
+          src="/brand/mappo/mappo-library-title.png"
+          alt="Library"
+          style={{ height: 28, objectFit: "contain" }}
+        />
 
         <div style={{ width: "40px" }}></div>
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ padding: "1rem", background: "rgba(30, 58, 138, 0.95)", backdropFilter: "blur(15px)", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
+      <div style={{ padding: "1rem", background: "rgba(255,255,255,0.6)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
         <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem" }}>
           <button
             onClick={() => setCurrentTab("pins")}
@@ -567,9 +573,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               flex: 1,
               padding: "0.75rem 0.5rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: currentTab === "pins" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-              color: "white",
+              border: "1px solid rgba(79,59,43,0.12)",
+              background: currentTab === "pins" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
+              color: "#4f3b2b",
               cursor: "pointer",
               fontSize: "0.875rem",
               display: "flex",
@@ -577,7 +583,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               alignItems: "center",
               gap: "0.25rem",
               transition: "all 0.2s ease",
-              backdropFilter: "blur(10px)",
             }}
             type="button"
           >
@@ -591,9 +596,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               flex: 1,
               padding: "0.75rem 0.5rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
+              border: "1px solid rgba(79,59,43,0.12)",
+              background: "rgba(255,255,255,0.5)",
+              color: "#4f3b2b",
               cursor: "pointer",
               fontSize: "0.875rem",
               display: "flex",
@@ -601,7 +606,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               alignItems: "center",
               gap: "0.25rem",
               transition: "all 0.2s ease",
-              backdropFilter: "blur(10px)",
             }}
             type="button"
           >
@@ -615,9 +619,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               flex: 1,
               padding: "0.75rem 0.5rem",
               borderRadius: "0.75rem",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: currentTab === "recommended" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-              color: "white",
+              border: "1px solid rgba(79,59,43,0.12)",
+              background: currentTab === "recommended" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
+              color: "#4f3b2b",
               cursor: "pointer",
               fontSize: "0.875rem",
               display: "flex",
@@ -625,7 +629,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               alignItems: "center",
               gap: "0.25rem",
               transition: "all 0.2s ease",
-              backdropFilter: "blur(10px)",
             }}
             type="button"
           >
@@ -646,11 +649,10 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               width: "100%",
               padding: "0.75rem 0.75rem 0.75rem 2.5rem",
                 borderRadius: "0.75rem",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.15)",
-              color: "white",
+                border: "1px solid rgba(79,59,43,0.12)",
+                background: "rgba(255,255,255,0.55)",
+              color: "#3a2e1e",
                 fontSize: "0.875rem",
-                backdropFilter: "blur(10px)",
             }}
           />
         </div>
