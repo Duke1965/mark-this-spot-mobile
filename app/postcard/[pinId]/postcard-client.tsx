@@ -154,8 +154,8 @@ export default function PostcardClient({
         style={{
           position: "fixed",
           inset: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-          color: "white",
+          backgroundColor: "#eef8f4",
+          color: "#3a2e1e",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -165,7 +165,7 @@ export default function PostcardClient({
           zIndex: 1000,
         }}
       >
-        <div style={{ width: "min(520px, 100%)", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 16, padding: 16, backdropFilter: "blur(12px)" }}>
+        <div style={{ width: "min(520px, 100%)", background: "rgba(255,255,255,0.78)", border: "1px solid rgba(79,59,43,0.1)", borderRadius: 16, padding: 16, backdropFilter: "blur(12px)" }}>
           <div style={{ fontSize: "1.15rem", fontWeight: 950, marginBottom: 8 }}>Can’t use that photo</div>
           <div style={{ opacity: 0.92, lineHeight: 1.35 }}>{fatalError}</div>
           <button
@@ -174,9 +174,9 @@ export default function PostcardClient({
             style={{
               marginTop: 14,
               width: "100%",
-              background: "rgba(255,255,255,0.2)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              color: "white",
+              background: "rgba(79,59,43,0.1)",
+              border: "1px solid rgba(79,59,43,0.15)",
+              color: "#4f3b2b",
               fontWeight: 900,
               padding: "0.95rem 1rem",
               borderRadius: 14,
@@ -195,8 +195,8 @@ export default function PostcardClient({
       style={{
         position: "fixed",
         inset: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -216,9 +216,9 @@ export default function PostcardClient({
         style={{
           marginTop: 16,
           width: "min(360px, 92vw)",
-          background: "rgba(255,255,255,0.15)",
-          border: "1px solid rgba(255,255,255,0.22)",
-          color: "white",
+          background: "rgba(79,59,43,0.1)",
+          border: "1px solid rgba(79,59,43,0.15)",
+          color: "#4f3b2b",
           fontWeight: 900,
           padding: "0.95rem 1rem",
           borderRadius: 14,
