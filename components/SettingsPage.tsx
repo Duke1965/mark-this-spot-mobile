@@ -109,7 +109,7 @@ function FactoryResetDialog() {
         disabled={isResetting}
         style={{
           background: "#EF4444",
-          color: "white",
+          color: "#4f3b2b",
           padding: "1rem",
           borderRadius: "0.5rem",
           border: "none",
@@ -143,13 +143,14 @@ function FactoryResetDialog() {
           padding: "1rem"
         }}>
           <div style={{
-            background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%)",
+            background: "rgba(255,255,255,0.98)",
+            backdropFilter: "blur(18px)",
             borderRadius: "20px",
             maxWidth: "400px",
             width: "100%",
             padding: "2rem",
-            color: "white",
-            border: "2px solid rgba(239, 68, 68, 0.5)"
+            color: "#3a2e1e",
+            border: "2px solid rgba(239, 68, 68, 0.35)"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
               <AlertTriangle size={32} color="#EF4444" />
@@ -252,8 +253,8 @@ function FactoryResetDialog() {
                     padding: "0.75rem",
                     borderRadius: "8px",
                     border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
+                    background: "rgba(79,59,43,0.08)",
+                    color: "#4f3b2b",
                     fontSize: "1rem"
                   }}
                 />
@@ -276,11 +277,11 @@ function FactoryResetDialog() {
                 disabled={isResetting}
                 style={{
                   flex: 1,
-                  background: "rgba(255,255,255,0.15)",
-                  color: "white",
+                  background: "rgba(255,255,255,0.65)",
+                  color: "#4f3b2b",
                   padding: "1rem",
                   borderRadius: "12px",
-                  border: "1px solid rgba(255,255,255,0.2)",
+                  border: "1px solid rgba(79,59,43,0.12)",
                   cursor: isResetting ? "not-allowed" : "pointer",
                   fontSize: "1rem",
                   fontWeight: "600"
@@ -294,7 +295,7 @@ function FactoryResetDialog() {
                 style={{
                   flex: 1,
                   background: confirmed && resetConfirmed && password ? "#EF4444" : "rgba(239, 68, 68, 0.3)",
-                  color: "white",
+                  color: "#4f3b2b",
                   padding: "1rem",
                   borderRadius: "12px",
                   border: "none",
@@ -521,16 +522,22 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       left: 0,
       right: 0,
       bottom: 0,
-      background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+      backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundColor: "#eef8f4",
       display: "flex",
       flexDirection: "column",
-      color: "white",
+      color: "#3a2e1e",
       zIndex: 1000
     }}>
       {/* Header */}
       <div style={{
         padding: "1rem",
-        background: "rgba(0,0,0,0.2)",
+        background: "rgba(255,255,255,0.7)",
+        backdropFilter: "blur(18px)",
+        borderBottom: "1px solid rgba(0,0,0,0.06)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between"
@@ -538,8 +545,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         <button
           onClick={handleBack}
           style={{
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
+            background: "rgba(79,59,43,0.08)",
+            color: "#4f3b2b",
             padding: "0.5rem",
             borderRadius: "0.5rem",
             border: "none",
@@ -577,8 +584,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
               <div
                 style={{
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.14)",
+                  background: "rgba(255,255,255,0.55)",
+                  border: "1px solid rgba(79,59,43,0.1)",
                   borderRadius: "0.75rem",
                   padding: "1rem",
                   textAlign: "left",
@@ -586,10 +593,10 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               >
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>Legal</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", opacity: 0.92 }}>
-                  <a href="/terms" style={{ color: "white", fontWeight: 800, textDecoration: "underline" }}>
+                  <a href="/terms" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
                     Terms of Use
                   </a>
-                  <a href="/privacy" style={{ color: "white", fontWeight: 800, textDecoration: "underline" }}>
+                  <a href="/privacy" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
                     Privacy Policy
                   </a>
                 </div>
@@ -600,11 +607,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   type="button"
                   onClick={() => setCurrentStep("debug")}
                   style={{
-                    background: "rgba(255,255,255,0.08)",
-                    color: "white",
+                    background: "rgba(255,255,255,0.55)",
+                    color: "#4f3b2b",
                     padding: "1rem",
                     borderRadius: "0.75rem",
-                    border: "1px solid rgba(255,255,255,0.14)",
+                    border: "1px solid rgba(79,59,43,0.1)",
                     cursor: "pointer",
                     fontSize: "1rem",
                     fontWeight: 800,
@@ -647,7 +654,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     border: "1px solid rgba(239,68,68,0.5)",
                     padding: "0.75rem 1rem",
                     borderRadius: "0.75rem",
-                    color: "white",
+                    color: "#4f3b2b",
                     textAlign: "left",
                     fontSize: "0.95rem",
                   }}
@@ -674,8 +681,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <button
               onClick={handleNext}
               style={{
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
+                background: "rgba(79,59,43,0.08)",
+                color: "#4f3b2b",
                 padding: "1rem 2rem",
                 borderRadius: "0.5rem",
                 border: "none",
@@ -705,21 +712,21 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   <button
                     onClick={onComplete}
                     style={{
-                      background: "rgba(255,255,255,0.2)",
-                      color: "white",
+                      background: "rgba(79,59,43,0.08)",
+                      color: "#4f3b2b",
                       padding: "1rem 2rem",
                       borderRadius: "0.5rem",
-                      border: "2px solid rgba(255,255,255,0.3)",
+                      border: "1px solid rgba(79,59,43,0.12)",
                       cursor: "pointer",
                       fontSize: "1.1rem",
                       fontWeight: "bold",
                       transition: "all 0.2s ease"
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.3)"
+                      e.currentTarget.style.background = "rgba(79,59,43,0.12)"
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                      e.currentTarget.style.background = "rgba(79,59,43,0.08)"
                     }}
                   >
                     Continue to Mappo
@@ -779,7 +786,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                       disabled={loading}
                       style={{
                         background: "#1877F2",
-                        color: "white",
+                        color: "#4f3b2b",
                         padding: "1rem 2rem",
                         borderRadius: "0.5rem",
                         border: "none",
@@ -804,17 +811,17 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     margin: "1rem 0",
                     opacity: 0.7 
                   }}>
-                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(79,59,43,0.12)" }}></div>
                     <span style={{ fontSize: "0.875rem" }}>or</span>
-                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.3)" }}></div>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(79,59,43,0.12)" }}></div>
                   </div>
 
                   <button
                     onClick={() => setCurrentStep("email-login")}
                     disabled={loading}
                     style={{
-                      background: "rgba(255,255,255,0.2)",
-                      color: "white",
+                      background: "rgba(79,59,43,0.08)",
+                      color: "#4f3b2b",
                       padding: "1rem 2rem",
                       borderRadius: "0.5rem",
                       border: "none",
@@ -833,11 +840,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
                   <div style={{ marginTop: 10, fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.35 }}>
                     By continuing, you agree to our{" "}
-                    <a href="/terms" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
+                    <a href="/terms" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
                       Terms of Use
                     </a>{" "}
                     and{" "}
-                    <a href="/privacy" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
+                    <a href="/privacy" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
                       Privacy Policy
                     </a>
                     .
@@ -878,10 +885,10 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
               {/* Privacy Settings */}
               <div style={{
-                background: "rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.65)",
                 padding: "1rem",
                 borderRadius: "0.75rem",
-                border: "1px solid rgba(255,255,255,0.3)"
+                border: "1px solid rgba(79,59,43,0.1)"
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
                   <span style={{ fontSize: "1.5rem" }}>🔒</span>
@@ -933,17 +940,17 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               {/* Tips & Hints */}
               <div
                 style={{
-                  background: "rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.65)",
                   padding: "1rem",
                   borderRadius: "0.75rem",
-                  border: "1px solid rgba(255,255,255,0.3)",
+                  border: "1px solid rgba(79,59,43,0.1)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
                   <span style={{ fontSize: "1.5rem" }}>💡</span>
                   <div style={{ fontWeight: "600", color: "white" }}>Tips & Hints</div>
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "white", fontSize: "0.875rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#4f3b2b", fontSize: "0.875rem" }}>
                   <input
                     type="checkbox"
                     checked={tipsEnabled}
@@ -968,9 +975,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   style={{
                     marginTop: "0.75rem",
                     width: "100%",
-                    background: "rgba(255,255,255,0.12)",
-                    border: "1px solid rgba(255,255,255,0.22)",
-                    color: "white",
+                    background: "rgba(79,59,43,0.06)",
+                    border: "1px solid rgba(79,59,43,0.12)",
+                    color: "#4f3b2b",
                     fontWeight: 900,
                     padding: "0.85rem 1rem",
                     borderRadius: "0.75rem",
@@ -984,8 +991,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               <button
                 onClick={handleNext}
                 style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   padding: "1rem 2rem",
                   borderRadius: "0.5rem",
                   border: "none",
@@ -1027,7 +1034,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                 padding: "1rem",
                 marginBottom: "1rem",
                 textDecoration: "none",
-                color: "white",
+                color: "#4f3b2b",
                 textAlign: "center",
                 cursor: "pointer",
                 transition: "all 0.2s"
@@ -1051,7 +1058,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             </a>
 
             <div style={{ 
-              background: "rgba(255,255,255,0.05)", 
+              background: "rgba(79,59,43,0.03)", 
               borderRadius: "1rem", 
               overflow: "hidden",
               maxHeight: "60vh"
@@ -1062,8 +1069,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
             <button
               onClick={handleNext}
               style={{
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
+                background: "rgba(79,59,43,0.08)",
+                color: "#4f3b2b",
                 padding: "1rem 2rem",
                 borderRadius: "0.5rem",
                 border: "none",
@@ -1096,8 +1103,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               <button
                 onClick={onComplete}
                 style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   padding: "1rem 2rem",
                   borderRadius: "0.5rem",
                   border: "none",
@@ -1130,8 +1137,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   padding: "1rem",
                   borderRadius: "0.5rem",
                   border: "none",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   fontSize: "1rem",
                   width: "100%"
                 }}
@@ -1150,8 +1157,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   setTimeout(() => setCurrentStep(showInternalTools ? "data" : "complete"), 650)
                 }}
                 style={{
-                  background: "rgba(255,255,255,0.2)",
-                  color: "white",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   padding: "1rem 2rem",
                   borderRadius: "0.5rem",
                   border: "none",
