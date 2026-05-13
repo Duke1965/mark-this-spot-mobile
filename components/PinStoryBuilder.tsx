@@ -43,7 +43,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
           left: 0,
           right: 0,
           bottom: 0,
-            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+            backgroundColor: "#eef8f4",
           display: "flex",
           flexDirection: "column",
         }}
@@ -52,13 +52,13 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
         <div
           style={{
             padding: "1rem",
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "rgba(255,255,255,0.7)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(0,0,0,0.06)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            color: "white",
+            color: "#3a2e1e",
             backdropFilter: "blur(15px)",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
+            borderBottom: "1px solid rgba(79,59,43,0.1)",
           }}
         >
           <button
@@ -66,9 +66,9 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
             style={{
             padding: "0.75rem",
             borderRadius: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.15)",
-              color: "white",
+            border: "1px solid rgba(79,59,43,0.12)",
+            background: "rgba(79,59,43,0.06)",
+              color: "#3a2e1e",
               cursor: "pointer",
             transition: "all 0.2s ease",
             backdropFilter: "blur(10px)",
@@ -86,7 +86,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                 padding: "0.5rem",
                 border: "none",
                 background: "#10B981",
-                color: "white",
+                color: "#3a2e1e",
                 cursor: "pointer",
                 borderRadius: "0.5rem",
               }}
@@ -99,7 +99,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                 padding: "0.5rem",
                 border: "none",
                 background: "#3B82F6",
-                color: "white",
+                color: "#3a2e1e",
                 cursor: "pointer",
                 borderRadius: "0.5rem",
               }}
@@ -113,10 +113,10 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
         <div style={{ flex: 1, padding: "1rem", overflowY: "auto" }}>
           <div
             style={{
-              background: "rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.55)",
               borderRadius: "1rem",
               padding: "1.5rem",
-              color: "white",
+              color: "#3a2e1e",
               textAlign: "center",
             }}
           >
@@ -127,7 +127,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                 <div
                   key={pin.id}
                   style={{
-                    background: "rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.55)",
                     borderRadius: "0.5rem",
                     padding: "1rem",
                     display: "flex",
@@ -144,7 +144,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "white",
+                      color: "#3a2e1e",
                       fontWeight: "bold",
                     }}
                   >
@@ -182,7 +182,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                 padding: "1rem 2rem",
                 border: "none",
                 background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                color: "white",
+                color: "#3a2e1e",
                 cursor: "pointer",
                 borderRadius: "0.5rem",
                 fontSize: "1rem",
@@ -205,7 +205,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        backgroundColor: "#eef8f4",
         display: "flex",
         flexDirection: "column",
       }}
@@ -218,7 +218,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          color: "white",
+          color: "#3a2e1e",
         }}
       >
         <button
@@ -226,8 +226,8 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
           style={{
             padding: "0.5rem",
             border: "none",
-            background: "rgba(255,255,255,0.2)",
-            color: "white",
+            background: "rgba(79,59,43,0.08)",
+            color: "#3a2e1e",
             cursor: "pointer",
             borderRadius: "0.5rem",
           }}
@@ -243,8 +243,8 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
           style={{
             padding: "0.5rem 1rem",
             border: "none",
-            background: selectedPins.length > 0 && storyTitle.trim() ? "#10B981" : "rgba(255,255,255,0.2)",
-            color: "white",
+            background: selectedPins.length > 0 && storyTitle.trim() ? "#10B981" : "rgba(79,59,43,0.08)",
+            color: "#3a2e1e",
             cursor: selectedPins.length > 0 && storyTitle.trim() ? "pointer" : "not-allowed",
             borderRadius: "0.5rem",
             display: "flex",
@@ -269,8 +269,8 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
             padding: "0.75rem",
             border: "none",
             borderRadius: "0.5rem",
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
+            background: "rgba(255,255,255,0.55)",
+            color: "#3a2e1e",
             fontSize: "1rem",
             outline: "none",
           }}
@@ -283,7 +283,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
           style={{
             padding: "0.5rem 1rem",
             background: "rgba(16,185,129,0.2)",
-            color: "white",
+            color: "#3a2e1e",
             textAlign: "center",
             fontSize: "0.875rem",
           }}
@@ -295,7 +295,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
       {/* Pins Selection */}
       <div style={{ flex: 1, padding: "1rem", overflowY: "auto" }}>
         {pinsWithMedia.length === 0 ? (
-          <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
+          <div style={{ textAlign: "center", color: "#3a2e1e", padding: "2rem" }}>
             <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>📸</div>
             <h2>No Media Pins Yet</h2>
             <p>Create pins with photos or videos to build stories!</p>
@@ -309,10 +309,10 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                   key={pin.id}
                   onClick={() => togglePinSelection(pin)}
                   style={{
-                    background: isSelected ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.1)",
+                    background: isSelected ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.55)",
                     borderRadius: "0.5rem",
                     padding: "1rem",
-                    color: "white",
+                    color: "#3a2e1e",
                     cursor: "pointer",
                     border: isSelected ? "2px solid #10B981" : "2px solid transparent",
                     transition: "all 0.2s ease",
@@ -326,7 +326,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                       width: "24px",
                       height: "24px",
                       borderRadius: "50%",
-                      background: isSelected ? "#10B981" : "rgba(255,255,255,0.2)",
+                      background: isSelected ? "#10B981" : "rgba(79,59,43,0.08)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -366,7 +366,7 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
                     <div
                       style={{
                         background: "#10B981",
-                        color: "white",
+                        color: "#3a2e1e",
                         padding: "0.25rem 0.5rem",
                         borderRadius: "0.25rem",
                         fontSize: "0.75rem",
