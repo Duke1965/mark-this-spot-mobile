@@ -297,7 +297,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        backgroundColor: "#1a1a1a",
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
@@ -573,7 +573,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       <div
         style={{
           padding: "2rem",
-          background: "rgba(30, 58, 138, 0.95)",
+          background: "rgba(26, 26, 26, 0.95)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
