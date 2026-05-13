@@ -42,7 +42,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
             id: "location-pin-worthy",
             message: "📍 Pin-worthy spot detected nearby!",
             icon: "📍",
-            color: "#1e3a8a",
+            color: "#4f3b2b",
             timestamp: now,
           })
 
@@ -60,7 +60,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
           id: "golden-hour",
           message: "✨ Perfect golden hour for photos!",
           icon: "✨",
-          color: "#1e3a8a",
+          color: "#4f3b2b",
           timestamp: now,
         })
 
@@ -74,7 +74,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
           id: "lunch-discovery",
           message: "🍽️ Great time to discover lunch spots!",
           icon: "🍽️",
-          color: "#1e3a8a",
+          color: "#4f3b2b",
           timestamp: now,
         })
 
@@ -89,7 +89,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
         id: "create-story",
         message: `📖 Ready to create a story from ${pinsWithMedia.length} pins?`,
         icon: "📖",
-        color: "#1e3a8a",
+        color: "#4f3b2b",
         timestamp: now,
       })
 
@@ -101,7 +101,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
         id: "encourage-pinning",
         message: "🎯 Great start! Ready to pin another spot?",
         icon: "🎯",
-        color: "#1e3a8a",
+        color: "#4f3b2b",
         timestamp: now,
       })
 
@@ -114,7 +114,7 @@ export function ProactiveAI(props: ProactiveAIProps) {
         id: "video-time",
         message: "🎥 Perfect evening atmosphere for video!",
         icon: "🎥",
-        color: "#1e3a8a",
+        color: "#4f3b2b",
         timestamp: now,
       })
 
