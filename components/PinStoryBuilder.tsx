@@ -52,13 +52,13 @@ export function PinStoryBuilder({ pins, onBack, onCreateStory }: PinStoryBuilder
         <div
           style={{
             padding: "1rem",
-            background: "rgba(255,255,255,0.7)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(0,0,0,0.06)",
+            background: "rgba(255,255,255,0.7)",
+            backdropFilter: "blur(18px)",
+            borderBottom: "1px solid rgba(0,0,0,0.06)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             color: "#3a2e1e",
-            backdropFilter: "blur(15px)",
-            borderBottom: "1px solid rgba(79,59,43,0.1)",
           }}
         >
           <button
