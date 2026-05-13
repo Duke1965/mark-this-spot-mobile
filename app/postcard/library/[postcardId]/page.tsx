@@ -9,7 +9,7 @@ export default function PostcardLibraryDetailPage() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+            backgroundColor: "#eef8f4",
           }}
         />
       }
