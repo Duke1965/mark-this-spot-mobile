@@ -19,16 +19,16 @@ body {
 }
 
 body {
-  /* V1: Single consistent PINIT theme (no toggle) */
-  --pinit-bg: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
-  --pinit-fg: #ffffff;
-  --pinit-panel: rgba(30, 58, 138, 0.95);
-  --pinit-card: rgba(255, 255, 255, 0.1);
-  --pinit-card-2: rgba(255, 255, 255, 0.08);
-  --pinit-border: rgba(255, 255, 255, 0.18);
-  --pinit-border-2: rgba(255, 255, 255, 0.14);
-  --pinit-btn: rgba(255, 255, 255, 0.15);
-  --pinit-btn-border: rgba(255, 255, 255, 0.22);
+  /* V1: Mappo warm theme */
+  --pinit-bg: #eef8f4;
+  --pinit-fg: #3a2e1e;
+  --pinit-panel: rgba(255, 255, 255, 0.88);
+  --pinit-card: rgba(255, 255, 255, 0.72);
+  --pinit-card-2: rgba(255, 255, 255, 0.55);
+  --pinit-border: rgba(79, 59, 43, 0.12);
+  --pinit-border-2: rgba(79, 59, 43, 0.08);
+  --pinit-btn: rgba(79, 59, 43, 0.08);
+  --pinit-btn-border: rgba(79, 59, 43, 0.15);
 
   background: var(--pinit-bg);
   color: var(--pinit-fg);
@@ -89,15 +89,15 @@ html, body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(79, 59, 43, 0.05);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(79, 59, 43, 0.15);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(79, 59, 43, 0.25);
 }
