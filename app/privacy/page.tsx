@@ -19,8 +19,8 @@ export default function PrivacyPage() {
     <div
       style={{
         minHeight: "100dvh",
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         padding: "2rem 1rem",
       }}
     >
@@ -28,8 +28,8 @@ export default function PrivacyPage() {
         style={{
           width: "min(760px, 100%)",
           margin: "0 auto",
-          background: "rgba(255,255,255,0.1)",
-          border: "1px solid rgba(255,255,255,0.15)",
+          background: "rgba(255,255,255,0.78)",
+          border: "1px solid rgba(79,59,43,0.1)",
           borderRadius: 16,
           padding: 16,
           backdropFilter: "blur(12px)",
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
+            color: "#4f3b2b",
             cursor: "pointer",
             fontWeight: 900,
             padding: "0.4rem 0.25rem",
@@ -50,9 +50,9 @@ export default function PrivacyPage() {
         >
           ← Back
         </button>
-        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>PINIT Privacy Policy</div>
+        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>Mappo Privacy Policy</div>
         <div style={{ opacity: 0.94, lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontWeight: 900, marginTop: 2 }}>Information PINIT may collect</div>
+          <div style={{ fontWeight: 900, marginTop: 2 }}>Information Mappo may collect</div>
           <ul style={{ marginLeft: 18, opacity: 0.94, lineHeight: 1.55 }}>
             <li>Account login details such as name/email from your sign-in provider</li>
             <li>Location data needed to pin places and recommend nearby places</li>
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
             <li>Basic usage and diagnostic data to keep the app working</li>
           </ul>
 
-          <div style={{ fontWeight: 900, marginTop: 2 }}>How PINIT uses information</div>
+          <div style={{ fontWeight: 900, marginTop: 2 }}>How Mappo uses information</div>
           <ul style={{ marginLeft: 18, opacity: 0.94, lineHeight: 1.55 }}>
             <li>To save your pins and postcards</li>
             <li>To generate share links</li>
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
           </div>
 
           <div style={{ fontWeight: 900, marginTop: 2 }}>Children</div>
-          <div>PINIT is not intended for young children.</div>
+          <div>Mappo is not intended for young children.</div>
 
           <div style={{ fontWeight: 900, marginTop: 2 }}>Updates</div>
           <div>This policy may be updated from time to time.</div>
