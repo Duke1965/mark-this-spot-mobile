@@ -26,8 +26,12 @@ export default function PostcardTemplatesPage() {
       style={{
         position: "fixed",
         inset: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundImage: "url(/brand/mappo/mappo-create-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         display: "flex",
         flexDirection: "column",
         zIndex: 1000,
@@ -36,10 +40,10 @@ export default function PostcardTemplatesPage() {
       <div
         style={{
           padding: "1rem",
-          paddingTop: "3rem",
-          background: "rgba(30, 58, 138, 0.95)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          backdropFilter: "blur(15px)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          background: "rgba(255,255,255,0.7)",
+          borderBottom: "1px solid rgba(0,0,0,0.08)",
+          backdropFilter: "blur(18px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -51,7 +55,7 @@ export default function PostcardTemplatesPage() {
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
+            color: "#4f3b2b",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -63,13 +67,17 @@ export default function PostcardTemplatesPage() {
           <ArrowLeft size={20} />
           <span style={{ fontWeight: 700 }}>Back</span>
         </button>
-        <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>Postcard Templates</div>
+        <img
+          src="/brand/mappo/mappo-create-title.png"
+          alt="Create"
+          style={{ height: 28, objectFit: "contain" }}
+        />
         <div style={{ width: 72 }} />
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         <div style={{ maxWidth: 520, margin: "0 auto" }}>
-          <div style={{ fontSize: "0.9rem", opacity: 0.85, marginBottom: "0.75rem" }}>
+          <div style={{ fontSize: "0.9rem", opacity: 0.7, marginBottom: "0.75rem" }}>
             Choose a postcard style
           </div>
 
@@ -85,14 +93,15 @@ export default function PostcardTemplatesPage() {
                 key={t}
                 onClick={() => router.push(`/postcard/new?template=${encodeURIComponent(t)}`)}
                 style={{
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(79,59,43,0.1)",
+                  background: "rgba(255,255,255,0.72)",
                   borderRadius: 16,
                   padding: 10,
-                  color: "white",
+                  color: "#3a2e1e",
                   cursor: "pointer",
                   textAlign: "left",
                   backdropFilter: "blur(10px)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                 }}
               >
                 <div
@@ -101,11 +110,11 @@ export default function PostcardTemplatesPage() {
                     aspectRatio: "3 / 2",
                     borderRadius: 12,
                     overflow: "hidden",
-                    background: "rgba(0,0,0,0.25)",
+                    background: "rgba(0,0,0,0.06)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(79,59,43,0.08)",
                   }}
                 >
                   <img
