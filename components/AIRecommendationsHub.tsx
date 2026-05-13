@@ -25,8 +25,8 @@ const mapMarkerHintStyles = {
     width: '100%',
     maxWidth: 420,
     margin: '0 auto',
-    background: 'rgba(255,255,255,0.12)',
-    border: '1px solid rgba(255,255,255,0.18)',
+    background: 'rgba(255,255,255,0.65)',
+    border: '1px solid rgba(79,59,43,0.1)',
     borderRadius: 14,
     padding: '0.75rem 0.9rem',
     backdropFilter: 'blur(10px)',
@@ -56,9 +56,9 @@ const mapMarkerHintStyles = {
     lineHeight: 1.3,
   },
   hintHideBtn: {
-    background: 'rgba(255,255,255,0.16)',
-    border: '1px solid rgba(255,255,255,0.22)',
-    color: 'white',
+    background: 'rgba(79,59,43,0.08)',
+    border: '1px solid rgba(79,59,43,0.15)',
+    color: '#4f3b2b',
     fontWeight: 900,
     borderRadius: 999,
     padding: '0.35rem 0.7rem',
@@ -1628,13 +1628,17 @@ export default function AIRecommendationsHub({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)',
+        backgroundImage: 'url(/brand/mappo/mappo-discover-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#eef8f4',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        color: 'white',
+        color: '#3a2e1e',
         textAlign: 'center'
       }}>
         <div style={{ fontSize: '48px', marginBottom: '20px' }}>📍</div>
@@ -1646,11 +1650,11 @@ export default function AIRecommendationsHub({
           onClick={onBack}
           style={{
             marginTop: '20px',
-            background: 'rgba(255,255,255,0.15)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.7)',
+            border: '1px solid rgba(79,59,43,0.12)',
             borderRadius: '12px',
             padding: '12px 24px',
-            color: 'white',
+            color: '#4f3b2b',
             fontSize: '14px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
@@ -1670,7 +1674,11 @@ export default function AIRecommendationsHub({
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%)',
+      backgroundImage: 'url(/brand/mappo/mappo-discover-bg.png)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundColor: '#eef8f4',
       display: 'flex',
       flexDirection: 'column',
       zIndex: 1000
@@ -1678,10 +1686,12 @@ export default function AIRecommendationsHub({
       {/* Header */}
       <div style={{
         padding: '20px',
-        paddingTop: '60px',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
         textAlign: 'center',
-        color: 'white',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        color: '#3a2e1e',
+        borderBottom: '1px solid rgba(0,0,0,0.08)',
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(18px)',
         position: 'relative'
       }}>
         <button
@@ -1689,13 +1699,13 @@ export default function AIRecommendationsHub({
           style={{
             position: 'absolute',
             left: '20px',
-            top: '60px',
-            background: 'rgba(255,255,255,0.1)',
+            top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+            background: 'rgba(79,59,43,0.1)',
             border: 'none',
             borderRadius: '8px',
             width: '40px',
             height: '40px',
-            color: 'white',
+            color: '#4f3b2b',
             fontSize: '18px',
             cursor: 'pointer',
             display: 'flex',
@@ -1704,20 +1714,22 @@ export default function AIRecommendationsHub({
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+            e.currentTarget.style.background = 'rgba(79,59,43,0.18)'
             e.currentTarget.style.transform = 'scale(1.05)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+            e.currentTarget.style.background = 'rgba(79,59,43,0.1)'
             e.currentTarget.style.transform = 'scale(1)'
           }}
         >
           ←
         </button>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
-          📍 Recommendations
-        </h1>
-        <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+        <img
+          src="/brand/mappo/mappo-discover-title.png"
+          alt="Discover"
+          style={{ height: 28, objectFit: 'contain' }}
+        />
+        <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
           Personalized for you based on your behavior
         </p>
 
@@ -1760,11 +1772,11 @@ export default function AIRecommendationsHub({
               flex: 1,
               padding: '12px',
               borderRadius: '0.75rem',
-              border: '1px solid rgba(255,255,255,0.2)',
+              border: '1px solid rgba(79,59,43,0.12)',
               background: viewMode === tab.key 
-                ? 'rgba(255,255,255,0.2)' 
-                : 'rgba(255,255,255,0.1)',
-              color: 'white',
+                ? 'rgba(79,59,43,0.12)' 
+                : 'rgba(255,255,255,0.55)',
+              color: '#4f3b2b',
               fontSize: '14px',
               fontWeight: '500',
               cursor: 'pointer',
@@ -1781,13 +1793,13 @@ export default function AIRecommendationsHub({
       <div style={{ flex: 1, padding: '20px', overflow: 'hidden' }}>
         {viewMode === "map" && (
           <div style={{
-            background: 'rgba(30, 58, 138, 0.95)',
+            background: 'rgba(255,255,255,0.6)',
             borderRadius: '16px',
             height: '100%',
             position: 'relative',
             overflow: 'hidden',
-            backdropFilter: 'blur(15px)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(79,59,43,0.1)',
           }}>
             {/* Mapbox Map Container */}
             <div
@@ -1891,16 +1903,16 @@ export default function AIRecommendationsHub({
 
         {viewMode === "list" && (
           <div style={{
-            background: 'rgba(30, 58, 138, 0.95)',
+            background: 'rgba(255,255,255,0.6)',
             borderRadius: '16px',
             height: '100%',
             padding: '20px',
-            color: 'white',
+            color: '#3a2e1e',
             overflow: 'auto',
-            backdropFilter: 'blur(15px)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(79,59,43,0.1)',
           }}>
-            {/* NEW: Dynamic header based on filter type */}
+            {/* Dynamic header based on filter type */}
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -1920,17 +1932,15 @@ export default function AIRecommendationsHub({
                   }
                 </h3>
                 {isShowingCluster && currentCluster && (
-                  <p style={{ margin: 0, fontSize: '14px', opacity: 0.8, color: 'rgba(255,255,255,0.8)' }}>
+                  <p style={{ margin: 0, fontSize: '14px', opacity: 0.65, color: 'rgba(79,59,43,0.7)' }}>
                     {currentCluster.category} • {currentCluster.location.lat.toFixed(4)}, {currentCluster.location.lng.toFixed(4)}
                   </p>
                 )}
               </div>
               
-              {/* NEW: Back button when showing cluster recommendations */}
               {(isShowingCluster || recommendationFilter !== "all") && (
                 <button
                   onClick={() => {
-                    // Return to the full unfiltered list
                     setIsShowingCluster(false)
                     setCurrentCluster(null)
                     setFilteredRecommendations([])
@@ -1938,11 +1948,11 @@ export default function AIRecommendationsHub({
                     console.log('🧠 Returning to all recommendations')
                   }}
                   style={{
-                      background: 'rgba(255,255,255,0.15)',
-                    border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(79,59,43,0.08)',
+                    border: '1px solid rgba(79,59,43,0.15)',
                       borderRadius: '0.75rem',
                       padding: '0.5rem 0.75rem',
-                    color: 'white',
+                    color: '#4f3b2b',
                     fontSize: '12px',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -1950,10 +1960,10 @@ export default function AIRecommendationsHub({
                       backdropFilter: 'blur(10px)',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                    e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                    e.currentTarget.style.background = 'rgba(79,59,43,0.08)'
                   }}
                 >
                   ← Back to All
@@ -1986,38 +1996,37 @@ export default function AIRecommendationsHub({
                       setShowReadOnlyRecommendation(true)
                     }}
                     style={{
-                      background: 'rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.78)',
                       padding: '18px',
                       borderRadius: '16px',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      backdropFilter: 'blur(15px)',
+                      border: '1px solid rgba(79,59,43,0.1)',
+                      backdropFilter: 'blur(12px)',
                       transition: 'all 0.2s ease',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                       cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.9)'
                       e.currentTarget.style.transform = 'translateY(-2px)'
-                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+                      e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.78)'
                       e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
-                      {/* Thumbnail image - fills top to bottom */}
                       <div style={{
                         width: '60px',
                         height: '100%',
                         borderRadius: '12px',
-                        background: 'rgba(255,255,255,0.1)',
+                        background: 'rgba(79,59,43,0.06)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '24px',
-                        border: '1px solid rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(79,59,43,0.1)',
                         overflow: 'hidden',
                         flexShrink: 0,
                         position: 'relative',
@@ -2101,7 +2110,7 @@ export default function AIRecommendationsHub({
                             position: rec.photoUrl || rec.mediaUrl ? 'absolute' : 'relative',
                             top: 0,
                             left: 0,
-                            background: rec.fallbackImage ? 'transparent' : 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
+                            background: rec.fallbackImage ? 'transparent' : 'rgba(79,59,43,0.08)'
                           }}
                         >
                           {rec.fallbackImage ? (
@@ -2134,11 +2143,11 @@ export default function AIRecommendationsHub({
                         
                         {/* Category */}
                         <span style={{
-                          background: 'rgba(255,255,255,0.1)',
+                          background: 'rgba(79,59,43,0.08)',
                           padding: '4px 8px',
                           borderRadius: '8px',
                           fontSize: '11px',
-                          color: 'rgba(255,255,255,0.8)',
+                          color: 'rgba(79,59,43,0.7)',
                           alignSelf: 'flex-start',
                           marginBottom: '8px'
                         }}>
@@ -2159,21 +2168,21 @@ export default function AIRecommendationsHub({
                           setViewMode('map')
                         }}
                         style={{
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.2)',
+                          background: 'rgba(79,59,43,0.08)',
+                          border: '1px solid rgba(79,59,43,0.15)',
                           borderRadius: '6px',
                           padding: '4px 8px',
-                          color: 'white',
+                          color: '#4f3b2b',
                           fontSize: '11px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
                           whiteSpace: 'nowrap'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                          e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                          e.currentTarget.style.background = 'rgba(79,59,43,0.08)'
                         }}
                       >
                         🗺️ Map
@@ -2188,21 +2197,21 @@ export default function AIRecommendationsHub({
                           }
                         }}
                         style={{
-                          background: 'rgba(239, 68, 68, 0.18)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
                           borderRadius: '6px',
                           padding: '4px 8px',
-                          color: 'white',
+                          color: '#b91c1c',
                           fontSize: '11px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
                           whiteSpace: 'nowrap'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.22)'
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'
                         }}
                       >
                         ✕ Remove
@@ -2213,11 +2222,11 @@ export default function AIRecommendationsHub({
               </div>
             ) : (
               <div style={{
-                background: 'rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.65)',
                 padding: '40px 20px',
                 borderRadius: '16px',
                 textAlign: 'center',
-                border: '1px solid rgba(255,255,255,0.2)'
+                border: '1px solid rgba(79,59,43,0.1)'
               }}>
                 <div style={{ fontSize: '48px', marginBottom: '20px' }}>
                   {isShowingCluster ? '📍' : '🧠'}
@@ -2242,14 +2251,14 @@ export default function AIRecommendationsHub({
 
         {viewMode === "insights" && (
           <div style={{
-            background: 'rgba(30, 58, 138, 0.95)',
+            background: 'rgba(255,255,255,0.6)',
             borderRadius: '16px',
             height: '100%',
             padding: '20px',
-            color: 'white',
+            color: '#3a2e1e',
             overflow: 'auto',
-            backdropFilter: 'blur(15px)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(79,59,43,0.1)',
           }}>
             <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold' }}>
               🧠 Your AI Learning Progress
@@ -2258,7 +2267,7 @@ export default function AIRecommendationsHub({
             {learningProgress ? (
               <div style={{ marginBottom: '20px' }}>
                 <div style={{
-                  background: 'rgba(255,255,255,0.1)',
+                  background: 'rgba(255,255,255,0.55)',
                   padding: '15px',
                   borderRadius: '12px',
                   marginBottom: '15px'
@@ -2267,7 +2276,7 @@ export default function AIRecommendationsHub({
                     📊 Learning Level: {learningProgress.level}
                   </h4>
                   <div style={{
-                    background: 'rgba(0,0,0,0.3)',
+                    background: 'rgba(0,0,0,0.1)',
                     height: '8px',
                     borderRadius: '4px',
                     overflow: 'hidden'
@@ -2287,7 +2296,7 @@ export default function AIRecommendationsHub({
                 {/* AI Personality Insights */}
                 {insights && insights.userPersonality && insights.userPersonality.confidence > 0.2 && (
                   <div style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.55)',
                     padding: '15px',
                     borderRadius: '12px',
                     marginBottom: '15px'
@@ -2319,7 +2328,7 @@ export default function AIRecommendationsHub({
                 {/* Recommendation Preferences */}
                 {insights && insights.recommendationPreferences && (
                   <div style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.55)',
                     padding: '15px',
                     borderRadius: '12px',
                     marginBottom: '15px'
@@ -2335,7 +2344,7 @@ export default function AIRecommendationsHub({
                         </span>
                       </div>
                       <div style={{
-                        background: 'rgba(0,0,0,0.3)',
+                        background: 'rgba(0,0,0,0.08)',
                         height: '6px',
                         borderRadius: '3px',
                         overflow: 'hidden'
@@ -2357,7 +2366,7 @@ export default function AIRecommendationsHub({
                         </span>
                       </div>
                       <div style={{
-                        background: 'rgba(0,0,0,0.3)',
+                        background: 'rgba(0,0,0,0.08)',
                         height: '6px',
                         borderRadius: '3px',
                         overflow: 'hidden'
@@ -2375,12 +2384,12 @@ export default function AIRecommendationsHub({
               </div>
             ) : (
               <div style={{
-                background: 'rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.55)',
                 padding: '20px',
                 borderRadius: '12px',
                 textAlign: 'center'
               }}>
-                <p style={{ margin: 0, opacity: 0.8 }}>
+                <p style={{ margin: 0, opacity: 0.65 }}>
                   Start pinning places to see your AI insights!
                 </p>
               </div>
@@ -2398,7 +2407,11 @@ export default function AIRecommendationsHub({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%)',
+            backgroundImage: 'url(/brand/mappo/mappo-discover-bg.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundColor: '#eef8f4',
             zIndex: 2000,
             overflowY: 'auto',
             padding: '20px',
@@ -2412,11 +2425,11 @@ export default function AIRecommendationsHub({
                 setSelectedRecommendation(null)
               }}
               style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: 'none',
+                background: 'rgba(255,255,255,0.7)',
+                border: '1px solid rgba(79,59,43,0.12)',
                 padding: '10px 16px',
                 borderRadius: '8px',
-                color: 'white',
+                color: '#4f3b2b',
                 fontSize: '0.9rem',
                 cursor: 'pointer',
                 backdropFilter: 'blur(10px)',
@@ -2424,7 +2437,7 @@ export default function AIRecommendationsHub({
             >
               ← Back
             </button>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#3a2e1e' }}>
               {selectedRecommendation.isAISuggestion ? '🤖 AI Recommendation' : '👤 User Recommendation'}
             </div>
             <div style={{ width: '60px' }}></div>
@@ -2438,7 +2451,7 @@ export default function AIRecommendationsHub({
               borderRadius: '16px',
               overflow: 'hidden',
               marginBottom: '20px',
-              background: 'rgba(255,255,255,0.1)',
+              background: 'rgba(79,59,43,0.06)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -2464,54 +2477,51 @@ export default function AIRecommendationsHub({
           {/* Content Card */}
           <div
             style={{
-              background: 'rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(20px)',
+              background: 'rgba(255,255,255,0.78)',
+              backdropFilter: 'blur(14px)',
               borderRadius: '16px',
               padding: '24px',
               marginBottom: '20px',
+              border: '1px solid rgba(79,59,43,0.08)',
             }}
           >
-            {/* Title */}
-            <h2 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '12px', marginTop: 0 }}>
+            <h2 style={{ color: '#3a2e1e', fontSize: '1.5rem', marginBottom: '12px', marginTop: 0 }}>
               {selectedRecommendation.title || 'Location'}
             </h2>
 
-            {/* Description */}
             {selectedRecommendation.description && (
-              <p style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.6', margin: '0 0 16px 0' }}>
+              <p style={{ color: 'rgba(58,46,30,0.85)', lineHeight: '1.6', margin: '0 0 16px 0' }}>
                 {selectedRecommendation.description}
               </p>
             )}
 
-            {/* Reason (for AI recommendations) */}
             {selectedRecommendation.reason && (
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.1)',
+                  background: 'rgba(79,59,43,0.06)',
                   borderRadius: '12px',
                   padding: '12px',
                   marginTop: '12px',
                 }}
               >
-                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '4px' }}>
+                <div style={{ fontSize: '0.85rem', color: 'rgba(79,59,43,0.6)', marginBottom: '4px' }}>
                   Why we recommend this:
                 </div>
-                <div style={{ color: 'white', fontSize: '0.95rem' }}>
+                <div style={{ color: '#3a2e1e', fontSize: '0.95rem' }}>
                   {selectedRecommendation.reason}
                 </div>
               </div>
             )}
 
-            {/* Category */}
             {selectedRecommendation.category && (
               <div
                 style={{
                   display: 'inline-block',
-                  background: 'rgba(255,255,255,0.2)',
+                  background: 'rgba(79,59,43,0.1)',
                   padding: '6px 12px',
                   borderRadius: '20px',
                   fontSize: '0.85rem',
-                  color: 'white',
+                  color: '#4f3b2b',
                   marginTop: '16px',
                 }}
               >
@@ -2535,23 +2545,23 @@ export default function AIRecommendationsHub({
                 setShowRecommendationForm(true)
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.25)'
+                e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
                 e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                e.currentTarget.style.background = 'rgba(255,255,255,0.78)'
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
               }}
               style={{
                 flex: 1,
-                background: 'rgba(255,255,255,0.15)',
-                backdropFilter: 'blur(15px)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.78)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(79,59,43,0.12)',
                 padding: '16px',
                 borderRadius: '12px',
-                color: 'white',
+                color: '#4f3b2b',
                 fontSize: '1.1rem',
                 fontWeight: 'bold',
                 cursor: 'pointer',
@@ -2560,7 +2570,7 @@ export default function AIRecommendationsHub({
                 justifyContent: 'center',
                 gap: '8px',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
               }}
             >
               💾 Save to Library
@@ -2600,23 +2610,23 @@ export default function AIRecommendationsHub({
                 setShowRecommendationForm(true)
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.25)'
+                e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
                 e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)'
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+                e.currentTarget.style.background = 'rgba(255,255,255,0.78)'
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
               }}
               style={{
                 flex: 1,
-                background: 'rgba(255,255,255,0.15)',
-                backdropFilter: 'blur(15px)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.78)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(79,59,43,0.12)',
                 padding: '16px',
                 borderRadius: '12px',
-                color: 'white',
+                color: '#4f3b2b',
                 fontSize: '1.1rem',
                 fontWeight: 'bold',
                 cursor: 'pointer',
@@ -2625,7 +2635,7 @@ export default function AIRecommendationsHub({
                 justifyContent: 'center',
                 gap: '8px',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
               }}
             >
               📤 Share
