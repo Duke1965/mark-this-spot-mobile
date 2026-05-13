@@ -2536,6 +2536,7 @@ export default function AIRecommendationsHub({
               💾 Save to Library
             </button>
             <button
+              hidden
               onClick={() => {
                 console.log('📤 Share button clicked')
                 if (onSharePin) {
