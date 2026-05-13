@@ -66,27 +66,31 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
+        backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#eef8f4",
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
-        color: "white",
+        color: "#3a2e1e",
         padding: "2rem",
         overflowY: "auto",
       }}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
-        <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white" }}>
+        <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#3a2e1e" }}>
           Write a Review
         </div>
         <button
           onClick={onSkip}
           style={{
             padding: "0.75rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
+            border: "1px solid rgba(79,59,43,0.15)",
+            background: "rgba(79,59,43,0.08)",
+            color: "#4f3b2b",
             borderRadius: "0.5rem",
             cursor: "pointer",
             display: "flex",
@@ -114,7 +118,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             height: "300px",
             borderRadius: "1rem",
             overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.2)",
+            border: "2px solid rgba(79,59,43,0.12)",
             position: "relative",
             backgroundColor: "#000",
             marginBottom: "1rem"
@@ -156,7 +160,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             height: "300px",
             borderRadius: "1rem",
             overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.2)",
+            border: "2px solid rgba(79,59,43,0.12)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -188,7 +192,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             height: "300px",
             borderRadius: "1rem",
             overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.2)",
+            border: "2px solid rgba(79,59,43,0.12)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -213,7 +217,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             textAlign: "center",
             marginTop: "0.5rem",
             padding: "0.75rem",
-            background: "rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.55)",
             borderRadius: "0.5rem"
           }}>
             {placeDescription}
@@ -242,7 +246,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                 background: "transparent",
                 cursor: "pointer",
                 fontSize: "2rem",
-                color: pin <= rating ? "#FBBF24" : "rgba(255,255,255,0.3)",
+                color: pin <= rating ? "#FBBF24" : "rgba(79,59,43,0.2)",
                 transition: "color 0.2s ease",
                 transform: `rotate(${pin % 2 === 0 ? '15deg' : '-15deg'})`,
               }}
@@ -275,10 +279,10 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             style={{
               width: "100%",
               padding: "0.9rem 1rem",
-              border: "1px solid rgba(255,255,255,0.2)",
+              border: "1px solid rgba(79,59,43,0.15)",
               borderRadius: "0.75rem",
-              background: "rgba(255,255,255,0.1)",
-              color: "white",
+              background: "rgba(255,255,255,0.55)",
+              color: "#3a2e1e",
               fontSize: "1rem",
               fontFamily: "inherit",
               outline: "none",
@@ -303,10 +307,10 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             width: "100%",
             minHeight: "120px",
             padding: "1rem",
-            border: "1px solid rgba(255,255,255,0.2)",
+            border: "1px solid rgba(79,59,43,0.15)",
             borderRadius: "0.75rem",
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
+            background: "rgba(255,255,255,0.55)",
+            color: "#3a2e1e",
             fontSize: "1rem",
             resize: "vertical",
             fontFamily: "inherit",
@@ -334,9 +338,9 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                 style={{
                   flex: 1,
                   padding: "0.875rem 1.25rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
+                  border: "1px solid rgba(79,59,43,0.15)",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   borderRadius: "0.75rem",
                   cursor: "pointer",
                   fontSize: "1rem",
@@ -348,10 +352,10 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                   transition: "all 0.2s ease",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.12)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.08)"
                 }}
               >
                 💾 Save
@@ -363,9 +367,9 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                 style={{
                   flex: 1,
                   padding: "0.875rem 1.25rem",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "white",
+                  border: "1px solid rgba(79,59,43,0.15)",
+                  background: "rgba(79,59,43,0.08)",
+                  color: "#4f3b2b",
                   borderRadius: "0.75rem",
                   cursor: "pointer",
                   fontSize: "1rem",
@@ -377,10 +381,10 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                   transition: "all 0.2s ease",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.12)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.08)"
                 }}
               >
                 📤 Share
@@ -396,9 +400,9 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
           style={{
             width: "100%",
             padding: "1rem 1.5rem",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: review.trim().length > 0 ? "white" : "rgba(255,255,255,0.1)",
-            color: review.trim().length > 0 ? "#1e3a8a" : "rgba(255,255,255,0.5)",
+            border: "1px solid rgba(79,59,43,0.15)",
+            background: review.trim().length > 0 ? "rgba(79,59,43,0.12)" : "rgba(79,59,43,0.04)",
+            color: review.trim().length > 0 ? "#4f3b2b" : "rgba(79,59,43,0.35)",
             borderRadius: "0.75rem",
             cursor: review.trim().length > 0 ? "pointer" : "not-allowed",
             fontSize: "1.1rem",
@@ -408,18 +412,18 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
             justifyContent: "center",
             gap: "0.75rem",
             transition: "all 0.2s ease",
-            boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(255,255,255,0.3)" : "none",
+            boxShadow: review.trim().length > 0 ? "0 4px 12px rgba(0,0,0,0.06)" : "none",
           }}
           onMouseEnter={(e) => {
             if (review.trim().length > 0) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.9)"
-              e.currentTarget.style.boxShadow = "0 6px 16px rgba(255,255,255,0.4)"
+              e.currentTarget.style.background = "rgba(79,59,43,0.16)"
+              e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.08)"
             }
           }}
           onMouseLeave={(e) => {
             if (review.trim().length > 0) {
-              e.currentTarget.style.background = "white"
-              e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,255,255,0.3)"
+              e.currentTarget.style.background = "rgba(79,59,43,0.12)"
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"
             }
           }}
         >
@@ -429,7 +433,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
                 width: "20px", 
                 height: "20px", 
                 border: "2px solid transparent", 
-                borderTop: "2px solid #1e3a8a", 
+                borderTop: "2px solid #4f3b2b", 
                 borderRadius: "50%", 
                 animation: "spin 1s linear infinite" 
               }} />
