@@ -3078,8 +3078,7 @@ export default function PINITApp() {
   }
 
   if (currentScreen === "editor" && capturedMedia) {
-    // Redirect to social platform selector instead of photo editor
-    setCurrentScreen("platform-select")
+    setCurrentScreen("map")
     return null
   }
 
@@ -3372,14 +3371,14 @@ export default function PINITApp() {
                       }}
                       style={{
                         background: selectedPOI?.name === poi.name 
-                          ? "rgba(255,255,255,0.25)" 
-                          : "rgba(255,255,255,0.1)",
-                        color: "white",
+                          ? "rgba(79,59,43,0.1)" 
+                          : "rgba(255,255,255,0.55)",
+                        color: "#3a2e1e",
                         padding: "1rem",
                         borderRadius: "0.75rem",
                         border: selectedPOI?.name === poi.name 
-                          ? "2px solid rgba(255,255,255,0.5)" 
-                          : "1px solid rgba(255,255,255,0.2)",
+                          ? "2px solid rgba(79,59,43,0.25)" 
+                          : "1px solid rgba(79,59,43,0.1)",
                         cursor: "pointer",
                         textAlign: "left",
                         transition: "all 0.2s ease"
@@ -3412,11 +3411,11 @@ export default function PINITApp() {
                   }}
                   style={{
                     width: "100%",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
+                    background: "rgba(79,59,43,0.08)",
+                    color: "#4f3b2b",
                     padding: "0.75rem",
                     borderRadius: "0.75rem",
-                    border: "1px solid rgba(255,255,255,0.3)",
+                    border: "1px solid rgba(79,59,43,0.15)",
                     cursor: "pointer",
                     fontWeight: "600"
                   }}
@@ -3496,7 +3495,7 @@ export default function PINITApp() {
 
                 <div style={{ marginTop: "1rem" }}>
                   {pinConfirmStage === 'finding' && (
-                    <div style={{ color: "white", opacity: 0.95, padding: "0.75rem 0" }}>
+                    <div style={{ color: "#3a2e1e", opacity: 0.85, padding: "0.75rem 0" }}>
                       ⏳ Finding place…
                     </div>
                   )}
@@ -3517,11 +3516,11 @@ export default function PINITApp() {
                         return (
                           <div
                             style={{
-                              background: "rgba(255,255,255,0.10)",
-                              border: "1px solid rgba(255,255,255,0.18)",
+                              background: "rgba(255,255,255,0.55)",
+                              border: "1px solid rgba(79,59,43,0.1)",
                               borderRadius: "1rem",
                               padding: "1rem",
-                              color: "white"
+                              color: "#3a2e1e"
                             }}
                           >
                             {ok ? (
@@ -3572,9 +3571,9 @@ export default function PINITApp() {
                           flex: 1,
                           padding: "0.75rem 0.9rem",
                           borderRadius: "0.75rem",
-                          border: "1px solid rgba(255,255,255,0.25)",
-                          background: "rgba(255,255,255,0.12)",
-                          color: "white",
+                          border: "1px solid rgba(79,59,43,0.15)",
+                          background: "rgba(255,255,255,0.55)",
+                          color: "#3a2e1e",
                           outline: "none"
                         }}
                       />
@@ -3626,11 +3625,11 @@ export default function PINITApp() {
                           }
                         }}
                         style={{
-                          background: pinConfirmSearchLoading ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.18)",
-                          color: "white",
+                          background: pinConfirmSearchLoading ? "rgba(79,59,43,0.05)" : "rgba(79,59,43,0.08)",
+                          color: "#4f3b2b",
                           padding: "0.75rem 0.9rem",
                           borderRadius: "0.75rem",
-                          border: "1px solid rgba(255,255,255,0.25)",
+                          border: "1px solid rgba(79,59,43,0.15)",
                           cursor: pinConfirmSearchLoading ? "not-allowed" : "pointer",
                           fontWeight: 700,
                           opacity: pinConfirmSearchLoading ? 0.7 : 1
@@ -3662,11 +3661,11 @@ export default function PINITApp() {
                             style={{
                               width: "100%",
                               textAlign: "left",
-                              background: "rgba(255,255,255,0.10)",
-                              color: "white",
+                              background: "rgba(255,255,255,0.55)",
+                              color: "#3a2e1e",
                               padding: "0.75rem 0.9rem",
                               borderRadius: "0.75rem",
-                              border: "1px solid rgba(255,255,255,0.18)",
+                              border: "1px solid rgba(79,59,43,0.12)",
                               cursor: "pointer"
                             }}
                           >
@@ -3709,11 +3708,11 @@ export default function PINITApp() {
                     disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving' || !pinConfirmPayload}
                     style={{
                       flex: 1,
-                      background: pinConfirmStage === 'saving' ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.18)",
-                      color: "white",
+                      background: pinConfirmStage === 'saving' ? "rgba(79,59,43,0.05)" : "rgba(79,59,43,0.1)",
+                      color: "#4f3b2b",
                       padding: "0.85rem 1rem",
                       borderRadius: "0.85rem",
-                      border: "1px solid rgba(255,255,255,0.25)",
+                      border: "1px solid rgba(79,59,43,0.15)",
                       cursor: pinConfirmStage === 'saving' ? "not-allowed" : "pointer",
                       fontWeight: 800,
                       opacity: pinConfirmStage === 'finding' ? 0.6 : 1
@@ -3732,11 +3731,11 @@ export default function PINITApp() {
                     }}
                     disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving'}
                     style={{
-                      background: "rgba(255,255,255,0.12)",
-                      color: "white",
+                      background: "rgba(79,59,43,0.06)",
+                      color: "#4f3b2b",
                       padding: "0.85rem 1rem",
                       borderRadius: "0.85rem",
-                      border: "1px solid rgba(255,255,255,0.22)",
+                      border: "1px solid rgba(79,59,43,0.12)",
                       cursor: "pointer",
                       fontWeight: 800,
                       opacity: pinConfirmStage === 'finding' ? 0.6 : 1
@@ -3758,7 +3757,7 @@ export default function PINITApp() {
                     disabled={pinConfirmStage === 'finding' || pinConfirmStage === 'saving'}
                     style={{
                       background: "transparent",
-                      color: "rgba(255,255,255,0.95)",
+                      color: "#4f3b2b",
                       border: "none",
                       cursor: "pointer",
                       fontWeight: 700,
@@ -3781,19 +3780,20 @@ export default function PINITApp() {
             bottom: "1rem",
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "rgba(255, 255, 255, 0.92)",
             padding: "0.75rem 1.5rem",
             borderRadius: "1rem",
             backdropFilter: "blur(15px)",
-            border: "2px solid rgba(255,255,255,0.3)",
+            border: "1px solid rgba(79,59,43,0.12)",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            zIndex: 1001
+            zIndex: 1001,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)"
           }}
         >
           <span style={{ fontSize: "1.5rem" }}>📍</span>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, color: "#3a2e1e" }}>
             <span style={{ fontWeight: "600" }}>Edit Mode - Move pin to exact location</span>
             <span style={{ fontSize: "0.85rem", opacity: 0.9 }}>
               Zoom in if your pinned place is not showing
@@ -3838,18 +3838,18 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "rgba(30, 58, 138, 0.98)",
+            background: "rgba(255, 255, 255, 0.96)",
             padding: "2rem 3rem",
             borderRadius: "1.5rem",
             border:
               /not available|failed|unable|error/i.test(successMessage)
-                ? "2px solid rgba(245, 158, 11, 0.55)"
-                : "2px solid rgba(34, 197, 94, 0.5)",
+                ? "2px solid rgba(245, 158, 11, 0.45)"
+                : "2px solid rgba(34, 197, 94, 0.4)",
             zIndex: 10000,
             textAlign: "center",
             minWidth: "280px",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 12px 48px rgba(0,0,0,0.4)",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
             animation: "fadeInScale 0.3s ease-out"
           }}
         >
@@ -3880,15 +3880,15 @@ export default function PINITApp() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "rgba(30, 58, 138, 0.98)",
+            background: "rgba(255, 255, 255, 0.96)",
             padding: "2rem 3rem",
             borderRadius: "1.5rem",
-            border: "2px solid rgba(255, 255, 255, 0.25)",
+            border: "1px solid rgba(79, 59, 43, 0.12)",
             zIndex: 10000,
             textAlign: "center",
             minWidth: "280px",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 12px 48px rgba(0,0,0,0.4)",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
             animation: "fadeInScale 0.2s ease-out"
           }}
         >
@@ -3896,18 +3896,18 @@ export default function PINITApp() {
             style={{
               width: "44px",
               height: "44px",
-              border: "4px solid rgba(255,255,255,0.25)",
-              borderTop: "4px solid white",
+              border: "4px solid rgba(79,59,43,0.12)",
+              borderTop: "4px solid #4f3b2b",
               borderRadius: "50%",
               animation: "spin 1s linear infinite",
               margin: "0 auto 1rem auto"
             }}
           />
-          <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "white", marginBottom: "0.25rem" }}>
+          <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "#3a2e1e", marginBottom: "0.25rem" }}>
             Saving this spot…
           </div>
           {quickPinStage ? (
-            <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.85)" }}>
+            <div style={{ fontSize: "0.95rem", color: "rgba(58,46,30,0.7)" }}>
               {quickPinStage}
             </div>
           ) : null}
@@ -3962,9 +3962,9 @@ export default function PINITApp() {
               style={{
                 flex: 1,
                 padding: "1rem 1.5rem",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                border: "2px solid rgba(255,255,255,0.3)",
+                background: "rgba(79,59,43,0.06)",
+                color: "#4f3b2b",
+                border: "1px solid rgba(79,59,43,0.15)",
                 borderRadius: "0.75rem",
                 cursor: "pointer",
                 fontSize: "1rem",
@@ -3992,14 +3992,14 @@ export default function PINITApp() {
                   additionalPhotos: capturedMedia?.additionalPhotos,
                   placeDescription: capturedMedia?.placeDescription ?? null
                 })
-                setShowRecommendationForm(true) // ADDED BACK: Show the recommendations form
+                setShowRecommendationForm(true)
               }}
               style={{
                 flex: 1,
                 padding: "1rem 1.5rem",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                border: "2px solid rgba(255,255,255,0.4)",
+                background: "rgba(79,59,43,0.1)",
+                color: "#4f3b2b",
+                border: "1px solid rgba(79,59,43,0.2)",
                 borderRadius: "0.75rem",
                 cursor: "pointer",
                 fontSize: "1rem",
@@ -4420,31 +4420,31 @@ export default function PINITApp() {
             bottom: "8rem",
             left: "1rem",
             right: "1rem",
-            background: "rgba(30, 58, 138, 0.95)",
+            background: "rgba(255, 255, 255, 0.92)",
             borderRadius: "1rem",
             padding: "1rem",
             backdropFilter: "blur(15px)",
             maxHeight: "200px",
             overflowY: "auto",
-            border: "2px solid rgba(255,255,255,0.2)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            border: "1px solid rgba(79,59,43,0.12)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "white" }}>
-              dYO? Real Places Nearby {isLoadingPlaces && "?"}
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: "#3a2e1e" }}>
+              Places Nearby {isLoadingPlaces && "…"}
             </h3>
             <button
               onClick={() => setShowNearbyPins(false)}
               style={{
                 padding: "0.5rem",
-                background: "rgba(255,255,255,0.15)",
-                color: "white",
+                background: "rgba(79,59,43,0.08)",
+                color: "#4f3b2b",
                 cursor: "pointer",
                 borderRadius: "0.5rem",
                 transition: "all 0.2s ease",
                 backdropFilter: "blur(10px)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid rgba(79,59,43,0.12)",
               }}
             >
               o
@@ -4457,12 +4457,12 @@ export default function PINITApp() {
                 key={pin.id}
                 style={{
                   minWidth: "160px",
-                  background: "rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.65)",
                   borderRadius: "0.75rem",
                   padding: "0.75rem",
-                  color: "white",
+                  color: "#3a2e1e",
                   cursor: "pointer",
-                  border: pin.googlePlaceId ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.15)",
+                  border: pin.googlePlaceId ? "1px solid rgba(79,59,43,0.18)" : "1px solid rgba(79,59,43,0.08)",
                   transition: "all 0.2s ease",
                   backdropFilter: "blur(10px)",
                 }}
@@ -4498,23 +4498,23 @@ export default function PINITApp() {
                     <span
                       style={{
                         fontSize: "0.5rem",
-                        background: "rgba(255,255,255,0.2)",
+                        background: "rgba(79,59,43,0.06)",
                         padding: "0.125rem 0.25rem",
                         borderRadius: "0.25rem",
-                        border: "1px solid rgba(255,255,255,0.3)",
+                        border: "1px solid rgba(79,59,43,0.12)",
                       }}
                     >
-                      dYO? Google
+                      Google
                     </span>
                   )}
                   {pin.isRecommended && (
                     <span
                       style={{
                         fontSize: "0.5rem",
-                        background: "rgba(255,255,255,0.2)",
+                        background: "rgba(79,59,43,0.06)",
                         padding: "0.125rem 0.25rem",
                         borderRadius: "0.25rem",
-                        border: "1px solid rgba(255,255,255,0.3)",
+                        border: "1px solid rgba(79,59,43,0.12)",
                       }}
                     >
                       -? Top
