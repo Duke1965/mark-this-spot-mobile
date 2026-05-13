@@ -38,9 +38,6 @@ export function PinResults({
             <button type="button" onClick={() => onSave(pin)} style={styles.btn}>
               Save
             </button>
-            <button type="button" onClick={() => onShare(pin)} style={styles.btn}>
-              Share
-            </button>
             <button type="button" onClick={() => (window.location.href = `/postcard/${encodeURIComponent(String(pin.id))}`)} style={styles.btn}>
               <Send size={18} />
               Send Postcard
@@ -56,17 +53,21 @@ const styles: Record<string, CSSProperties> = {
   screen: {
     position: "fixed",
     inset: 0,
-    background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-    color: "white",
+    backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundColor: "#eef8f4",
+    color: "#3a2e1e",
     display: "flex",
     flexDirection: "column",
   },
   header: {
     padding: "1rem",
-    paddingTop: "3rem",
-    background: "rgba(30, 58, 138, 0.95)",
-    borderBottom: "1px solid rgba(255,255,255,0.2)",
-    backdropFilter: "blur(15px)",
+    paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+    background: "rgba(255,255,255,0.7)",
+    borderBottom: "1px solid rgba(0,0,0,0.08)",
+    backdropFilter: "blur(18px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -76,7 +77,7 @@ const styles: Record<string, CSSProperties> = {
   backBtn: {
     background: "transparent",
     border: "none",
-    color: "white",
+    color: "#4f3b2b",
     cursor: "pointer",
     fontWeight: 900,
     padding: "0.5rem",
@@ -85,19 +86,19 @@ const styles: Record<string, CSSProperties> = {
   card: {
     width: "min(720px, 100%)",
     margin: "0 auto",
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 16,
     padding: 14,
     backdropFilter: "blur(12px)",
   },
   title: { fontWeight: 950, fontSize: "1.15rem" },
-  desc: { opacity: 0.92, lineHeight: 1.35, marginTop: 8 },
+  desc: { opacity: 0.75, lineHeight: 1.35, marginTop: 8 },
   actions: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 },
   btn: {
-    background: "rgba(255,255,255,0.15)",
-    border: "1px solid rgba(255,255,255,0.22)",
-    color: "white",
+    background: "rgba(79,59,43,0.08)",
+    border: "1px solid rgba(79,59,43,0.15)",
+    color: "#4f3b2b",
     fontWeight: 900,
     padding: "0.7rem 0.9rem",
     borderRadius: 12,
