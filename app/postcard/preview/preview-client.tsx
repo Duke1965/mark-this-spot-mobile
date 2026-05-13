@@ -303,7 +303,7 @@ export default function PreviewClient() {
 
   const shareText = useMemo(() => {
     const t = (title || "My Special Place").trim()
-    return `PINIT Postcard: ${t}\n\n${shareUrl || ""}`.trim()
+    return `Mappo Postcard: ${t}\n\n${shareUrl || ""}`.trim()
   }, [title, shareUrl])
 
   return (
@@ -311,8 +311,12 @@ export default function PreviewClient() {
       style={{
         position: "fixed",
         inset: 0,
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundImage: "url(/brand/mappo/mappo-create-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         display: "flex",
         flexDirection: "column",
         zIndex: 1000,
@@ -326,14 +330,14 @@ export default function PreviewClient() {
             top: "14px",
             transform: "translateX(-50%)",
             zIndex: 2000,
-            background: "rgba(255,255,255,0.18)",
-            border: "1px solid rgba(255,255,255,0.28)",
-            color: "white",
+            background: "rgba(255,255,255,0.85)",
+            border: "1px solid rgba(79,59,43,0.12)",
+            color: "#3a2e1e",
             padding: "10px 14px",
             borderRadius: 999,
             fontWeight: 950,
             backdropFilter: "blur(12px)",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
           }}
           role="status"
           aria-live="polite"
@@ -344,10 +348,10 @@ export default function PreviewClient() {
       <div
         style={{
           padding: "1rem",
-          paddingTop: "3rem",
-          background: "rgba(30, 58, 138, 0.95)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          backdropFilter: "blur(15px)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          background: "rgba(255,255,255,0.7)",
+          borderBottom: "1px solid rgba(0,0,0,0.08)",
+          backdropFilter: "blur(18px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -362,7 +366,7 @@ export default function PreviewClient() {
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
+            color: "#4f3b2b",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -380,9 +384,9 @@ export default function PreviewClient() {
           onClick={onSend}
           disabled={isSending || !!shareUrl}
           style={{
-            background: "rgba(255,255,255,0.15)",
-            border: "1px solid rgba(255,255,255,0.22)",
-            color: "white",
+            background: "rgba(79,59,43,0.1)",
+            border: "1px solid rgba(79,59,43,0.15)",
+            color: "#4f3b2b",
             fontWeight: 900,
             padding: "0.55rem 0.9rem",
             borderRadius: 12,
@@ -412,9 +416,9 @@ export default function PreviewClient() {
                 borderRadius: 18,
                 overflow: "hidden",
                 position: "relative",
-                background: "rgba(0,0,0,0.25)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+                background: "rgba(0,0,0,0.06)",
+                border: "1px solid rgba(79,59,43,0.1)",
+                boxShadow: "0 8px 30px rgba(0,0,0,0.1)",
               }}
             >
               {/* Photo */}
@@ -539,8 +543,8 @@ export default function PreviewClient() {
                 width: "100%",
                 maxWidth: 520,
                 margin: "0 auto",
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.72)",
+                border: "1px solid rgba(79,59,43,0.1)",
                 borderRadius: 16,
                 padding: 14,
                 backdropFilter: "blur(12px)",
@@ -556,8 +560,8 @@ export default function PreviewClient() {
               width: "100%",
               maxWidth: 520,
               margin: "0 auto",
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.15)",
+              background: "rgba(255,255,255,0.72)",
+              border: "1px solid rgba(79,59,43,0.1)",
               borderRadius: 16,
               padding: 14,
               backdropFilter: "blur(12px)",
@@ -577,9 +581,9 @@ export default function PreviewClient() {
               style={{
                 width: "100%",
                 borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.16)",
-                background: "rgba(0,0,0,0.18)",
-                color: "white",
+                border: "1px solid rgba(79,59,43,0.12)",
+                background: "rgba(255,255,255,0.55)",
+                color: "#3a2e1e",
                 padding: "10px 12px",
                 fontSize: "0.95rem",
                 outline: "none",
@@ -594,8 +598,8 @@ export default function PreviewClient() {
                 width: "100%",
                 maxWidth: 520,
                 margin: "0 auto",
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.72)",
+                border: "1px solid rgba(79,59,43,0.1)",
                 borderRadius: 16,
                 padding: 14,
                 backdropFilter: "blur(12px)",
@@ -645,8 +649,8 @@ export default function PreviewClient() {
                   type="button"
                   style={{
                     ...shareBtn,
-                    background: "rgba(255,255,255,0.22)",
-                    border: "1px solid rgba(255,255,255,0.28)",
+                    background: "rgba(79,59,43,0.12)",
+                    border: "1px solid rgba(79,59,43,0.18)",
                   }}
                   onClick={() => {
             handleExit(() => router.push("/"))
@@ -666,9 +670,9 @@ export default function PreviewClient() {
 }
 
 const shareBtn: React.CSSProperties = {
-  background: "rgba(255,255,255,0.15)",
-  border: "1px solid rgba(255,255,255,0.22)",
-  color: "white",
+  background: "rgba(79,59,43,0.08)",
+  border: "1px solid rgba(79,59,43,0.15)",
+  color: "#4f3b2b",
   fontWeight: 900,
   padding: "0.7rem 0.9rem",
   borderRadius: 12,
