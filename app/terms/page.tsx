@@ -19,8 +19,8 @@ export default function TermsPage() {
     <div
       style={{
         minHeight: "100dvh",
-        background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-        color: "white",
+        backgroundColor: "#eef8f4",
+        color: "#3a2e1e",
         padding: "2rem 1rem",
       }}
     >
@@ -28,8 +28,8 @@ export default function TermsPage() {
         style={{
           width: "min(760px, 100%)",
           margin: "0 auto",
-          background: "rgba(255,255,255,0.1)",
-          border: "1px solid rgba(255,255,255,0.15)",
+          background: "rgba(255,255,255,0.78)",
+          border: "1px solid rgba(79,59,43,0.1)",
           borderRadius: 16,
           padding: 16,
           backdropFilter: "blur(12px)",
@@ -41,7 +41,7 @@ export default function TermsPage() {
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
+            color: "#4f3b2b",
             cursor: "pointer",
             fontWeight: 900,
             padding: "0.4rem 0.25rem",
@@ -50,23 +50,23 @@ export default function TermsPage() {
         >
           ← Back
         </button>
-        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>PINIT Terms of Use</div>
+        <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>Mappo Terms of Use</div>
         <div style={{ opacity: 0.94, lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
-            PINIT is provided as a tool for saving places, creating postcards, and sharing links.
+            Mappo is provided as a tool for saving places, creating postcards, and sharing links.
           </div>
           <div>
-            You are responsible for the content you create and share using PINIT, including photos, messages, stickers, titles,
+            You are responsible for the content you create and share using Mappo, including photos, messages, stickers, titles,
             and descriptions.
           </div>
           <div>
             Do not upload or share unlawful, harmful, offensive, or infringing content.
           </div>
           <div>
-            PINIT may rely on third-party services such as maps, authentication, storage, and place data providers.
+            Mappo may rely on third-party services such as maps, authentication, storage, and place data providers.
           </div>
           <div>
-            PINIT is provided “as is” without warranties. Location and place data may not always be perfectly accurate, and PINIT
+            Mappo is provided “as is” without warranties. Location and place data may not always be perfectly accurate, and Mappo
             is not responsible for decisions made based on app data.
           </div>
           <div>
