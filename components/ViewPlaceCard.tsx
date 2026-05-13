@@ -102,7 +102,8 @@ export function ViewPlaceCard({
       padding: '20px'
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+        background: 'rgba(255,255,255,0.96)',
+        backdropFilter: 'blur(18px)',
         borderRadius: '20px',
         padding: '24px',
         maxWidth: '400px',
@@ -119,7 +120,7 @@ export function ViewPlaceCard({
           marginBottom: '20px'
         }}>
           <h2 style={{
-            color: 'white',
+            color: '#3a2e1e',
             fontSize: '20px',
             fontWeight: '600',
             margin: 0
@@ -129,11 +130,11 @@ export function ViewPlaceCard({
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'rgba(79,59,43,0.08)',
               border: 'none',
               borderRadius: '8px',
               padding: '8px',
-              color: 'white',
+              color: '#4f3b2b',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -152,8 +153,8 @@ export function ViewPlaceCard({
             width: '100%',
             height: '200px',
             borderRadius: '12px',
-            background: 'rgba(255,255,255,0.1)',
-            border: '2px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.55)',
+            border: '1px solid rgba(79,59,43,0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -200,7 +201,7 @@ export function ViewPlaceCard({
           marginBottom: '20px'
         }}>
           <div style={{
-            color: 'white',
+            color: '#3a2e1e',
             fontSize: '14px',
             marginBottom: '8px'
           }}>
@@ -220,18 +221,18 @@ export function ViewPlaceCard({
           marginBottom: '24px'
         }}>
           <div style={{
-            color: 'white',
+            color: '#3a2e1e',
             fontSize: '14px',
             marginBottom: '8px'
           }}>
             Tell others why you recommend this PIN - in a sentence or two.
           </div>
           <div style={{
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.55)',
+            border: '1px solid rgba(79,59,43,0.12)',
             borderRadius: '12px',
             padding: '16px',
-            color: 'white',
+            color: '#3a2e1e',
             fontSize: '14px',
             lineHeight: '1.5',
             minHeight: '80px',
@@ -241,7 +242,7 @@ export function ViewPlaceCard({
             {recommendation.userComment || recommendation.description || "No comment provided"}
           </div>
           <div style={{
-            color: 'rgba(255,255,255,0.6)',
+            color: 'rgba(79,59,43,0.5)',
             fontSize: '12px',
             marginTop: '4px',
             textAlign: 'right'
@@ -259,11 +260,11 @@ export function ViewPlaceCard({
             onClick={handleShare}
             style={{
               flex: 1,
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(79,59,43,0.06)',
+              border: '1px solid rgba(79,59,43,0.12)',
               borderRadius: '12px',
               padding: '12px 16px',
-              color: 'white',
+              color: '#4f3b2b',
               fontSize: '14px',
               fontWeight: '500',
               cursor: 'pointer',
@@ -274,10 +275,10 @@ export function ViewPlaceCard({
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+              e.currentTarget.style.background = 'rgba(79,59,43,0.1)'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+              e.currentTarget.style.background = 'rgba(79,59,43,0.06)'
             }}
           >
             <Share2 size={16} />
@@ -288,11 +289,11 @@ export function ViewPlaceCard({
             onClick={handleSaveToFavorites}
             style={{
               flex: 1,
-              background: isSaved ? 'rgba(239, 68, 68, 0.8)' : 'rgba(255,255,255,0.1)',
-              border: isSaved ? '1px solid rgba(239, 68, 68, 0.8)' : '1px solid rgba(255,255,255,0.2)',
+              background: isSaved ? 'rgba(239, 68, 68, 0.15)' : 'rgba(79,59,43,0.06)',
+              border: isSaved ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(79,59,43,0.12)',
               borderRadius: '12px',
               padding: '12px 16px',
-              color: 'white',
+              color: isSaved ? '#dc2626' : '#4f3b2b',
               fontSize: '14px',
               fontWeight: '500',
               cursor: 'pointer',
@@ -304,12 +305,12 @@ export function ViewPlaceCard({
             }}
             onMouseEnter={(e) => {
               if (!isSaved) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.1)'
               }
             }}
             onMouseLeave={(e) => {
               if (!isSaved) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                e.currentTarget.style.background = 'rgba(79,59,43,0.06)'
               }
             }}
           >
@@ -322,15 +323,15 @@ export function ViewPlaceCard({
         <div style={{
           marginTop: '16px',
           padding: '12px',
-          background: 'rgba(255,255,255,0.1)',
+          background: 'rgba(79,59,43,0.04)',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           gap: '8px'
         }}>
-          <MapPin size={16} color="rgba(255,255,255,0.8)" />
+          <MapPin size={16} color="rgba(79,59,43,0.6)" />
           <span style={{
-            color: 'rgba(255,255,255,0.8)',
+            color: 'rgba(79,59,43,0.6)',
             fontSize: '12px'
           }}>
             {recommendation.title} • {recommendation.category}
