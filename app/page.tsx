@@ -1469,7 +1469,7 @@ export default function PINITApp() {
         description: sanitizePlaceDescription(
           aiTextResult?.description || placeDescription || locationDescription || "Pinned location"
         ),
-        tags: ["pinit", "travel"],
+        tags: ["mappo", "travel"],
         // Additional photos (empty for now - image resolver coming in Step B-F)
         additionalPhotos: [],
         // NEW: Mark as pending - needs location confirmation via edit mode
@@ -1639,7 +1639,7 @@ export default function PINITApp() {
     } else if (locationType === "provincial") {
       tags.push("provincial", "landscape", "diverse")
     }
-    tags.push("ai-generated", "pinit")
+    tags.push("ai-generated", "mappo")
     
     // Use real location name if available from photos (Foursquare or Google)
     let locationName = context
@@ -2552,7 +2552,7 @@ export default function PINITApp() {
           (placeName ? `Pinned near ${placeName}` : "Pinned location"),
         mediaUrl: primaryImageUrl, // Use existing image or placeholder
         additionalPhotos: editingPin.additionalPhotos || [],
-        tags: editingPin.tags || ["pinit", "travel"],
+        tags: editingPin.tags || ["mappo", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
         // AI generation metadata
