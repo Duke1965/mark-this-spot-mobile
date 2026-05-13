@@ -35,8 +35,8 @@ export default function PostcardEditorClient() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-          color: "white",
+          backgroundColor: "#eef8f4",
+          color: "#3a2e1e",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -52,9 +52,9 @@ export default function PostcardEditorClient() {
           style={{
             width: "100%",
             maxWidth: 360,
-            background: "rgba(255,255,255,0.2)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            color: "white",
+            background: "rgba(79,59,43,0.1)",
+            border: "1px solid rgba(79,59,43,0.15)",
+            color: "#4f3b2b",
             fontWeight: 900,
             padding: "0.95rem 1rem",
             borderRadius: 14,
