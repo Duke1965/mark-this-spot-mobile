@@ -1727,7 +1727,7 @@ export default function AIRecommendationsHub({
         <img
           src="/brand/mappo/mappo-discover-title.png"
           alt="Discover"
-          style={{ height: 28, objectFit: 'contain' }}
+          style={{ height: 48, maxWidth: '60vw', objectFit: 'contain' }}
         />
         <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
           Personalized for you based on your behavior
@@ -2642,31 +2642,18 @@ export default function AIRecommendationsHub({
             setSelectedRecommendation(null)
             console.log('✅ Pin saved to library!')
           }}
-          onShare={() => {
-            console.log('📤 Share on social media')
-            if (onSharePin && selectedRecommendation) {
-              const pinLike: PinData = {
-                id: String(selectedRecommendation?.originalPinId || selectedRecommendation?.id || Date.now()),
-                latitude: Number(selectedRecommendation?.location?.lat || 0),
-                longitude: Number(selectedRecommendation?.location?.lng || 0),
-                locationName: String(selectedRecommendation?.title || 'Location'),
-                mediaUrl: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl || '/pinit-placeholder.jpg') as any,
-                mediaType: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl) ? "photo" : null,
-                audioUrl: null,
-                timestamp: new Date().toISOString(),
-                title: String(selectedRecommendation?.title || 'Location'),
-                description: selectedRecommendation?.description || undefined,
-                tags: ["share", selectedRecommendation?.category?.toLowerCase?.() || "general"],
-                rating: typeof selectedRecommendation?.rating === "number" ? selectedRecommendation.rating : undefined,
-                isRecommended: !!selectedRecommendation?.isRecommended,
-                isAISuggestion: !!selectedRecommendation?.isAISuggestion,
-                category: selectedRecommendation?.category || "general",
-              }
-              setShowRecommendationForm(false)
-              setShowReadOnlyRecommendation(false)
-              setRecommendationFormData(null)
-              setSelectedRecommendation(null)
-              onSharePin(pinLike)
+          onShare={async () => {
+            if (!selectedRecommendation) return
+            const title = selectedRecommendation.title || 'Check this place out'
+            const text = `${title} — discovered on Mappo! Postcards from anywhere.`
+            const url = typeof window !== 'undefined' ? window.location.origin : ''
+            if (typeof navigator !== 'undefined' && navigator.share) {
+              try {
+                await navigator.share({ title: `Mappo — ${title}`, text, url })
+              } catch { /* user cancelled */ }
+            } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+              await navigator.clipboard.writeText(`${text}\n${url}`)
+              alert('Link copied!')
             }
           }}
           onRecommend={async (rating: number, review: string, placeName?: string) => {
