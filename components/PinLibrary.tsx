@@ -558,7 +558,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         <img
           src="/brand/mappo/mappo-library-title.png"
           alt="Library"
-          style={{ height: 28, objectFit: "contain" }}
+          style={{ height: 48, maxWidth: "60vw", objectFit: "contain" }}
         />
 
         <div style={{ width: "40px" }}></div>
