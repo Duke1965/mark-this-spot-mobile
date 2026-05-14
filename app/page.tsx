@@ -2884,6 +2884,42 @@ export default function PINITApp() {
     )
   }
 
+  // Splash screen while auth/app initializes
+  if (authLoading) {
+    return (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "#eef8f4",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 99999,
+      }}>
+        <img
+          src="/brand/mappo/mappo-splash.png"
+          alt="Mappo"
+          style={{
+            width: "min(280px, 70vw)",
+            height: "auto",
+            objectFit: "contain",
+            marginBottom: "1.5rem",
+          }}
+        />
+        <div style={{
+          width: "36px",
+          height: "36px",
+          border: "3px solid rgba(79,59,43,0.12)",
+          borderTop: "3px solid #4f3b2b",
+          borderRadius: "50%",
+          animation: "mappoSpin 1s linear infinite",
+        }} />
+        <style>{`@keyframes mappoSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
   // Screen rendering
   if (currentScreen === "camera") {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
