@@ -1727,7 +1727,7 @@ export default function AIRecommendationsHub({
         <img
           src="/brand/mappo/mappo-discover-title.png"
           alt="Discover"
-          style={{ height: 48, maxWidth: '60vw', objectFit: 'contain' }}
+          style={{ height: 54, maxWidth: '65vw', objectFit: 'contain', display: 'block', margin: '36px auto 0 auto' }}
         />
         <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
           Personalized for you based on your behavior
