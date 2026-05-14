@@ -70,7 +70,7 @@ export default function PostcardTemplatesPage() {
         <img
           src="/brand/mappo/mappo-create-title.png"
           alt="Create"
-          style={{ height: 28, objectFit: "contain" }}
+          style={{ height: 48, maxWidth: "60vw", objectFit: "contain" }}
         />
         <div style={{ width: 72 }} />
       </div>
