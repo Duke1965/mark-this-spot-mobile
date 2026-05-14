@@ -2661,33 +2661,8 @@ export default function PINITApp() {
     setTimeout(() => setQuickPinSuccess(false), 2000)
   }
 
-  const handleShareFromResults = (pin: PinData) => {
-    // Create a comprehensive media object that captures ALL PINIT data
-    const mediaData = {
-      url: pin.mediaUrl || "/pinit-placeholder.jpg",
-      type: (pin.mediaType === "video" ? "video" : "photo") as "photo" | "video",
-      location: pin.locationName,
-        title: pin.title,
-      description: pin.description,
-      personalThoughts: pin.personalThoughts || undefined,
-      id: pin.id,
-      shareKind: "pin" as const,
-      // Enhanced PINIT data
-      pinId: pin.id,
-      latitude: pin.latitude,
-      longitude: pin.longitude,
-      timestamp: pin.timestamp,
-      tags: pin.tags || [],
-      additionalPhotos: pin.additionalPhotos || [],
-      // AI-generated content
-      aiTitle: pin.title,
-      aiDescription: pin.description,
-      aiTags: pin.tags || []
-    }
-    
-    // Set the captured media and go to platform selection (same flow as camera photos)
-    setCapturedMedia(mediaData)
-    setCurrentScreen("platform-select")
+  const handleShareFromResults = (_pin: PinData) => {
+    // Legacy share flow disabled — platform-select is removed for V1
   }
 
   const handleEditFromResults = (pin: PinData) => {
@@ -2914,16 +2889,9 @@ export default function PINITApp() {
     return <ReliableCamera mode={cameraMode} onCapture={handleCameraCapture} onClose={() => setCurrentScreen("map")} />
   }
 
-  if (currentScreen === "platform-select" && capturedMedia) {
-    return (
-      <SocialPlatformSelector
-        mediaUrl={capturedMedia.url}
-        mediaType={capturedMedia.type}
-        onPlatformSelect={handlePlatformSelect}
-        enablePositioning={capturedMedia.shareKind !== "pin"}
-        onBack={() => setCurrentScreen("map")}
-      />
-    )
+  if (currentScreen === "platform-select") {
+    setCurrentScreen("map")
+    return null
   }
 
   if (currentScreen === "content-editor" && capturedMedia && selectedPlatform) {
@@ -2933,7 +2901,7 @@ export default function PINITApp() {
         mediaType={capturedMedia.type}
         platform={selectedPlatform}
         editorMode={capturedMedia.shareKind === "pin" ? "share" : "capture"}
-        onBack={() => setCurrentScreen("platform-select")}
+        onBack={() => setCurrentScreen("map")}
         onPost={async (contentData) => {
           // Prevent multiple rapid clicks
           if (isPosting) return
