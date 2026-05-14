@@ -174,10 +174,11 @@ async function showPinitConfirmModal(opts: {
       "width:min(420px, 92vw)",
       "border-radius:20px",
       "padding:18px",
-      "color:white",
-      "background:linear-gradient(135deg, rgba(30,58,138,0.96) 0%, rgba(30,64,175,0.96) 50%, rgba(55,48,163,0.96) 100%)",
-      "border:1px solid rgba(255,255,255,0.18)",
-      "box-shadow:0 20px 60px rgba(0,0,0,0.55)",
+      "color:#3a2e1e",
+      "background:rgba(255,255,255,0.97)",
+      "border:1px solid rgba(79,59,43,0.12)",
+      "box-shadow:0 12px 40px rgba(0,0,0,0.18)",
+      "backdrop-filter:blur(18px)",
     ].join(";")
 
     const title = document.createElement("div")
@@ -207,9 +208,9 @@ async function showPinitConfirmModal(opts: {
     cancelBtn.style.cssText = [
       "padding:10px 12px",
       "border-radius:12px",
-      "border:1px solid rgba(255,255,255,0.22)",
-      "background:rgba(255,255,255,0.10)",
-      "color:white",
+      "border:1px solid rgba(79,59,43,0.15)",
+      "background:rgba(79,59,43,0.06)",
+      "color:#4f3b2b",
       "font-weight:600",
       "cursor:pointer",
       "display:" + (opts.cancelText ? "inline-flex" : "none"),
@@ -221,9 +222,9 @@ async function showPinitConfirmModal(opts: {
     confirmBtn.style.cssText = [
       "padding:10px 12px",
       "border-radius:12px",
-      "border:1px solid rgba(255,255,255,0.22)",
-      "background:rgba(16,185,129,0.22)",
-      "color:white",
+      "border:1px solid rgba(16,185,129,0.35)",
+      "background:rgba(16,185,129,0.12)",
+      "color:#065f46",
       "font-weight:800",
       "cursor:pointer",
     ].join(";")
@@ -339,7 +340,7 @@ export async function requestLocationPermission(): Promise<boolean> {
     key: "location",
     title: "Enable location",
     message:
-      "PINIT uses your location to show where you are on the map and help you pin places around you.",
+      "Mappo uses your location to show where you are on the map and help you pin places around you.",
     confirmText: "Allow location",
   })
   if (!ok) return false
@@ -381,7 +382,7 @@ export async function requestCameraPermission(): Promise<boolean> {
     await showPinitInfoModal({
       title: "Camera access is off",
       message:
-        "Camera access is disabled for PINIT. To use the camera, enable it in your phone settings:\n\nSettings → Apps → PINIT → Permissions → Camera → Allow",
+        "Camera access is disabled for Mappo. To use the camera, enable it in your phone settings:\n\nSettings → Apps → Mappo → Permissions → Camera → Allow",
       okText: "OK",
     })
     console.log("📷 requestCameraPermission(): opening settings fallback (manual)")
@@ -391,7 +392,7 @@ export async function requestCameraPermission(): Promise<boolean> {
   console.log("📷 requestCameraPermission(): permission request attempted")
   const ok = await showExplanationModal({
     title: "Enable camera",
-    message: "PINIT needs camera access so you can take photos of places you want to remember.",
+    message: "Mappo needs camera access so you can take postcard photos and save memories.",
     confirmText: "Allow camera",
     cancelText: "Not now",
   })
@@ -402,7 +403,7 @@ export async function requestCameraPermission(): Promise<boolean> {
 
   if (isNativeCapacitor()) {
     console.log("📷 Permission path: native camera")
-    // IMPORTANT: PINIT camera UI uses getUserMedia (web-style) via `ReliableCamera`.
+    // IMPORTANT: Mappo camera UI uses getUserMedia (web-style) via `ReliableCamera`.
     // In many Capacitor shells there is no Camera plugin installed; blocking here would break the flow.
     // So: try native permission request if available, otherwise fall back to a getUserMedia preflight
     // (which triggers the Android permission prompt in a working WebView setup).
@@ -435,7 +436,7 @@ export async function requestPhotoPermission(): Promise<boolean> {
   const ok = await showExplanationModalOnce({
     key: "photos",
     title: "Enable photos",
-    message: "PINIT needs access to your photos so you can attach pictures of places you've visited.",
+    message: "Mappo needs access to your photos so you can attach pictures of places you've visited.",
     confirmText: "Allow photos",
   })
   if (!ok) return false
@@ -455,7 +456,7 @@ export async function requestContactsPermission(): Promise<boolean> {
     key: "contacts",
     title: "Enable contacts",
     message:
-      "PINIT can use your contacts so you can easily invite friends to discover and share places with you.",
+      "Mappo can use your contacts so you can easily invite friends to discover and share places with you.",
     confirmText: "Allow contacts",
   })
   if (!ok) return false
@@ -474,7 +475,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
     key: "notifications",
     title: "Enable notifications",
     message:
-      "PINIT can send notifications when friends share places with you or recommend new spots.",
+      "Mappo can send notifications when friends share places with you or recommend new spots.",
     confirmText: "Enable notifications",
   })
   if (!ok) return false
