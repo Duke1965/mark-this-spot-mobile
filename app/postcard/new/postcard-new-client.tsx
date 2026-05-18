@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Camera, FileText, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { requestCameraPermission } from "@/lib/mobilePermissions"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -286,21 +287,12 @@ export default function PostcardNewClient() {
         }}
       >
         <button
+          type="button"
           onClick={() => (mode === "camera" ? setMode("chooser") : router.push("/postcard/templates"))}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#4f3b2b",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.95rem",
-            padding: "0.5rem",
-          }}
+          style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
         >
           <ArrowLeft size={20} />
-          <span style={{ fontWeight: 700 }}>Back</span>
+          Back
         </button>
         <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>Add Your Photo</div>
         <div style={{ width: 72 }} />
