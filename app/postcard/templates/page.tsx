@@ -4,6 +4,11 @@ import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { usePostcardExit } from "../_components/usePostcardExit"
+import {
+  mappoBackButtonAbsoluteStyle,
+  mappoHeaderBarStyle,
+  mappoTitleImageStyle,
+} from "@/lib/mappoHeaderStyles"
 
 const TEMPLATES = ["template-1", "template-2", "template-3", "template-4"] as const
 const TEMPLATE_LABELS: Record<(typeof TEMPLATES)[number], string> = {
@@ -37,42 +42,16 @@ export default function PostcardTemplatesPage() {
         zIndex: 1000,
       }}
     >
-      <div
-        style={{
-          padding: "1rem",
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
-          background: "rgba(255,255,255,0.7)",
-          borderBottom: "1px solid rgba(0,0,0,0.08)",
-          backdropFilter: "blur(18px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "0.75rem",
-        }}
-      >
-        <button
-          onClick={onBack}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#4f3b2b",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.95rem",
-            padding: "0.5rem",
-          }}
-        >
+      <div style={mappoHeaderBarStyle}>
+        <button type="button" onClick={onBack} style={mappoBackButtonAbsoluteStyle}>
           <ArrowLeft size={20} />
-          <span style={{ fontWeight: 700 }}>Back</span>
+          Back
         </button>
         <img
           src="/brand/mappo/mappo-create-title.png"
           alt="Create"
-          style={{ height: 48, maxWidth: "60vw", objectFit: "contain" }}
+          style={mappoTitleImageStyle}
         />
-        <div style={{ width: 72 }} />
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
