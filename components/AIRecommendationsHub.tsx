@@ -14,6 +14,12 @@ import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
 import { getHintsEnabled } from '@/lib/hints'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
+import { ArrowLeft } from 'lucide-react'
+import {
+  mappoBackButtonAbsoluteStyle,
+  mappoDiscoverTitleImageStyle,
+  mappoHeaderBarStyle,
+} from '@/lib/mappoHeaderStyles'
 
 /** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
 const RECS_MAP_MARKER_HINT_DISMISSED_KEY = 'pinit-recommendations-marker-hint-dismissed-v1'
@@ -1684,50 +1690,15 @@ export default function AIRecommendationsHub({
       zIndex: 1000
     }}>
       {/* Header */}
-      <div style={{
-        padding: '20px',
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-        textAlign: 'center',
-        color: '#3a2e1e',
-        borderBottom: '1px solid rgba(0,0,0,0.08)',
-        background: 'rgba(255,255,255,0.7)',
-        backdropFilter: 'blur(18px)',
-        position: 'relative'
-      }}>
-        <button
-          onClick={onBack}
-          style={{
-            position: 'absolute',
-            left: '20px',
-            top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-            background: 'rgba(79,59,43,0.1)',
-            border: 'none',
-            borderRadius: '8px',
-            width: '40px',
-            height: '40px',
-            color: '#4f3b2b',
-            fontSize: '18px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(79,59,43,0.18)'
-            e.currentTarget.style.transform = 'scale(1.05)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(79,59,43,0.1)'
-            e.currentTarget.style.transform = 'scale(1)'
-          }}
-        >
-          ←
+      <div style={{ ...mappoHeaderBarStyle, textAlign: 'center', color: '#3a2e1e' }}>
+        <button type="button" onClick={onBack} style={mappoBackButtonAbsoluteStyle}>
+          <ArrowLeft size={20} />
+          Back
         </button>
         <img
           src="/brand/mappo/mappo-discover-title.png"
           alt="Discover"
-          style={{ height: 54, maxWidth: '65vw', objectFit: 'contain', display: 'block', margin: '36px auto 0 auto' }}
+          style={mappoDiscoverTitleImageStyle}
         />
         <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
           Personalized for you based on your behavior
