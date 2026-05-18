@@ -7,6 +7,7 @@ import { auth, firestore } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import { Caveat } from "next/font/google"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 
@@ -337,15 +338,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 },
   backBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#4f3b2b",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    fontSize: "0.95rem",
-    padding: "0.5rem",
+    ...mappoBackButtonStyle,
+    flexShrink: 0,
   },
   content: { flex: 1, overflowY: "auto", padding: "1rem" },
   card: {
