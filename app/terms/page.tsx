@@ -1,6 +1,8 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 export const dynamic = "force-dynamic"
 
@@ -38,17 +40,10 @@ export default function TermsPage() {
         <button
           type="button"
           onClick={onBack}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#4f3b2b",
-            cursor: "pointer",
-            fontWeight: 900,
-            padding: "0.4rem 0.25rem",
-            marginBottom: 8,
-          }}
+          style={{ ...mappoBackButtonStyle, marginBottom: 12 }}
         >
-          ← Back
+          <ArrowLeft size={20} />
+          Back
         </button>
         <div style={{ fontSize: "1.35rem", fontWeight: 950, marginBottom: 10 }}>Mappo Terms of Use</div>
         <div style={{ opacity: 0.94, lineHeight: 1.55, display: "flex", flexDirection: "column", gap: 10 }}>
