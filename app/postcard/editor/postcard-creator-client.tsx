@@ -7,6 +7,7 @@ import { getTemplateConfig } from "./template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { usePostcardExit } from "../_components/usePostcardExit"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -743,17 +744,10 @@ const styles: Record<string, any> = {
     pointerEvents: "auto",
   },
   backBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#4f3b2b",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    fontSize: "0.95rem",
-    padding: "0.5rem",
+    ...mappoBackButtonStyle,
     pointerEvents: "auto",
     touchAction: "manipulation",
+    flexShrink: 0,
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 800 },
   doneBtn: {
