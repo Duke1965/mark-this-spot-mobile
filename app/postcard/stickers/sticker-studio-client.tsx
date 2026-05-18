@@ -7,6 +7,7 @@ import { getTemplateConfig } from "../editor/template-config"
 import { STICKER_CATALOG, STICKER_CATEGORIES, type StickerCategory } from "./sticker-catalog"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -601,15 +602,8 @@ const styles: Record<string, any> = {
     gap: "0.75rem",
   },
   backBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#4f3b2b",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    fontSize: "0.95rem",
-    padding: "0.5rem",
+    ...mappoBackButtonStyle,
+    flexShrink: 0,
     touchAction: "manipulation",
   },
   headerTitle: { fontSize: "1.05rem", fontWeight: 900, textAlign: "center", flex: 1 },
