@@ -39,17 +39,8 @@ export const mappoHeaderBarStyle: CSSProperties = {
 /** Centered Mappo page title artwork — responsive, no distortion */
 export const mappoTitleImageStyle: CSSProperties = {
   display: "block",
-  margin: "2.75rem auto 0.25rem",
-  maxWidth: "min(220px, 72vw)",
-  width: "auto",
+  margin: "3.25rem auto 0.5rem",
+  width: "min(320px, 78vw)",
   height: "auto",
-  maxHeight: 56,
   objectFit: "contain",
-}
-
-/** Discover title is slightly wider */
-export const mappoDiscoverTitleImageStyle: CSSProperties = {
-  ...mappoTitleImageStyle,
-  maxWidth: "min(240px, 78vw)",
-  maxHeight: 60,
 }
