@@ -7,6 +7,7 @@ import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -338,14 +339,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 },
   homeBtn: {
-    background: "rgba(79,59,43,0.1)",
-    color: "#4f3b2b",
-    padding: "0.5rem 0.75rem",
-    borderRadius: "0.75rem",
-    border: "1px solid rgba(79,59,43,0.12)",
+    ...mappoBackButtonStyle,
     textDecoration: "none",
-    fontSize: "0.9rem",
-    fontWeight: 700,
     flexShrink: 0,
   },
   hint: {
