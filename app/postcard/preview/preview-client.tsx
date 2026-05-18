@@ -8,6 +8,7 @@ import { Caveat } from "next/font/google"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { auth } from "@/lib/firebase"
 import { usePostcardExit } from "../_components/usePostcardExit"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -359,25 +360,15 @@ export default function PreviewClient() {
         }}
       >
         <button
+          type="button"
           onClick={() => {
             saveMetaToDraft({ title, description })
             router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)
           }}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#4f3b2b",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.95rem",
-            padding: "0.5rem",
-          }}
-          type="button"
+          style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
         >
           <ArrowLeft size={20} />
-          <span style={{ fontWeight: 700 }}>Back</span>
+          Back
         </button>
         <div style={{ fontSize: "1.125rem", fontWeight: 900 }}>Preview</div>
         <button
