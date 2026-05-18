@@ -1,7 +1,8 @@
 "use client"
 
 import type { CSSProperties } from "react"
-import { Send } from "lucide-react"
+import { ArrowLeft, Send } from "lucide-react"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import type { PinData } from "@/lib/types"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 
@@ -23,6 +24,7 @@ export function PinResults({
     <div style={styles.screen}>
       <div style={styles.header}>
         <button type="button" onClick={onBack} style={styles.backBtn}>
+          <ArrowLeft size={20} />
           Back
         </button>
         <div style={styles.headerTitle}>Pin</div>
@@ -75,12 +77,8 @@ const styles: Record<string, CSSProperties> = {
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 },
   backBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#4f3b2b",
-    cursor: "pointer",
-    fontWeight: 900,
-    padding: "0.5rem",
+    ...mappoBackButtonStyle,
+    flexShrink: 0,
   },
   content: { flex: 1, overflowY: "auto", padding: "1rem" },
   card: {
