@@ -17,8 +17,8 @@ import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 import { ArrowLeft } from 'lucide-react'
 import {
   mappoBackButtonAbsoluteStyle,
-  mappoDiscoverTitleImageStyle,
   mappoHeaderBarStyle,
+  mappoTitleImageStyle,
 } from '@/lib/mappoHeaderStyles'
 
 /** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
@@ -1698,7 +1698,7 @@ export default function AIRecommendationsHub({
         <img
           src="/brand/mappo/mappo-discover-title.png"
           alt="Discover"
-          style={mappoDiscoverTitleImageStyle}
+          style={mappoTitleImageStyle}
         />
         <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
           Personalized for you based on your behavior
