@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation"
 import type { PinData } from "@/lib/types"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
+import {
+  mappoBackButtonAbsoluteStyle,
+  mappoHeaderBarStyle,
+  mappoTitleImageStyle,
+} from "@/lib/mappoHeaderStyles"
 
 // Helper to get display title with fallback
 function getDisplayTitle(pin: PinData): string {
@@ -526,42 +531,16 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       zIndex: 1000
     }}>
       {/* Header */}
-      <div style={{
-        padding: "1rem",
-        paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
-        background: "rgba(255,255,255,0.7)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backdropFilter: "blur(18px)",
-        borderBottom: "1px solid rgba(0,0,0,0.08)",
-      }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: "rgba(79,59,43,0.12)",
-            color: "#4f3b2b",
-            padding: "0.75rem",
-            borderRadius: "0.75rem",
-            border: "1px solid rgba(79,59,43,0.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
-        >
+      <div style={mappoHeaderBarStyle}>
+        <button type="button" onClick={onBack} style={mappoBackButtonAbsoluteStyle}>
           <ArrowLeft size={20} />
           Back
         </button>
-        
         <img
           src="/brand/mappo/mappo-library-title.png"
           alt="Library"
-          style={{ height: 48, maxWidth: "60vw", objectFit: "contain" }}
+          style={mappoTitleImageStyle}
         />
-
-        <div style={{ width: "40px" }}></div>
       </div>
 
       {/* Tab Navigation */}
