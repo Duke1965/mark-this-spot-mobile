@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { auth, firestore } from "@/lib/firebase"
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 type PostcardListItem = {
   id: string
@@ -194,15 +195,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: { fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 },
   backBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#4f3b2b",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    fontSize: "0.95rem",
-    padding: "0.5rem",
+    ...mappoBackButtonStyle,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
