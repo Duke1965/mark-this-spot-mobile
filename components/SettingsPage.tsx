@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ArrowLeft, Settings, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -543,18 +544,9 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         justifyContent: "space-between"
       }}>
         <button
+          type="button"
           onClick={handleBack}
-          style={{
-            background: "rgba(79,59,43,0.08)",
-            color: "#4f3b2b",
-            padding: "0.5rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem"
-          }}
+          style={mappoBackButtonStyle}
         >
           <ArrowLeft size={20} />
           Back
