@@ -4347,7 +4347,7 @@ export default function PINITApp() {
                       textShadow: "0 2px 2px rgba(0,0,0,0.82), 0 0 10px rgba(0,0,0,0.32)",
                     }}
                   >
-                    Tap to PIN this spot
+                    Spotted something special?
                   </div>
                   <div
                     style={{
@@ -4358,7 +4358,7 @@ export default function PINITApp() {
                       textShadow: "0 2px 2px rgba(0,0,0,0.78), 0 0 8px rgba(0,0,0,0.28)",
                     }}
                   >
-                    Save places as you pass them
+                    Tap to save it
                   </div>
                   <div
                     style={{
