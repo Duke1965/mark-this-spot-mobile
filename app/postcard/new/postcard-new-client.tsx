@@ -407,7 +407,7 @@ export default function PostcardNewClient() {
                 <Camera size={18} /> <span>Take Photo</span>
               </div>
               <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
-                Use your camera to capture a new photo.
+                Use your camera to capture a moment.
               </div>
             </button>
 
@@ -435,7 +435,7 @@ export default function PostcardNewClient() {
                 <Images size={18} /> <span>Choose from Gallery</span>
               </div>
               <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
-                Pick an existing photo from your device.
+                Pick a photo from your device.
               </div>
             </button>
 
@@ -460,7 +460,7 @@ export default function PostcardNewClient() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                <FileText size={18} /> <span>Create without photo</span>
+                <FileText size={18} /> <span>Build your own</span>
               </div>
               <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
                 Start with just the style, message, and stickers.
