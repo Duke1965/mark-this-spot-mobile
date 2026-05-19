@@ -19,6 +19,7 @@ import {
   mappoBackButtonAbsoluteStyle,
   mappoHeaderBarStyle,
   mappoTitleImageStyle,
+  mappoTitleSubtitleStyle,
 } from '@/lib/mappoHeaderStyles'
 
 /** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
@@ -1700,7 +1701,7 @@ export default function AIRecommendationsHub({
           alt="Discover"
           style={mappoTitleImageStyle}
         />
-        <p style={{ margin: '8px 0 0 0', opacity: 0.65, fontSize: '14px' }}>
+        <p style={mappoTitleSubtitleStyle}>
           Personalized for you based on your behavior
         </p>
 
