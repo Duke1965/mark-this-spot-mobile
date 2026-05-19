@@ -41,6 +41,44 @@ const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-stacked.png"
 const MAPPO_HOME_BG_SRC = "/brand/mappo/mappo-home-bg.png"
 const MAPPO_HOME_TEXT_COLOR = "#4f3b2b"
 
+const homeBottomNavItemStyle = {
+  padding: "0.75rem",
+  border: "none",
+  background: "transparent",
+  color: MAPPO_HOME_TEXT_COLOR,
+  cursor: "pointer",
+  display: "flex",
+  flexDirection: "column" as const,
+  alignItems: "center",
+  justifyContent: "flex-start",
+  gap: "0.35rem",
+  borderRadius: "0.5rem",
+  transition: "all 0.2s ease",
+  height: 76,
+  minWidth: 76,
+  boxSizing: "border-box" as const,
+}
+
+const homeBottomNavIconSlotStyle = {
+  height: 40,
+  width: 40,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+}
+
+const homeBottomNavLabelStyle = {
+  fontSize: "0.72rem",
+  fontWeight: 600,
+  lineHeight: 1.1,
+  textAlign: "center" as const,
+  color: MAPPO_HOME_TEXT_COLOR,
+  opacity: 0.88,
+  margin: 0,
+  padding: 0,
+}
+
 function PostcardIcon({ size = 28 }: { size?: number }) {
   const s = size
   return (
@@ -4540,6 +4578,7 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
+          alignItems: "flex-end",
           padding: "1.5rem",
         }}
       >
@@ -4548,20 +4587,7 @@ export default function PINITApp() {
             // Postcard is now the primary creation flow.
             router.push("/postcard/templates")
           }}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: "transparent",
-            color: MAPPO_HOME_TEXT_COLOR,
-            cursor: "pointer",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.35rem",
-            borderRadius: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
+          style={homeBottomNavItemStyle}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
@@ -4571,27 +4597,15 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <PostcardIcon size={40} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.95, lineHeight: 1, textAlign: "center" }}>Write</div>
+          <div style={homeBottomNavIconSlotStyle}>
+            <PostcardIcon size={40} />
+          </div>
+          <span style={homeBottomNavLabelStyle}>Write</span>
         </button>
 
         <button
           onClick={openLibrary}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: "transparent",
-            color: MAPPO_HOME_TEXT_COLOR,
-            cursor: "pointer",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.35rem",
-            position: "relative",
-            borderRadius: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
+          style={{ ...homeBottomNavItemStyle, position: "relative" }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
@@ -4601,8 +4615,10 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Library size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.72, lineHeight: 1, textAlign: "center" }}>Library</div>
+          <div style={homeBottomNavIconSlotStyle}>
+            <Library size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+          </div>
+          <span style={homeBottomNavLabelStyle}>Library</span>
           {/* Pin Count Badge - shows unviewed pending pins */}
           {getUnviewedPendingPinsCount() > 0 && (
             <div
@@ -4630,21 +4646,7 @@ export default function PINITApp() {
 
         <button
           onClick={() => setCurrentScreen("recommendations")}
-          style={{
-            padding: "0.75rem",
-            border: "none",
-            background: "transparent",
-            color: MAPPO_HOME_TEXT_COLOR,
-            cursor: "pointer",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.35rem",
-            position: "relative",
-            borderRadius: "0.5rem",
-            transition: "all 0.2s ease",
-          }}
+          style={{ ...homeBottomNavItemStyle, position: "relative" }}
           title="dY Recommendations"
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
@@ -4655,8 +4657,10 @@ export default function PINITApp() {
             e.currentTarget.style.transform = "scale(1)"
           }}
         >
-          <Star size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
-          <div style={{ fontSize: "0.72rem", opacity: 0.72, lineHeight: 1, textAlign: "center" }}>Discover</div>
+          <div style={homeBottomNavIconSlotStyle}>
+            <Star size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+          </div>
+          <span style={homeBottomNavLabelStyle}>Discover</span>
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
