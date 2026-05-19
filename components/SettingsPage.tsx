@@ -642,16 +642,29 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
         {/* Welcome Step */}
         {currentStep === "welcome" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
+          <div
+            style={{
+              textAlign: "center",
+              padding: "2rem",
+              minHeight: "55vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingTop: "3.5rem",
+            }}
+          >
             <img
-              src={MAPPO_LOGO_SRC}
-              alt="Mappo"
-              style={{ width: "min(220px, 70vw)", height: "auto", margin: "0 auto 0.75rem", display: "block" }}
+              src="/brand/mappo/mappo-welcome-title.png"
+              alt="Welcome to Mappo"
+              style={{
+                width: "min(255px, 82vw)",
+                height: "auto",
+                margin: "0 auto 2rem",
+                display: "block",
+                objectFit: "contain",
+              }}
             />
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome to Mappo!</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Postcards from anywhere.
-            </p>
             <button
               onClick={handleNext}
               style={{
