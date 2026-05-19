@@ -39,8 +39,8 @@ export const mappoHeaderBarStyle: CSSProperties = {
 /** Centered Mappo page title artwork — responsive, no distortion */
 export const mappoTitleImageStyle: CSSProperties = {
   display: "block",
-  margin: "2.1rem auto 0.15rem",
-  width: "min(185px, 52vw)",
+  margin: "2rem auto 0.15rem",
+  width: "min(150px, 45vw)",
   height: "auto",
   objectFit: "contain",
 }
