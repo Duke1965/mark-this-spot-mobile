@@ -602,11 +602,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                   style={{
-                    background: "rgba(239, 68, 68, 0.2)",
-                    color: "#EF4444",
+                    background: "rgba(79,59,43,0.12)",
+                    color: "#4f3b2b",
                     padding: "1rem",
                     borderRadius: "0.75rem",
-                    border: "2px solid rgba(239, 68, 68, 0.35)",
+                    border: "1px solid rgba(79,59,43,0.18)",
                     cursor: isLoggingOut ? "not-allowed" : "pointer",
                     fontSize: "1rem",
                     fontWeight: 700,
@@ -615,6 +615,16 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
                     justifyContent: "center",
                     gap: "0.5rem",
                     opacity: isLoggingOut ? 0.75 : 1,
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (isLoggingOut) return
+                    e.currentTarget.style.background = "rgba(79,59,43,0.18)"
+                    e.currentTarget.style.borderColor = "rgba(79,59,43,0.28)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(79,59,43,0.12)"
+                    e.currentTarget.style.borderColor = "rgba(79,59,43,0.18)"
                   }}
                 >
                   <LogOut size={20} />
