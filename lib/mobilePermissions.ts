@@ -367,6 +367,54 @@ export async function requestLocationPermission(): Promise<boolean> {
   return true
 }
 
+async function attemptCameraPermissionRequest(): Promise<boolean> {
+  if (isNativeCapacitor()) {
+    console.log("📷 Permission path: native camera")
+    // IMPORTANT: Mappo camera UI uses getUserMedia (web-style) via `ReliableCamera`.
+    // Try native permission if available, then fall back to getUserMedia (triggers Android system prompt in WebView).
+    const nativeOk = await requestNativePermission("Camera", { permissions: ["camera"] })
+    if (nativeOk) {
+      console.log("📷 attemptCameraPermissionRequest(): native granted")
+      return true
+    }
+    console.log("📷 attemptCameraPermissionRequest(): native unavailable/denied; falling back to getUserMedia")
+  }
+
+  console.log("📷 Permission path: web camera (getUserMedia)")
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+    stream.getTracks().forEach((t) => t.stop())
+    console.log("📷 attemptCameraPermissionRequest(): granted (getUserMedia)")
+    setString(LAST_STATE_KEY_PREFIX + "camera", "granted")
+    resetDeniedCount("camera")
+    return true
+  } catch (e) {
+    const deniedCount = bumpDeniedCount("camera")
+    setString(LAST_STATE_KEY_PREFIX + "camera", "denied")
+    console.log("📷 attemptCameraPermissionRequest(): denied", { deniedCount, error: e })
+    return false
+  }
+}
+
+async function showCameraAccessNeededModal(blocked: boolean): Promise<void> {
+  if (blocked) {
+    await showPinitInfoModal({
+      title: "Camera access is off",
+      message:
+        "Camera access is disabled for Mappo. To use the camera, enable it in your phone settings:\n\nSettings → Apps → Mappo → Permissions → Camera → Allow",
+      okText: "OK",
+    })
+    return
+  }
+
+  await showPinitInfoModal({
+    title: "Camera access needed",
+    message:
+      "Mappo needs camera access so you can take postcard photos. Allow camera when your device asks, or enable it in Settings → Apps → Mappo → Permissions → Camera.",
+    okText: "OK",
+  })
+}
+
 export async function requestCameraPermission(): Promise<boolean> {
   console.log("📷 requestCameraPermission(): start")
   const currentStatus = await getCameraPermissionStatus()
@@ -379,57 +427,21 @@ export async function requestCameraPermission(): Promise<boolean> {
 
   if (currentStatus === "blocked") {
     console.log("📷 requestCameraPermission(): permission permanently denied")
-    await showPinitInfoModal({
-      title: "Camera access is off",
-      message:
-        "Camera access is disabled for Mappo. To use the camera, enable it in your phone settings:\n\nSettings → Apps → Mappo → Permissions → Camera → Allow",
-      okText: "OK",
-    })
-    console.log("📷 requestCameraPermission(): opening settings fallback (manual)")
+    await showCameraAccessNeededModal(true)
     return false
   }
 
-  console.log("📷 requestCameraPermission(): permission request attempted")
-  const ok = await showExplanationModal({
-    title: "Enable camera",
-    message: "Mappo needs camera access so you can take postcard photos and save memories.",
-    confirmText: "Allow camera",
-    cancelText: "Not now",
-  })
-  if (!ok) {
-    console.log("📷 requestCameraPermission(): user cancelled explanation")
-    return false
-  }
-
-  if (isNativeCapacitor()) {
-    console.log("📷 Permission path: native camera")
-    // IMPORTANT: Mappo camera UI uses getUserMedia (web-style) via `ReliableCamera`.
-    // In many Capacitor shells there is no Camera plugin installed; blocking here would break the flow.
-    // So: try native permission request if available, otherwise fall back to a getUserMedia preflight
-    // (which triggers the Android permission prompt in a working WebView setup).
-    const nativeOk = await requestNativePermission("Camera", { permissions: ["camera"] })
-    if (nativeOk) {
-      console.log("📷 requestCameraPermission(): native granted")
-      return true
-    }
-    console.log("📷 requestCameraPermission(): native unavailable/denied; falling back to getUserMedia preflight")
-  }
-
-  console.log("📷 Permission path: web camera")
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-    stream.getTracks().forEach((t) => t.stop())
-    console.log("📷 requestCameraPermission(): granted (getUserMedia)")
-    setString(LAST_STATE_KEY_PREFIX + "camera", "granted")
-    resetDeniedCount("camera")
+  console.log("📷 requestCameraPermission(): requesting native/system camera permission")
+  const granted = await attemptCameraPermissionRequest()
+  if (granted) {
+    console.log("📷 requestCameraPermission(): granted")
     return true
-  } catch (e) {
-    const deniedCount = bumpDeniedCount("camera")
-    setString(LAST_STATE_KEY_PREFIX + "camera", "denied")
-    console.log("📷 requestCameraPermission(): permission denied", { deniedCount, error: e })
-    console.log("📷 requestCameraPermission(): denied (getUserMedia)")
-    return false
   }
+
+  const afterStatus = await getCameraPermissionStatus()
+  console.log("📷 requestCameraPermission(): denied, after status =", afterStatus)
+  await showCameraAccessNeededModal(afterStatus === "blocked")
+  return false
 }
 
 export async function requestPhotoPermission(): Promise<boolean> {
