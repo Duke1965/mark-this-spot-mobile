@@ -1,8 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Settings, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
-import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
+import { ArrowLeft, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import {
+  mappoBackButtonAbsoluteStyle,
+  mappoHeaderBarStyle,
+  mappoTitleImageStyle,
+} from "@/lib/mappoHeaderStyles"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
 import SystemHealthCheck from "./SystemHealthCheck"
@@ -534,45 +538,23 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       zIndex: 1000
     }}>
       {/* Header */}
-      <div style={{
-        padding: "1rem",
-        background: "rgba(255,255,255,0.7)",
-        backdropFilter: "blur(18px)",
-        borderBottom: "1px solid rgba(0,0,0,0.06)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between"
-      }}>
-        <button
-          type="button"
-          onClick={handleBack}
-          style={mappoBackButtonStyle}
-        >
+      <div style={mappoHeaderBarStyle}>
+        <button type="button" onClick={handleBack} style={mappoBackButtonAbsoluteStyle}>
           <ArrowLeft size={20} />
           Back
         </button>
-        
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {currentStep === "settings-menu" ? <Settings size={20} /> : null}
-          <span style={{ fontSize: "1.125rem", fontWeight: "600" }}>
-            {currentStep === "settings-menu" ? "Settings" : ""}
-          </span>
-        </div>
-
-        <div style={{ width: "40px" }}></div>
+        <img
+          src="/brand/mappo/mappo-settings-title.png"
+          alt="Settings"
+          style={mappoTitleImageStyle}
+        />
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {/* Settings Menu Step - for returning users */}
         {currentStep === "settings-menu" && (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
-            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Settings</h1>
-            <p style={{ fontSize: "1.1rem", opacity: 0.9, marginBottom: "2rem" }}>
-              Manage your Mappo account.
-            </p>
-
+          <div style={{ textAlign: "center", padding: "1rem 2rem 2rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
               <div
                 style={{
