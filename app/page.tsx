@@ -4600,7 +4600,7 @@ export default function PINITApp() {
           <div style={homeBottomNavIconSlotStyle}>
             <PostcardIcon size={40} />
           </div>
-          <span style={homeBottomNavLabelStyle}>Write</span>
+          <span style={homeBottomNavLabelStyle}>Create</span>
         </button>
 
         <button
