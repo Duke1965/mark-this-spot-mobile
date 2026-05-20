@@ -8,6 +8,7 @@ import { getHintsEnabled } from "@/lib/hints"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 import { hasPostcardNavigationCoords } from "@/lib/postcardLocation"
+import { isInsideMappo } from "@/lib/isInsideMappo"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
@@ -48,9 +49,14 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
   const [hintsEnabled, setHintsEnabled] = useState(true)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [compositionScale, setCompositionScale] = useState(1)
+  const [insideMappo, setInsideMappo] = useState(false)
 
   useEffect(() => {
     setHintsEnabled(getHintsEnabled())
+  }, [])
+
+  useEffect(() => {
+    setInsideMappo(isInsideMappo())
   }, [])
 
   useEffect(() => {
@@ -282,9 +288,11 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               </button>
             ) : null}
 
-            <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
-              Get Mappo to reply
-            </Link>
+            {!insideMappo ? (
+              <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
+                Get Mappo to reply
+              </Link>
+            ) : null}
           </>
         ) : (
           <div style={styles.landscapeFooter}>
@@ -308,9 +316,11 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
                   Go there
                 </button>
               ) : null}
-              <Link href="/" style={styles.landscapeCta}>
-                Get Mappo to reply
-              </Link>
+              {!insideMappo ? (
+                <Link href="/" style={styles.landscapeCta}>
+                  Get Mappo to reply
+                </Link>
+              ) : null}
             </div>
           </div>
         )}
