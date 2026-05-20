@@ -604,7 +604,7 @@ export default function PreviewClient() {
             >
               <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>How to share your postcard</div>
               <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
-                Choose one or more ways to share your postcard, then tap Done when you're finished.
+                Choose one or more ways to share your postcard below. WhatsApp and SMS open in another app — when you're finished, return to Mappo and tap Done.
               </div>
               <div style={{ fontWeight: 900 }}>Share link</div>
               <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
@@ -612,7 +612,6 @@ export default function PreviewClient() {
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
                   style={shareBtn}
-                  target="_blank"
                   rel="noreferrer"
                 >
                   WhatsApp
