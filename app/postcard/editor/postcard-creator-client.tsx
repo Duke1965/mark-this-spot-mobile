@@ -264,8 +264,10 @@ export default function PostcardCreatorClient() {
     })
   }
 
-  const onChooseAnotherPhoto = () => {
-    photoFileInputRef.current?.click()
+  const onTakeAnotherPhoto = () => {
+    // Preserve current editor state and reopen the photo capture flow for the same template.
+    saveDraft()
+    router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
   }
 
   const onPhotoFileSelected: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
@@ -624,9 +626,8 @@ export default function PostcardCreatorClient() {
                 rows={6}
               />
               <div style={styles.photoActionsRow}>
-                {/* TODO: Add "Take another photo" by routing back to camera flow while preserving template/editor state. */}
-                <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose from gallery"}
+                <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
+                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Take another photo"}
                 </button>
                 {!noPhoto && imageUrl ? (
                   <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
@@ -653,9 +654,8 @@ export default function PostcardCreatorClient() {
               rows={3}
             />
             <div style={styles.photoActionsRow}>
-              {/* TODO: Add "Take another photo" by routing back to camera flow while preserving template/editor state. */}
-              <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose from gallery"}
+              <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
+                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Take another photo"}
               </button>
               {!noPhoto && imageUrl ? (
                 <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
