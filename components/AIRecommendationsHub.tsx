@@ -251,6 +251,22 @@ export default function AIRecommendationsHub({
     return Array.from(clustersByKey.values())
   }
 
+  /** Merge incoming recommendations into prev; dedupe by id only; preserve existing items. */
+  function mergeRecommendationsById(
+    prev: Recommendation[],
+    incoming: Recommendation[]
+  ): Recommendation[] {
+    const existingIds = new Set(prev.map((r) => String(r.id)))
+    const added: Recommendation[] = []
+    for (const r of incoming) {
+      const id = String(r?.id ?? '')
+      if (!id || existingIds.has(id)) continue
+      existingIds.add(id)
+      added.push(r)
+    }
+    return [...prev, ...added]
+  }
+
   const getIdToken = useCallback(async (): Promise<string | null> => {
     try {
       const u: any = (auth as any)?.currentUser
@@ -260,41 +276,6 @@ export default function AIRecommendationsHub({
       return null
     }
   }, [])
-
-  const loadRecommendationsFromServer = useCallback(async () => {
-    const lat = location?.latitude || location?.lat
-    const lng = location?.longitude || location?.lng
-    if (!lat || !lng) return
-    try {
-      const token = await getIdToken()
-      const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
-      })
-      if (!resp.ok) return
-      const data = await resp.json()
-      const serverRecs: Recommendation[] = Array.isArray(data?.recommendations) ? data.recommendations : []
-      if (serverRecs.length > 0) {
-        const visible = serverRecs.filter((r) => !dismissedRecommendationIds.has(String(r.id)))
-        setRecommendations(visible)
-        setClusteredPins(clusterPinsImpl(visible))
-      }
-    } catch {
-      // ignore
-    }
-  }, [
-    dismissedRecommendationIds,
-    getIdToken,
-    location?.lat,
-    location?.latitude,
-    location?.lng,
-    location?.longitude,
-  ])
-
-  // Firestore-backed recommendations (community + personalized AI) for this area.
-  useEffect(() => {
-    if (!isInitialized) return
-    loadRecommendationsFromServer()
-  }, [isInitialized, loadRecommendationsFromServer])
 
   const persistAIRecommendationsToServer = useCallback(
     async (items: Recommendation[]) => {
@@ -642,6 +623,174 @@ export default function AIRecommendationsHub({
       return []
     }
   }, [getFallbackImage])
+
+  const recommendationsRef = useRef<Recommendation[]>(recommendations)
+  useEffect(() => {
+    recommendationsRef.current = recommendations
+  }, [recommendations])
+
+  const fillStarterInFlightRef = useRef(false)
+  const fillStarterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const PLACES_SEARCH_CATEGORIES =
+    'restaurant,cafe,monument,museum,art_gallery,place_of_worship,tourism'
+
+  const fillStarterRecommendationsIfNeeded = useCallback(async () => {
+    const lat = Number(location?.latitude || location?.lat)
+    const lng = Number(location?.longitude || location?.lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+    if (fillStarterInFlightRef.current) return
+
+    const visible = recommendationsRef.current.filter(
+      (r) => !dismissedRecommendationIds.has(String(r.id))
+    )
+    const communityCount = visible.filter((r) => !r.isAISuggestion).length
+    if (communityCount >= 2) return
+
+    const starterCount = Math.max(0, 6 - communityCount)
+    if (starterCount === 0) return
+
+    const existingStarterCount = visible.filter((r) =>
+      String(r.id).startsWith('starter-')
+    ).length
+    if (existingStarterCount >= starterCount) return
+
+    fillStarterInFlightRef.current = true
+    try {
+      const limit = Math.min(50, starterCount + 4)
+      const response = await fetch(
+        `/api/places/search?lat=${lat}&lng=${lng}&radius=5000&limit=${limit}&categories=${PLACES_SEARCH_CATEGORIES}`
+      )
+      let data: { pois?: unknown[]; error?: string } | null = null
+      try {
+        data = await response.json()
+      } catch {
+        data = null
+      }
+
+      if (!response.ok || (data?.error && String(data.error).includes('GEOAPIFY'))) {
+        console.warn('[Discover] starter recommendations unavailable')
+        return
+      }
+
+      const places = Array.isArray(data?.pois) ? data.pois : []
+      if (places.length === 0) {
+        console.warn('[Discover] no nearby places returned')
+        return
+      }
+
+      const sortedPlaces = [...places].sort((a: any, b: any) =>
+        String(a.id || '').localeCompare(String(b.id || ''))
+      )
+
+      const existingIds = new Set(
+        recommendationsRef.current.map((r) => String(r.id))
+      )
+      const starters: Recommendation[] = []
+
+      for (const place of sortedPlaces) {
+        if (starters.length >= starterCount) break
+        const placeLat = (place as any).location?.lat
+        const placeLng = (place as any).location?.lng
+        if (
+          typeof placeLat !== 'number' ||
+          typeof placeLng !== 'number' ||
+          !Number.isFinite(placeLat) ||
+          !Number.isFinite(placeLng)
+        ) {
+          continue
+        }
+        const placeId = (place as any).id || `${placeLat},${placeLng}`
+        const id = `starter-${placeId}`
+        if (dismissedRecommendationIds.has(id) || existingIds.has(id)) continue
+
+        const category = (place as any).category || 'general'
+        starters.push({
+          id,
+          title: (place as any).name || 'Nearby place',
+          description: sanitizePlaceDescription(
+            (place as any).description ||
+              (category ? `${category} near you` : 'A place nearby')
+          ),
+          category,
+          location: { lat: placeLat, lng: placeLng },
+          rating: 4,
+          isAISuggestion: true,
+          confidence: 25,
+          reason: 'Nearby discovery',
+          timestamp: new Date(),
+          fallbackImage: getFallbackImage(category),
+        })
+      }
+
+      if (starters.length === 0) {
+        console.warn('[Discover] no nearby places returned')
+        return
+      }
+
+      setRecommendations((prev) => mergeRecommendationsById(prev, starters))
+    } catch {
+      console.warn('[Discover] starter recommendations unavailable')
+    } finally {
+      fillStarterInFlightRef.current = false
+    }
+  }, [
+    dismissedRecommendationIds,
+    getFallbackImage,
+    location?.lat,
+    location?.latitude,
+    location?.lng,
+    location?.longitude,
+  ])
+
+  const scheduleFillStarterRecommendations = useCallback(() => {
+    if (fillStarterDebounceRef.current) clearTimeout(fillStarterDebounceRef.current)
+    fillStarterDebounceRef.current = setTimeout(() => {
+      fillStarterDebounceRef.current = null
+      void fillStarterRecommendationsIfNeeded()
+    }, 50)
+  }, [fillStarterRecommendationsIfNeeded])
+
+  const loadRecommendationsFromServer = useCallback(async () => {
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    if (!lat || !lng) return
+    try {
+      const token = await getIdToken()
+      const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      })
+      if (!resp.ok) {
+        scheduleFillStarterRecommendations()
+        return
+      }
+      const data = await resp.json()
+      const serverRecs: Recommendation[] = Array.isArray(data?.recommendations)
+        ? data.recommendations
+        : []
+      const visible = serverRecs.filter(
+        (r) => !dismissedRecommendationIds.has(String(r.id))
+      )
+      setRecommendations((prev) => mergeRecommendationsById(prev, visible))
+      scheduleFillStarterRecommendations()
+    } catch {
+      scheduleFillStarterRecommendations()
+    }
+  }, [
+    dismissedRecommendationIds,
+    getIdToken,
+    location?.lat,
+    location?.latitude,
+    location?.lng,
+    location?.longitude,
+    scheduleFillStarterRecommendations,
+  ])
+
+  // Firestore-backed recommendations (community + personalized AI) for this area.
+  useEffect(() => {
+    if (!isInitialized) return
+    loadRecommendationsFromServer()
+  }, [isInitialized, loadRecommendationsFromServer])
 
   // Get learning status when component mounts
   useEffect(() => {
@@ -1274,22 +1423,28 @@ export default function AIRecommendationsHub({
       const loadUserRecs = async () => {
         try {
           const userRecs = await getUserRecommendations()
-          if (userRecs.length > 0) {
-            console.log(`👥 Loaded ${userRecs.length} user recommendations from pins`)
-            setRecommendations(prev => {
-              // Remove duplicates by ID
-              const existingIds = new Set(prev.map(r => r.id))
-              const newRecs = userRecs.filter(r => !existingIds.has(r.id))
-              return [...prev, ...newRecs]
-            })
+          const visible = userRecs.filter(
+            (r) => !dismissedRecommendationIds.has(String(r.id))
+          )
+          if (visible.length > 0) {
+            console.log(`👥 Loaded ${visible.length} user recommendations from pins`)
+            setRecommendations((prev) => mergeRecommendationsById(prev, visible))
           }
+          scheduleFillStarterRecommendations()
         } catch (error) {
           console.error('Error loading user recommendations:', error)
+          scheduleFillStarterRecommendations()
         }
       }
       loadUserRecs()
     }
-  }, [location, isInitialized, getUserRecommendations])
+  }, [
+    dismissedRecommendationIds,
+    location,
+    isInitialized,
+    getUserRecommendations,
+    scheduleFillStarterRecommendations,
+  ])
 
   // Handle view mode changes
   const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
