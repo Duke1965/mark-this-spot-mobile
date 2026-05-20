@@ -370,23 +370,27 @@ export default function PreviewClient() {
           <ArrowLeft size={20} />
           Back
         </button>
-        <button
-          onClick={onSend}
-          disabled={isSending || !!shareUrl}
-          style={{
-            background: "rgba(79,59,43,0.1)",
-            border: "1px solid rgba(79,59,43,0.15)",
-            color: "#4f3b2b",
-            fontWeight: 900,
-            padding: "0.55rem 0.9rem",
-            borderRadius: 12,
-            cursor: isSending ? "not-allowed" : "pointer",
-            opacity: isSending ? 0.7 : 1,
-          }}
-          type="button"
-        >
-          {shareUrl ? "Created" : isSending ? "Creating…" : "Create Postcard"}
-        </button>
+        {shareUrl ? (
+          <div style={{ fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 }}>Created</div>
+        ) : (
+          <button
+            onClick={onSend}
+            disabled={isSending}
+            style={{
+              background: "rgba(79,59,43,0.1)",
+              border: "1px solid rgba(79,59,43,0.15)",
+              color: "#4f3b2b",
+              fontWeight: 900,
+              padding: "0.55rem 0.9rem",
+              borderRadius: 12,
+              cursor: isSending ? "not-allowed" : "pointer",
+              opacity: isSending ? 0.7 : 1,
+            }}
+            type="button"
+          >
+            {isSending ? "Creating…" : "Create Postcard"}
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
@@ -598,9 +602,9 @@ export default function PreviewClient() {
                 gap: 10,
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Your postcard is ready to share</div>
+              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>How to share your postcard</div>
               <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
-                Share it using one or more options below, then tap Done when you’re finished.
+                Choose one or more ways to share your postcard, then tap Done when you're finished.
               </div>
               <div style={{ fontWeight: 900 }}>Share link</div>
               <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
