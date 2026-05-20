@@ -273,18 +273,22 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     }, 600)
   }
 
-  const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return
+  const capturePhoto = useCallback((): boolean => {
+    if (!videoRef.current || !canvasRef.current) return false
 
     const video = videoRef.current
-    if (video.videoWidth <= 0 || video.videoHeight <= 0) {
-      console.warn("📸 capturePhoto: video not ready yet", { videoWidth: video.videoWidth, videoHeight: video.videoHeight })
-      return
+    if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
+      console.warn("📸 capturePhoto: video not ready yet", {
+        readyState: video.readyState,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      })
+      return false
     }
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
 
-    if (!ctx) return
+    if (!ctx) return false
 
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth
@@ -298,6 +302,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
 
     console.log("📸 Photo captured successfully")
     onCapture(dataUrl, "photo")
+    return true
   }, [onCapture])
 
   const startVideoRecording = useCallback(() => {
@@ -345,20 +350,30 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const handleCapture = useCallback(() => {
     if (isCapturingRef.current) return
     isCapturingRef.current = true
-    if (mode === "photo") {
-      capturePhoto()
-    } else {
-      if (isRecording) {
-        stopVideoRecording()
+    try {
+      if (mode === "photo") {
+        const didCapture = capturePhoto()
+        // If the video isn't actually ready yet, don't keep the shutter locked.
+        if (!didCapture) isCapturingRef.current = false
       } else {
-        startVideoRecording()
+        if (isRecording) {
+          stopVideoRecording()
+        } else {
+          startVideoRecording()
+        }
+        // Keep a small lock to prevent rapid double-taps.
+        setTimeout(() => {
+          isCapturingRef.current = false
+        }, 250)
+      }
+    } finally {
+      // For the photo path, allow immediate subsequent taps after a capture attempt.
+      if (mode === "photo") {
+        setTimeout(() => {
+          isCapturingRef.current = false
+        }, 0)
       }
     }
-    // Prevent rapid double-taps (especially on mobile).
-    // We intentionally keep this short so the UI stays responsive.
-    setTimeout(() => {
-      isCapturingRef.current = false
-    }, 350)
   }, [mode, isRecording, capturePhoto, startVideoRecording, stopVideoRecording])
 
   const handleShutterPointerDown = useCallback(() => {
