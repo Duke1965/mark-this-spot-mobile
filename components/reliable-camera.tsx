@@ -18,6 +18,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const zoomRef = useRef(1)
+  const isCapturingRef = useRef(false)
+  const lastPointerDownTsRef = useRef(0)
   const pinchActiveRef = useRef(false)
   const pinchStartDistanceRef = useRef(0)
   const pinchStartZoomRef = useRef(1)
@@ -275,6 +277,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     if (!videoRef.current || !canvasRef.current) return
 
     const video = videoRef.current
+    if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+      console.warn("📸 capturePhoto: video not ready yet", { videoWidth: video.videoWidth, videoHeight: video.videoHeight })
+      return
+    }
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
 
@@ -337,6 +343,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   }, [isRecording])
 
   const handleCapture = useCallback(() => {
+    if (isCapturingRef.current) return
+    isCapturingRef.current = true
     if (mode === "photo") {
       capturePhoto()
     } else {
@@ -346,7 +354,24 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
         startVideoRecording()
       }
     }
+    // Prevent rapid double-taps (especially on mobile).
+    // We intentionally keep this short so the UI stays responsive.
+    setTimeout(() => {
+      isCapturingRef.current = false
+    }, 350)
   }, [mode, isRecording, capturePhoto, startVideoRecording, stopVideoRecording])
+
+  const handleShutterPointerDown = useCallback(() => {
+    lastPointerDownTsRef.current = Date.now()
+    handleCapture()
+  }, [handleCapture])
+
+  const handleShutterClick = useCallback(() => {
+    // On some mobile browsers, pointer events fire and then a click follows.
+    // Ignore the click if we already handled a pointerdown very recently.
+    if (Date.now() - lastPointerDownTsRef.current < 700) return
+    handleCapture()
+  }, [handleCapture])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -631,7 +656,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
       >
         {/* Capture Button */}
         <button
-          onClick={handleCapture}
+          onPointerDown={handleShutterPointerDown}
+          onClick={handleShutterClick}
           disabled={!cameraReady}
           style={{
             width: "80px",
@@ -640,6 +666,7 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             border: "4px solid white",
             background: isRecording ? "#EF4444" : cameraReady ? "white" : "rgba(255,255,255,0.5)",
             cursor: cameraReady ? "pointer" : "not-allowed",
+            touchAction: "manipulation",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
