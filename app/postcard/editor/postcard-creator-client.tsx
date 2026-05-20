@@ -514,8 +514,7 @@ export default function PostcardCreatorClient() {
                   />
                 ) : (
                   <div style={styles.bgPlaceholder}>
-                    <div style={{ fontSize: "2.25rem" }}>📮</div>
-                    <div style={{ marginTop: "0.5rem", opacity: 0.85, fontWeight: 800 }}>No photo</div>
+                    <div style={{ opacity: 0.82, fontWeight: 800 }}>No photo selected</div>
                   </div>
                 )}
               </div>
@@ -625,8 +624,9 @@ export default function PostcardCreatorClient() {
                 rows={6}
               />
               <div style={styles.photoActionsRow}>
+                {/* TODO: Add "Take another photo" by routing back to camera flow while preserving template/editor state. */}
                 <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose Another Photo"}
+                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose from gallery"}
                 </button>
                 {!noPhoto && imageUrl ? (
                   <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
@@ -653,8 +653,9 @@ export default function PostcardCreatorClient() {
               rows={3}
             />
             <div style={styles.photoActionsRow}>
+              {/* TODO: Add "Take another photo" by routing back to camera flow while preserving template/editor state. */}
               <button type="button" onClick={onChooseAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose Another Photo"}
+                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Choose from gallery"}
               </button>
               {!noPhoto && imageUrl ? (
                 <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
