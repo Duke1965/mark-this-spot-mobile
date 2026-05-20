@@ -7,6 +7,7 @@ import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
+import { hasPostcardNavigationCoords } from "@/lib/postcardLocation"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
@@ -265,19 +266,21 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               <div style={styles.metaDesc}>{displayDescription}</div>
             </div>
 
-            <button
-              type="button"
-              style={styles.goThere}
-              onClick={() =>
-                openGoogleMapsNavigation({
-                  latitude: data.latitude,
-                  longitude: data.longitude,
-                  placeName: data.locationName?.trim() || String(data.title || "").trim(),
-                })
-              }
-            >
-              Go there
-            </button>
+            {hasPostcardNavigationCoords(data.latitude, data.longitude) ? (
+              <button
+                type="button"
+                style={styles.goThere}
+                onClick={() =>
+                  openGoogleMapsNavigation({
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    placeName: data.locationName?.trim() || String(data.title || "").trim(),
+                  })
+                }
+              >
+                Go there
+              </button>
+            ) : null}
 
             <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
               Get Mappo to reply
@@ -290,19 +293,21 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
               <div style={styles.landscapeDesc}>{displayDescription}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-              <button
-                type="button"
-                style={styles.landscapeGoThere}
-                onClick={() =>
-                  openGoogleMapsNavigation({
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    placeName: data.locationName?.trim() || String(data.title || "").trim(),
-                  })
-                }
-              >
-                Go there
-              </button>
+              {hasPostcardNavigationCoords(data.latitude, data.longitude) ? (
+                <button
+                  type="button"
+                  style={styles.landscapeGoThere}
+                  onClick={() =>
+                    openGoogleMapsNavigation({
+                      latitude: data.latitude,
+                      longitude: data.longitude,
+                      placeName: data.locationName?.trim() || String(data.title || "").trim(),
+                    })
+                  }
+                >
+                  Go there
+                </button>
+              ) : null}
               <Link href="/" style={styles.landscapeCta}>
                 Get Mappo to reply
               </Link>
