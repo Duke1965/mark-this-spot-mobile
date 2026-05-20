@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
-import { useRouter } from "next/navigation"
 import type { PinData } from "@/lib/types"
+import { MyPostcardsPanel } from "@/app/postcard/library/my-postcards-panel"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 import {
@@ -32,9 +32,8 @@ interface PinLibraryProps {
 }
 
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
-  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentTab, setCurrentTab] = useState<"pins" | "recommended">("pins")
+  const [currentTab, setCurrentTab] = useState<"pins" | "postcards" | "recommended">("pins")
 
   // Match the Recommendations list button styling.
   const removeBtnStyle: React.CSSProperties = {
@@ -570,13 +569,13 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           </button>
 
           <button
-            onClick={() => router.push("/postcard/library")}
+            onClick={() => setCurrentTab("postcards")}
             style={{
               flex: 1,
               padding: "0.75rem 0.5rem",
               borderRadius: "0.75rem",
               border: "1px solid rgba(79,59,43,0.12)",
-              background: "rgba(255,255,255,0.5)",
+              background: currentTab === "postcards" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
               color: "#4f3b2b",
               cursor: "pointer",
               fontSize: "0.875rem",
@@ -616,30 +615,34 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           </button>
         </div>
 
-        {/* Search */}
-        <div style={{ position: "relative" }}>
-          <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+        {/* Search (pins and recommended only) */}
+        {currentTab !== "postcards" ? (
+          <div style={{ position: "relative" }}>
+            <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", opacity: 0.6 }} />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.75rem 0.75rem 0.75rem 2.5rem",
                 borderRadius: "0.75rem",
                 border: "1px solid rgba(79,59,43,0.12)",
                 background: "rgba(255,255,255,0.55)",
-              color: "#3a2e1e",
+                color: "#3a2e1e",
                 fontSize: "0.875rem",
-            }}
-          />
-        </div>
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
-      {/* Content Grid */}
+      {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {filteredData.length === 0 ? (
+        {currentTab === "postcards" ? (
+          <MyPostcardsPanel />
+        ) : filteredData.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
               {currentTab === "recommended" ? "⭐" : "📍"}
@@ -648,7 +651,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             <p>{currentTab === "recommended" ? "Check back later for new recommendations." : "Create your first pin to get started!"}</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             {filteredData.map((item) => renderPinCard(item, currentTab === "recommended" ? "recommended" : "pin"))}
           </div>
         )}
