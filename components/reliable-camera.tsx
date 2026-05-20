@@ -69,6 +69,11 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           const trackCapabilities = videoTrack.getCapabilities()
           setCapabilities(trackCapabilities)
 
+          console.log("📷 Camera track capabilities (debug):", {
+            zoom: (trackCapabilities as any).zoom,
+            torch: (trackCapabilities as any).torch,
+          })
+
           if ((trackCapabilities as any).zoom) {
             setMaxZoom((trackCapabilities as any).zoom.max || 3)
           }
@@ -425,22 +430,24 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
           </button>
 
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              onClick={toggleFlash}
-              style={{
-                padding: "0.75rem",
-                borderRadius: "50%",
-                border: "none",
-                background: flashEnabled ? "rgba(255, 193, 7, 0.8)" : "rgba(0,0,0,0.6)",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {flashEnabled ? <Zap size={20} /> : <ZapOff size={20} />}
-            </button>
+            {capabilities?.torch ? (
+              <button
+                onClick={toggleFlash}
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: flashEnabled ? "rgba(255, 193, 7, 0.8)" : "rgba(0,0,0,0.6)",
+                  color: "white",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {flashEnabled ? <Zap size={20} /> : <ZapOff size={20} />}
+              </button>
+            ) : null}
 
             <button
               onClick={switchCamera}
