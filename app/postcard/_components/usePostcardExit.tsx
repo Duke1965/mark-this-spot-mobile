@@ -113,8 +113,10 @@ export function usePostcardExit({
     <DraftExitDialog
       open={exitOpen}
       onSave={() => {
+        // Keep the draft as-is, then return home.
+        pendingRef.current = null
         setExitOpen(false)
-        proceed()
+        router.push("/")
       }}
       onDiscard={() => {
         clearDraft()
