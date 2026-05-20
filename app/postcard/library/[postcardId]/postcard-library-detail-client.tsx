@@ -10,6 +10,7 @@ import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import { Caveat } from "next/font/google"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
+import { hasPostcardNavigationCoords } from "@/lib/postcardLocation"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 const MAX_MESSAGE_LEN = 60
@@ -268,19 +269,21 @@ export default function PostcardLibraryDetailClient() {
               </button>
             </div>
 
-            <button
-              type="button"
-              style={{ ...shareBtn, width: "100%", marginTop: 10 }}
-              onClick={() =>
-                openGoogleMapsNavigation({
-                  latitude: data?.latitude,
-                  longitude: data?.longitude,
-                  placeName: data?.locationName?.trim() || String(data?.title || "").trim(),
-                })
-              }
-            >
-              Go there
-            </button>
+            {hasPostcardNavigationCoords(data?.latitude, data?.longitude) ? (
+              <button
+                type="button"
+                style={{ ...shareBtn, width: "100%", marginTop: 10 }}
+                onClick={() =>
+                  openGoogleMapsNavigation({
+                    latitude: data?.latitude,
+                    longitude: data?.longitude,
+                    placeName: data?.locationName?.trim() || String(data?.title || "").trim(),
+                  })
+                }
+              >
+                Go there
+              </button>
+            ) : null}
 
             <button
               type="button"
