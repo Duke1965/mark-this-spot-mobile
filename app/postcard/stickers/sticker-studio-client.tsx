@@ -561,7 +561,7 @@ function TopBar({
         <ArrowLeft size={20} />
         <span style={{ fontWeight: 700 }}>Back</span>
       </button>
-      <div style={styles.headerTitle}>{title}</div>
+      {onRemove ? null : <div style={styles.headerTitle}>{title}</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {onRemove ? (
           <button onClick={onRemove} style={styles.removeBtn} type="button">
