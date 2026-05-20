@@ -154,11 +154,15 @@ export default function PreviewClient() {
     let cancelled = false
     ;(async () => {
       setLoadingMeta(true)
+      let draftTitle = ""
+      let draftDesc = ""
       try {
         const raw = sessionStorage.getItem(DRAFT_KEY)
         const parsed = raw ? (JSON.parse(raw) as any) : null
         const src: DraftSource = parsed?.source === "camera" || parsed?.source === "gallery" ? parsed.source : "unknown"
         const metaEdited = !!parsed?.[META_EDITED_KEY]
+        draftTitle = typeof parsed?.title === "string" ? parsed.title.trim() : ""
+        draftDesc = typeof parsed?.description === "string" ? parsed.description.trim() : ""
 
         // Gallery postcards should not attempt place metadata fetching.
         if (src === "gallery") {
@@ -180,16 +184,19 @@ export default function PreviewClient() {
           return
         }
 
-        // If pin flow (or other) provided explicit metadata, keep it.
-        const draftTitle = typeof parsed?.title === "string" ? parsed.title.trim() : ""
-        const draftDesc = typeof parsed?.description === "string" ? parsed.description.trim() : ""
-        if (draftTitle || draftDesc) {
+        // If pin flow (or other) provided both title and description, keep them.
+        if (draftTitle && draftDesc) {
           if (!cancelled) {
-            if (draftTitle) setTitle(draftTitle)
-            if (draftDesc) setDescription(draftDesc)
+            setTitle(draftTitle)
+            setDescription(draftDesc)
             setLoadingMeta(false)
           }
           return
+        }
+
+        if (!cancelled) {
+          if (draftTitle) setTitle(draftTitle)
+          if (draftDesc) setDescription(draftDesc)
         }
 
         // Best-effort metadata fetch using existing place intel system, if coordinates exist.
@@ -208,21 +215,21 @@ export default function PreviewClient() {
             const nextTitle = typeof data?.title === "string" ? data.title : ""
             const nextDesc = typeof data?.description === "string" ? data.description : ""
             if (!cancelled) {
-              setTitle(nextTitle.trim() || "My Special Place")
-              setDescription(nextDesc.trim() || "A memorable place worth sharing.")
+              if (!draftTitle) setTitle(nextTitle.trim() || "My Special Place")
+              if (!draftDesc) setDescription(nextDesc.trim() || "A memorable place worth sharing.")
             }
           } else if (!cancelled) {
-            setTitle("My Special Place")
-            setDescription("A memorable place worth sharing.")
+            if (!draftTitle) setTitle("My Special Place")
+            if (!draftDesc) setDescription("A memorable place worth sharing.")
           }
         } else if (!cancelled) {
-          setTitle("My Special Place")
-          setDescription("A memorable place worth sharing.")
+          if (!draftTitle) setTitle("My Special Place")
+          if (!draftDesc) setDescription("A memorable place worth sharing.")
         }
       } catch {
         if (!cancelled) {
-          setTitle("My Special Place")
-          setDescription("A memorable place worth sharing.")
+          if (!draftTitle) setTitle("My Special Place")
+          if (!draftDesc) setDescription("A memorable place worth sharing.")
         }
       } finally {
         if (!cancelled) setLoadingMeta(false)
@@ -583,6 +590,32 @@ export default function PreviewClient() {
                 outline: "none",
               }}
               placeholder={draftSource === "gallery" ? "Add a place title" : "My Special Place"}
+            />
+            <div style={{ fontWeight: 900 }}>Description</div>
+            <textarea
+              value={description}
+              onChange={(e) => {
+                const v = e.target.value.slice(0, 240)
+                setDescription(v)
+                saveMetaToDraft({ description: v, metaEdited: true })
+              }}
+              rows={3}
+              maxLength={240}
+              style={{
+                width: "100%",
+                borderRadius: 12,
+                border: "1px solid rgba(79,59,43,0.12)",
+                background: "rgba(255,255,255,0.55)",
+                color: "#3a2e1e",
+                padding: "10px 12px",
+                fontSize: "0.95rem",
+                outline: "none",
+                resize: "vertical",
+                minHeight: 72,
+                fontFamily: "inherit",
+                lineHeight: 1.35,
+              }}
+              placeholder="Add a place description"
             />
           </div>
 
