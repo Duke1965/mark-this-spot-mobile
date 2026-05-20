@@ -157,6 +157,11 @@ export default function AIRecommendationsHub({
     const lng = location?.longitude || location?.lng
     if (location && lat && lng && !isInitialized) {
       console.log('🧠 AIRecommendationsHub: Initializing with location:', location)
+      console.log('[Discover Debug] Discover startup userLocation', {
+        lat,
+        lng,
+        source: userLocation ? 'userLocation prop' : 'hookLocation',
+      })
       setIsInitialized(true)
     }
   }, [location, isInitialized])
@@ -638,29 +643,76 @@ export default function AIRecommendationsHub({
   const fillStarterRecommendationsIfNeeded = useCallback(async () => {
     const lat = Number(location?.latitude || location?.lat)
     const lng = Number(location?.longitude || location?.lng)
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
-    if (fillStarterInFlightRef.current) return
+    const existingRecommendationCount = recommendationsRef.current.length
+
+    console.log('[Discover Debug] starter fill check', {
+      userLocationLat: lat,
+      userLocationLng: lng,
+      existingRecommendationCount,
+    })
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      console.log('[Discover Debug] starter fill skipped: invalid lat/lng', { lat, lng })
+      return
+    }
+    if (fillStarterInFlightRef.current) {
+      console.log('[Discover Debug] starter fill skipped: already in flight')
+      return
+    }
 
     const visible = recommendationsRef.current.filter(
       (r) => !dismissedRecommendationIds.has(String(r.id))
     )
     const communityCount = visible.filter((r) => !r.isAISuggestion).length
-    if (communityCount >= 2) return
-
     const starterCount = Math.max(0, 6 - communityCount)
-    if (starterCount === 0) return
+
+    console.log('[Discover Debug] starter fill counts', {
+      communityCount,
+      existingRecommendationCount: visible.length,
+      starterCountCalculated: starterCount,
+    })
+
+    if (communityCount >= 2) {
+      console.log('[Discover Debug] starter fill skipped: communityCount >= 2', {
+        communityCount,
+      })
+      return
+    }
+
+    if (starterCount === 0) {
+      console.log('[Discover Debug] starter fill skipped: starterCount is 0', {
+        communityCount,
+      })
+      return
+    }
 
     const existingStarterCount = visible.filter((r) =>
       String(r.id).startsWith('starter-')
     ).length
-    if (existingStarterCount >= starterCount) return
+    if (existingStarterCount >= starterCount) {
+      console.log('[Discover Debug] starter fill skipped: enough starters already', {
+        existingStarterCount,
+        starterCount,
+      })
+      return
+    }
 
     fillStarterInFlightRef.current = true
+    const radius = 5000
+    const limit = Math.min(50, starterCount + 4)
+    const placesSearchUrl = `/api/places/search?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}&categories=${PLACES_SEARCH_CATEGORIES}`
+
+    console.log('[Discover Debug] /api/places/search request', {
+      lat,
+      lng,
+      radius,
+      categories: PLACES_SEARCH_CATEGORIES,
+      limit,
+      url: placesSearchUrl,
+    })
+
     try {
-      const limit = Math.min(50, starterCount + 4)
-      const response = await fetch(
-        `/api/places/search?lat=${lat}&lng=${lng}&radius=5000&limit=${limit}&categories=${PLACES_SEARCH_CATEGORIES}`
-      )
+      const response = await fetch(placesSearchUrl)
       let data: { pois?: unknown[]; error?: string } | null = null
       try {
         data = await response.json()
@@ -670,12 +722,33 @@ export default function AIRecommendationsHub({
 
       if (!response.ok || (data?.error && String(data.error).includes('GEOAPIFY'))) {
         console.warn('[Discover] starter recommendations unavailable')
+        console.log('[Discover Debug] starter fill ended: API unavailable', {
+          responseOk: response.ok,
+          error: data?.error,
+        })
         return
       }
 
       const places = Array.isArray(data?.pois) ? data.pois : []
+      const validCoordinatePlaces = places.filter((place: any) => {
+        const placeLat = place?.location?.lat
+        const placeLng = place?.location?.lng
+        return (
+          typeof placeLat === 'number' &&
+          typeof placeLng === 'number' &&
+          Number.isFinite(placeLat) &&
+          Number.isFinite(placeLng)
+        )
+      })
+
+      console.log('[Discover Debug] /api/places/search response', {
+        placesReturned: places.length,
+        validCoordinatePlaces: validCoordinatePlaces.length,
+      })
+
       if (places.length === 0) {
         console.warn('[Discover] no nearby places returned')
+        console.log('[Discover Debug] starter fill ended: zero places returned')
         return
       }
 
@@ -723,14 +796,29 @@ export default function AIRecommendationsHub({
         })
       }
 
+      console.log('[Discover Debug] starter recommendations built', {
+        starterRecommendationsBuilt: starters.length,
+        starterCountTarget: starterCount,
+      })
+
       if (starters.length === 0) {
         console.warn('[Discover] no nearby places returned')
+        console.log('[Discover Debug] starter fill ended: zero starters built after filtering')
         return
       }
 
-      setRecommendations((prev) => mergeRecommendationsById(prev, starters))
-    } catch {
+      setRecommendations((prev) => {
+        const merged = mergeRecommendationsById(prev, starters)
+        console.log('[Discover Debug] final recommendations count after merge', {
+          before: prev.length,
+          added: starters.length,
+          after: merged.length,
+        })
+        return merged
+      })
+    } catch (err) {
       console.warn('[Discover] starter recommendations unavailable')
+      console.log('[Discover Debug] starter fill ended: fetch error', { err })
     } finally {
       fillStarterInFlightRef.current = false
     }
@@ -744,6 +832,9 @@ export default function AIRecommendationsHub({
   ])
 
   const scheduleFillStarterRecommendations = useCallback(() => {
+    console.log('[Discover Debug] starter fill scheduled', {
+      existingRecommendationCount: recommendationsRef.current.length,
+    })
     if (fillStarterDebounceRef.current) clearTimeout(fillStarterDebounceRef.current)
     fillStarterDebounceRef.current = setTimeout(() => {
       fillStarterDebounceRef.current = null
@@ -754,13 +845,22 @@ export default function AIRecommendationsHub({
   const loadRecommendationsFromServer = useCallback(async () => {
     const lat = location?.latitude || location?.lat
     const lng = location?.longitude || location?.lng
-    if (!lat || !lng) return
+    console.log('[Discover Debug] server load started', {
+      userLocationLat: lat,
+      userLocationLng: lng,
+      existingRecommendationCount: recommendationsRef.current.length,
+    })
+    if (!lat || !lng) {
+      console.log('[Discover Debug] server load skipped: missing lat/lng')
+      return
+    }
     try {
       const token = await getIdToken()
       const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       if (!resp.ok) {
+        console.log('[Discover Debug] server load failed', { status: resp.status })
         scheduleFillStarterRecommendations()
         return
       }
@@ -771,9 +871,20 @@ export default function AIRecommendationsHub({
       const visible = serverRecs.filter(
         (r) => !dismissedRecommendationIds.has(String(r.id))
       )
-      setRecommendations((prev) => mergeRecommendationsById(prev, visible))
+      setRecommendations((prev) => {
+        const merged = mergeRecommendationsById(prev, visible)
+        const communityCount = merged.filter((r) => !r.isAISuggestion).length
+        console.log('[Discover Debug] server merge complete', {
+          serverReturned: serverRecs.length,
+          mergedVisible: visible.length,
+          finalRecommendationCount: merged.length,
+          communityCount,
+        })
+        return merged
+      })
       scheduleFillStarterRecommendations()
-    } catch {
+    } catch (err) {
+      console.log('[Discover Debug] server load error', { err })
       scheduleFillStarterRecommendations()
     }
   }, [
