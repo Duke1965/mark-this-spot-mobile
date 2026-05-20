@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Camera, Video, RotateCcw, X, Zap, ZapOff, ZoomIn, ZoomOut, Focus } from "lucide-react"
+import { Camera, Video, RotateCcw, X, Zap, ZapOff, ZoomIn, ZoomOut } from "lucide-react"
 
 interface ReliableCameraProps {
   mode: "photo" | "video"
@@ -17,6 +17,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const zoomRef = useRef(1)
+  const pinchActiveRef = useRef(false)
+  const pinchStartDistanceRef = useRef(0)
+  const pinchStartZoomRef = useRef(1)
 
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -99,6 +103,10 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     return () => clearInterval(interval)
   }, [isRecording])
 
+  useEffect(() => {
+    zoomRef.current = zoom
+  }, [zoom])
+
   const switchCamera = useCallback(() => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
     setZoom(1) // Reset zoom when switching cameras
@@ -139,9 +147,61 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
     [capabilities],
   )
 
+  /** Pinch-to-zoom on the video when the track exposes `zoom`; no-op otherwise. */
+  useEffect(() => {
+    const el = videoRef.current
+    const zCap = (capabilities as { zoom?: { min?: number; max?: number } } | null)?.zoom
+    if (!el || !cameraReady || !zCap) return
+
+    const minZ = typeof zCap.min === "number" ? zCap.min : 1
+    const maxZ = typeof zCap.max === "number" ? zCap.max : maxZoom
+
+    const touchDistance = (a: Touch, b: Touch) => {
+      const dx = a.clientX - b.clientX
+      const dy = a.clientY - b.clientY
+      return Math.hypot(dx, dy)
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchActiveRef.current = true
+        pinchStartDistanceRef.current = touchDistance(e.touches[0], e.touches[1])
+        pinchStartZoomRef.current = zoomRef.current
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinchActiveRef.current || e.touches.length < 2) return
+      const startD = pinchStartDistanceRef.current
+      if (!startD || startD < 8) return
+      const d = touchDistance(e.touches[0], e.touches[1])
+      const ratio = d / startD
+      const next = Math.max(minZ, Math.min(maxZ, pinchStartZoomRef.current * ratio))
+      e.preventDefault()
+      void handleZoom(next)
+    }
+
+    const endPinch = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchActiveRef.current = false
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    el.addEventListener("touchend", endPinch)
+    el.addEventListener("touchcancel", endPinch)
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart)
+      el.removeEventListener("touchmove", onTouchMove)
+      el.removeEventListener("touchend", endPinch)
+      el.removeEventListener("touchcancel", endPinch)
+    }
+  }, [cameraReady, capabilities, maxZoom, handleZoom])
+
   const handleFocus = useCallback(
     async (event: React.TouchEvent | React.MouseEvent) => {
       if (!videoRef.current || !streamRef.current) return
+      if ("touches" in event && event.touches.length > 1) return
 
       const rect = videoRef.current.getBoundingClientRect()
       const x = ("touches" in event ? event.touches[0].clientX : event.clientX) - rect.left
@@ -497,28 +557,6 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             REC {formatTime(recordingTime)}
           </div>
         )}
-
-        {/* Focus hint */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "8rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(0,0,0,0.6)",
-            padding: "0.5rem 1rem",
-            borderRadius: "1rem",
-            fontSize: "0.875rem",
-            opacity: 0.7,
-            zIndex: 10,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <Focus size={16} />
-          Tap to focus
-        </div>
 
         {/* Error message */}
         {error && (
