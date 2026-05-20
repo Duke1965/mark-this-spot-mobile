@@ -649,7 +649,7 @@ export default function PreviewClient() {
             handleExit(() => router.push("/"))
                   }}
                 >
-                  Done (Back to Home)
+                  Home
                 </button>
               </div>
             </div>
