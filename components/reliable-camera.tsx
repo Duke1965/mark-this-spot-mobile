@@ -324,6 +324,8 @@ export function ReliableCamera({ mode, onCapture, onClose }: ReliableCameraProps
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            opacity: cameraReady ? 1 : 0,
+            transition: "opacity 120ms ease",
           }}
           onTouchStart={handleFocus}
           onClick={handleFocus}
