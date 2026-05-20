@@ -1702,7 +1702,7 @@ export default function AIRecommendationsHub({
           style={mappoTitleImageStyle}
         />
         <p style={mappoTitleSubtitleStyle}>
-          Personalized for you based on your behavior
+          Discover places you might love
         </p>
 
         {viewMode === 'map' && hintsEnabled && showMapMarkerHint && (
