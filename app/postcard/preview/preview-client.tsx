@@ -370,7 +370,6 @@ export default function PreviewClient() {
           <ArrowLeft size={20} />
           Back
         </button>
-        <div style={{ fontSize: "1.125rem", fontWeight: 900 }}>Preview</div>
         <button
           onClick={onSend}
           disabled={isSending || !!shareUrl}
