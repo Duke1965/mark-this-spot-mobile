@@ -102,6 +102,123 @@ interface ClusteredPin {
   category: string
 }
 
+/** Shared hero/thumbnail image priority: photoUrl → mediaUrl → FsqImage → emoji → 📍 */
+function RecommendationHeroImage({
+  rec,
+  variant = 'list',
+}: {
+  rec: Recommendation
+  variant?: 'list' | 'detail'
+}) {
+  const isDetail = variant === 'detail'
+  const hasUrlImage = !!(rec.photoUrl || rec.mediaUrl)
+
+  const containerStyle: React.CSSProperties = isDetail
+    ? {
+        width: '100%',
+        height: '300px',
+        borderRadius: '16px',
+        background: 'rgba(79,59,43,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        position: 'relative',
+      }
+    : {
+        width: '60px',
+        height: '100%',
+        borderRadius: '12px',
+        background: 'rgba(79,59,43,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '24px',
+        border: '1px solid rgba(79,59,43,0.1)',
+        overflow: 'hidden',
+        flexShrink: 0,
+        position: 'relative',
+        minHeight: '60px',
+      }
+
+  const fallbackEmojiSize = isDetail ? '4rem' : rec.fallbackImage ? '32px' : '20px'
+  const pinEmojiSize = isDetail ? '4rem' : '20px'
+
+  return (
+    <div style={containerStyle}>
+      {rec.photoUrl ? (
+        <img
+          src={rec.photoUrl}
+          alt={rec.title}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.style.display = 'none'
+            const fallback = target.parentElement?.querySelector(
+              '.image-fallback'
+            ) as HTMLElement
+            if (fallback) fallback.style.display = 'flex'
+          }}
+        />
+      ) : rec.mediaUrl ? (
+        <img
+          src={rec.mediaUrl}
+          alt={rec.title}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.style.display = 'none'
+            const fallback = target.parentElement?.querySelector(
+              '.image-fallback'
+            ) as HTMLElement
+            if (fallback) fallback.style.display = 'flex'
+          }}
+        />
+      ) : rec.fsq_id ? (
+        <FsqImage
+          fsqId={rec.fsq_id}
+          lat={rec.location?.lat}
+          lng={rec.location?.lng}
+          alt={rec.title}
+          fill
+          style={{ objectFit: 'cover' }}
+        />
+      ) : null}
+
+      <div
+        className="image-fallback"
+        style={{
+          display: hasUrlImage ? 'none' : 'flex',
+          width: '100%',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: hasUrlImage ? 'absolute' : 'relative',
+          top: 0,
+          left: 0,
+          background: rec.fallbackImage ? 'transparent' : 'rgba(79,59,43,0.08)',
+        }}
+      >
+        {rec.fallbackImage ? (
+          <span style={{ fontSize: fallbackEmojiSize }}>{rec.fallbackImage}</span>
+        ) : (
+          <span style={{ fontSize: pinEmojiSize }}>📍</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface AIRecommendationsHubProps {
   onBack: () => void
   userLocation?: any
@@ -1572,6 +1689,15 @@ export default function AIRecommendationsHub({
     setViewMode(newViewMode)
   }
 
+  const closeRecommendationDetail = useCallback(() => {
+    setShowReadOnlyRecommendation(false)
+  }, [])
+
+  const handleDetailHome = useCallback(() => {
+    setShowReadOnlyRecommendation(false)
+    onBack()
+  }, [onBack])
+
   useEffect(() => {
     if (viewMode === 'map') {
       setIsDiscoverMapLoading(true)
@@ -2318,109 +2444,7 @@ export default function AIRecommendationsHub({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', height: '100%' }}>
-                      <div style={{
-                        width: '60px',
-                        height: '100%',
-                        borderRadius: '12px',
-                        background: 'rgba(79,59,43,0.06)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '24px',
-                        border: '1px solid rgba(79,59,43,0.1)',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        position: 'relative',
-                        minHeight: '60px' // Ensure minimum height for image container
-                      }}>
-                        {/* Priority 1: Direct photoUrl from Foursquare API */}
-                        {rec.photoUrl ? (
-                          <img 
-                            src={rec.photoUrl} 
-                            alt={rec.title}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block'
-                            }}
-                            onError={(e) => {
-                              console.log('🧠 Image failed to load (photoUrl):', rec.photoUrl?.substring(0, 50))
-                              // Hide this image and let fallback handle it
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                              // Try to show fallback
-                              const container = target.parentElement
-                              if (container) {
-                                const fallback = container.querySelector('.image-fallback') as HTMLElement
-                                if (fallback) fallback.style.display = 'flex'
-                              }
-                            }}
-                            onLoad={() => {
-                              console.log('🧠 Image loaded successfully (photoUrl):', rec.title)
-                            }}
-                          />
-                        ) : rec.mediaUrl ? (
-                          /* Priority 2: mediaUrl as fallback */
-                          <img 
-                            src={rec.mediaUrl} 
-                            alt={rec.title}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block'
-                            }}
-                            onError={(e) => {
-                              console.log('🧠 Image failed to load (mediaUrl):', rec.mediaUrl?.substring(0, 50))
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                              const container = target.parentElement
-                              if (container) {
-                                const fallback = container.querySelector('.image-fallback') as HTMLElement
-                                if (fallback) fallback.style.display = 'flex'
-                              }
-                            }}
-                            onLoad={() => {
-                              console.log('🧠 Image loaded successfully (mediaUrl):', rec.title)
-                            }}
-                          />
-                        ) : rec.fsq_id ? (
-                          /* Priority 3: FsqImage component for places with fsq_id */
-                          <FsqImage 
-                            fsqId={rec.fsq_id}
-                            lat={rec.location?.lat}
-                            lng={rec.location?.lng}
-                            alt={rec.title}
-                            fill
-                            style={{
-                              objectFit: 'cover'
-                            }}
-                          />
-                        ) : null}
-                        
-                        {/* Fallback display - shown when no image loads or no image URL available */}
-                        <div 
-                          className="image-fallback"
-                          style={{
-                            display: rec.photoUrl || rec.mediaUrl ? 'none' : 'flex',
-                            width: '100%',
-                            height: '100%',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            position: rec.photoUrl || rec.mediaUrl ? 'absolute' : 'relative',
-                            top: 0,
-                            left: 0,
-                            background: rec.fallbackImage ? 'transparent' : 'rgba(79,59,43,0.08)'
-                          }}
-                        >
-                          {rec.fallbackImage ? (
-                            <span style={{ fontSize: '32px' }}>{rec.fallbackImage}</span>
-                          ) : (
-                            <span style={{ fontSize: '20px' }}>📍</span>
-                          )}
-                        </div>
-                      </div>
+                      <RecommendationHeroImage rec={rec} variant="list" />
                       
                       {/* Content area */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -2719,12 +2743,10 @@ export default function AIRecommendationsHub({
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '10px' }}>
             <button
-              onClick={() => {
-                setShowReadOnlyRecommendation(false)
-                setSelectedRecommendation(null)
-              }}
+              type="button"
+              onClick={closeRecommendationDetail}
               style={{
                 background: 'rgba(255,255,255,0.7)',
                 border: '1px solid rgba(79,59,43,0.12)',
@@ -2734,45 +2756,35 @@ export default function AIRecommendationsHub({
                 fontSize: '0.9rem',
                 cursor: 'pointer',
                 backdropFilter: 'blur(10px)',
+                flexShrink: 0,
               }}
             >
               ← Back
             </button>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#3a2e1e' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#3a2e1e', textAlign: 'center', flex: 1 }}>
               {selectedRecommendation.isAISuggestion ? '🤖 AI Recommendation' : '👤 User Recommendation'}
             </div>
-            <div style={{ width: '60px' }}></div>
+            <button
+              type="button"
+              onClick={handleDetailHome}
+              style={{
+                background: 'rgba(255,255,255,0.7)',
+                border: '1px solid rgba(79,59,43,0.12)',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                color: '#4f3b2b',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+                flexShrink: 0,
+              }}
+            >
+              Home
+            </button>
           </div>
 
-          {/* Image Carousel */}
-          <div
-            style={{
-              width: '100%',
-              height: '300px',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              marginBottom: '20px',
-              background: 'rgba(79,59,43,0.06)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl ? (
-              <img
-                src={selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl}
-                alt={selectedRecommendation.title}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-            ) : (
-              <div style={{ fontSize: '4rem' }}>
-                {selectedRecommendation.fallbackImage || '📍'}
-              </div>
-            )}
+          <div style={{ marginBottom: '20px' }}>
+            <RecommendationHeroImage rec={selectedRecommendation} variant="detail" />
           </div>
 
           {/* Content Card */}
@@ -2877,7 +2889,6 @@ export default function AIRecommendationsHub({
               💾 Save to Library
             </button>
             <button
-              hidden
               onClick={() => {
                 console.log('📤 Share button clicked')
                 if (onSharePin) {
