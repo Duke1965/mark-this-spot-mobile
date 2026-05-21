@@ -92,6 +92,40 @@ interface Recommendation {
   mediaUrl?: string // NEW: Image URL from Foursquare
   photoUrl?: string // Foursquare direct photo URL
   fsq_id?: string // Foursquare place ID
+  googlePlaceId?: string
+  placeId?: string
+}
+
+/** Stable place identity for map grouping (matches upsert-pin / upsert-ai placeKey intent). */
+function placeIdentityKey(rec: Recommendation): string {
+  const googlePlaceId =
+    typeof rec.googlePlaceId === 'string' ? rec.googlePlaceId.trim() : ''
+  const placeId = typeof rec.placeId === 'string' ? rec.placeId.trim() : ''
+  const stablePlace = googlePlaceId || placeId
+  if (stablePlace) return `place:${stablePlace}`
+
+  const fsq = typeof rec.fsq_id === 'string' ? rec.fsq_id.trim() : ''
+  if (fsq) return `fsq:${fsq}`
+
+  const id = String(rec.id || '')
+  if (id.startsWith('starter-')) {
+    const suffix = id.slice('starter-'.length)
+    if (suffix) return `place:${suffix}`
+  }
+
+  const lat = rec.location?.lat
+  const lng = rec.location?.lng
+  const title = (rec.title || '').trim().toLowerCase()
+  if (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng)
+  ) {
+    return `coord:${lat.toFixed(6)},${lng.toFixed(6)}|t:${title}`
+  }
+
+  return `coord:unknown|t:${title || 'unknown'}`
 }
 
 interface ClusteredPin {
@@ -746,6 +780,8 @@ export default function AIRecommendationsHub({
           photoUrl: pin.mediaUrl || undefined,
           mediaUrl: pin.mediaUrl || undefined,
           fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || 'general'),
+          googlePlaceId: pin.googlePlaceId || undefined,
+          placeId: pin.placeId || undefined,
         })
       }
       return out
@@ -1777,11 +1813,10 @@ export default function AIRecommendationsHub({
       bounds.extend([lng, lat]) // Add user location
     }
     
-    // Group markers by exact coordinate + type (user vs AI).
-    // This lets us show a dot for users and a robot for AI, with a count badge per type.
+    // Group markers by place identity + type (user vs AI). Badge = times this place was recommended.
     type MarkerGroup = {
       key: string
-      coordKey: string
+      markerCoordKey: string
       isAISuggestion: boolean
       lat: number
       lng: number
@@ -1796,25 +1831,26 @@ export default function AIRecommendationsHub({
       const lat0 = rec.location.lat
       const lng0 = rec.location.lng
 
-      const coordKey = `${lat0.toFixed(6)},${lng0.toFixed(6)}`
-      const typeKey = rec.isAISuggestion ? "ai" : "user"
-      const key = `${typeKey}|${coordKey}`
-
-      const presence = typeCoordToPresence.get(coordKey) || { user: false, ai: false }
-      presence[typeKey] = true
-      typeCoordToPresence.set(coordKey, presence)
+      const typeKey = rec.isAISuggestion ? 'ai' : 'user'
+      const identity = placeIdentityKey(rec)
+      const key = `${typeKey}|${identity}`
 
       const existing = groupsByKey.get(key)
       if (existing) {
         existing.items.push(rec)
       } else {
+        const markerCoordKey = `${lat0.toFixed(6)},${lng0.toFixed(6)}`
+        const presence = typeCoordToPresence.get(markerCoordKey) || { user: false, ai: false }
+        presence[typeKey] = true
+        typeCoordToPresence.set(markerCoordKey, presence)
+
         groupsByKey.set(key, {
           key,
-          coordKey,
+          markerCoordKey,
           isAISuggestion: !!rec.isAISuggestion,
           lat: lat0,
           lng: lng0,
-          items: [rec]
+          items: [rec],
         })
       }
     }
@@ -1840,7 +1876,7 @@ export default function AIRecommendationsHub({
       el.style.background = g.isAISuggestion ? "rgba(59,130,246,0.95)" : "rgba(16,185,129,0.95)"
 
       // If both types exist at the same coordinate, offset them slightly so both are visible.
-      const presence = typeCoordToPresence.get(g.coordKey)
+      const presence = typeCoordToPresence.get(g.markerCoordKey)
       if (presence?.user && presence?.ai) {
         el.style.transform = g.isAISuggestion ? "translateX(11px)" : "translateX(-11px)"
       }
