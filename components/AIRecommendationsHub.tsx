@@ -141,6 +141,7 @@ export default function AIRecommendationsHub({
     placeDescription?: string | null
   } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isDiscoverMapLoading, setIsDiscoverMapLoading] = useState(true)
   const [hintsEnabled, setHintsEnabled] = useState(true)
   const [showMapMarkerHint, setShowMapMarkerHint] = useState(false)
 
@@ -199,6 +200,7 @@ export default function AIRecommendationsHub({
   const poiMarkersRef = useRef<Map<string, any>>(new Map())
   const userMarkerRef = useRef<any>(null)
   const isMapInitializedRef = useRef<boolean>(false)
+  const discoverMapTilesLoadedRef = useRef<boolean>(false)
   const lastLocationCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
   
   // AI Recommendations
@@ -1570,6 +1572,18 @@ export default function AIRecommendationsHub({
     setViewMode(newViewMode)
   }
 
+  useEffect(() => {
+    if (viewMode === 'map') {
+      setIsDiscoverMapLoading(true)
+      discoverMapTilesLoadedRef.current = false
+    }
+  }, [viewMode])
+
+  const tryMarkDiscoverMapDisplayReady = useCallback(() => {
+    if (!discoverMapTilesLoadedRef.current) return
+    setIsDiscoverMapLoading(false)
+  }, [])
+
   // Track if we've already fitted bounds to prevent repeated zooming
   const hasFittedBoundsRef = useRef<boolean>(false)
   const lastFittedBoundsSignatureRef = useRef<string>("")
@@ -1585,6 +1599,7 @@ export default function AIRecommendationsHub({
       hasFittedBoundsRef.current = false
       lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = ""
+      tryMarkDiscoverMapDisplayReady()
       return
     }
 
@@ -1603,6 +1618,7 @@ export default function AIRecommendationsHub({
       hasFittedBoundsRef.current = false
       lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = `filter:${recommendationFilter}|empty`
+      tryMarkDiscoverMapDisplayReady()
       return
     }
 
@@ -1614,6 +1630,9 @@ export default function AIRecommendationsHub({
         .join('|')
 
     if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) {
+      if (recommendationMarkersRef.current.length > 0) {
+        tryMarkDiscoverMapDisplayReady()
+      }
       return
     }
 
@@ -1774,7 +1793,8 @@ export default function AIRecommendationsHub({
     }
 
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
-  }, [recommendations, location, recommendationFilter])
+    tryMarkDiscoverMapDisplayReady()
+  }, [recommendations, location, recommendationFilter, tryMarkDiscoverMapDisplayReady])
 
   // Initialize map when map view is active (Mapbox only)
   useEffect(() => {
@@ -1830,7 +1850,8 @@ export default function AIRecommendationsHub({
       // Wait for map to load, then add user marker and recommendation markers
       map.on('load', () => {
         console.log('🗺️ Mapbox recommendations map loaded')
-        
+        discoverMapTilesLoadedRef.current = true
+
         // Add user location marker
         const userEl = document.createElement('div')
         userEl.style.width = '20px'
@@ -1880,6 +1901,7 @@ export default function AIRecommendationsHub({
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
         isMapInitializedRef.current = false
+        discoverMapTilesLoadedRef.current = false
         hasFittedBoundsRef.current = false
         lastFittedBoundsSignatureRef.current = ""
         lastRecommendationsSignatureRef.current = ""
@@ -2140,6 +2162,41 @@ export default function AIRecommendationsHub({
                 overflow: 'hidden'
               }}
             />
+
+            {isDiscoverMapLoading && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  padding: '24px',
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '16px',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  textAlign: 'center',
+                }}
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <p
+                  style={{
+                    ...mappoTitleSubtitleStyle,
+                    margin: 0,
+                    maxWidth: 280,
+                    fontWeight: 700,
+                    color: '#4f3b2b',
+                  }}
+                >
+                  Looking for places you might love...
+                </p>
+              </div>
+            )}
 
             {/* In-map overlay removed — legend moved outside map frame */}
           </div>
