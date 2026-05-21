@@ -1773,20 +1773,15 @@ export default function AIRecommendationsHub({
     setIsDiscoverMapLoading(false)
   }, [])
 
-  // Track if we've already fitted bounds to prevent repeated zooming
-  const hasFittedBoundsRef = useRef<boolean>(false)
-  const lastFittedBoundsSignatureRef = useRef<string>("")
   const lastRecommendationsSignatureRef = useRef<string>("")
 
   // Function to update recommendation markers on map
   // Update recommendation markers (Mapbox only)
-  const updateRecommendationMarkers = useCallback((map: any, mapLib: any, shouldFitBounds: boolean = false) => {
+  const updateRecommendationMarkers = useCallback((map: any, mapLib: any) => {
     if (!recommendations || recommendations.length === 0) {
       recommendationMarkersRef.current.forEach((marker) => marker.remove())
       recommendationMarkersRef.current = []
       console.log('🗺️ No recommendations to display on map')
-      hasFittedBoundsRef.current = false
-      lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = ""
       tryMarkDiscoverMapDisplayReady()
       return
@@ -1804,8 +1799,6 @@ export default function AIRecommendationsHub({
       recommendationMarkersRef.current.forEach((marker) => marker.remove())
       recommendationMarkersRef.current = []
       console.log("🗺️ No visible recommendations for filter:", recommendationFilter)
-      hasFittedBoundsRef.current = false
-      lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = `filter:${recommendationFilter}|empty`
       tryMarkDiscoverMapDisplayReady()
       return
@@ -1818,7 +1811,7 @@ export default function AIRecommendationsHub({
         .sort()
         .join('|')
 
-    if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) {
+    if (currentSignature === lastRecommendationsSignatureRef.current) {
       if (recommendationMarkersRef.current.length > 0) {
         tryMarkDiscoverMapDisplayReady()
       }
@@ -1829,17 +1822,6 @@ export default function AIRecommendationsHub({
     recommendationMarkersRef.current = []
     lastRecommendationsSignatureRef.current = currentSignature
 
-    // Calculate bounds to fit all recommendations
-    const lat = location?.latitude || location?.lat
-    const lng = location?.longitude || location?.lng
-    
-    // Mapbox uses LngLatBounds
-    const bounds = new mapboxgl.LngLatBounds()
-    
-    if (lat && lng) {
-      bounds.extend([lng, lat]) // Add user location
-    }
-    
     // Group markers by place identity + type (user vs AI). Badge = times this place was recommended.
     type MarkerGroup = {
       key: string
@@ -1884,47 +1866,50 @@ export default function AIRecommendationsHub({
 
     const groups = Array.from(groupsByKey.values())
     for (const g of groups) {
-      bounds.extend([g.lng, g.lat])
+      const markerSizePx = 22
+      const hitTargetPx = 38
 
       const el = document.createElement("div")
       el.style.position = "relative"
-      // Same-size markers so both can hold count badges comfortably.
-      const markerSizePx = 28
-      el.style.width = `${markerSizePx}px`
-      el.style.height = `${markerSizePx}px`
-      el.style.borderRadius = "50%"
-      el.style.border = "2px solid rgba(255,255,255,0.92)"
-      el.style.boxShadow = "0 2px 10px rgba(0,0,0,0.35)"
+      el.style.width = `${hitTargetPx}px`
+      el.style.height = `${hitTargetPx}px`
       el.style.cursor = "pointer"
       el.style.display = "flex"
       el.style.alignItems = "center"
       el.style.justifyContent = "center"
       el.style.userSelect = "none"
-      el.style.background = g.isAISuggestion ? "rgba(59,130,246,0.95)" : "rgba(16,185,129,0.95)"
+
+      const dot = document.createElement("div")
+      dot.style.width = `${markerSizePx}px`
+      dot.style.height = `${markerSizePx}px`
+      dot.style.borderRadius = "50%"
+      dot.style.border = "1.5px solid rgba(255,255,255,0.92)"
+      dot.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)"
+      dot.style.background = g.isAISuggestion ? "rgba(59,130,246,0.95)" : "rgba(16,185,129,0.95)"
+      dot.style.pointerEvents = "none"
+      el.appendChild(dot)
 
       // If both types exist at the same coordinate, offset them slightly so both are visible.
       const presence = typeCoordToPresence.get(g.markerCoordKey)
       if (presence?.user && presence?.ai) {
-        el.style.transform = g.isAISuggestion ? "translateX(11px)" : "translateX(-11px)"
+        el.style.transform = g.isAISuggestion ? "translateX(8px)" : "translateX(-8px)"
       }
 
-      // No icons inside markers (keeps them clean and leaves room for count badges).
-      el.textContent = ""
       el.title = `${g.items.length} ${g.isAISuggestion ? "AI" : "user"} recommendation${g.items.length === 1 ? "" : "s"}`
 
       if (g.items.length > 1) {
         const badge = document.createElement("div")
         badge.textContent = String(g.items.length)
         badge.style.position = "absolute"
-        badge.style.top = "-8px"
-        badge.style.right = "-8px"
-        badge.style.minWidth = "18px"
-        badge.style.height = "18px"
-        badge.style.padding = "0 5px"
+        badge.style.top = "-6px"
+        badge.style.right = "-6px"
+        badge.style.minWidth = "16px"
+        badge.style.height = "16px"
+        badge.style.padding = "0 4px"
         badge.style.borderRadius = "999px"
         badge.style.background = "rgba(255,255,255,0.95)"
         badge.style.color = "#0f172a"
-        badge.style.fontSize = "11px"
+        badge.style.fontSize = "10px"
         badge.style.fontWeight = "800"
         badge.style.display = "flex"
         badge.style.alignItems = "center"
@@ -1950,48 +1935,9 @@ export default function AIRecommendationsHub({
       recommendationMarkersRef.current.push(marker)
     }
 
-    // Auto-fit once per recommendation update when pins are spread beyond ~500m
-    const recCoords = groups.map((g) => ({ lat: g.lat, lng: g.lng }))
-    let maxSpreadM = 0
-    if (recCoords.length >= 2) {
-      for (let i = 0; i < recCoords.length; i++) {
-        for (let j = i + 1; j < recCoords.length; j++) {
-          const a = recCoords[i]
-          const b = recCoords[j]
-          const dist = Math.sqrt(
-            Math.pow((a.lat - b.lat) * 111000, 2) +
-              Math.pow((a.lng - b.lng) * 111000 * Math.cos((a.lat * Math.PI) / 180), 2)
-          )
-          maxSpreadM = Math.max(maxSpreadM, dist)
-        }
-      }
-    }
-
-    if (
-      recCoords.length >= 2 &&
-      maxSpreadM > 500 &&
-      lastFittedBoundsSignatureRef.current !== currentSignature
-    ) {
-      try {
-        map.fitBounds(bounds, { padding: 50, maxZoom: 15 })
-        lastFittedBoundsSignatureRef.current = currentSignature
-        hasFittedBoundsRef.current = true
-      } catch (error) {
-        console.warn('⚠️ Error fitting map bounds to recommendations:', error)
-      }
-    }
-
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
     tryMarkDiscoverMapDisplayReady()
-  }, [
-    recommendations,
-    location?.latitude,
-    location?.longitude,
-    location?.lat,
-    location?.lng,
-    recommendationFilter,
-    tryMarkDiscoverMapDisplayReady,
-  ])
+  }, [recommendations, recommendationFilter, tryMarkDiscoverMapDisplayReady])
 
   // Effect A: create map once per Map visit when coords are available (no cleanup on GPS updates)
   useEffect(() => {
@@ -2054,7 +2000,7 @@ export default function AIRecommendationsHub({
         fetchAndDisplayPOIs(map, lat, lng)
 
         setTimeout(() => {
-          updateRecommendationMarkers(map, mapboxgl, false)
+          updateRecommendationMarkers(map, mapboxgl)
         }, 100)
       })
 
@@ -2093,8 +2039,6 @@ export default function AIRecommendationsHub({
 
       isMapInitializedRef.current = false
       discoverMapTilesLoadedRef.current = false
-      hasFittedBoundsRef.current = false
-      lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = ""
       lastLocationCoordsRef.current = null
     }
@@ -2146,7 +2090,7 @@ export default function AIRecommendationsHub({
   // Update markers when recommendation content changes (ids + coordinates)
   useEffect(() => {
     if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
-      updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false)
+      updateRecommendationMarkers(mapInstanceRef.current, mapboxgl)
     }
   }, [recommendationMarkerSignature, viewMode, updateRecommendationMarkers])
 
@@ -2165,7 +2109,7 @@ export default function AIRecommendationsHub({
       }
 
       if (recommendations.length > 0) {
-        updateRecommendationMarkers(map, mapboxgl, false)
+        updateRecommendationMarkers(map, mapboxgl)
       }
 
       if (discoverMapTilesLoadedRef.current) {
