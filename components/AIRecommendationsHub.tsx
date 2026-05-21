@@ -2049,26 +2049,28 @@ export default function AIRecommendationsHub({
       console.error('❌ Failed to initialize Mapbox map:', error)
     }
     
-    // Cleanup only when viewMode changes or component unmounts
     return () => {
-      // Only cleanup if viewMode is changing away from map
-      if (viewMode !== "map" && mapInstanceRef.current) {
-        recommendationMarkersRef.current.forEach(marker => marker.remove())
-        poiMarkersRef.current.forEach(marker => marker.remove())
-        poiMarkersRef.current.clear()
-        if (userMarkerRef.current) {
-          userMarkerRef.current.remove()
-          userMarkerRef.current = null
-        }
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-        isMapInitializedRef.current = false
-        discoverMapTilesLoadedRef.current = false
-        hasFittedBoundsRef.current = false
-        lastFittedBoundsSignatureRef.current = ""
-        lastRecommendationsSignatureRef.current = ""
-        lastLocationCoordsRef.current = null
+      if (!mapInstanceRef.current) return
+
+      recommendationMarkersRef.current.forEach((marker) => marker.remove())
+      recommendationMarkersRef.current = []
+
+      poiMarkersRef.current.forEach((marker) => marker.remove())
+      poiMarkersRef.current.clear()
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
       }
+
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+
+      isMapInitializedRef.current = false
+      discoverMapTilesLoadedRef.current = false
+      hasFittedBoundsRef.current = false
+      lastFittedBoundsSignatureRef.current = ""
+      lastRecommendationsSignatureRef.current = ""
+      lastLocationCoordsRef.current = null
     }
   }, [viewMode, location?.latitude, location?.longitude, location?.lat, location?.lng]) // Depend on location coordinates to initialize when location becomes available
 
@@ -2121,6 +2123,37 @@ export default function AIRecommendationsHub({
       updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false)
     }
   }, [recommendationMarkerSignature, viewMode, updateRecommendationMarkers])
+
+  // Resize map and refresh markers when returning to Map tab (container remounts)
+  useEffect(() => {
+    if (viewMode !== "map" || !mapInstanceRef.current || !isMapInitializedRef.current) return
+
+    const frameId = requestAnimationFrame(() => {
+      const map = mapInstanceRef.current
+      if (!map) return
+
+      try {
+        map.resize()
+      } catch {
+        // ignore
+      }
+
+      if (recommendations.length > 0) {
+        updateRecommendationMarkers(map, mapboxgl, false)
+      }
+
+      if (discoverMapTilesLoadedRef.current) {
+        tryMarkDiscoverMapDisplayReady()
+      }
+    })
+
+    return () => cancelAnimationFrame(frameId)
+  }, [
+    viewMode,
+    recommendations.length,
+    updateRecommendationMarkers,
+    tryMarkDiscoverMapDisplayReady,
+  ])
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
