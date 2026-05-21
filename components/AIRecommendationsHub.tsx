@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAIBehaviorTracker } from '../hooks/useAIBehaviorTracker'
 import { useLocationServices } from '../hooks/useLocationServices'
 import { usePinStorage } from '../hooks/usePinStorage'
@@ -203,6 +203,13 @@ export default function AIRecommendationsHub({
   
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
+  const recommendationMarkerSignature = useMemo(
+    () =>
+      recommendations
+        .map((r) => `${r.id}:${r.location?.lat}:${r.location?.lng}`)
+        .join('|'),
+    [recommendations]
+  )
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
   const [dismissedRecommendationIds, setDismissedRecommendationIds] = useState<Set<string>>(() => new Set())
   
@@ -1565,6 +1572,7 @@ export default function AIRecommendationsHub({
 
   // Track if we've already fitted bounds to prevent repeated zooming
   const hasFittedBoundsRef = useRef<boolean>(false)
+  const lastFittedBoundsSignatureRef = useRef<string>("")
   const lastRecommendationsSignatureRef = useRef<string>("")
 
   // Function to update recommendation markers on map
@@ -1577,6 +1585,7 @@ export default function AIRecommendationsHub({
     if (!recommendations || recommendations.length === 0) {
       console.log('🗺️ No recommendations to display on map')
       hasFittedBoundsRef.current = false
+      lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = ""
       return
     }
@@ -1593,12 +1602,18 @@ export default function AIRecommendationsHub({
       // Clear markers and stop here (no visible markers for this filter)
       console.log("🗺️ No visible recommendations for filter:", recommendationFilter)
       hasFittedBoundsRef.current = false
+      lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = `filter:${recommendationFilter}|empty`
       return
     }
     
-    // Only update if recommendations actually changed (by count or IDs)
-    const currentSignature = `filter:${recommendationFilter}|` + visibleRecommendations.map(r => r.id).sort().join("|")
+    // Only update if recommendations actually changed (ids + coordinates)
+    const currentSignature =
+      `filter:${recommendationFilter}|` +
+      visibleRecommendations
+        .map((r) => `${r.id}:${r.location?.lat}:${r.location?.lng}`)
+        .sort()
+        .join('|')
     if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) return
     lastRecommendationsSignatureRef.current = currentSignature
     
@@ -1722,11 +1737,38 @@ export default function AIRecommendationsHub({
 
       recommendationMarkersRef.current.push(marker)
     }
-    
-    // Don't use fitBounds - keep fixed zoom level to match main page circle map (zoom: 16)
-    // This ensures consistent view between main page and recommendations page
-    // The map is already initialized with zoom: 16, matching the main page
-    
+
+    // Auto-fit once per recommendation update when pins are spread beyond ~500m
+    const recCoords = groups.map((g) => ({ lat: g.lat, lng: g.lng }))
+    let maxSpreadM = 0
+    if (recCoords.length >= 2) {
+      for (let i = 0; i < recCoords.length; i++) {
+        for (let j = i + 1; j < recCoords.length; j++) {
+          const a = recCoords[i]
+          const b = recCoords[j]
+          const dist = Math.sqrt(
+            Math.pow((a.lat - b.lat) * 111000, 2) +
+              Math.pow((a.lng - b.lng) * 111000 * Math.cos((a.lat * Math.PI) / 180), 2)
+          )
+          maxSpreadM = Math.max(maxSpreadM, dist)
+        }
+      }
+    }
+
+    if (
+      recCoords.length >= 2 &&
+      maxSpreadM > 500 &&
+      lastFittedBoundsSignatureRef.current !== currentSignature
+    ) {
+      try {
+        map.fitBounds(bounds, { padding: 50, maxZoom: 15 })
+        lastFittedBoundsSignatureRef.current = currentSignature
+        hasFittedBoundsRef.current = true
+      } catch (error) {
+        console.warn('⚠️ Error fitting map bounds to recommendations:', error)
+      }
+    }
+
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
   }, [recommendations, location, recommendationFilter])
 
@@ -1835,6 +1877,7 @@ export default function AIRecommendationsHub({
         mapInstanceRef.current = null
         isMapInitializedRef.current = false
         hasFittedBoundsRef.current = false
+        lastFittedBoundsSignatureRef.current = ""
         lastRecommendationsSignatureRef.current = ""
         lastLocationCoordsRef.current = null
       }
@@ -1884,13 +1927,12 @@ export default function AIRecommendationsHub({
     }
   }, [location?.latitude, location?.longitude, location?.lat, location?.lng, viewMode])
 
-  // Update markers when recommendations change (but don't fit bounds again)
+  // Update markers when recommendation content changes (ids + coordinates)
   useEffect(() => {
     if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
-      // Always use Mapbox (TomTom has been removed)
       updateRecommendationMarkers(mapInstanceRef.current, mapboxgl, false)
     }
-  }, [recommendations.length, viewMode, updateRecommendationMarkers]) // Only depend on count, not the full array
+  }, [recommendationMarkerSignature, viewMode, updateRecommendationMarkers])
 
   // Don't render if location is not properly initialized
   if (!location || !location.latitude || !location.longitude || !isInitialized) {
