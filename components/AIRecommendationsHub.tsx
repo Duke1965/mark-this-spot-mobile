@@ -1983,99 +1983,98 @@ export default function AIRecommendationsHub({
 
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
     tryMarkDiscoverMapDisplayReady()
-  }, [recommendations, location, recommendationFilter, tryMarkDiscoverMapDisplayReady])
+  }, [
+    recommendations,
+    location?.latitude,
+    location?.longitude,
+    location?.lat,
+    location?.lng,
+    recommendationFilter,
+    tryMarkDiscoverMapDisplayReady,
+  ])
 
-  // Initialize map when map view is active (Mapbox only)
+  // Effect A: create map once per Map visit when coords are available (no cleanup on GPS updates)
   useEffect(() => {
-    if (viewMode !== "map" || !mapRef.current || !location || isMapInitializedRef.current) return
-    
-    const lat = location?.latitude || location?.lat
-    const lng = location?.longitude || location?.lng
-    
-    if (!lat || !lng) return
-    
-    // Only check location change if map is already initialized (prevent re-initialization on location updates)
-    // On first load, lastLocationCoordsRef.current will be null, so we allow initialization
-    const lastCoords = lastLocationCoordsRef.current
-    if (lastCoords && isMapInitializedRef.current) {
-      // Map is already initialized and location hasn't changed significantly, don't re-initialize
-      const distance = Math.sqrt(
-        Math.pow((lastCoords.lat - lat) * 111000, 2) + 
-        Math.pow((lastCoords.lng - lng) * 111000 * Math.cos(lat * Math.PI / 180), 2)
-      )
-      if (distance < 100) {
-        // Location hasn't changed significantly (less than 100m), don't re-initialize
-        return
-      }
-    }
-    
-    // Store current coordinates before initialization
-    lastLocationCoordsRef.current = { lat, lng }
-    
-    // Always use Mapbox (TomTom has been removed)
-    if (!mapRef.current || mapInstanceRef.current) return
+    if (viewMode !== "map" || !mapRef.current || isMapInitializedRef.current) return
+
+    const lat = location?.latitude ?? location?.lat
+    const lng = location?.longitude ?? location?.lng
+    const coordsExist =
+      typeof lat === "number" &&
+      typeof lng === "number" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
+    if (!coordsExist) return
 
     if (!MAPBOX_API_KEY) {
-      console.error('❌ Mapbox API key is missing')
+      console.error("❌ Mapbox API key is missing")
       return
     }
 
-    // Set Mapbox access token
+    if (mapInstanceRef.current) return
+
+    lastLocationCoordsRef.current = { lat, lng }
+
     mapboxgl.accessToken = MAPBOX_API_KEY
 
     try {
-      // Initialize Mapbox map
       const map = new mapboxgl.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [lng, lat], // Mapbox uses [lng, lat]
-        zoom: 16, // Zoom level to show approximately 1km (street level)
-        interactive: true
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [lng, lat],
+        zoom: 16,
+        interactive: true,
       })
 
       mapInstanceRef.current = map
       isMapInitializedRef.current = true
 
-      // Wait for map to load, then add user marker and recommendation markers
-      map.on('load', () => {
-        console.log('🗺️ Mapbox recommendations map loaded')
+      map.on("load", () => {
+        console.log("🗺️ Mapbox recommendations map loaded")
         discoverMapTilesLoadedRef.current = true
 
-        // Add user location marker
-        const userEl = document.createElement('div')
-        userEl.style.width = '20px'
-        userEl.style.height = '20px'
-        userEl.style.borderRadius = '50%'
-        userEl.style.backgroundColor = '#22C55E'
-        userEl.style.border = '3px solid white'
-        userEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)'
-        userEl.style.cursor = 'pointer'
-        userEl.title = '📍 Your Location'
-        
+        const userEl = document.createElement("div")
+        userEl.style.width = "20px"
+        userEl.style.height = "20px"
+        userEl.style.borderRadius = "50%"
+        userEl.style.backgroundColor = "#22C55E"
+        userEl.style.border = "3px solid white"
+        userEl.style.boxShadow = "0 2px 8px rgba(0,0,0,0.4)"
+        userEl.style.cursor = "pointer"
+        userEl.title = "📍 Your Location"
+
         const userMarker = new mapboxgl.Marker({
-          element: userEl
+          element: userEl,
         })
           .setLngLat([lng, lat])
           .addTo(map)
-        
+
         userMarkerRef.current = userMarker
-        
-        // Fetch and display nearby POIs
+
         fetchAndDisplayPOIs(map, lat, lng)
-        
-        // Small delay to ensure map is fully rendered before adding markers
+
         setTimeout(() => {
-          updateRecommendationMarkers(map, mapboxgl, false) // Don't fit bounds - use fixed zoom to match main page
+          updateRecommendationMarkers(map, mapboxgl, false)
         }, 100)
       })
 
-      map.on('error', (e) => {
-        console.error('❌ Mapbox map error:', e)
+      map.on("error", (e) => {
+        console.error("❌ Mapbox map error:", e)
       })
     } catch (error) {
-      console.error('❌ Failed to initialize Mapbox map:', error)
+      console.error("❌ Failed to initialize Mapbox map:", error)
     }
-    
+  }, [
+    viewMode,
+    location?.latitude,
+    location?.longitude,
+    location?.lat,
+    location?.lng,
+    updateRecommendationMarkers,
+  ])
+
+  // Effect B: teardown only when viewMode changes (leaving Map tab or unmount)
+  useEffect(() => {
     return () => {
       if (!mapInstanceRef.current) return
 
@@ -2099,7 +2098,7 @@ export default function AIRecommendationsHub({
       lastRecommendationsSignatureRef.current = ""
       lastLocationCoordsRef.current = null
     }
-  }, [viewMode, location?.latitude, location?.longitude, location?.lat, location?.lng]) // Depend on location coordinates to initialize when location becomes available
+  }, [viewMode])
 
   // Update map center when location changes significantly (without re-initializing)
   useEffect(() => {
