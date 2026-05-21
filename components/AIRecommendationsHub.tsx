@@ -1734,6 +1734,33 @@ export default function AIRecommendationsHub({
     onBack()
   }, [onBack])
 
+  const centerDiscoverMapOnUser = useCallback(() => {
+    const map = mapInstanceRef.current
+    const lat = location?.latitude || location?.lat
+    const lng = location?.longitude || location?.lng
+    if (!map || !isMapInitializedRef.current) return
+    if (typeof lat !== 'number' || typeof lng !== 'number') return
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+
+    try {
+      map.easeTo({
+        center: [lng, lat],
+        zoom: 16,
+        duration: 800,
+      })
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLngLat([lng, lat])
+      }
+    } catch {
+      // ignore
+    }
+  }, [
+    location?.latitude,
+    location?.longitude,
+    location?.lat,
+    location?.lng,
+  ])
+
   useEffect(() => {
     if (viewMode === 'map') {
       setIsDiscoverMapLoading(true)
@@ -2391,6 +2418,38 @@ export default function AIRecommendationsHub({
                   Looking for places you might love...
                 </p>
               </div>
+            )}
+
+            {!isDiscoverMapLoading && (
+              <button
+                type="button"
+                onClick={centerDiscoverMapOnUser}
+                aria-label="Center map on your location"
+                style={{
+                  position: 'absolute',
+                  bottom: 14,
+                  right: 14,
+                  zIndex: 11,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(79,59,43,0.12)',
+                  background: 'rgba(255,255,255,0.78)',
+                  color: '#4f3b2b',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                }}
+              >
+                <span aria-hidden="true" style={{ fontSize: '14px', lineHeight: 1 }}>
+                  ⊕
+                </span>
+                Center
+              </button>
             )}
 
             {/* In-map overlay removed — legend moved outside map frame */}
