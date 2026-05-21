@@ -1578,11 +1578,9 @@ export default function AIRecommendationsHub({
   // Function to update recommendation markers on map
   // Update recommendation markers (Mapbox only)
   const updateRecommendationMarkers = useCallback((map: any, mapLib: any, shouldFitBounds: boolean = false) => {
-    // Clear existing markers
-    recommendationMarkersRef.current.forEach(marker => marker.remove())
-    recommendationMarkersRef.current = []
-    
     if (!recommendations || recommendations.length === 0) {
+      recommendationMarkersRef.current.forEach((marker) => marker.remove())
+      recommendationMarkersRef.current = []
       console.log('🗺️ No recommendations to display on map')
       hasFittedBoundsRef.current = false
       lastFittedBoundsSignatureRef.current = ""
@@ -1599,24 +1597,30 @@ export default function AIRecommendationsHub({
           )
 
     if (!visibleRecommendations || visibleRecommendations.length === 0) {
-      // Clear markers and stop here (no visible markers for this filter)
+      recommendationMarkersRef.current.forEach((marker) => marker.remove())
+      recommendationMarkersRef.current = []
       console.log("🗺️ No visible recommendations for filter:", recommendationFilter)
       hasFittedBoundsRef.current = false
       lastFittedBoundsSignatureRef.current = ""
       lastRecommendationsSignatureRef.current = `filter:${recommendationFilter}|empty`
       return
     }
-    
-    // Only update if recommendations actually changed (ids + coordinates)
+
     const currentSignature =
       `filter:${recommendationFilter}|` +
       visibleRecommendations
         .map((r) => `${r.id}:${r.location?.lat}:${r.location?.lng}`)
         .sort()
         .join('|')
-    if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) return
+
+    if (currentSignature === lastRecommendationsSignatureRef.current && !shouldFitBounds) {
+      return
+    }
+
+    recommendationMarkersRef.current.forEach((marker) => marker.remove())
+    recommendationMarkersRef.current = []
     lastRecommendationsSignatureRef.current = currentSignature
-    
+
     // Calculate bounds to fit all recommendations
     const lat = location?.latitude || location?.lat
     const lng = location?.longitude || location?.lng
