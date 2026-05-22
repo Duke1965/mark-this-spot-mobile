@@ -3027,16 +3027,40 @@ export default function AIRecommendationsHub({
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
+              type="button"
               onClick={() => {
-                console.log('💾 Save button clicked - opening editable form')
-                // Prepare data and open editable form
-                setRecommendationFormData({
-                  mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
+                const savedPin: PinData = {
+                  id: Date.now().toString(),
+                  latitude: selectedRecommendation.location?.lat || 0,
+                  longitude: selectedRecommendation.location?.lng || 0,
                   locationName: selectedRecommendation.title || 'Location',
-                  placeDescription: selectedRecommendation.description || null,
-                })
+                  mediaUrl:
+                    selectedRecommendation.photoUrl ||
+                    selectedRecommendation.mediaUrl ||
+                    null,
+                  mediaType:
+                    selectedRecommendation.photoUrl ||
+                    selectedRecommendation.mediaUrl
+                      ? 'photo'
+                      : null,
+                  audioUrl: null,
+                  timestamp: new Date().toISOString(),
+                  title: selectedRecommendation.title || 'Location',
+                  description: selectedRecommendation.description || undefined,
+                  tags: [
+                    'saved',
+                    selectedRecommendation.category?.toLowerCase() || 'general',
+                  ],
+                  isRecommended: false,
+                  types: ['saved'],
+                  category: selectedRecommendation.category || 'general',
+                  isAISuggestion: selectedRecommendation.isAISuggestion || false,
+                }
+                addPin(savedPin)
                 setShowReadOnlyRecommendation(false)
-                setShowRecommendationForm(true)
+                setDetailImageUrl(null)
+                setSelectedRecommendation(null)
+                alert('Saved to library!')
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
@@ -3070,38 +3094,33 @@ export default function AIRecommendationsHub({
               💾 Save to Library
             </button>
             <button
-              onClick={() => {
-                console.log('📤 Share button clicked')
-                if (onSharePin) {
-                  const pinLike: PinData = {
-                    id: String(selectedRecommendation?.originalPinId || selectedRecommendation?.id || Date.now()),
-                    latitude: Number(selectedRecommendation?.location?.lat || 0),
-                    longitude: Number(selectedRecommendation?.location?.lng || 0),
-                    locationName: String(selectedRecommendation?.title || 'Location'),
-                    mediaUrl: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl || '/pinit-placeholder.jpg') as any,
-                    mediaType: (selectedRecommendation?.photoUrl || selectedRecommendation?.mediaUrl) ? "photo" : null,
-                    audioUrl: null,
-                    timestamp: new Date().toISOString(),
-                    title: String(selectedRecommendation?.title || 'Location'),
-                    description: selectedRecommendation?.description || undefined,
-                    tags: ["share", selectedRecommendation?.category?.toLowerCase?.() || "general"],
-                    rating: typeof selectedRecommendation?.rating === "number" ? selectedRecommendation.rating : undefined,
-                    isRecommended: !!selectedRecommendation?.isRecommended,
-                    isAISuggestion: !!selectedRecommendation?.isAISuggestion,
-                    category: selectedRecommendation?.category || "general",
+              type="button"
+              onClick={async () => {
+                const title =
+                  selectedRecommendation.title || 'Check this place out'
+                const text = `${title} — discovered on Mappo! Postcards from anywhere.`
+                const url =
+                  typeof window !== 'undefined' ? window.location.origin : ''
+                if (typeof navigator !== 'undefined' && navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: `Mappo — ${title}`,
+                      text,
+                      url,
+                    })
+                  } catch {
+                    /* user cancelled or share failed */
                   }
-                  onSharePin(pinLike)
                   return
                 }
-
-                // Fallback: keep existing editable form behavior if parent didn't provide share handler
-                setRecommendationFormData({
-                  mediaUrl: selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl || '',
-                  locationName: selectedRecommendation.title || 'Location',
-                  placeDescription: selectedRecommendation.description || null,
-                })
-                setShowReadOnlyRecommendation(false)
-                setShowRecommendationForm(true)
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  try {
+                    await navigator.clipboard.writeText(`${text}\n${url}`)
+                    alert('Link copied!')
+                  } catch {
+                    /* clipboard unavailable */
+                  }
+                }
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
