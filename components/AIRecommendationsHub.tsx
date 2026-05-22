@@ -13,7 +13,10 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
 import { getHintsEnabled } from '@/lib/hints'
-import { openGoogleMapsNavigation } from '@/lib/openGoogleMapsNavigation'
+import {
+  buildGoogleMapsSearchUrl,
+  openGoogleMapsNavigation,
+} from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 import { ArrowLeft } from 'lucide-react'
 import {
@@ -127,6 +130,31 @@ function placeIdentityKey(rec: Recommendation): string {
   }
 
   return `coord:unknown|t:${title || 'unknown'}`
+}
+
+function buildDiscoverDetailShare(rec: Recommendation) {
+  const title = rec.title || 'Check this place out'
+  const shareUrl = buildGoogleMapsSearchUrl({
+    latitude: rec.location?.lat,
+    longitude: rec.location?.lng,
+    placeName: title,
+  })
+  const shareText = `${title}\n— discovered on Mappo!\n\n${shareUrl}`
+  return { title, shareUrl, shareText }
+}
+
+const discoverDetailShareBtn: React.CSSProperties = {
+  background: 'rgba(79,59,43,0.08)',
+  border: '1px solid rgba(79,59,43,0.15)',
+  color: '#4f3b2b',
+  fontWeight: 900,
+  padding: '0.7rem 0.9rem',
+  borderRadius: 12,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }
 
 interface ClusteredPin {
@@ -281,6 +309,7 @@ export default function AIRecommendationsHub({
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
   const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
+  const [showDetailShareOptions, setShowDetailShareOptions] = useState(false)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
   const [recommendationFormData, setRecommendationFormData] = useState<{
     mediaUrl: string
@@ -1724,6 +1753,7 @@ export default function AIRecommendationsHub({
   const closeRecommendationDetail = useCallback(() => {
     setShowReadOnlyRecommendation(false)
     setDetailImageUrl(null)
+    setShowDetailShareOptions(false)
   }, [])
 
   // Detail-only: lazy Wikimedia hero when recommendation has no photo URLs
@@ -3048,17 +3078,22 @@ export default function AIRecommendationsHub({
                   title: selectedRecommendation.title || 'Location',
                   description: selectedRecommendation.description || undefined,
                   tags: [
-                    'saved',
+                    'recommendation',
                     selectedRecommendation.category?.toLowerCase() || 'general',
+                    ...(selectedRecommendation.isAISuggestion
+                      ? ['discover-ai']
+                      : ['discover']),
                   ],
-                  isRecommended: false,
-                  types: ['saved'],
+                  isRecommended: true,
+                  types: ['recommendation'],
                   category: selectedRecommendation.category || 'general',
-                  isAISuggestion: selectedRecommendation.isAISuggestion || false,
+                  isAISuggestion:
+                    selectedRecommendation.isAISuggestion || false,
                 }
                 addPin(savedPin)
                 setShowReadOnlyRecommendation(false)
                 setDetailImageUrl(null)
+                setShowDetailShareOptions(false)
                 setSelectedRecommendation(null)
                 alert('Saved to library!')
               }}
@@ -3095,33 +3130,7 @@ export default function AIRecommendationsHub({
             </button>
             <button
               type="button"
-              onClick={async () => {
-                const title =
-                  selectedRecommendation.title || 'Check this place out'
-                const text = `${title} — discovered on Mappo! Postcards from anywhere.`
-                const url =
-                  typeof window !== 'undefined' ? window.location.origin : ''
-                if (typeof navigator !== 'undefined' && navigator.share) {
-                  try {
-                    await navigator.share({
-                      title: `Mappo — ${title}`,
-                      text,
-                      url,
-                    })
-                  } catch {
-                    /* user cancelled or share failed */
-                  }
-                  return
-                }
-                if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                  try {
-                    await navigator.clipboard.writeText(`${text}\n${url}`)
-                    alert('Link copied!')
-                  } catch {
-                    /* clipboard unavailable */
-                  }
-                }
-              }}
+              onClick={() => setShowDetailShareOptions((prev) => !prev)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
                 e.currentTarget.style.transform = 'translateY(-2px)'
@@ -3154,6 +3163,92 @@ export default function AIRecommendationsHub({
               📤 Share
             </button>
           </div>
+
+          {showDetailShareOptions && (() => {
+            const { title: shareTitle, shareUrl, shareText } =
+              buildDiscoverDetailShare(selectedRecommendation)
+            return (
+              <div
+                style={{
+                  width: '100%',
+                  marginTop: 4,
+                  marginBottom: 8,
+                  background: 'rgba(255,255,255,0.72)',
+                  border: '1px solid rgba(79,59,43,0.1)',
+                  borderRadius: 16,
+                  padding: 14,
+                  backdropFilter: 'blur(12px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontWeight: 950, fontSize: '1.05rem', color: '#3a2e1e' }}>
+                  Share this place
+                </div>
+                <div
+                  style={{
+                    opacity: 0.9,
+                    lineHeight: 1.35,
+                    color: '#3a2e1e',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  Choose how to share. WhatsApp and SMS open in another app — when
+                  you&apos;re finished, return to Mappo.
+                </div>
+                <div style={{ fontWeight: 900, color: '#4f3b2b', fontSize: '0.9rem' }}>
+                  Share link
+                </div>
+                <div
+                  style={{
+                    opacity: 0.92,
+                    wordBreak: 'break-all',
+                    color: '#3a2e1e',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  {shareUrl}
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
+                    style={discoverDetailShareBtn}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    WhatsApp
+                  </a>
+                  <a
+                    href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareText)}`}
+                    style={discoverDetailShareBtn}
+                  >
+                    Email
+                  </a>
+                  <a
+                    href={`sms:?&body=${encodeURIComponent(shareText)}`}
+                    style={discoverDetailShareBtn}
+                  >
+                    SMS
+                  </a>
+                  <button
+                    type="button"
+                    style={discoverDetailShareBtn}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(shareUrl)
+                        alert('Link copied')
+                      } catch {
+                        alert('Copy failed')
+                      }
+                    }}
+                  >
+                    Copy link
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
 
