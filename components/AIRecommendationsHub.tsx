@@ -137,16 +137,22 @@ interface ClusteredPin {
   category: string
 }
 
-/** Shared hero/thumbnail image priority: photoUrl → mediaUrl → FsqImage → emoji → 📍 */
+/** List: photoUrl → mediaUrl → FsqImage → emoji → 📍. Detail adds detailImageUrl before emoji. */
 function RecommendationHeroImage({
   rec,
   variant = 'list',
+  detailImageUrl,
 }: {
   rec: Recommendation
   variant?: 'list' | 'detail'
+  detailImageUrl?: string | null
 }) {
   const isDetail = variant === 'detail'
-  const hasUrlImage = !!(rec.photoUrl || rec.mediaUrl)
+  const resolvedDetailUrl =
+    isDetail && detailImageUrl && detailImageUrl.trim().length > 0
+      ? detailImageUrl.trim()
+      : null
+  const hasUrlImage = !!(rec.photoUrl || rec.mediaUrl || resolvedDetailUrl)
 
   const containerStyle: React.CSSProperties = isDetail
     ? {
@@ -179,47 +185,35 @@ function RecommendationHeroImage({
   const fallbackEmojiSize = isDetail ? '4rem' : rec.fallbackImage ? '32px' : '20px'
   const pinEmojiSize = isDetail ? '4rem' : '20px'
 
+  const imgCoverStyle: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  }
+
+  const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.currentTarget
+    target.style.display = 'none'
+    const fallback = target.parentElement?.querySelector(
+      '.image-fallback'
+    ) as HTMLElement
+    if (fallback) fallback.style.display = 'flex'
+  }
+
+  const urlImage =
+    rec.photoUrl ? (
+      <img src={rec.photoUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
+    ) : rec.mediaUrl ? (
+      <img src={rec.mediaUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
+    ) : resolvedDetailUrl ? (
+      <img src={resolvedDetailUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
+    ) : null
+
   return (
     <div style={containerStyle}>
-      {rec.photoUrl ? (
-        <img
-          src={rec.photoUrl}
-          alt={rec.title}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            target.style.display = 'none'
-            const fallback = target.parentElement?.querySelector(
-              '.image-fallback'
-            ) as HTMLElement
-            if (fallback) fallback.style.display = 'flex'
-          }}
-        />
-      ) : rec.mediaUrl ? (
-        <img
-          src={rec.mediaUrl}
-          alt={rec.title}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            target.style.display = 'none'
-            const fallback = target.parentElement?.querySelector(
-              '.image-fallback'
-            ) as HTMLElement
-            if (fallback) fallback.style.display = 'flex'
-          }}
-        />
-      ) : rec.fsq_id ? (
+      {urlImage}
+      {!isDetail && !rec.photoUrl && !rec.mediaUrl && rec.fsq_id ? (
         <FsqImage
           fsqId={rec.fsq_id}
           lat={rec.location?.lat}
@@ -286,6 +280,7 @@ export default function AIRecommendationsHub({
   const [learningProgress, setLearningProgress] = useState<any>(null)
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
   const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
+  const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
   const [recommendationFormData, setRecommendationFormData] = useState<{
     mediaUrl: string
@@ -1728,7 +1723,71 @@ export default function AIRecommendationsHub({
 
   const closeRecommendationDetail = useCallback(() => {
     setShowReadOnlyRecommendation(false)
+    setDetailImageUrl(null)
   }, [])
+
+  // Detail-only: lazy Wikimedia hero when recommendation has no photo URLs
+  useEffect(() => {
+    if (!showReadOnlyRecommendation || !selectedRecommendation) {
+      setDetailImageUrl(null)
+      return
+    }
+
+    if (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) {
+      setDetailImageUrl(null)
+      return
+    }
+
+    const name = String(selectedRecommendation.title || '').trim()
+    if (!name) {
+      setDetailImageUrl(null)
+      return
+    }
+
+    const lat = selectedRecommendation.location?.lat
+    const lng = selectedRecommendation.location?.lng
+    const params = new URLSearchParams({ name })
+    if (typeof lat === 'number' && Number.isFinite(lat)) {
+      params.set('lat', String(lat))
+    }
+    if (typeof lng === 'number' && Number.isFinite(lng)) {
+      params.set('lng', String(lng))
+    }
+
+    let aborted = false
+    setDetailImageUrl(null)
+
+    fetch(`/api/wikimedia/resolve?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (aborted) return
+        const url =
+          typeof data?.imageUrl === 'string' ? data.imageUrl.trim() : ''
+        if (
+          url &&
+          (url.startsWith('https://') || url.startsWith('http://'))
+        ) {
+          setDetailImageUrl(url)
+        } else {
+          setDetailImageUrl(null)
+        }
+      })
+      .catch(() => {
+        if (!aborted) setDetailImageUrl(null)
+      })
+
+    return () => {
+      aborted = true
+    }
+  }, [
+    showReadOnlyRecommendation,
+    selectedRecommendation?.id,
+    selectedRecommendation?.title,
+    selectedRecommendation?.photoUrl,
+    selectedRecommendation?.mediaUrl,
+    selectedRecommendation?.location?.lat,
+    selectedRecommendation?.location?.lng,
+  ])
 
   const handleDetailHome = useCallback(() => {
     setShowReadOnlyRecommendation(false)
@@ -2856,7 +2915,11 @@ export default function AIRecommendationsHub({
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <RecommendationHeroImage rec={selectedRecommendation} variant="detail" />
+            <RecommendationHeroImage
+              rec={selectedRecommendation}
+              variant="detail"
+              detailImageUrl={detailImageUrl}
+            />
           </div>
 
           {/* Content Card */}
