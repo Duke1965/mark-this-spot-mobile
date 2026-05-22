@@ -13,6 +13,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
 import { getHintsEnabled } from '@/lib/hints'
+import { openGoogleMapsNavigation } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 import { ArrowLeft } from 'lucide-react'
 import {
@@ -2913,6 +2914,52 @@ export default function AIRecommendationsHub({
               </div>
             )}
           </div>
+
+          {Number.isFinite(Number(selectedRecommendation.location?.lat)) &&
+            Number.isFinite(Number(selectedRecommendation.location?.lng)) && (
+              <button
+                type="button"
+                onClick={() => {
+                  openGoogleMapsNavigation({
+                    latitude: Number(selectedRecommendation.location.lat),
+                    longitude: Number(selectedRecommendation.location.lng),
+                    placeName: selectedRecommendation.title,
+                  })
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.12)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.85)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.08)'
+                }}
+                style={{
+                  width: '100%',
+                  marginBottom: '20px',
+                  background: 'rgba(255,255,255,0.85)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(79,59,43,0.18)',
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  color: '#4f3b2b',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                  minHeight: '48px',
+                }}
+              >
+                🗺️ Go There
+              </button>
+            )}
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '12px' }}>
