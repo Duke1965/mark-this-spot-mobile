@@ -329,9 +329,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const [showInternalTools, setShowInternalTools] = useState(false)
   
-  // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "data" | "debug" | "complete" | "settings-menu">(
-    isReturningUser ? (user ? "settings-menu" : "login") : user ? "complete" : "welcome"
+    () => {
+      if (!isReturningUser) return user ? "complete" : "welcome"
+      return user ? "settings-menu" : "login"
+    }
   )
   const [userProfile, setUserProfile] = useState({
     name: "",
@@ -374,7 +376,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   useEffect(() => {
     if (showInternalTools) return
     if (currentStep === "data" || currentStep === "debug") {
-      setCurrentStep(user ? "complete" : "login")
+      setCurrentStep(user ? "settings-menu" : "login")
     }
   }, [currentStep, showInternalTools, user])
 
@@ -416,12 +418,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   }, [isReturningUser])
 
-  // Signed-out returning users always get the login step (not an empty account menu)
+  // Returning users opening Account: signed in → menu, signed out → login (not complete / welcome-back)
   useEffect(() => {
-    if (!user && isReturningUser) {
-      setCurrentStep("login")
-    }
-  }, [user, isReturningUser])
+    if (!isReturningUser || loading) return
+    setCurrentStep(user ? "settings-menu" : "login")
+  }, [user, isReturningUser, loading])
 
   const handleLogout = async () => {
     try {
