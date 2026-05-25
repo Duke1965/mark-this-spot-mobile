@@ -23,12 +23,6 @@ export function useLegalReturnScreen(
   useEffect(() => {
     if (authLoading) return
     if (!consumeLegalReturnToAccount()) return
-    try {
-      if (localStorage.getItem("pinit-current-screen") === "settings") {
-        setCurrentScreen("settings")
-      }
-    } catch {
-      /* ignore */
-    }
+    setCurrentScreen("settings")
   }, [authLoading, setCurrentScreen])
 }
