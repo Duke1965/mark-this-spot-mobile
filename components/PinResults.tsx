@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react"
 import { ArrowLeft, Send } from "lucide-react"
+import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import type { PinData } from "@/lib/types"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
@@ -55,7 +56,7 @@ const styles: Record<string, CSSProperties> = {
   screen: {
     position: "fixed",
     inset: 0,
-    backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+    backgroundImage: `url(${MAPPO_SUBPAGE_BG})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
