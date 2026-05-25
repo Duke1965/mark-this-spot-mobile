@@ -9,6 +9,7 @@ import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 import { hasPostcardNavigationCoords } from "@/lib/postcardLocation"
 import { isInsideMappo } from "@/lib/isInsideMappo"
+import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
@@ -332,7 +333,7 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     minHeight: "100dvh",
-    backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+    backgroundImage: `url(${MAPPO_SUBPAGE_BG})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
