@@ -3250,7 +3250,7 @@ export default function PINITApp() {
     const hasCompletedSetup = localStorage.getItem('pinit-setup-completed')
     const isReturningUser = !!(hasSeenWelcome || hasCompletedSetup)
     
-    console.log("🔧 Settings Screen Debug:", {
+    console.log("🔧 Account screen debug:", {
       hasSeenWelcome,
       hasCompletedSetup,
       isReturningUser,
@@ -4099,8 +4099,11 @@ export default function PINITApp() {
           gap: "0.5rem"
         }}
       >
-        {/* Settings Button */}
+        {/* Account */}
         <button
+          type="button"
+          aria-label="Account"
+          title="Account"
           onClick={() => setCurrentScreen("settings")}
           style={{
             padding: "0.5rem",
