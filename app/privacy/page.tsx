@@ -91,10 +91,9 @@ export default function PrivacyPage() {
           <div>This policy may be updated from time to time.</div>
 
           <div>
-            Contact:{" "}
-            <a href="mailto:support@app-titude.co" style={{ color: "white", fontWeight: 900, textDecoration: "underline" }}>
-              support@app-titude.co
-            </a>
+            Contact:
+            <br />
+            support@app-titude.com
           </div>
         </div>
       </div>
