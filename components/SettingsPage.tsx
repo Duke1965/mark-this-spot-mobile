@@ -494,6 +494,15 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   }
 
+  const showAccountHeader =
+    currentStep === "settings-menu" ||
+    (showInternalTools && (currentStep === "data" || currentStep === "debug"))
+  const showHeaderBar =
+    showAccountHeader ||
+    currentStep === "login" ||
+    currentStep === "email-login" ||
+    currentStep === "complete"
+
   const handleGoogleLogin = async () => {
     try {
       const user = await signInWithGoogle()
@@ -547,21 +556,26 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       color: "#3a2e1e",
       zIndex: 1000
     }}>
-      {/* Header */}
-      <div style={mappoHeaderBarStyle}>
-        <button type="button" onClick={handleBack} style={mappoBackButtonAbsoluteStyle}>
-          <ArrowLeft size={20} />
-          Back
-        </button>
-        <img
-          src="/brand/mappo/mappo-settings-title.png"
-          alt="Account"
-          style={mappoTitleImageStyle}
-        />
-        <p style={{ ...mappoTitleSubtitleStyle, textAlign: "center", color: "#4f3b2b" }}>
-          Legal, sign in, and sign out
-        </p>
-      </div>
+      {showHeaderBar ? (
+        <div style={mappoHeaderBarStyle}>
+          <button type="button" onClick={handleBack} style={mappoBackButtonAbsoluteStyle}>
+            <ArrowLeft size={20} />
+            Back
+          </button>
+          {showAccountHeader ? (
+            <>
+              <img
+                src="/brand/mappo/mappo-settings-title.png"
+                alt="Account"
+                style={mappoTitleImageStyle}
+              />
+              <p style={{ ...mappoTitleSubtitleStyle, textAlign: "center", color: "#4f3b2b" }}>
+                Legal, sign in, and sign out
+              </p>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
