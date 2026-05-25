@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { ArrowLeft, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
+import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import {
   mappoBackButtonAbsoluteStyle,
   mappoHeaderBarStyle,
   mappoTitleImageStyle,
+  mappoTitleSubtitleStyle,
 } from "@/lib/mappoHeaderStyles"
 import { useAuth } from "@/hooks/useAuth"
 import { auth } from "@/lib/firebase"
@@ -329,7 +331,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   
   // FIX: Check if user is already authenticated and skip to complete step
   const [currentStep, setCurrentStep] = useState<"welcome" | "login" | "email-login" | "data" | "debug" | "complete" | "settings-menu">(
-    isReturningUser ? "settings-menu" : (user ? "complete" : "welcome") // Returning users go to settings menu, authenticated users to complete, new users to welcome
+    isReturningUser ? (user ? "settings-menu" : "login") : user ? "complete" : "welcome"
   )
   const [userProfile, setUserProfile] = useState({
     name: "",
@@ -414,6 +416,13 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   }, [isReturningUser])
 
+  // Signed-out returning users always get the login step (not an empty account menu)
+  useEffect(() => {
+    if (!user && isReturningUser) {
+      setCurrentStep("login")
+    }
+  }, [user, isReturningUser])
+
   const handleLogout = async () => {
     try {
       setLogoutError(null)
@@ -432,6 +441,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         // ignore
       }
 
+      setCurrentStep("login")
       onComplete()
     } catch (e: any) {
       setLogoutError(e?.message || "Failed to log out. Please try again.")
@@ -527,7 +537,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+      backgroundImage: `url(${MAPPO_SUBPAGE_BG})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
       backgroundRepeat: "no-repeat",
@@ -545,17 +555,40 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         </button>
         <img
           src="/brand/mappo/mappo-settings-title.png"
-          alt="Settings"
+          alt="Account"
           style={mappoTitleImageStyle}
         />
+        <p style={{ ...mappoTitleSubtitleStyle, textAlign: "center", color: "#4f3b2b" }}>
+          Legal, sign in, and sign out
+        </p>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {/* Settings Menu Step - for returning users */}
+        {/* Account menu — returning users (signed in) */}
         {currentStep === "settings-menu" && (
           <div style={{ textAlign: "center", padding: "1rem 2rem 2rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
+              {!user ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep("login")}
+                  style={{
+                    background: "rgba(79,59,43,0.12)",
+                    color: "#4f3b2b",
+                    padding: "1rem",
+                    borderRadius: "0.75rem",
+                    border: "1px solid rgba(79,59,43,0.18)",
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    width: "100%",
+                  }}
+                >
+                  Sign in
+                </button>
+              ) : null}
+
               <div
                 style={{
                   background: "rgba(255,255,255,0.55)",
