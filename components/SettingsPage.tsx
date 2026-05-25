@@ -565,12 +565,12 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
           {showAccountHeader ? (
             <>
               <img
-                src="/brand/mappo/mappo-settings-title.png"
+                src="/brand/mappo/mappo-account-title.png"
                 alt="Account"
                 style={mappoTitleImageStyle}
               />
               <p style={{ ...mappoTitleSubtitleStyle, textAlign: "center", color: "#4f3b2b" }}>
-                Legal, sign in, and sign out
+                Manage your account
               </p>
             </>
           ) : null}
