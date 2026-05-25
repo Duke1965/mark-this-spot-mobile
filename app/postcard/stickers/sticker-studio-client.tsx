@@ -79,6 +79,7 @@ export default function StickerStudioClient() {
   }, [stickers])
 
   const postcardRef = useRef<HTMLDivElement>(null)
+  const stickerTrayScrollRef = useRef<HTMLDivElement>(null)
   const pointerMapRef = useRef(new Map<number, { x: number; y: number }>())
   const gestureRef = useRef<{
     stickerId: string | null
@@ -107,6 +108,11 @@ export default function StickerStudioClient() {
     startScale: 1,
     startRotation: 0,
   })
+
+  useEffect(() => {
+    const el = stickerTrayScrollRef.current
+    if (el) el.scrollLeft = 0
+  }, [category])
 
   useEffect(() => {
     try {
@@ -532,7 +538,7 @@ export default function StickerStudioClient() {
             )
           })}
         </div>
-        <div style={styles.trayRow}>
+        <div ref={stickerTrayScrollRef} style={styles.trayRow}>
           {STICKER_CATALOG.filter((s) => s.category === category).map((s) => (
             <button key={s.id} style={styles.trayBtn} onClick={() => addSticker(s)} type="button" title={s.name}>
               <img src={s.imageUrl} alt={s.name} style={styles.trayImg} draggable={false} />
