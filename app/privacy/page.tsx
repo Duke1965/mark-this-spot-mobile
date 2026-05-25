@@ -3,19 +3,13 @@
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
+import { navigateBackFromLegalPage } from "@/lib/legalPageBack"
 
 export const dynamic = "force-dynamic"
 
 export default function PrivacyPage() {
   const router = useRouter()
-  const onBack = () => {
-    try {
-      if (typeof window !== "undefined" && window.history.length > 1) router.back()
-      else router.push("/")
-    } catch {
-      router.push("/")
-    }
-  }
+  const onBack = () => navigateBackFromLegalPage(router)
 
   return (
     <div
@@ -93,7 +87,7 @@ export default function PrivacyPage() {
           <div>
             Contact:
             <br />
-            support@app-titude.com
+            support@app-titudelabs.com
           </div>
         </div>
       </div>
