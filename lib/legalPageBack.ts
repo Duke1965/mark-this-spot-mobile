@@ -33,13 +33,7 @@ export function navigateBackFromLegalPage(router: AppRouterInstance): void {
   }
 
   if (isLegalOpenedFromAccount(window.location.search)) {
-    try {
-      if (localStorage.getItem("pinit-current-screen") === "settings") {
-        markLegalReturnToAccount()
-      }
-    } catch {
-      /* ignore */
-    }
+    markLegalReturnToAccount()
     router.push("/")
     return
   }
