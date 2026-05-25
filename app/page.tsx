@@ -28,6 +28,7 @@ import { auth } from "@/lib/firebase"
 import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
+import { useLegalReturnScreen } from "@/lib/useLegalReturnScreen"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
@@ -683,6 +684,8 @@ export default function PINITApp() {
       console.error("O Failed to save app state:", error)
     }
   }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
+
+  useLegalReturnScreen(authLoading, setCurrentScreen)
 
   // Initialize pins from storage
   useEffect(() => {
