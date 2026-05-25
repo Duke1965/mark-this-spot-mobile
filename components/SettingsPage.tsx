@@ -600,10 +600,10 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
               >
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>Legal</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", opacity: 0.92 }}>
-                  <a href="/terms" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
+                  <a href="/terms?from=account" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
                     Terms of Use
                   </a>
-                  <a href="/privacy" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
+                  <a href="/privacy?from=account" style={{ color: "#4f3b2b", fontWeight: 800, textDecoration: "underline" }}>
                     Privacy Policy
                   </a>
                 </div>
@@ -870,11 +870,11 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
 
                   <div style={{ marginTop: 10, fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.35 }}>
                     By continuing, you agree to our{" "}
-                    <a href="/terms" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
+                    <a href="/terms?from=account" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
                       Terms of Use
                     </a>{" "}
                     and{" "}
-                    <a href="/privacy" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
+                    <a href="/privacy?from=account" style={{ color: "#4f3b2b", fontWeight: 900, textDecoration: "underline" }}>
                       Privacy Policy
                     </a>
                     .
