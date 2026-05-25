@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Star, X, Send } from "lucide-react"
+import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 
 interface RecommendationFormProps {
   mediaUrl: string
@@ -66,7 +67,7 @@ export function RecommendationForm({ mediaUrl, locationName, onRecommend, onSkip
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundImage: "url(/brand/mappo/mappo-home-bg.png)",
+        backgroundImage: `url(${MAPPO_SUBPAGE_BG})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
