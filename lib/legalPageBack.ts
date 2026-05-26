@@ -40,9 +40,15 @@ export function isLegalOpenedFromAccount(search: string): boolean {
 export function markLegalReturnToAccount(): void {
   try {
     sessionStorage.setItem(LEGAL_RETURN_SESSION_KEY, "1")
+    markLegalReturnSkipHomeRestore()
   } catch {
     /* ignore */
   }
+}
+
+/** True while Account should restore from Terms/Privacy Back (before menu clears skip flag). */
+export function isLegalReturnPending(): boolean {
+  return shouldSkipHomeRestoreForLegalReturn()
 }
 
 export function consumeLegalReturnToAccount(): boolean {
