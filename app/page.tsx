@@ -276,7 +276,12 @@ export default function PINITApp() {
     | "place-navigation"
     | "results"
     | "settings"
-  >("map")
+  >(() => {
+    if (typeof window !== "undefined" && shouldSkipHomeRestoreForLegalReturn()) {
+      return "settings"
+    }
+    return "map"
+  })
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
