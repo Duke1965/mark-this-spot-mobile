@@ -2,6 +2,36 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 
 export const LEGAL_FROM_ACCOUNT_PARAM = "account"
 export const LEGAL_RETURN_SESSION_KEY = "pinit-legal-return"
+/** Prevents home restore effect from forcing map after legal return until Account menu mounts. */
+export const LEGAL_SKIP_HOME_RESTORE_KEY = "pinit-legal-return-skip-restore"
+
+export function shouldSkipHomeRestoreForLegalReturn(): boolean {
+  try {
+    if (typeof window === "undefined") return false
+    return (
+      sessionStorage.getItem(LEGAL_RETURN_SESSION_KEY) === "1" ||
+      sessionStorage.getItem(LEGAL_SKIP_HOME_RESTORE_KEY) === "1"
+    )
+  } catch {
+    return false
+  }
+}
+
+export function markLegalReturnSkipHomeRestore(): void {
+  try {
+    sessionStorage.setItem(LEGAL_SKIP_HOME_RESTORE_KEY, "1")
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearLegalReturnSkipHomeRestore(): void {
+  try {
+    sessionStorage.removeItem(LEGAL_SKIP_HOME_RESTORE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 export function isLegalOpenedFromAccount(search: string): boolean {
   return new URLSearchParams(search).get("from") === LEGAL_FROM_ACCOUNT_PARAM
