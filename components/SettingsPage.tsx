@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useLayoutEffect } from "react"
+import { clearLegalReturnSkipHomeRestore } from "@/lib/legalPageBack"
 import { ArrowLeft, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import {
@@ -418,11 +419,29 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   }, [isReturningUser])
 
-  // Returning users opening Account: signed in → menu, signed out → login (not complete / welcome-back)
-  useEffect(() => {
-    if (!isReturningUser || loading) return
+  // Returning users opening Account (gear or legal return): menu if signed in, else login — never welcome-back / complete
+  const syncReturningAccountStep = () => {
+    if (!isReturningUser) return
+    if (loading) {
+      if (user) setCurrentStep("settings-menu")
+      return
+    }
     setCurrentStep(user ? "settings-menu" : "login")
+  }
+
+  useLayoutEffect(() => {
+    syncReturningAccountStep()
   }, [user, isReturningUser, loading])
+
+  useEffect(() => {
+    syncReturningAccountStep()
+  }, [user, isReturningUser, loading])
+
+  useEffect(() => {
+    if (currentStep === "settings-menu") {
+      clearLegalReturnSkipHomeRestore()
+    }
+  }, [currentStep])
 
   const handleLogout = async () => {
     try {
@@ -744,8 +763,8 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         {/* Login Step */}
         {currentStep === "login" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
-            {user ? (
-              // User is already logged in - show welcome back with logout option
+            {user && isReturningUser ? null : user ? (
+              // Onboarding only: already signed in during first-run login step
               <>
                 <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👋</div>
                 <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Welcome back, {user.displayName}!</h1>
