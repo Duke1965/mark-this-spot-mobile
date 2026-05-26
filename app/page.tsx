@@ -29,6 +29,7 @@ import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHe
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { useLegalReturnScreen } from "@/lib/useLegalReturnScreen"
+import { shouldSkipHomeRestoreForLegalReturn } from "@/lib/legalPageBack"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
@@ -550,8 +551,13 @@ export default function PINITApp() {
 
   // Removed conflicting force reset - state persistence handles initialization
 
+  useLegalReturnScreen(authLoading, setCurrentScreen)
+
   // ENHANCED STATE PERSISTENCE - Save all app state to localStorage
   useEffect(() => {
+    if (!authLoading && shouldSkipHomeRestoreForLegalReturn()) {
+      return
+    }
     // Load saved app state on mount
     try {
       const savedState = localStorage.getItem("pinit-app-state")
@@ -684,8 +690,6 @@ export default function PINITApp() {
       console.error("O Failed to save app state:", error)
     }
   }, [currentScreen, recommendations, discoveryMode, showRecommendToggle, lastActivity])
-
-  useLegalReturnScreen(authLoading, setCurrentScreen)
 
   // Initialize pins from storage
   useEffect(() => {
