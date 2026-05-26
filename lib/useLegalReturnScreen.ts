@@ -1,5 +1,9 @@
 import { useLayoutEffect, type Dispatch, type SetStateAction } from "react"
-import { consumeLegalReturnToAccount, markLegalReturnSkipHomeRestore } from "@/lib/legalPageBack"
+import {
+  consumeLegalReturnToAccount,
+  isLegalReturnPending,
+  markLegalReturnSkipHomeRestore,
+} from "@/lib/legalPageBack"
 
 type AppScreen =
   | "map"
@@ -22,7 +26,8 @@ export function useLegalReturnScreen(
 ): void {
   useLayoutEffect(() => {
     if (authLoading) return
-    if (!consumeLegalReturnToAccount()) return
+    const consumed = consumeLegalReturnToAccount()
+    if (!consumed && !isLegalReturnPending()) return
     markLegalReturnSkipHomeRestore()
     setCurrentScreen("settings")
   }, [authLoading, setCurrentScreen])
