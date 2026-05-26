@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useLayoutEffect } from "react"
-import { clearLegalReturnSkipHomeRestore, isLegalReturnPending } from "@/lib/legalPageBack"
+import { isLegalReturnPending } from "@/lib/legalPageBack"
 import { ArrowLeft, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import {
@@ -441,12 +441,6 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   useEffect(() => {
     syncReturningAccountStep()
   }, [user, isReturningUser, loading])
-
-  useEffect(() => {
-    if (currentStep === "settings-menu") {
-      clearLegalReturnSkipHomeRestore()
-    }
-  }, [currentStep])
 
   const handleLogout = async () => {
     try {
