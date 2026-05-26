@@ -1,5 +1,5 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react"
-import { consumeLegalReturnToAccount } from "@/lib/legalPageBack"
+import { consumeLegalReturnToAccount, markLegalReturnSkipHomeRestore } from "@/lib/legalPageBack"
 
 type AppScreen =
   | "map"
@@ -23,6 +23,7 @@ export function useLegalReturnScreen(
   useEffect(() => {
     if (authLoading) return
     if (!consumeLegalReturnToAccount()) return
+    markLegalReturnSkipHomeRestore()
     setCurrentScreen("settings")
   }, [authLoading, setCurrentScreen])
 }
