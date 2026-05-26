@@ -423,7 +423,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
   // Returning users opening Account (gear or legal return): menu if signed in, else login — never welcome-back / complete
   const syncReturningAccountStep = () => {
     if (!isReturningUser) return
-    if (isLegalReturnPending() && (loading || user)) {
+    if (isLegalReturnPending()) {
       setCurrentStep("settings-menu")
       return
     }
@@ -513,19 +513,14 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
     }
   }
 
-  const legalReturnPending = isLegalReturnPending()
-  const suppressLoginFlash =
-    isReturningUser && legalReturnPending && (loading || !!user)
-  const displayStep = suppressLoginFlash ? "settings-menu" : currentStep
-
   const showAccountHeader =
-    displayStep === "settings-menu" ||
-    (showInternalTools && (displayStep === "data" || displayStep === "debug"))
+    currentStep === "settings-menu" ||
+    (showInternalTools && (currentStep === "data" || currentStep === "debug"))
   const showHeaderBar =
     showAccountHeader ||
-    displayStep === "login" ||
-    displayStep === "email-login" ||
-    displayStep === "complete"
+    currentStep === "login" ||
+    currentStep === "email-login" ||
+    currentStep === "complete"
 
   const handleGoogleLogin = async () => {
     try {
@@ -604,7 +599,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {/* Account menu — returning users (signed in) */}
-        {displayStep === "settings-menu" && (
+        {currentStep === "settings-menu" && (
           <div style={{ textAlign: "center", padding: "1rem 2rem 2rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px", margin: "0 auto" }}>
               {!user ? (
@@ -722,7 +717,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Welcome Step */}
-        {displayStep === "welcome" && (
+        {currentStep === "welcome" && (
           <div
             style={{
               textAlign: "center",
@@ -765,7 +760,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Login Step */}
-        {displayStep === "login" && (
+        {currentStep === "login" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             {user && isReturningUser ? null : user ? (
               // Onboarding only: already signed in during first-run login step
@@ -924,7 +919,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Data Management Step (internal only) */}
-        {showInternalTools && displayStep === "data" && (
+        {showInternalTools && currentStep === "data" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>💾</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Data Management</h1>
@@ -1077,7 +1072,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Debug Step (internal only) */}
-        {showInternalTools && displayStep === "debug" && (
+        {showInternalTools && currentStep === "debug" && (
           <div style={{ padding: "1rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
               <Bug className="w-8 h-8 text-white" />
@@ -1155,7 +1150,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Complete Step */}
-        {displayStep === "complete" && (
+        {currentStep === "complete" && (
           <div
             style={{
               textAlign: "center",
@@ -1214,7 +1209,7 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         )}
 
         {/* Email Login Step */}
-        {displayStep === "email-login" && (
+        {currentStep === "email-login" && (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📧</div>
             <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Sign In with Email</h1>
