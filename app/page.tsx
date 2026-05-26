@@ -29,7 +29,7 @@ import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHe
 import { DataSyncManager, dataSyncManager } from "@/lib/dataSync"
 import { performNightlyMaintenance } from "@/lib/nightlyMaintenance"
 import { useLegalReturnScreen } from "@/lib/useLegalReturnScreen"
-import { shouldSkipHomeRestoreForLegalReturn } from "@/lib/legalPageBack"
+import { clearLegalReturnSkipHomeRestore, shouldSkipHomeRestoreForLegalReturn } from "@/lib/legalPageBack"
 import { decay, computeTrendingScore, daysAgo, getEventWeight } from "@/lib/trending"
 import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelApi"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
@@ -3269,10 +3269,15 @@ export default function PINITApp() {
       currentScreen
     })
     
+    const leaveAccount = () => {
+      clearLegalReturnSkipHomeRestore()
+      setCurrentScreen("map")
+    }
+
     return (
       <SettingsPage
-        onBack={() => setCurrentScreen("map")}
-        onComplete={() => setCurrentScreen("map")}
+        onBack={leaveAccount}
+        onComplete={leaveAccount}
         isReturningUser={isReturningUser}
       />
     )
