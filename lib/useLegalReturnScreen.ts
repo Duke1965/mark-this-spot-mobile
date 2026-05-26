@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react"
+import { useLayoutEffect, type Dispatch, type SetStateAction } from "react"
 import { consumeLegalReturnToAccount, markLegalReturnSkipHomeRestore } from "@/lib/legalPageBack"
 
 type AppScreen =
@@ -20,7 +20,7 @@ export function useLegalReturnScreen(
   authLoading: boolean,
   setCurrentScreen: Dispatch<SetStateAction<AppScreen>>,
 ): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (authLoading) return
     if (!consumeLegalReturnToAccount()) return
     markLegalReturnSkipHomeRestore()
