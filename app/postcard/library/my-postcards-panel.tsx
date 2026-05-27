@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { auth, firestore } from "@/lib/firebase"
-import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore"
+import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, where } from "firebase/firestore"
 
 type PostcardListItem = {
   id: string
@@ -26,6 +26,37 @@ export function MyPostcardsPanel() {
   const [items, setItems] = useState<PostcardListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDeletePostcard = useCallback(async (postcardId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm("Delete this postcard? This can't be undone.")) return
+    if (!firestore || typeof (firestore as any) !== "object") {
+      try {
+        window.alert("Could not delete postcard. Please try again.")
+      } catch {
+        // ignore
+      }
+      return
+    }
+    setDeletingId(postcardId)
+    try {
+      await deleteDoc(doc(firestore as any, "postcards", postcardId))
+      setItems((prev) => prev.filter((p) => p.id !== postcardId))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // eslint-disable-next-line no-console
+      console.error("🚨 Postcard delete failed", { postcardId, msg })
+      try {
+        window.alert(msg || "Could not delete postcard. Please try again.")
+      } catch {
+        // ignore
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }, [])
 
   useEffect(() => {
     const unsub = (auth as any)?.onAuthStateChanged?.((u: any) => {
@@ -130,25 +161,38 @@ export function MyPostcardsPanel() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {items.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => router.push(`/postcard/library/${encodeURIComponent(p.id)}`)}
-            style={styles.rowBtn}
-          >
-            <div style={styles.thumb}>
-              {p.imageUrl ? <img src={p.imageUrl} alt="" style={styles.thumbImg} draggable={false} /> : null}
-              <img src={`/postcards/${p.template}.png`} alt="" style={styles.thumbOverlay} draggable={false} />
-            </div>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={styles.rowTitle}>{p.title}</div>
-              <div style={styles.rowMeta}>{formatDate(p.createdAtIso) || "—"}</div>
-            </div>
-          </button>
+          <div key={p.id} style={styles.row}>
+            <button
+              type="button"
+              onClick={() => router.push(`/postcard/library/${encodeURIComponent(p.id)}`)}
+              style={styles.rowMain}
+            >
+              <div style={styles.thumb}>
+                {p.imageUrl ? <img src={p.imageUrl} alt="" style={styles.thumbImg} draggable={false} /> : null}
+                <img src={`/postcards/${p.template}.png`} alt="" style={styles.thumbOverlay} draggable={false} />
+              </div>
+              <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                <div style={styles.rowTitle}>{p.title}</div>
+                <div style={styles.rowMeta}>{formatDate(p.createdAtIso) || "—"}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              disabled={deletingId === p.id}
+              onClick={(e) => handleDeletePostcard(p.id, e)}
+              style={{
+                ...styles.deleteBtn,
+                opacity: deletingId === p.id ? 0.65 : 1,
+                cursor: deletingId === p.id ? "not-allowed" : "pointer",
+              }}
+            >
+              {deletingId === p.id ? "Deleting…" : "Delete"}
+            </button>
+          </div>
         ))}
       </div>
     )
-  }, [uid, loading, error, items, router])
+  }, [uid, loading, error, items, router, deletingId, handleDeletePostcard])
 
   return content
 }
@@ -165,7 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardTitle: { fontWeight: 900, fontSize: "1.05rem", marginBottom: 6 },
   cardText: { opacity: 0.75, lineHeight: 1.35 },
-  rowBtn: {
+  row: {
     width: "min(520px, 100%)",
     margin: "0 auto",
     background: "rgba(255,255,255,0.72)",
@@ -173,10 +217,33 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 16,
     padding: 12,
     display: "flex",
-    gap: 12,
+    gap: 10,
     alignItems: "center",
     color: "#3a2e1e",
+  },
+  rowMain: {
+    flex: 1,
+    minWidth: 0,
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    color: "inherit",
     cursor: "pointer",
+    textAlign: "left",
+  },
+  deleteBtn: {
+    flexShrink: 0,
+    background: "rgba(239, 68, 68, 0.12)",
+    border: "1px solid rgba(239, 68, 68, 0.3)",
+    borderRadius: 10,
+    padding: "0.45rem 0.65rem",
+    color: "#b91c1c",
+    fontSize: "0.82rem",
+    fontWeight: 900,
+    whiteSpace: "nowrap",
   },
   thumb: {
     width: 82,
