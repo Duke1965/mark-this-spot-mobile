@@ -3090,7 +3090,16 @@ export default function AIRecommendationsHub({
                   isAISuggestion:
                     selectedRecommendation.isAISuggestion || false,
                 }
-                addPin(savedPin)
+                const ok = addPin(savedPin)
+                console.log("Recommendation save result", {
+                  ok,
+                  title: savedPin.title,
+                  id: savedPin.id,
+                })
+                if (!ok) {
+                  alert("Couldn't save recommendation. Please try again.")
+                  return
+                }
                 setShowReadOnlyRecommendation(false)
                 setDetailImageUrl(null)
                 setShowDetailShareOptions(false)
