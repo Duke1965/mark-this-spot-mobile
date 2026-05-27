@@ -304,7 +304,11 @@ export default function PostcardCreatorClient() {
   }
 
   const onTakeAnotherPhoto = () => {
-    // Preserve current editor state and reopen the photo capture flow for the same template.
+    if (photoSource === "gallery") {
+      photoFileInputRef.current?.click()
+      return
+    }
+    // Camera (or legacy drafts without source): reopen Add Your Photo for same template.
     saveDraft()
     router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
   }
