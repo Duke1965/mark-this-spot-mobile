@@ -2569,7 +2569,18 @@ export default function AIRecommendationsHub({
               } else if (isShowingCluster) {
                 displayRecs = filteredRecommendations
               } else {
-                displayRecs = recommendations
+                // Normal List view: dedupe by place identity (Map groups by identity).
+                // Preserve ordering: first occurrence wins; later duplicates skipped.
+                const seen = new Set<string>()
+                displayRecs = []
+                for (const rec of recommendations) {
+                  const typeKey = rec?.isAISuggestion ? 'ai' : 'user'
+                  const identity = placeIdentityKey(rec)
+                  const key = `${typeKey}|${identity}`
+                  if (seen.has(key)) continue
+                  seen.add(key)
+                  displayRecs.push(rec)
+                }
               }
               
               return displayRecs.length > 0 ? (
