@@ -227,6 +227,56 @@ export default function PostcardNewClient() {
         zIndex: 1000,
       }}
     >
+      {isNormalizing ? (
+        <div
+          aria-live="polite"
+          aria-busy="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9000,
+            background: "rgba(238, 248, 244, 0.88)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1.25rem",
+          }}
+        >
+          <div
+            style={{
+              width: "min(420px, 92vw)",
+              background: "rgba(255,255,255,0.92)",
+              border: "1px solid rgba(79,59,43,0.12)",
+              borderRadius: 16,
+              padding: 16,
+              color: "#3a2e1e",
+              boxShadow: "0 18px 60px rgba(0,0,0,0.12)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                border: "3px solid rgba(79,59,43,0.14)",
+                borderTop: "3px solid #4f3b2b",
+                borderRadius: "50%",
+                animation: "mappoSpin 1s linear infinite",
+              }}
+            />
+            <div style={{ fontWeight: 950, fontSize: "1.02rem" }}>Preparing your photo…</div>
+            <div style={{ opacity: 0.85, fontWeight: 750, fontSize: "0.92rem", lineHeight: 1.3 }}>
+              Loading your photo into the postcard…
+            </div>
+          </div>
+          <style>{`@keyframes mappoSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : null}
       {draftPromptOpen ? (
         <div
           role="dialog"
