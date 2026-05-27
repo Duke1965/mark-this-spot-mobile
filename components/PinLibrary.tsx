@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Search, Filter, Plus, Share2, Edit3, Trash2, Camera, Video, MapPin, Star, Calendar } from "lucide-react"
 import type { PinData } from "@/lib/types"
 import { MyPostcardsPanel } from "@/app/postcard/library/my-postcards-panel"
@@ -11,6 +11,17 @@ import {
   mappoHeaderBarStyle,
   mappoTitleImageStyle,
 } from "@/lib/mappoHeaderStyles"
+
+const POSTCARD_DRAFT_KEY = "pinit-postcard-draft-v1"
+const ALLOWED_DRAFT_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
+
+type LocalPostcardDraft = {
+  template: string
+  imageUrl?: string
+  noPhoto?: boolean
+  message?: string
+  source?: "camera" | "gallery"
+}
 
 // Helper to get display title with fallback
 function getDisplayTitle(pin: PinData): string {
@@ -34,6 +45,65 @@ interface PinLibraryProps {
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentTab, setCurrentTab] = useState<"pins" | "postcards" | "recommended">("pins")
+  const [localDraft, setLocalDraft] = useState<LocalPostcardDraft | null>(null)
+
+  const readLocalDraft = () => {
+    try {
+      if (typeof window === "undefined") return null
+      const raw = sessionStorage.getItem(POSTCARD_DRAFT_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as any
+      const template = typeof parsed?.template === "string" ? parsed.template.trim() : ""
+      if (!ALLOWED_DRAFT_TEMPLATES.has(template)) return null
+      const hasImage = typeof parsed?.imageUrl === "string" && parsed.imageUrl.length > 20
+      const hasNoPhoto = typeof parsed?.noPhoto === "boolean" && parsed.noPhoto === true
+      if (!hasImage && !hasNoPhoto) return null
+      const draft: LocalPostcardDraft = {
+        template,
+        ...(hasImage ? { imageUrl: String(parsed.imageUrl) } : null),
+        ...(typeof parsed?.noPhoto === "boolean" ? { noPhoto: parsed.noPhoto } : null),
+        ...(typeof parsed?.message === "string" ? { message: String(parsed.message) } : null),
+        ...(parsed?.source === "camera" || parsed?.source === "gallery" ? { source: parsed.source } : null),
+      }
+      return draft
+    } catch {
+      return null
+    }
+  }
+
+  useEffect(() => {
+    // Keep this local-only; drafts live in sessionStorage.
+    if (currentTab !== "postcards") return
+    setLocalDraft(readLocalDraft())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTab])
+
+  const draftThumbSrc = useMemo(() => {
+    const url = localDraft?.imageUrl
+    if (typeof url !== "string") return null
+    // Avoid rendering extremely large base64 URLs in the library list.
+    if (url.startsWith("data:image/") && url.length < 350_000) return url
+    return null
+  }, [localDraft?.imageUrl])
+
+  const resumeDraft = () => {
+    const t = localDraft?.template
+    if (!t) return
+    try {
+      window.location.href = `/postcard/editor?template=${encodeURIComponent(t)}`
+    } catch {
+      // ignore
+    }
+  }
+
+  const discardDraft = () => {
+    try {
+      sessionStorage.removeItem(POSTCARD_DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+    setLocalDraft(null)
+  }
 
   // Match the Recommendations list button styling.
   const removeBtnStyle: React.CSSProperties = {
@@ -641,7 +711,98 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {currentTab === "postcards" ? (
-          <MyPostcardsPanel />
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {localDraft ? (
+              <div style={{ width: "min(520px, 100%)", margin: "0 auto" }}>
+                <div style={{ fontWeight: 950, fontSize: "0.95rem", marginBottom: 8, opacity: 0.92 }}>Drafts</div>
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.82)",
+                    border: "1px solid rgba(79,59,43,0.12)",
+                    borderRadius: 16,
+                    padding: 12,
+                    backdropFilter: "blur(12px)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 82,
+                      height: 56,
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      position: "relative",
+                      background: "rgba(0,0,0,0.06)",
+                      border: "1px solid rgba(79,59,43,0.1)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {draftThumbSrc ? (
+                      <img
+                        src={draftThumbSrc}
+                        alt=""
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                        draggable={false}
+                      />
+                    ) : null}
+                    <img
+                      src={`/postcards/${localDraft.template}.png`}
+                      alt=""
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.95 }}
+                      draggable={false}
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 950, fontSize: "1.02rem" }}>Postcard Draft</div>
+                    <div style={{ opacity: 0.78, marginTop: 4, lineHeight: 1.25 }}>You have an unfinished postcard.</div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={resumeDraft}
+                      style={{
+                        background: "rgba(79,59,43,0.1)",
+                        border: "1px solid rgba(79,59,43,0.15)",
+                        borderRadius: 12,
+                        padding: "0.55rem 0.7rem",
+                        color: "#4f3b2b",
+                        fontSize: "0.85rem",
+                        fontWeight: 950,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Resume Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={discardDraft}
+                      style={{
+                        background: "rgba(239, 68, 68, 0.12)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        borderRadius: 12,
+                        padding: "0.5rem 0.7rem",
+                        color: "#b91c1c",
+                        fontSize: "0.82rem",
+                        fontWeight: 900,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Discard Draft
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <MyPostcardsPanel />
+          </div>
         ) : filteredData.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
