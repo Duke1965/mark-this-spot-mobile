@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ImageMinus, ImageUp } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
@@ -49,6 +49,7 @@ export default function PostcardCreatorClient() {
   const [isReplacingPhoto, setIsReplacingPhoto] = useState(false)
   const [photoSource, setPhotoSource] = useState<DraftSource | null>(null)
   const photoFileInputRef = useRef<HTMLInputElement>(null)
+  const photoImgRef = useRef<HTMLImageElement | null>(null)
 
   const replacePhotoLabel =
     photoSource === "gallery" ? "Choose another photo" : "Take another photo"
@@ -136,17 +137,35 @@ export default function PostcardCreatorClient() {
     }
   }, [])
 
-  useEffect(() => {
+  const clearPhotoLoadingIfReady = () => {
+    const img = photoImgRef.current
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsPhotoLoading(false)
+      return true
+    }
+    return false
+  }
+
+  // Show overlay while the user photo decodes; clear when img.complete (data URLs often
+  // finish before onLoad is attached) or via onLoad / fallback timeout.
+  useLayoutEffect(() => {
     if (noPhoto || imageFailed) {
       setIsPhotoLoading(false)
       return
     }
-    if (typeof imageUrl === "string" && imageUrl.length > 20) {
-      setIsPhotoLoading(true)
-    } else {
+    if (typeof imageUrl !== "string" || imageUrl.length <= 20) {
       setIsPhotoLoading(false)
+      return
     }
+    setIsPhotoLoading(true)
+    clearPhotoLoadingIfReady()
   }, [imageUrl, noPhoto, imageFailed])
+
+  useEffect(() => {
+    if (!isPhotoLoading) return
+    const id = window.setTimeout(() => setIsPhotoLoading(false), 4000)
+    return () => window.clearTimeout(id)
+  }, [isPhotoLoading, imageUrl])
 
   // If the URL lost its template param (e.g. refresh), recover it from draft.
   useEffect(() => {
@@ -519,6 +538,7 @@ export default function PostcardCreatorClient() {
                 {imageUrl && !noPhoto && !imageFailed ? (
                   <>
                     <img
+                      ref={photoImgRef}
                       src={imageUrl}
                       alt="Postcard background"
                       style={{
