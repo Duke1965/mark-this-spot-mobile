@@ -32,6 +32,7 @@ export default function PostcardCreatorClient() {
   const [noPhoto, setNoPhoto] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
   const [templateFailed, setTemplateFailed] = useState(false)
+  const [isPhotoLoading, setIsPhotoLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [showPhotoGestureHint, setShowPhotoGestureHint] = useState(false)
   const [hintsEnabled, setHintsEnabled] = useState(true)
@@ -127,6 +128,18 @@ export default function PostcardCreatorClient() {
       // ignore
     }
   }, [])
+
+  useEffect(() => {
+    if (noPhoto || imageFailed) {
+      setIsPhotoLoading(false)
+      return
+    }
+    if (typeof imageUrl === "string" && imageUrl.length > 20) {
+      setIsPhotoLoading(true)
+    } else {
+      setIsPhotoLoading(false)
+    }
+  }, [imageUrl, noPhoto, imageFailed])
 
   // If the URL lost its template param (e.g. refresh), recover it from draft.
   useEffect(() => {
@@ -495,25 +508,78 @@ export default function PostcardCreatorClient() {
                 style={styles.photoStage}
               >
                 {imageUrl && !noPhoto && !imageFailed ? (
-                  <img
-                    src={imageUrl}
-                    alt="Postcard background"
-                    style={{
-                      ...styles.bgImage,
-                      transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
-                    }}
-                    onLoad={(e) => {
-                      const img = e.currentTarget
-                      // eslint-disable-next-line no-console
-                      console.log("🧪 EditorDebug image:onLoad", debugIdRef.current, {
-                        srcPrefix: String(img.currentSrc || img.src || "").slice(0, 80),
-                        naturalWidth: img.naturalWidth,
-                        naturalHeight: img.naturalHeight,
-                      })
-                    }}
-                    onError={() => setImageFailed(true)}
-                    draggable={false}
-                  />
+                  <>
+                    <img
+                      src={imageUrl}
+                      alt="Postcard background"
+                      style={{
+                        ...styles.bgImage,
+                        transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale}) rotate(${rotation}deg)`,
+                      }}
+                      onLoad={(e) => {
+                        setIsPhotoLoading(false)
+                        const img = e.currentTarget
+                        // eslint-disable-next-line no-console
+                        console.log("🧪 EditorDebug image:onLoad", debugIdRef.current, {
+                          srcPrefix: String(img.currentSrc || img.src || "").slice(0, 80),
+                          naturalWidth: img.naturalWidth,
+                          naturalHeight: img.naturalHeight,
+                        })
+                      }}
+                      onError={() => {
+                        setIsPhotoLoading(false)
+                        setImageFailed(true)
+                      }}
+                      draggable={false}
+                    />
+                    {isPhotoLoading ? (
+                      <div
+                        aria-live="polite"
+                        aria-busy="true"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(255,255,255,0.55)",
+                          backdropFilter: "blur(6px)",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "0.85rem 0.95rem",
+                            borderRadius: 14,
+                            border: "1px solid rgba(79,59,43,0.12)",
+                            background: "rgba(255,255,255,0.82)",
+                            boxShadow: "0 10px 35px rgba(0,0,0,0.10)",
+                            color: "#3a2e1e",
+                            textAlign: "center",
+                            maxWidth: "90%",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 34,
+                              height: 34,
+                              border: "3px solid rgba(79,59,43,0.14)",
+                              borderTop: "3px solid #4f3b2b",
+                              borderRadius: "50%",
+                              animation: "mappoSpin 1s linear infinite",
+                            }}
+                          />
+                          <div style={{ fontWeight: 950, fontSize: "0.98rem" }}>Preparing your photo…</div>
+                        </div>
+                        <style>{`@keyframes mappoSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <div style={styles.bgPlaceholder}>
                     <div style={{ opacity: 0.82, fontWeight: 800 }}>No photo selected</div>
