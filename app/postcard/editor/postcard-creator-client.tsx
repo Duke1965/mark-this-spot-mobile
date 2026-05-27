@@ -15,6 +15,7 @@ const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "te
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 40
 const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
+type DraftSource = "camera" | "gallery"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
@@ -46,7 +47,11 @@ export default function PostcardCreatorClient() {
   const [rotation, setRotation] = useState(0) // degrees
 
   const [isReplacingPhoto, setIsReplacingPhoto] = useState(false)
+  const [photoSource, setPhotoSource] = useState<DraftSource | null>(null)
   const photoFileInputRef = useRef<HTMLInputElement>(null)
+
+  const replacePhotoLabel =
+    photoSource === "gallery" ? "Choose another photo" : "Take another photo"
 
   const debugIdRef = useRef<string>("")
   const lastLogRef = useRef<number>(0)
@@ -113,9 +118,11 @@ export default function PostcardCreatorClient() {
         imageUrl?: string
         noPhoto?: boolean
         message?: string
+        source?: DraftSource
         transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
       }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
+      if (parsed?.source === "camera" || parsed?.source === "gallery") setPhotoSource(parsed.source)
       if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
       if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
       if (parsed?.transform) {
@@ -294,10 +301,12 @@ export default function PostcardCreatorClient() {
       setNoPhoto(false)
       setImageFailed(false)
       setImageUrl(normalized)
+      setPhotoSource("gallery")
       resetTransformDefaults()
       updateDraft({
         imageUrl: normalized,
         noPhoto: false,
+        source: "gallery",
         message,
         transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
       })
@@ -693,7 +702,7 @@ export default function PostcardCreatorClient() {
               />
               <div style={styles.photoActionsRow}>
                 <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Take another photo"}
+                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : replacePhotoLabel}
                 </button>
                 {!noPhoto && imageUrl ? (
                   <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
@@ -721,7 +730,7 @@ export default function PostcardCreatorClient() {
             />
             <div style={styles.photoActionsRow}>
               <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : "Take another photo"}
+                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : replacePhotoLabel}
               </button>
               {!noPhoto && imageUrl ? (
                 <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
