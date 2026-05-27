@@ -21,6 +21,7 @@ import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 import { ArrowLeft } from 'lucide-react'
 import {
   mappoBackButtonAbsoluteStyle,
+  mappoBackButtonStyle,
   mappoHeaderBarStyle,
   mappoTitleImageStyle,
   mappoTitleSubtitleStyle,
@@ -2919,19 +2920,10 @@ export default function AIRecommendationsHub({
             <button
               type="button"
               onClick={closeRecommendationDetail}
-              style={{
-                background: 'rgba(255,255,255,0.7)',
-                border: '1px solid rgba(79,59,43,0.12)',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                color: '#4f3b2b',
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                backdropFilter: 'blur(10px)',
-                flexShrink: 0,
-              }}
+              style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
             >
-              ← Back
+              <ArrowLeft size={20} />
+              Back
             </button>
             <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#3a2e1e', textAlign: 'center', flex: 1 }}>
               {selectedRecommendation.isAISuggestion ? '🤖 AI Recommendation' : '👤 User Recommendation'}
@@ -2939,17 +2931,7 @@ export default function AIRecommendationsHub({
             <button
               type="button"
               onClick={handleDetailHome}
-              style={{
-                background: 'rgba(255,255,255,0.7)',
-                border: '1px solid rgba(79,59,43,0.12)',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                color: '#4f3b2b',
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                backdropFilter: 'blur(10px)',
-                flexShrink: 0,
-              }}
+              style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
             >
               Home
             </button>
