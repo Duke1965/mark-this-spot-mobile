@@ -330,29 +330,6 @@ export default function PreviewClient() {
         zIndex: 1000,
       }}
     >
-      {showSent && (
-        <div
-          style={{
-            position: "fixed",
-            left: "50%",
-            top: "14px",
-            transform: "translateX(-50%)",
-            zIndex: 2000,
-            background: "rgba(255,255,255,0.85)",
-            border: "1px solid rgba(79,59,43,0.12)",
-            color: "#3a2e1e",
-            padding: "10px 14px",
-            borderRadius: 999,
-            fontWeight: 950,
-            backdropFilter: "blur(12px)",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-          }}
-          role="status"
-          aria-live="polite"
-        >
-          Postcard Created
-        </div>
-      )}
       <div
         style={{
           padding: "1rem",
