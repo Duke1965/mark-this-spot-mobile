@@ -3538,80 +3538,91 @@ export default function PINITApp() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-                  <div>
-                    <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--pinit-fg)" }}>
-                      We found this place
-                    </div>
-                    <div style={{ fontSize: "0.875rem", opacity: 0.9, color: "var(--pinit-fg)", marginTop: "0.25rem" }}>
-                      Maps aren’t always perfect. If this doesn’t look right, move the pin slightly or search for the correct name.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      // Treat as "Adjust pin"
-                      setPinConfirmOpen(false)
-                      setPinConfirmStage('idle')
-                      setPinConfirmPayload(null)
-                      setPinConfirmSearchOpen(false)
-                      setPinConfirmSearchResults([])
-                      lastDoneLocationRef.current = null
-                    }}
-                    style={{
-                      background: "var(--pinit-btn)",
-                      color: "var(--pinit-fg)",
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "0.75rem",
-                      border: "1px solid var(--pinit-btn-border)",
-                      cursor: "pointer",
-                      fontWeight: 700
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
+                {(() => {
+                  const v2 = pinConfirmPayload?.pinIntelV2
+                  const place = v2?.place
+                  const resolvedTitle = String(v2?.title || place?.name || '').trim()
+                  const resolvedAddress = String(place?.address || '').trim()
+                  const resolvedCategory = String(place?.category || '').trim()
+                  const confidence = typeof place?.confidence === 'number' ? place.confidence : undefined
+                  const ok =
+                    pinConfirmStage !== 'finding' &&
+                    !!resolvedTitle &&
+                    (confidence == null || confidence >= 0.8)
+                  const expected =
+                    pinConfirmPayload?.overrideHint ||
+                    pinConfirmPayload?.searchTerm ||
+                    pinConfirmPayload?.useSelectedPOI?.name ||
+                    editingPin?.title
+                  const mismatch = looksDifferent(expected, resolvedTitle)
 
-                <div style={{ marginTop: "1rem" }}>
-                  {pinConfirmStage === 'finding' && (
-                    <div style={{ color: "#3a2e1e", opacity: 0.85, padding: "0.75rem 0" }}>
-                      ⏳ Finding place…
-                    </div>
-                  )}
-
-                  {pinConfirmStage !== 'finding' && (
+                  return (
                     <>
-                      {(() => {
-                        const v2 = pinConfirmPayload?.pinIntelV2
-                        const place = v2?.place
-                        const resolvedTitle = String(v2?.title || place?.name || '').trim()
-                        const resolvedAddress = String(place?.address || '').trim()
-                        const resolvedCategory = String(place?.category || '').trim()
-                        const confidence = typeof place?.confidence === 'number' ? place.confidence : undefined
-                        const ok = !!resolvedTitle && (confidence == null || confidence >= 0.8)
-                        const expected = pinConfirmPayload?.overrideHint || pinConfirmPayload?.searchTerm || pinConfirmPayload?.useSelectedPOI?.name || editingPin?.title
-                        const mismatch = looksDifferent(expected, resolvedTitle)
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {ok ? (
+                            <>
+                              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--pinit-fg)" }}>
+                                We found this place
+                              </div>
+                              <div style={{ fontSize: "0.875rem", opacity: 0.9, color: "var(--pinit-fg)", marginTop: "0.25rem" }}>
+                                Maps aren’t always perfect. If this doesn’t look right, move the pin slightly or search for the correct name.
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setPinConfirmOpen(false)
+                            setPinConfirmStage('idle')
+                            setPinConfirmPayload(null)
+                            setPinConfirmSearchOpen(false)
+                            setPinConfirmSearchResults([])
+                            lastDoneLocationRef.current = null
+                          }}
+                          style={{
+                            background: "var(--pinit-btn)",
+                            color: "var(--pinit-fg)",
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "0.75rem",
+                            border: "1px solid var(--pinit-btn-border)",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                            flexShrink: 0,
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
 
-                        return (
+                      <div style={{ marginTop: ok || pinConfirmStage === 'finding' ? "1rem" : "0.5rem" }}>
+                        {pinConfirmStage === 'finding' && (
+                          <div style={{ color: "#3a2e1e", opacity: 0.85, padding: "0.75rem 0" }}>
+                            ⏳ Finding place…
+                          </div>
+                        )}
+
+                        {pinConfirmStage !== 'finding' && (
                           <div
                             style={{
                               background: "rgba(255,255,255,0.55)",
                               border: "1px solid rgba(79,59,43,0.1)",
                               borderRadius: "1rem",
                               padding: "1rem",
-                              color: "#3a2e1e"
+                              color: "#3a2e1e",
                             }}
                           >
                             {ok ? (
                               <>
-                                <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>
-                                  {resolvedTitle}
-                                </div>
+                                <div style={{ fontSize: "1.125rem", fontWeight: 800 }}>{resolvedTitle}</div>
                                 {(resolvedAddress || resolvedCategory) && (
                                   <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", opacity: 0.95, lineHeight: 1.35 }}>
                                     {resolvedAddress ? <div>{resolvedAddress}</div> : null}
-                                    {resolvedCategory ? <div style={{ marginTop: resolvedAddress ? "0.25rem" : 0, opacity: 0.9 }}>
-                                      {resolvedCategory}
-                                    </div> : null}
+                                    {resolvedCategory ? (
+                                      <div style={{ marginTop: resolvedAddress ? "0.25rem" : 0, opacity: 0.9 }}>
+                                        {resolvedCategory}
+                                      </div>
+                                    ) : null}
                                   </div>
                                 )}
                                 {mismatch && (
@@ -3631,11 +3642,11 @@ export default function PINITApp() {
                               </>
                             )}
                           </div>
-                        )
-                      })()}
+                        )}
+                      </div>
                     </>
-                  )}
-                </div>
+                  )
+                })()}
 
                 {/* Search instead */}
                 {pinConfirmStage !== 'finding' && pinConfirmSearchOpen && (
