@@ -279,6 +279,8 @@ function RecommendationHeroImage({
 
 interface AIRecommendationsHubProps {
   onBack: () => void
+  /** Parent popstate: return true if back was consumed (e.g. detail overlay closed). */
+  onRegisterSystemBack?: (handler: (() => boolean) | null) => void
   userLocation?: any
   // NEW: Receive recommendations from parent component
   initialRecommendations?: Recommendation[]
@@ -293,6 +295,7 @@ interface AIRecommendationsHubProps {
 
 export default function AIRecommendationsHub({ 
   onBack, 
+  onRegisterSystemBack,
   userLocation, 
   initialRecommendations,
   onSharePin,
@@ -1756,6 +1759,18 @@ export default function AIRecommendationsHub({
     setDetailImageUrl(null)
     setShowDetailShareOptions(false)
   }, [])
+
+  useEffect(() => {
+    if (!onRegisterSystemBack) return
+    onRegisterSystemBack(() => {
+      if (showReadOnlyRecommendation) {
+        closeRecommendationDetail()
+        return true
+      }
+      return false
+    })
+    return () => onRegisterSystemBack(null)
+  }, [onRegisterSystemBack, showReadOnlyRecommendation, closeRecommendationDetail])
 
   // Detail-only: lazy Wikimedia hero when recommendation has no photo URLs
   useEffect(() => {
