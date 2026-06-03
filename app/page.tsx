@@ -4165,9 +4165,9 @@ export default function PINITApp() {
             marginBottom: "0.85rem",
             fontSize: "1.05rem",
             fontWeight: 900,
-            color: MAPPO_HOME_TEXT_COLOR,
+            color: "#0F8F87",
             letterSpacing: "0.25px",
-            textShadow: "0 1px 8px rgba(255,255,255,0.65)",
+            textShadow: "0 1px 6px rgba(255,255,255,0.55)",
             pointerEvents: "none",
           }}
         >
@@ -4245,7 +4245,7 @@ export default function PINITApp() {
             width: "250px",
             height: "250px",
             borderRadius: "50%",
-            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "4px solid rgba(199, 238, 229, 0.88)",
+            border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "3px solid rgba(199, 238, 229, 0.88)",
             background: "rgba(238, 248, 244, 0.18)",
             cursor: isQuickPinning ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
@@ -4279,15 +4279,15 @@ export default function PINITApp() {
           <div
             style={{
               position: "absolute",
-              inset: "6px",
+              inset: "2px",
               borderRadius: "50%",
               zIndex: 1,
               background: "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "2px",
               boxSizing: "border-box",
+              overflow: "visible",
             }}
           >
             <img
@@ -4295,10 +4295,10 @@ export default function PINITApp() {
               alt=""
               draggable={false}
               style={{
-                width: "100%",
-                height: "100%",
-                maxWidth: "100%",
-                maxHeight: "100%",
+                width: "105%",
+                height: "105%",
+                maxWidth: "105%",
+                maxHeight: "105%",
                 objectFit: "contain",
                 pointerEvents: "none",
               }}
