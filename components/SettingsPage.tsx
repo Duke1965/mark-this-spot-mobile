@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useLayoutEffect } from "react"
+import { useState, useEffect, useLayoutEffect, useRef } from "react"
 import { isLegalReturnPending } from "@/lib/legalPageBack"
 import { ArrowLeft, LogOut, Bug, AlertTriangle, Trash2 } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
@@ -55,6 +55,8 @@ interface SettingsPageProps {
   onBack: () => void
   onComplete: () => void
   isReturningUser: boolean
+  /** Parent popstate: mirror visible Back (step-aware). */
+  onRegisterSystemBack?: (handler: (() => boolean) | null) => void
 }
 
 // Factory Reset Dialog Component
@@ -323,7 +325,7 @@ function FactoryResetDialog() {
   )
 }
 
-export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPageProps) {
+export function SettingsPage({ onBack, onComplete, isReturningUser, onRegisterSystemBack }: SettingsPageProps) {
   const { user, loading, error, signInWithGoogle, signInWithFacebook, signOutUser } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [tipsEnabled, setTipsEnabled] = useState(true)
@@ -512,6 +514,18 @@ export function SettingsPage({ onBack, onComplete, isReturningUser }: SettingsPa
         onBack()
     }
   }
+
+  const handleBackRef = useRef(handleBack)
+  handleBackRef.current = handleBack
+
+  useEffect(() => {
+    if (!onRegisterSystemBack) return
+    onRegisterSystemBack(() => {
+      handleBackRef.current()
+      return true
+    })
+    return () => onRegisterSystemBack(null)
+  }, [onRegisterSystemBack])
 
   const showAccountHeader =
     currentStep === "settings-menu" ||
