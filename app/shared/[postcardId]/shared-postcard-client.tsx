@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { getTemplateConfig } from "@/app/postcard/editor/template-config"
 import { Caveat } from "next/font/google"
-import { getHintsEnabled } from "@/lib/hints"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
 import { hasPostcardNavigationCoords } from "@/lib/postcardLocation"
@@ -38,55 +37,19 @@ export type SharedPostcardData = {
   transform: { tx?: number; ty?: number; scale?: number; rotation?: number }
 }
 
-const ORIENTATION_HINT_KEY = "pinit-shared-rotate-hint-v1"
 const BASE_POSTCARD_W = 420
 const BASE_POSTCARD_H = 280
 const MAX_MESSAGE_LEN = 60
 
 export default function SharedPostcardClient({ data }: { data: SharedPostcardData }) {
   const templateConfig = useMemo(() => getTemplateConfig(data.template), [data.template])
-  const [isLandscape, setIsLandscape] = useState(false)
-  const [showHint, setShowHint] = useState(false)
-  const [hintsEnabled, setHintsEnabled] = useState(true)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [compositionScale, setCompositionScale] = useState(1)
   const [insideMappo, setInsideMappo] = useState(false)
 
   useEffect(() => {
-    setHintsEnabled(getHintsEnabled())
-  }, [])
-
-  useEffect(() => {
     setInsideMappo(isInsideMappo())
   }, [])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const mql = window.matchMedia?.("(orientation: landscape)")
-    const update = () => setIsLandscape(!!mql?.matches)
-    update()
-    if (!mql) return
-    if (typeof mql.addListener === "function") mql.addListener(update)
-    else mql.addEventListener?.("change", update)
-    return () => {
-      if (typeof mql.removeListener === "function") mql.removeListener(update)
-      else mql.removeEventListener?.("change", update)
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return
-      if (!hintsEnabled) return
-      if (isLandscape) return
-      if (sessionStorage.getItem(ORIENTATION_HINT_KEY)) return
-      sessionStorage.setItem(ORIENTATION_HINT_KEY, "1")
-      setShowHint(true)
-      return
-    } catch {
-      return
-    }
-  }, [isLandscape, hintsEnabled])
 
   useEffect(() => {
     const el = viewportRef.current
@@ -118,70 +81,16 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
   )
 
   return (
-    <div
-      style={{
-        ...styles.screen,
-        ...(isLandscape
-          ? {
-              padding: "0.75rem",
-              justifyContent: "center",
-            }
-          : null),
-      }}
-    >
-      {!isLandscape ? (
-        <div style={styles.header}>
-          <Link href="/" style={styles.homeBtn}>← Home</Link>
-          <div style={styles.headerTitle}>Shared Postcard</div>
-          <div style={{ width: 60 }} />
-        </div>
-      ) : null}
+    <div style={styles.screen}>
+      <div style={styles.header}>
+        <Link href="/" style={styles.homeBtn}>← Home</Link>
+        <div style={styles.headerTitle}>Shared Postcard</div>
+        <div style={{ width: 60 }} />
+      </div>
 
-      {showHint && !isLandscape ? (
-        <div style={styles.hint} role="status" aria-live="polite">
-          <div style={styles.hintTopRow}>
-            <div style={styles.hintLabel}>💡 Hint</div>
-            <button type="button" onClick={() => setShowHint(false)} style={styles.hintHideBtn} aria-label="Hide tip">
-              Hide
-            </button>
-          </div>
-          <div style={styles.hintText}>Rotate your phone for immersive postcard view</div>
-        </div>
-      ) : null}
-
-      <div
-        style={{
-          ...styles.content,
-          ...(isLandscape
-            ? {
-                padding: 0,
-                gap: "0.75rem",
-              }
-            : null),
-        }}
-      >
-        <div
-          style={{
-            ...styles.postcardWrap,
-            ...(isLandscape
-              ? {
-                  width: "100%",
-                }
-              : null),
-          }}
-        >
-          <div
-            style={{
-              ...styles.postcardViewport,
-              ...(isLandscape
-                ? {
-                    maxWidth: "min(94vw, 980px)",
-                    boxShadow: "0 22px 80px rgba(0,0,0,0.45)",
-                  }
-                : null),
-            }}
-            ref={viewportRef}
-          >
+      <div style={styles.content}>
+        <div style={styles.postcardWrap}>
+          <div style={styles.postcardViewport} ref={viewportRef}>
             <div
               style={{
                 ...styles.postcardStage,
@@ -266,65 +175,32 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
           </div>
         </div>
 
-        {!isLandscape ? (
-          <>
-            <div style={styles.metaCard}>
-              <div style={styles.metaTitle}>{data.title}</div>
-              <div style={styles.metaDesc}>{displayDescription}</div>
-            </div>
+        <div style={styles.metaCard}>
+          <div style={styles.metaTitle}>{data.title}</div>
+          <div style={styles.metaDesc}>{displayDescription}</div>
+        </div>
 
-            {hasPostcardNavigationCoords(data.latitude, data.longitude) ? (
-              <button
-                type="button"
-                style={styles.goThere}
-                onClick={() =>
-                  openGoogleMapsNavigation({
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    placeName: data.locationName?.trim() || String(data.title || "").trim(),
-                  })
-                }
-              >
-                Go there
-              </button>
-            ) : null}
+        {hasPostcardNavigationCoords(data.latitude, data.longitude) ? (
+          <button
+            type="button"
+            style={styles.goThere}
+            onClick={() =>
+              openGoogleMapsNavigation({
+                latitude: data.latitude,
+                longitude: data.longitude,
+                placeName: data.locationName?.trim() || String(data.title || "").trim(),
+              })
+            }
+          >
+            Go there
+          </button>
+        ) : null}
 
-            {!insideMappo ? (
-              <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
-                Get Mappo to reply
-              </Link>
-            ) : null}
-          </>
-        ) : (
-          <div style={styles.landscapeFooter}>
-            <div style={styles.landscapeMeta}>
-              <div style={styles.landscapeTitle}>{data.title}</div>
-              <div style={styles.landscapeDesc}>{displayDescription}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-              {hasPostcardNavigationCoords(data.latitude, data.longitude) ? (
-                <button
-                  type="button"
-                  style={styles.landscapeGoThere}
-                  onClick={() =>
-                    openGoogleMapsNavigation({
-                      latitude: data.latitude,
-                      longitude: data.longitude,
-                      placeName: data.locationName?.trim() || String(data.title || "").trim(),
-                    })
-                  }
-                >
-                  Go there
-                </button>
-              ) : null}
-              {!insideMappo ? (
-                <Link href="/" style={styles.landscapeCta}>
-                  Get Mappo to reply
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        )}
+        {!insideMappo ? (
+          <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
+            Get Mappo to reply
+          </Link>
+        ) : null}
       </div>
     </div>
   )
@@ -357,53 +233,6 @@ const styles: Record<string, React.CSSProperties> = {
   homeBtn: {
     ...mappoBackButtonStyle,
     textDecoration: "none",
-    flexShrink: 0,
-  },
-  hint: {
-    width: "min(560px, 92vw)",
-    alignSelf: "center",
-    marginTop: 10,
-    background: "rgba(255,255,255,0.65)",
-    border: "1px solid rgba(79,59,43,0.1)",
-    borderRadius: 999,
-    padding: "0.6rem 0.9rem",
-    backdropFilter: "blur(10px)",
-    fontWeight: 850,
-    fontSize: "0.9rem",
-    opacity: 0.95,
-    textAlign: "center",
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "stretch",
-    justifyContent: "flex-start",
-    gap: 8,
-  },
-  hintTopRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  hintLabel: {
-    fontSize: "0.75rem",
-    opacity: 0.7,
-    fontWeight: 500,
-    letterSpacing: "0.2px",
-  },
-  hintText: {
-    fontSize: "0.9rem",
-    fontWeight: 850,
-    lineHeight: 1.3,
-  },
-  hintHideBtn: {
-    background: "rgba(79,59,43,0.08)",
-    border: "1px solid rgba(79,59,43,0.15)",
-    color: "#4f3b2b",
-    fontWeight: 950,
-    borderRadius: 999,
-    padding: "0.35rem 0.7rem",
-    cursor: "pointer",
     flexShrink: 0,
   },
   content: {
@@ -529,42 +358,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 14,
     cursor: "pointer",
     marginTop: 10,
-  },
-  landscapeFooter: {
-    width: "100%",
-    maxWidth: "min(94vw, 980px)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    padding: "0.5rem 0.25rem 0",
-  },
-  landscapeMeta: { flex: 1, minWidth: 0 },
-  landscapeTitle: { fontWeight: 950, fontSize: "1.05rem", lineHeight: 1.15 },
-  landscapeDesc: { opacity: 0.7, lineHeight: 1.25, fontSize: "0.92rem", marginTop: 3 },
-  landscapeCta: {
-    textDecoration: "none",
-    textAlign: "center",
-    background: "rgba(79,59,43,0.1)",
-    border: "1px solid rgba(79,59,43,0.15)",
-    color: "#4f3b2b",
-    fontWeight: 950,
-    padding: "0.75rem 0.95rem",
-    borderRadius: 14,
-    flexShrink: 0,
-    whiteSpace: "nowrap",
-  },
-  landscapeGoThere: {
-    textAlign: "center",
-    background: "rgba(255,255,255,0.65)",
-    border: "1px solid rgba(79,59,43,0.12)",
-    color: "#4f3b2b",
-    fontWeight: 950,
-    padding: "0.75rem 0.95rem",
-    borderRadius: 14,
-    flexShrink: 0,
-    whiteSpace: "nowrap",
-    cursor: "pointer",
   },
   card: {
     margin: "3rem auto",
