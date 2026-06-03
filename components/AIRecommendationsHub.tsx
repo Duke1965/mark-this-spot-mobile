@@ -12,7 +12,6 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { MAPBOX_API_KEY } from '@/lib/mapConfig'
 import { auth } from '@/lib/firebase'
-import { getHintsEnabled } from '@/lib/hints'
 import {
   buildGoogleMapsSearchUrl,
   openGoogleMapsNavigation,
@@ -27,57 +26,8 @@ import {
   mappoTitleSubtitleStyle,
 } from '@/lib/mappoHeaderStyles'
 
-/** Session dismiss for map marker hint (matches postcard “Hide” persistence pattern). */
-const RECS_MAP_MARKER_HINT_DISMISSED_KEY = 'pinit-recommendations-marker-hint-dismissed-v1'
 /** Per-user (local) dismissal so removed items don’t keep reappearing. */
 const RECS_DISMISSED_IDS_KEY = 'pinit-recommendations-dismissed-ids-v1'
-
-const mapMarkerHintStyles = {
-  hint: {
-    width: '100%',
-    maxWidth: 420,
-    margin: '0 auto',
-    background: 'rgba(255,255,255,0.65)',
-    border: '1px solid rgba(79,59,43,0.1)',
-    borderRadius: 14,
-    padding: '0.75rem 0.9rem',
-    backdropFilter: 'blur(10px)',
-    fontWeight: 800,
-    fontSize: '0.9rem',
-    opacity: 0.95,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'stretch',
-    gap: 8,
-  },
-  hintTopRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  hintLabel: {
-    fontSize: '0.75rem',
-    opacity: 0.88,
-    fontWeight: 500,
-    letterSpacing: '0.2px',
-  },
-  hintText: {
-    fontSize: '0.9rem',
-    fontWeight: 800,
-    lineHeight: 1.3,
-  },
-  hintHideBtn: {
-    background: 'rgba(79,59,43,0.08)',
-    border: '1px solid rgba(79,59,43,0.15)',
-    color: '#4f3b2b',
-    fontWeight: 900,
-    borderRadius: 999,
-    padding: '0.35rem 0.7rem',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-}
 
 interface Recommendation {
   id: string
@@ -322,8 +272,6 @@ export default function AIRecommendationsHub({
   } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isDiscoverMapLoading, setIsDiscoverMapLoading] = useState(true)
-  const [hintsEnabled, setHintsEnabled] = useState(true)
-  const [showMapMarkerHint, setShowMapMarkerHint] = useState(false)
 
   // NEW: Add ref to track the user location marker
   // Google Maps CSS removed - migrating to Mapbox
@@ -346,32 +294,6 @@ export default function AIRecommendationsHub({
       setIsInitialized(true)
     }
   }, [location, isInitialized])
-
-  useEffect(() => {
-    setHintsEnabled(getHintsEnabled())
-  }, [])
-
-  useEffect(() => {
-    if (!hintsEnabled) return
-    try {
-      if (typeof window === 'undefined') return
-      if (sessionStorage.getItem(RECS_MAP_MARKER_HINT_DISMISSED_KEY) === '1') return
-      setShowMapMarkerHint(true)
-    } catch {
-      // ignore
-    }
-  }, [hintsEnabled])
-
-  const dismissMapMarkerHint = useCallback(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(RECS_MAP_MARKER_HINT_DISMISSED_KEY, '1')
-      }
-    } catch {
-      // ignore
-    }
-    setShowMapMarkerHint(false)
-  }, [])
   
   // Map view - Mapbox implementation
   const mapRef = useRef<HTMLDivElement>(null)
@@ -2306,28 +2228,6 @@ export default function AIRecommendationsHub({
           alt="Discover"
           style={mappoTitleImageStyle}
         />
-        <p style={mappoTitleSubtitleStyle}>
-          Discover places you might love
-        </p>
-
-        {viewMode === 'map' && hintsEnabled && showMapMarkerHint && (
-          <div style={{ marginTop: '14px' }} role="status" aria-live="polite">
-            <div style={mapMarkerHintStyles.hint}>
-              <div style={mapMarkerHintStyles.hintTopRow}>
-                <div style={mapMarkerHintStyles.hintLabel}>💡 Hint</div>
-                <button
-                  type="button"
-                  onClick={dismissMapMarkerHint}
-                  style={mapMarkerHintStyles.hintHideBtn}
-                  aria-label="Hide tip"
-                >
-                  Hide
-                </button>
-              </div>
-              <div style={mapMarkerHintStyles.hintText}>Tap a marker to open the list</div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* View Mode Tabs - Map view disabled (migrating to Mapbox) */}
