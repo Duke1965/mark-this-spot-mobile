@@ -4165,7 +4165,7 @@ export default function PINITApp() {
             marginBottom: "0.85rem",
             fontSize: "1.05rem",
             fontWeight: 900,
-            color: "#0F8F87",
+            color: MAPPO_HOME_TEXT_COLOR,
             letterSpacing: "0.25px",
             textShadow: "0 1px 6px rgba(255,255,255,0.55)",
             pointerEvents: "none",
