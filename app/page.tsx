@@ -281,6 +281,10 @@ export default function PINITApp() {
   const quickPinTimeoutRef = useRef<number | null>(null)
   const successPopupTimerRef = useRef<number | null>(null)
   const fetchLocationPhotosRef = useRef<null | ((lat: number, lng: number, externalSignal?: AbortSignal, bypassCache?: boolean) => Promise<any[]>)>(null)
+  const editingPinRef = useRef<PinData | null>(null)
+  const pinEditCancelRef = useRef<() => void>(() => {})
+  const recommendationsSystemBackRef = useRef<(() => boolean) | null>(null)
+  const settingsSystemBackRef = useRef<(() => boolean) | null>(null)
 
   // Flash message bridge (e.g., logout)
   useEffect(() => {
@@ -326,67 +330,87 @@ export default function PINITApp() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Handle Android back button navigation
+  // Handle Android / browser back (Phase 0: parity with visible Back where safe)
   useEffect(() => {
+    const pushHistoryStay = () => {
+      try {
+        window.history.pushState(null, "", window.location.href)
+      } catch {
+        // ignore
+      }
+    }
+
     const handleBackButton = (event: PopStateEvent) => {
       event.preventDefault()
 
-      // Navigation stack logic
-      if (currentScreen === "map") {
-        // Don't navigate "back into" an old in-app screen.
-        // popstate can't be cancelled, so immediately re-add a history entry.
-        try {
-          window.history.pushState(null, "", window.location.href)
-        } catch {
-          // ignore
-        }
+      // Pin location edit overlay (currentScreen stays "map")
+      if (editingPinRef.current) {
+        pinEditCancelRef.current()
+        pushHistoryStay()
         return
       }
 
-      // Pending Pins live inside the Library screen; hardware back should return Home.
+      if (currentScreen === "map") {
+        pushHistoryStay()
+        return
+      }
+
+      if (currentScreen === "settings") {
+        settingsSystemBackRef.current?.()
+        pushHistoryStay()
+        return
+      }
+
+      if (currentScreen === "camera" || currentScreen === "content-editor") {
+        setCurrentScreen("map")
+        pushHistoryStay()
+        return
+      }
+
+      if (currentScreen === "recommendations") {
+        const closedDetail = recommendationsSystemBackRef.current?.() ?? false
+        if (!closedDetail) {
+          setCurrentScreen("map")
+        }
+        pushHistoryStay()
+        return
+      }
+
       if (currentScreen === "library") {
         setCurrentScreen("map")
-        try {
-          window.history.pushState(null, "", window.location.href)
-        } catch {
-          // ignore
-        }
+        pushHistoryStay()
         return
       }
 
-      // Results should not jump to an unrelated screen via a static stack.
       if (currentScreen === "results") {
         setCurrentResultPin(null)
         setCurrentScreen("map")
-        try {
-          window.history.pushState(null, "", window.location.href)
-        } catch {
-          // ignore
-        }
+        pushHistoryStay()
         return
       }
 
-      // Navigate back through screens
+      // Legacy / demo screens only
       const screenStack = [
-        "map", // Main screen
-        "settings", // Settings
-        "camera", // Camera
-        "platform-select", // Platform selection
-        "content-editor", // Content editor
-        "story", // Story mode
-        "library", // Library
-        "story-builder", // Story builder
-        "recommendations", // Recommendations
-        "place-navigation", // Place navigation
-        "results" // Results
-      ]
+        "map",
+        "settings",
+        "camera",
+        "platform-select",
+        "content-editor",
+        "story",
+        "library",
+        "story-builder",
+        "recommendations",
+        "place-navigation",
+        "results",
+      ] as const
 
-      const currentIndex = screenStack.indexOf(currentScreen)
+      const currentIndex = screenStack.indexOf(currentScreen as (typeof screenStack)[number])
       if (currentIndex > 0) {
         setCurrentScreen(screenStack[currentIndex - 1] as any)
       } else {
         setTimeout(() => setCurrentScreen("map"), 100)
       }
+      pushHistoryStay()
     }
 
     // Add history state to prevent immediate back
@@ -2645,6 +2669,17 @@ export default function PINITApp() {
     setCurrentScreen("library")
   }, [setCurrentScreen])
 
+  editingPinRef.current = editingPin
+  pinEditCancelRef.current = handlePinEditCancel
+
+  const registerRecommendationsSystemBack = useCallback((handler: (() => boolean) | null) => {
+    recommendationsSystemBackRef.current = handler
+  }, [])
+
+  const registerSettingsSystemBack = useCallback((handler: (() => boolean) | null) => {
+    settingsSystemBackRef.current = handler
+  }, [])
+
   // Handle navigation start
   const handleStartNavigation = (place: any) => {
     console.log("dY- Starting navigation to:", place.title)
@@ -3147,6 +3182,7 @@ export default function PINITApp() {
         return (
       <AIRecommendationsHub
         onBack={() => setCurrentScreen("map")}
+        onRegisterSystemBack={registerRecommendationsSystemBack}
         userLocation={location}
         onSharePin={handleShareFromResults}
           // Place-based items only — real coordinates from rec.data (no user-location fallback)
@@ -3261,6 +3297,7 @@ export default function PINITApp() {
         onBack={leaveAccount}
         onComplete={leaveAccount}
         isReturningUser={isReturningUser}
+        onRegisterSystemBack={registerSettingsSystemBack}
       />
     )
   }
