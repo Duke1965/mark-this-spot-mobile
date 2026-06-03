@@ -4160,60 +4160,85 @@ export default function PINITApp() {
           textAlign: "center",
         }}
       >
-        {/* Multiple Pulsing Glow Rings - ENHANCED VISIBILITY */}
         <div
-          key={isMounted ? "pulse-1-active" : "pulse-1"}
           style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "290px",
-            height: "290px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(199, 238, 229, 0.5) 0%, rgba(199, 238, 229, 0.24) 24%, transparent 60%)",
-            animation: isMounted ? "shazamPulse 1.2s ease-out infinite" : "none",
-            willChange: "transform, opacity",
-            zIndex: 1,
+            marginBottom: "0.85rem",
+            fontSize: "1.05rem",
+            fontWeight: 900,
+            color: MAPPO_HOME_TEXT_COLOR,
+            letterSpacing: "0.25px",
+            textShadow: "0 1px 8px rgba(255,255,255,0.65)",
+            pointerEvents: "none",
           }}
-        />
-        <div
-          key={isMounted ? "pulse-2-active" : "pulse-2"}
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "325px",
-            height: "325px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(199, 238, 229, 0.38) 0%, rgba(199, 238, 229, 0.18) 24%, transparent 60%)",
-            animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.4s" : "none",
-            willChange: "transform, opacity",
-            zIndex: 1,
-          }}
-        />
-        <div
-          key={isMounted ? "pulse-3-active" : "pulse-3"}
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "360px",
-            height: "360px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(199, 238, 229, 0.3) 0%, rgba(199, 238, 229, 0.12) 24%, transparent 60%)",
-            animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.8s" : "none",
-            willChange: "transform, opacity",
-            zIndex: 1,
-          }}
-        />
+        >
+          Tap to Discover
+        </div>
 
-        {/* Main Pin Button with Compass M logo */}
-        <button
+        <div
+          style={{
+            position: "relative",
+            width: "250px",
+            height: "250px",
+            margin: "0 auto",
+          }}
+        >
+          {/* Multiple Pulsing Glow Rings - ENHANCED VISIBILITY */}
+          <div
+            key={isMounted ? "pulse-1-active" : "pulse-1"}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "290px",
+              height: "290px",
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(199, 238, 229, 0.5) 0%, rgba(199, 238, 229, 0.24) 24%, transparent 60%)",
+              animation: isMounted ? "shazamPulse 1.2s ease-out infinite" : "none",
+              willChange: "transform, opacity",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            key={isMounted ? "pulse-2-active" : "pulse-2"}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "325px",
+              height: "325px",
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(199, 238, 229, 0.38) 0%, rgba(199, 238, 229, 0.18) 24%, transparent 60%)",
+              animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.4s" : "none",
+              willChange: "transform, opacity",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            key={isMounted ? "pulse-3-active" : "pulse-3"}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "360px",
+              height: "360px",
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(199, 238, 229, 0.3) 0%, rgba(199, 238, 229, 0.12) 24%, transparent 60%)",
+              animation: isMounted ? "shazamPulse 1.2s ease-out infinite 0.8s" : "none",
+              willChange: "transform, opacity",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* Main Pin Button with Compass M logo */}
+          <button
           onClick={handleQuickPin}
           disabled={isQuickPinning}
           style={{
@@ -4254,14 +4279,15 @@ export default function PINITApp() {
           <div
             style={{
               position: "absolute",
-              inset: "4px",
+              inset: "6px",
               borderRadius: "50%",
-              overflow: "hidden",
               zIndex: 1,
-              background: "#eef8f4",
+              background: "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "2px",
+              boxSizing: "border-box",
             }}
           >
             <img
@@ -4269,8 +4295,10 @@ export default function PINITApp() {
               alt=""
               draggable={false}
               style={{
-                width: "76%",
-                height: "76%",
+                width: "100%",
+                height: "100%",
+                maxWidth: "100%",
+                maxHeight: "100%",
                 objectFit: "contain",
                 pointerEvents: "none",
               }}
@@ -4299,109 +4327,52 @@ export default function PINITApp() {
             )}
           </div>
 
-          {/* Content Overlay - REMOVED DARK BACKGROUND */}
-          <div
-            style={{
-              position: "relative",
-              zIndex: 2,
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {isQuickPinning ? (
-              <>
-                <div
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    border: "4px solid rgba(255,255,255,0.3)",
-                    borderTop: "4px solid white",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                    marginBottom: "0.5rem",
-                  }}
-                />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Pinning...
-                </span>
-              </>
-            ) : quickPinSuccess ? (
-              <>
-                <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
-                <span
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  Pinned!
-                </span>
-              </>
-            ) : (
-              <>
-                <MapPin
-                  size={48}
-                  style={{ marginBottom: "0.5rem", color: "white", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.8))" }}
-                />
-                <div
-                  style={{
-                    color: "white",
-                    textShadow: "0 2px 6px rgba(0,0,0,0.65)",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "0.25rem",
-                    maxWidth: 220,
-                    lineHeight: 1.4,
-                    pointerEvents: "none",
-                  }}
-                >
+          {(isQuickPinning || quickPinSuccess) && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 2,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                background: "rgba(238, 248, 244, 0.55)",
+                borderRadius: "50%",
+                pointerEvents: "none",
+              }}
+            >
+              {isQuickPinning ? (
+                <>
                   <div
                     style={{
-                      fontSize: "1rem",
-                      fontWeight: 950,
-                      letterSpacing: "0.2px",
-                      textShadow: "0 2px 2px rgba(0,0,0,0.82), 0 0 10px rgba(0,0,0,0.32)",
+                      width: "48px",
+                      height: "48px",
+                      border: "4px solid rgba(79,59,43,0.2)",
+                      borderTop: "4px solid #4f3b2b",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                      marginBottom: "0.5rem",
                     }}
-                  >
-                    Spotted something special?
-                  </div>
-                  <div
-                    style={{
-                      marginTop: "0.35rem",
-                      fontSize: "1rem",
-                      opacity: 0.92,
-                      fontWeight: 750,
-                      textShadow: "0 2px 2px rgba(0,0,0,0.78), 0 0 8px rgba(0,0,0,0.28)",
-                    }}
-                  >
-                    Tap to save it
-                  </div>
-                  <div
-                    style={{
-                      marginTop: "0.45rem",
-                      fontSize: "1rem",
-                      opacity: 0.9,
-                      textShadow: "0 2px 2px rgba(0,0,0,0.72), 0 0 8px rgba(0,0,0,0.24)",
-                    }}
-                  >
-                    {getVoiceHintText()}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+                  />
+                  <span style={{ color: MAPPO_HOME_TEXT_COLOR, fontWeight: 800, fontSize: "1rem" }}>
+                    Pinning...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Check size={48} style={{ marginBottom: "0.5rem", color: "#10B981" }} />
+                  <span style={{ color: MAPPO_HOME_TEXT_COLOR, fontWeight: 800, fontSize: "1rem" }}>
+                    Pinned!
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </button>
+        </div>
+
         <div
           style={{
             marginTop: "0.9rem",
@@ -4415,32 +4386,6 @@ export default function PINITApp() {
         >
           📍 {motionData.isMoving ? "Driving..." : (locationName || (locationLoading ? "Getting location..." : "Location unavailable"))}
         </div>
-      </div>
-
-      {/* Mappo brand mark */}
-      <div
-        style={{
-          position: "absolute",
-          top: "calc(env(safe-area-inset-top, 0px) + 1.25rem)",
-          left: "50%",
-          transform: "translateX(-50%)",
-          textAlign: "center",
-          zIndex: 8,
-          width: "min(178px, 48vw)",
-          pointerEvents: "none",
-        }}
-      >
-        <img
-          src={MAPPO_LOGO_SRC}
-          alt="Mappo"
-          style={{
-            width: "100%",
-            height: "auto",
-            display: "block",
-            margin: "0 auto",
-            filter: "drop-shadow(0 3px 10px rgba(70, 52, 35, 0.14))",
-          }}
-        />
       </div>
 
       {/* ENHANCED: Real Google Places Discovery Panel */}
