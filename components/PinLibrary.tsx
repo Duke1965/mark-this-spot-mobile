@@ -758,7 +758,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 950, fontSize: "1.02rem" }}>Postcard Draft</div>
-                    <div style={{ opacity: 0.78, marginTop: 4, lineHeight: 1.25 }}>You have an unfinished postcard.</div>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
