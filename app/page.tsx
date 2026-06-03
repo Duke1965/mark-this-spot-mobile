@@ -40,6 +40,7 @@ import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
 
 const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-stacked.png"
+const MAPPO_APP_LOGO_SRC = "/brand/mappo/mappo-app-logo.png"
 const MAPPO_HOME_BG_SRC = "/brand/mappo/mappo-home-bg.png"
 const MAPPO_HOME_TEXT_COLOR = "#4f3b2b"
 
@@ -234,25 +235,6 @@ function InteractiveMapEditor({
         style={{ width: '100%', height: '100%' }}
       />
     </div>
-  )
-}
-
-// Interactive Map Component for Main Circle with POI Markers
-function InteractiveMainMap({ 
-  lat, 
-  lng 
-}: { 
-  lat: number
-  lng: number
-}) {
-  return (
-    <MapboxMap
-      center={{ lat, lng }}
-      zoom={13}
-      interactive={false}
-      // Keep the main "Shazam circle" map clean (no POI markers here).
-      showPOIs={false}
-    />
   )
 }
 
@@ -4230,7 +4212,7 @@ export default function PINITApp() {
           }}
         />
 
-        {/* Main Pin Button with LIVE MAPBOX MAP */}
+        {/* Main Pin Button with Compass M logo */}
         <button
           onClick={handleQuickPin}
           disabled={isQuickPinning}
@@ -4269,66 +4251,53 @@ export default function PINITApp() {
             }
           }}
         >
-          {/* INTERACTIVE MAPBOX MAP WITH POI MARKERS */}
-          {(userLocation || location) && (
-            <div
+          <div
+            style={{
+              position: "absolute",
+              inset: "4px",
+              borderRadius: "50%",
+              overflow: "hidden",
+              zIndex: 1,
+              background: "#eef8f4",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <img
+              src={MAPPO_APP_LOGO_SRC}
+              alt=""
+              draggable={false}
               style={{
-                position: "absolute",
-                inset: "4px",
-                borderRadius: "50%",
-                overflow: "hidden",
-                zIndex: 1,
-                background: "#eef8f4",
+                width: "76%",
+                height: "76%",
+                objectFit: "contain",
+                pointerEvents: "none",
               }}
-            >
-              <InteractiveMainMap
-                lat={userLocation?.latitude || location?.latitude || -25.7479}
-                lng={userLocation?.longitude || location?.longitude || 28.2293}
-              />
+            />
 
-              {/* Speed-based pinning indicator */}
-              {motionData.isMoving && motionData.speed > 5 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "10px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "rgba(34, 197, 94, 0.9)",
-                    color: "white",
-                    padding: "4px 8px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                    zIndex: 3,
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  🚗 Speed Pinning Active
-                </div>
-              )}
-
-              {/* Location indicator - positioned at top */}
+            {/* Speed-based pinning indicator */}
+            {motionData.isMoving && motionData.speed > 5 && (
               <div
                 style={{
                   position: "absolute",
-                  top: "10%",
+                  top: "10px",
                   left: "50%",
                   transform: "translateX(-50%)",
+                  background: "rgba(34, 197, 94, 0.9)",
                   color: "white",
-                  fontSize: "0.6rem",
+                  padding: "4px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
                   fontWeight: "bold",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                  padding: "0.2rem 0.4rem",
-                  borderRadius: "0.2rem",
-                  pointerEvents: "none",
-                  zIndex: 3
+                  zIndex: 3,
+                  whiteSpace: "nowrap",
                 }}
               >
-                📍 Live
+                🚗 Speed Pinning Active
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Content Overlay - REMOVED DARK BACKGROUND */}
           <div
