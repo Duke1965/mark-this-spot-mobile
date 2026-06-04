@@ -478,8 +478,27 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         </div>
 
         {/* Bottom row: left tags, right actions (sits at bottom of card) */}
-        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{
+            marginTop: 'auto',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            gap: 8,
+            rowGap: 8,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.25rem',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              flex: '1 1 auto',
+              minWidth: 0,
+            }}
+          >
             {(item.tags && item.tags.length > 0 ? item.tags.slice(0, 3) : []).map((tag: string, index: number) => (
               <span
                 key={index}
@@ -496,7 +515,18 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              flex: '1 1 auto',
+              minWidth: 0,
+              maxWidth: '100%',
+            }}
+          >
             <button
               type="button"
               onClick={(e) => {
@@ -512,7 +542,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 fontSize: '11px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                flex: '0 0 auto',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
@@ -543,7 +574,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                 fontSize: '11px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                flex: '0 0 auto',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(79,59,43,0.15)'
@@ -564,7 +596,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                     onPinDelete(item.id)
                   }
                 }}
-                style={removeBtnStyle}
+                style={{ ...removeBtnStyle, flex: '0 0 auto' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(239, 68, 68, 0.28)'
                 }}
