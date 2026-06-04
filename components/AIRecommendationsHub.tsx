@@ -229,6 +229,8 @@ function RecommendationHeroImage({
 
 interface AIRecommendationsHubProps {
   onBack: () => void
+  /** Same addPin as app/page.tsx so Library sees saves in-session. */
+  addPin: (pin: PinData) => boolean
   /** Parent popstate: return true if back was consumed (e.g. detail overlay closed). */
   onRegisterSystemBack?: (handler: (() => boolean) | null) => void
   userLocation?: any
@@ -245,6 +247,7 @@ interface AIRecommendationsHubProps {
 
 export default function AIRecommendationsHub({ 
   onBack, 
+  addPin: addPinToLibrary,
   onRegisterSystemBack,
   userLocation, 
   initialRecommendations,
@@ -2998,7 +3001,7 @@ export default function AIRecommendationsHub({
                   isAISuggestion:
                     selectedRecommendation.isAISuggestion || false,
                 }
-                const ok = addPin(savedPin)
+                const ok = addPinToLibrary(savedPin)
                 console.log("Recommendation save result", {
                   ok,
                   title: savedPin.title,
@@ -3012,7 +3015,7 @@ export default function AIRecommendationsHub({
                 setDetailImageUrl(null)
                 setShowDetailShareOptions(false)
                 setSelectedRecommendation(null)
-                alert('Saved to library!')
+                alert('Saved to My Library → Recommended')
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
