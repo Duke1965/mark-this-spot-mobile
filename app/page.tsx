@@ -3183,6 +3183,7 @@ export default function PINITApp() {
       <AIRecommendationsHub
         onBack={() => setCurrentScreen("map")}
         onRegisterSystemBack={registerRecommendationsSystemBack}
+        addPin={addPinFromStorage}
         userLocation={location}
         onSharePin={handleShareFromResults}
           // Place-based items only — real coordinates from rec.data (no user-location fallback)
