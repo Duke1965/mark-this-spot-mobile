@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react"
 import { Camera, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useLocationServices } from "@/hooks/useLocationServices"
@@ -36,8 +36,14 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import MapboxMap from "@/components/map/MapboxMap"
+import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
 import { getCameraPermissionStatus, requestCameraPermission, requestLocationPermission } from "@/lib/mobilePermissions"
+
+function getHomeMapProvider(): "mapbox" | "google" {
+  const raw = String(process.env.NEXT_PUBLIC_HOME_MAP_PROVIDER || "").trim().toLowerCase()
+  return raw === "google" ? "google" : "mapbox"
+}
 
 const MAPPO_LOGO_SRC = "/brand/mappo/mappo-logo-stacked.png"
 const MAPPO_APP_LOGO_SRC = "/brand/mappo/mappo-app-logo.png"
@@ -195,7 +201,7 @@ interface Renewal {
 }
 
 // Interactive Map Editor Component with Draggable Pin
-// Uses Mapbox for the map with a draggable marker
+// Mapbox by default; Google Maps JS when NEXT_PUBLIC_HOME_MAP_PROVIDER=google
 function InteractiveMapEditor({ 
   initialLat, 
   initialLng, 
@@ -206,6 +212,7 @@ function InteractiveMapEditor({
   onLocationChange: (lat: number, lng: number) => void
 }) {
   const [pinLocation, setPinLocation] = useState({ lat: initialLat, lng: initialLng })
+  const homeMapProvider = getHomeMapProvider()
 
   // Update pin location when initial props change
   useEffect(() => {
@@ -219,21 +226,28 @@ function InteractiveMapEditor({
     onLocationChange(lat, lng)
   }, [onLocationChange])
 
+  const editorMapProps = {
+    center: { lat: pinLocation.lat, lng: pinLocation.lng },
+    zoom: 16,
+    interactive: true,
+    draggableMarker: {
+      lat: pinLocation.lat,
+      lng: pinLocation.lng,
+      onDragEnd: handlePinDragEnd,
+    },
+    style: { width: "100%", height: "100%" } as CSSProperties,
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <MapboxMap
-        center={{ lat: pinLocation.lat, lng: pinLocation.lng }}
-        zoom={16}
-        interactive={true}
-        draggableMarker={{
-          lat: pinLocation.lat,
-          lng: pinLocation.lng,
-          onDragEnd: handlePinDragEnd
-        }}
-        // Keep the pin-adjust editor clean (no scattered POI markers).
-        showPOIs={false}
-        style={{ width: '100%', height: '100%' }}
-      />
+      {homeMapProvider === "google" ? (
+        <GoogleMapsMap {...editorMapProps} />
+      ) : (
+        <MapboxMap
+          {...editorMapProps}
+          showPOIs={false}
+        />
+      )}
     </div>
   )
 }
