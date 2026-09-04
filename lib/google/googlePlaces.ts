@@ -252,9 +252,16 @@ export async function nearbySearch(input: {
   term?: string
   maxDistanceMeters?: number
   maxDistanceMetersChain?: number
+  /** Adjust Pin: rank Google by distance and pick the closest candidate. Quick Pin omits this. */
+  rankByDistance?: boolean
 }): Promise<GoogleNearbySelection> {
   const key = requireApiKey()
-  const radius = Math.max(10, Math.min(250, input.radiusMeters ?? envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
+  const rankByDistance = !!input.rankByDistance
+  // Places API (New) circle radius must be > 0 and <= 50000 m.
+  const radius = Math.max(
+    1,
+    Math.min(50000, input.radiusMeters ?? envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80))
+  )
   const thresh = input.maxDistanceMeters ?? envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250)
   const empty = (reasonIfNotUsed: string): GoogleNearbySelection => ({
     selected: null,
@@ -264,23 +271,28 @@ export async function nearbySearch(input: {
   })
 
   const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
+  const body: Record<string, unknown> = {
+    languageCode: 'en',
+    regionCode: 'ZA',
+    maxResultCount: 20,
+    locationRestriction: {
+      circle: {
+        center: { latitude: input.lat, longitude: input.lon },
+        radius
+      }
+    }
+  }
+  if (rankByDistance) {
+    body.rankPreference = 'DISTANCE'
+  }
+
   const result = await fetchPlacesJson({
     url: 'https://places.googleapis.com/v1/places:searchNearby',
     method: 'POST',
     apiKey: key,
     fieldMask: NEARBY_FIELD_MASK,
     timeoutMs,
-    body: {
-      languageCode: 'en',
-      regionCode: 'ZA',
-      maxResultCount: 20,
-      locationRestriction: {
-        circle: {
-          center: { latitude: input.lat, longitude: input.lon },
-          radius
-        }
-      }
-    }
+    body
   })
 
   if (!result.ok) {
@@ -315,7 +327,8 @@ export async function nearbySearch(input: {
 
   // Prefer hint matches when present. Nearby Search (New) has no keyword param;
   // matching stays client-side so pin-intel ranking behaviour is unchanged.
-  const hint = String(input.term || '').trim()
+  // Adjust Pin must not lock onto a Mapbox-derived name; marker position wins.
+  const hint = rankByDistance ? '' : String(input.term || '').trim()
   const within = usable.filter((c) => c.distanceMeters <= (c.isChain ? threshChain : thresh))
   const hintMatchesWithin = hint ? within.filter((c) => hintMatches(hint, c.name)) : []
   const pool = hintMatchesWithin.length ? hintMatchesWithin : within
@@ -332,10 +345,15 @@ export async function nearbySearch(input: {
     }
   }
 
-  // Sort by preference then distance (fixes “Car Wash” beating a restaurant next door).
+  // Quick Pin: preferred type then distance. Adjust Pin: closest first, type as tie-break.
   const selected = pool
     .slice()
     .sort((a, b) => {
+      if (rankByDistance) {
+        const dd = a.distanceMeters - b.distanceMeters
+        if (dd !== 0) return dd
+        return preferenceScore(b.types) - preferenceScore(a.types)
+      }
       const ps = preferenceScore(a.types) - preferenceScore(b.types)
       if (ps !== 0) return -ps
       return a.distanceMeters - b.distanceMeters

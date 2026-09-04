@@ -34,6 +34,17 @@ function envInt(name: string, def: number): number {
   return Number.isFinite(n) ? Math.floor(n) : def
 }
 
+function haversineMeters(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const R = 6371000
+  const toRad = (x: number) => (x * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLon = toRad(b.lon - a.lon)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const realIP = request.headers.get('x-real-ip')
@@ -280,6 +291,15 @@ export async function GET(request: NextRequest) {
     const googleMaxDistanceChainM = Math.max(10, Math.min(500, envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS_CHAIN', 100)))
     // Nearby Search radius must be >= max distance threshold, otherwise we can miss valid candidates.
     const googleRadiusMeters = Math.max(googleRadiusMetersBase, Math.min(250, googleMaxDistanceM))
+    // Adjust Pin: tight snap around the marker. Quick Pin keeps the 250 m behaviour above.
+    const adjustedGoogleMaxDistanceM = isAdjusted
+      ? Math.max(Number.isFinite(maxDistanceM) ? Number(maxDistanceM) : 10, 25)
+      : undefined
+    const googleNearbyMaxDistanceM = adjustedGoogleMaxDistanceM ?? googleMaxDistanceM
+    const googleNearbyRadiusM = isAdjusted
+      ? Math.max(1, Math.min(50000, googleNearbyMaxDistanceM))
+      : googleRadiusMeters
+    const googleNearbyChainMaxM = isAdjusted ? googleNearbyMaxDistanceM : googleMaxDistanceChainM
 
     const googleDiag: any = {
       enabled: googleEnabled,
@@ -304,8 +324,25 @@ export async function GET(request: NextRequest) {
     let googlePhotosSucceeded = 0
     if (googleEnabled) {
       const tG0 = Date.now()
-      const cached = await getCachedGooglePlaceByLatLon({ lat, lon, ttlDays: googleCacheTtlDays })
+      let cached = await getCachedGooglePlaceByLatLon({ lat, lon, ttlDays: googleCacheTtlDays })
       timings.google_cache_ms = Date.now() - tG0
+
+      if (cached?.place?.place_id && isAdjusted && adjustedGoogleMaxDistanceM != null) {
+        const refLat = Number.isFinite(Number(cached.place.placeLat))
+          ? Number(cached.place.placeLat)
+          : Number(cached.place.lat)
+        const refLon = Number.isFinite(Number(cached.place.placeLon))
+          ? Number(cached.place.placeLon)
+          : Number(cached.place.lon)
+        const cacheDistM =
+          Number.isFinite(refLat) && Number.isFinite(refLon)
+            ? haversineMeters({ lat, lon }, { lat: refLat, lon: refLon })
+            : Infinity
+        if (cacheDistM > adjustedGoogleMaxDistanceM) {
+          fallbacksUsed.push(`skip_cache_adjusted_far:${Math.round(cacheDistM)}m`)
+          cached = null
+        }
+      }
 
       if (cached?.place?.place_id) {
         googleDiag.cacheHit = true
@@ -348,10 +385,11 @@ export async function GET(request: NextRequest) {
             const sel = await nearbySearch({
               lat,
               lon,
-              radiusMeters: googleRadiusMeters,
-              term: usefulGoogleHint(hint) || undefined,
-              maxDistanceMeters: googleMaxDistanceM,
-              maxDistanceMetersChain: googleMaxDistanceChainM
+              radiusMeters: googleNearbyRadiusM,
+              term: isAdjusted ? undefined : usefulGoogleHint(hint) || undefined,
+              maxDistanceMeters: googleNearbyMaxDistanceM,
+              maxDistanceMetersChain: googleNearbyChainMaxM,
+              rankByDistance: isAdjusted
             })
             timings.google_nearby_ms = Date.now() - tG1
             googleDiag.thresholdUsed = sel.thresholdUsed
@@ -434,16 +472,6 @@ export async function GET(request: NextRequest) {
                     10,
                     Math.min(500, envInt('PINIT_GOOGLE_CACHE_GEO_MAX_DISTANCE_METERS', 120))
                   )
-                  const haversineMeters = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
-                    const R = 6371000
-                    const toRad = (x: number) => (x * Math.PI) / 180
-                    const dLat = toRad(b.lat - a.lat)
-                    const dLon = toRad(b.lon - a.lon)
-                    const lat1 = toRad(a.lat)
-                    const lat2 = toRad(b.lat)
-                    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
-                    return 2 * R * Math.asin(Math.sqrt(h))
-                  }
                   const distM = Number.isFinite(Number(cand.distanceMeters))
                     ? Math.round(Number(cand.distanceMeters))
                     : det.location && Number.isFinite(det.location.lat) && Number.isFinite(det.location.lon)
