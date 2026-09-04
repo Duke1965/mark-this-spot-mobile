@@ -71,8 +71,8 @@ export default async function SharedPostcardPage({
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     minHeight: "100dvh",
-    background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)",
-    color: "white",
+    backgroundColor: "#eef8f4",
+    color: "#3a2e1e",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -81,13 +81,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     width: "min(520px, 92vw)",
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(79,59,43,0.1)",
     borderRadius: 16,
     padding: 16,
     backdropFilter: "blur(12px)",
     textAlign: "center",
   },
   title: { fontSize: "1.25rem", fontWeight: 900, marginBottom: 8 },
-  text: { opacity: 0.9, lineHeight: 1.35 },
+  text: { opacity: 0.75, lineHeight: 1.35 },
 }

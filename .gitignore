@@ -46,3 +46,6 @@ Thumbs.db
 
 # PWA
 sw.js
+
+.vercel
+.env*

@@ -26,7 +26,7 @@ export const STICKER_CATALOG: StickerCatalogItem[] = [
   { id: "old-14", imageUrl: "/stickers/Old-school-No-Filter.png", name: "No Filter", category: "old-school" },
   { id: "old-15", imageUrl: "/stickers/Old-school-OMG.png", name: "OMG", category: "old-school" },
   { id: "old-16", imageUrl: "/stickers/Old-school-On-The-Road-Again.png", name: "On The Road Again", category: "old-school" },
-  { id: "old-17", imageUrl: "/stickers/Old-school-PINIT!.png", name: "PINIT!", category: "old-school" },
+  { id: "old-17", imageUrl: "/stickers/Old-school-PINIT!.png", name: "Mappo!", category: "old-school" },
   { id: "old-18", imageUrl: "/stickers/Old-school-Pure-Joy.png", name: "Pure Joy", category: "old-school" },
   { id: "old-19", imageUrl: "/stickers/Old-school-Road-Trip.png", name: "Road Trip", category: "old-school" },
   { id: "old-20", imageUrl: "/stickers/Old-school-Soul-Mates.png", name: "Soul Mates", category: "old-school" },

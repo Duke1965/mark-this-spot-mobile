@@ -38,7 +38,7 @@ export default function InstallPrompt() {
         cursor: "pointer"
       }}
     >
-      Install PINIT
+      Install Mappo
     </button>
   );
 }

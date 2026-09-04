@@ -299,7 +299,7 @@ export function usePinStorage() {
       pins: pins,
       metadata: {
         totalPins: pins.length,
-        exportedBy: "PINIT",
+        exportedBy: "Mappo",
         format: "JSON"
       }
     }

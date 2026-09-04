@@ -168,12 +168,12 @@ export function LocationPermissionPrompt({
         >
           {!hasRequestedBefore ? (
             <>
-              PINIT uses your location to save the place you’re passing and suggest nearby spots.
+              Mappo uses your location to save the place you’re passing and suggest nearby spots.
             </>
           ) : (
             <>
               <strong>Location access was denied.</strong><br />
-              To use PINIT, please enable location in your browser settings.
+              To use Mappo, please enable location in your browser settings.
             </>
           )}
         </p>

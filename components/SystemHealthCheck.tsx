@@ -298,7 +298,7 @@ export default function SystemHealthCheck() {
 
   const downloadHealthReport = () => {
     const report = {
-      app: 'PINIT',
+      app: 'Mappo',
       version: '1.0.0',
       timestamp: new Date().toISOString(),
       platform: { userAgent: navigator.userAgent },
@@ -466,7 +466,7 @@ export default function SystemHealthCheck() {
                 <CardTitle className="text-sm">Application</CardTitle>
               </CardHeader>
               <CardContent className="text-xs space-y-2">
-                <div><strong>Name:</strong> PINIT</div>
+                <div><strong>Name:</strong> Mappo</div>
                 <div><strong>Version:</strong> 1.0.0</div>
                 <div><strong>Environment:</strong> {process.env.NODE_ENV || 'production'}</div>
                 <div><strong>Mobile:</strong> {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'Yes' : 'No'}</div>

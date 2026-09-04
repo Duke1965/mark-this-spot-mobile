@@ -1,6 +1,7 @@
 import admin from 'firebase-admin'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
+import { getAuth } from 'firebase-admin/auth'
 
 function getBucketName(): string | undefined {
   const raw = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
@@ -89,6 +90,17 @@ export function getAdminFirestore() {
     return getFirestore(app)
   } catch (e) {
     console.error('❌ Failed to get Firestore:', e)
+    return null
+  }
+}
+
+export function getAdminAuth() {
+  const app = getAdminApp()
+  if (!app) return null
+  try {
+    return getAuth(app)
+  } catch (e) {
+    console.error('❌ Failed to get Auth:', e)
     return null
   }
 }

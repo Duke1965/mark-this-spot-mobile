@@ -1,94 +1,141 @@
-Purpose
+# CURSOR_HANDOVER.md
+> Single source of truth for AI coding assistants working on **PINIT** (web).
 
-This document is the single source of truth for working on the PINIT app with AI coding assistants (Cursor, ChatGPT, etc.).
-It defines the project structure, workflow, and assistant rules to ensure clean, consistent contributions.
+## Project at a glance
+- **Stack:** Next.js 15 (App Router) + React 19 — **web (HARD ASSERTION)**
+- **Language:** TypeScript (JS allowed where present)
+- **Styling/UI:** Tailwind + Radix/shadcn
+- **State/Data:** Client state via React; Firebase SDK for Auth, Firestore (pins), Storage (photos)
+- **Maps:** Web map (Google Maps JS or MapLibre/Mapbox) with clustering
+- **Deploy:** Vercel (primary). Netlify plugin exists but Vercel is source of truth.
+- **Pkg mgr:** pnpm (npm works)
 
-Project Overview
+## Repo layout (typical)
+- `app/` → routes & layouts (`layout.tsx`, `page.tsx`)
+- `components/` → UI + map widgets
+- `hooks/` → custom hooks
+- `lib/` → utils (firebase client, google places client, geojson, etc.)
+- `public/` → static assets
+- `styles/` → Tailwind & globals
+- Root: `package.json`, `next.config.*`, `tsconfig.json`, `.env.local` (ignored)
 
-Framework: Next.js (App Router)
+## Pin schema (web)
+```ts
+export type Pin = {
+  id: string;
+  lat: number;
+  lng: number;
+  title?: string;
+  description?: string;
+  category?: string;   // e.g. "diner", "shop"
+  photoUrl?: string;
+  recCount?: number;   // popularity / recommendations count
+  createdAt: number;   // ms epoch
+  userId: string;
+};
+HARD REQUIREMENTS (non-negotiable)
 
-Language: TypeScript
+🚫 This repo is Next.js web only. If you think it’s React Native/Expo, STOP and output a 3-line report. Do not make changes.
 
-Styling: Tailwind CSS
+🔑 Never commit or expose secrets. Always use env vars or server routes.
 
-Package Manager: pnpm (npm also works)
+Preflight (required BEFORE any edits — read-only)
 
-Deployment: Vercel (auto-builds on GitHub pushes)
+Output exactly these 6 lines:
 
-Repo: mark-this-spot-mobile
+Stack detected from package.json (Next.js vs RN/Expo)
 
-Folder Structure
+Three repo clues (e.g., next.config.*, app/, absence of android//ios/)
 
-app/ → Route-driven pages and layouts (layout.tsx, page.tsx, etc.)
+Files you plan to touch
 
-components/ → Reusable UI components
+Risk areas (SSR/CSR, map lib, env vars)
 
-hooks/ → Custom React hooks
+Rollback plan (files/commands to revert)
 
-lib/ → Utilities, API clients, business logic
+Estimated diff size (XS <30, S 30–120, M/L)
 
-public/ → Static assets (images, icons, etc.)
+If unclear → stop and wait for review.
 
-styles/ → Global CSS and Tailwind styles
+Change policy
 
-Other important files:
+Scope: Only touch files named in the request (or obvious neighbors in lib/).
 
-package.json, pnpm-lock.yaml → dependencies and scripts
+Diffs: Keep small & focused. Add a 1–2 sentence rationale at the top of the diff.
 
-next.config.mjs → Next.js config
+Logging: Temporary console.log OK for diagnosis; remove/gate before finishing unless told otherwise.
 
-tailwind.config.js, postcss.config.mjs → Tailwind & PostCSS
+Configs: Don’t churn eslint/prettier/build/CI unless explicitly requested.
 
-tsconfig.json → TypeScript setup
+Tests: Prefer small tests for utils (e.g., geo/cluster math). Include manual test steps.
 
-.env.local → environment variables (ignored by Git)
+Maps & clustering
 
-Workflow
+Google Maps JS: use @googlemaps/markerclusterer; memoize markers; rebuild clusterer only when pins change; cluster click → center + zoom in by ~2.
 
-Edit locally in Cursor
+Mapbox/MapLibre GL: use clustered GeoJSON source (cluster: true, clusterRadius: ~60, clusterMaxZoom: ~16), separate cluster/unclustered layers, label with point_count; on cluster click, use getClusterExpansionZoom + flyTo.
 
-Always open the clean repo folder (e.g., pinit-clean).
+Show a clear count badge (from point_count or markerclusterer size) akin to mobile’s “recCount bubble”.
 
-Only modify existing files unless explicitly asked to create new ones.
+Performance & UX
 
-After code suggestions, always list file paths.
+Debounce pin updates; avoid re-creating markers/clusterers every render.
 
-Commit changes via GitHub (browser)
+Keep map interactive frames smooth; prefer memoized data transforms (useMemo).
 
-Upload changed files via Add file → Upload files.
+Accessibility: labels for interactive elements; keyboard focus management.
 
-Make changes on a feature branch, not main.
+Offline (web)
 
-Open a Pull Request from the feature branch into main.
+Queue pin actions locally (IndexedDB via idb); sync to Firestore when reconnected.
 
-Deployment
+Avoid blocking map paint while syncing; show a small “Syncing…” toast when applicable.
 
-Vercel automatically builds Preview deployments for Pull Requests.
+AI & enrichment (web)
 
-Merging into main triggers production deployment.
+After pin drop, enrich with Google Places (photos/details) server-side where possible to keep keys secret.
 
-Rules for AI Assistants
+Simple ranking: recent pins + user categories + proximity.
 
-Always read this file before writing code.
+Rollback & hygiene
 
-Respect the existing folder structure.
+Work on a feature branch; open a PR; verify on Vercel Preview.
 
-Suggest incremental edits (not full rewrites).
+Keep a short rollback plan in PR description for S/M/L diffs.
 
-Provide file paths with every code snippet.
+Do not rename/move large folders in routine fixes.
 
-Do not invent new folders or files unless explicitly asked.
+Starter prompts
 
-Assume Vercel handles deployment — no local server setup required.
+A — First message in a new Cursor chat (read-only):
 
-Safety & Rollback
+Read package.json, repo root, and docs/CURSOR_HANDOVER.md. Produce the 6-line Preflight checklist only. Do not edit files.
 
-GitHub tags mark stable commits (e.g., v-pinit-2025-08-20, v-pinit-2025-08-25-stable).
+B — Clustering (Google Maps):
 
-If something breaks, restore via:
+Per docs/CURSOR_HANDOVER.md: Implement clustering in components/ResultsMap.tsx using @googlemaps/markerclusterer. Create lib/formatPins.ts to convert Pin[] → markers. Memoize markers; on cluster click center + zoom in by 2. Keep diff XS and add a 2-sentence rationale.
 
-GitHub → Releases (create a branch from a tag and merge), or
+C — Clustering (MapLibre/Mapbox):
 
-Vercel → Deployments (promote a previous successful deployment).
+Per docs/CURSOR_HANDOVER.md: Add a clustered GeoJSON source for Pin[] with cluster: true, clusterRadius: 60. Add cluster & unclustered layers, show point_count, and expand/zoom on cluster click. Keep diff XS and add a 2-sentence rationale.
 
-main is protected: changes only enter via Pull Requests.
+Forbidden without explicit approval
+
+Adding RN/Expo/metro/android//ios/ artifacts
+
+Large refactors or dependency swaps
+
+Lint/Prettier/CI changes
+
+Secrets in code
+
+Contact
+
+If unsure, stop and request review here.
+
+
+---
+
+👉 This version now **includes the HARD REQUIREMENTS section explicitly**, in bold with the stop signs and key icons to make it pop out.  
+
+Would you like me to also prep the little one-liner `STACK.md` for your repo root (so even if someone ignores `docs/`, the stack lock is obvious)?

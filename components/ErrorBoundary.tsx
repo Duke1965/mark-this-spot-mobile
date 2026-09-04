@@ -4,6 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Bug, Copy, Download } from 'lucide-react'
+import type { MaintenanceReport } from '@/lib/nightlyMaintenance'
 
 interface Props {
   children: ReactNode
@@ -103,7 +104,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private copyErrorDetails = () => {
     const errorDetails = {
-      app: 'PINIT',
+      app: 'Mappo',
       version: '1.0.0',
       errorId: this.state.errorId,
       timestamp: new Date().toISOString(),
@@ -167,7 +168,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="bg-white rounded-lg p-6 shadow-lg space-y-4">
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                  PINIT Error
+                  Mappo Error
                 </h2>
                 <p className="text-gray-600 text-sm mb-4">
                   Error ID: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{this.state.errorId}</code>

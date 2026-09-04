@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMapLifecycleEnabled } from '@/lib/mapLifecycle'
 import { performNightlyMaintenance, getMaintenanceStatistics, saveMaintenanceTimestamp } from '@/lib/nightlyMaintenance'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 // GET: Get maintenance status and statistics
 export async function GET(request: NextRequest) {

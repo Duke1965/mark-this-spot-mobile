@@ -84,13 +84,14 @@ export async function searchUnsplashImages(query: string, max: number = 3): Prom
 
   const images: UnsplashImage[] = []
   for (const r of results) {
-    const regular = normStr(r?.urls?.regular) || normStr(r?.urls?.small) || normStr(r?.urls?.raw)
+    // Prefer smaller assets so our 5MB download cap doesn't reject them.
+    const imgUrl = normStr(r?.urls?.small) || normStr(r?.urls?.regular) || normStr(r?.urls?.raw)
     const html = normStr(r?.links?.html)
-    if (!regular || !html) continue
+    if (!imgUrl || !html) continue
 
     const photographer = normStr(r?.user?.name) || undefined
     images.push({
-      imageUrl: withUtm(regular),
+      imageUrl: withUtm(imgUrl),
       pageUrl: withUtm(html),
       attribution: buildAttribution(photographer),
       photographerName: photographer

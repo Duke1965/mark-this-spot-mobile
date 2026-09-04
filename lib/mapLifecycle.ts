@@ -1,3 +1,5 @@
+import { getItem, setItem, removeItem } from '@/lib/serverStore'
+
 // Map Lifecycle Configuration
 // Configurable thresholds for pin management system
 export const MAP_LIFECYCLE = {

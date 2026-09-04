@@ -283,7 +283,7 @@ Before going live:
 
 ## 🎉 **Congratulations!**
 
-Your PINIT Pin Management System is now production-ready! 
+Your PINIT Pin Management System is now production-ready!  
 
 The system will automatically:
 - Manage pin lifecycles
