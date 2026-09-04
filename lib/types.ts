@@ -41,10 +41,33 @@ export interface PinData {
   platform?: string
   isPending?: boolean // NEW: True if pin needs location confirmation (created while traveling)
   isViewed?: boolean // NEW: True if pending pin has been viewed/opened by user
+  // Lightweight Google Nearby candidates for later Quick Pin chooser (optional, backwards compatible)
+  googleCandidates?: GooglePinCandidate[]
+  gpsLatitude?: number
+  gpsLongitude?: number
+  selectedGooglePlaceId?: string
+  selectedGoogleCandidate?: SelectedGoogleCandidate
   // AI generation metadata
   aiConfidence?: "high" | "medium" | "low"
   aiUsedFallback?: boolean
   aiGeneratedAt?: string
+}
+
+export interface GooglePinCandidate {
+  placeId: string
+  name: string
+  lat: number
+  lng: number
+  distanceM: number
+  types: string[]
+  category?: string
+}
+
+export interface SelectedGoogleCandidate {
+  placeId: string
+  name: string
+  lat: number
+  lng: number
 }
 
 export interface GooglePlace {

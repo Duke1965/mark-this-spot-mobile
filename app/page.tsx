@@ -291,7 +291,6 @@ export default function PINITApp() {
     predicted: { lat: number; lng: number }
     gps: { lat: number; lng: number }
     candidates: QuickPinCandidate[]
-    pinIntelV2: any
     draftPin: PinData
     selected?: QuickPinSelectedCandidate
   } | null>(null)
@@ -1562,10 +1561,13 @@ export default function PINITApp() {
         console.log(`🖼️ Using image: ${primaryImageUrl?.substring(0, 60)}...`)
       }
       
+      const candidates = parseQuickPinCandidates(pinIntelV2?.candidates)
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
         longitude: pinLongitude,
+        gpsLatitude: currentLocation.latitude,
+        gpsLongitude: currentLocation.longitude,
         // Use place name or AI-generated location name
         locationName: placeName || aiTextResult?.title || locationDescription,
         mediaUrl: primaryImageUrl, // Resolved via image resolver (Wikimedia/paid/placeholder)
@@ -1589,20 +1591,17 @@ export default function PINITApp() {
         aiGeneratedAt: new Date().toISOString()
       }
 
-      const candidates = parseQuickPinCandidates(pinIntelV2?.candidates)
       if (candidates.length > 0) {
-        setQuickPinChooser({
-          predicted: { lat: pinLatitude, lng: pinLongitude },
-          gps: { lat: currentLocation.latitude, lng: currentLocation.longitude },
-          candidates,
-          pinIntelV2,
-          draftPin: newPin,
-        })
-        console.log("📍 Quick pin candidates ready:", {
+        newPin.title = "Pinned location"
+        newPin.locationName = "Pinned location"
+        newPin.description = "Pinned location"
+        newPin.mediaUrl = "/pinit-placeholder.jpg"
+        newPin.additionalPhotos = []
+        newPin.googleCandidates = candidates
+        console.log("📍 Quick pin saved pending with Google candidates:", {
           count: candidates.length,
           predicted: { lat: pinLatitude, lng: pinLongitude },
         })
-        return
       }
 
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
@@ -1654,19 +1653,6 @@ export default function PINITApp() {
     userLocation,
   ])
 
-  const finishQuickPinSave = useCallback((pin: PinData) => {
-    addPin(pin)
-    setQuickPinChooser(null)
-    setQuickPinStage("Pinned!")
-    setSuccessMessage("Pin saved.")
-    setShowSuccessPopup(true)
-    if (successPopupTimerRef.current) window.clearTimeout(successPopupTimerRef.current)
-    successPopupTimerRef.current = window.setTimeout(() => {
-      setShowSuccessPopup(false)
-      console.log("🔄 Pin created - ready for next pin")
-    }, 1500)
-  }, [addPin])
-
   const handleQuickPinCandidateSelect = useCallback((candidate: QuickPinCandidate) => {
     const session = quickPinChooserRef.current
     if (!session) return
@@ -1678,70 +1664,54 @@ export default function PINITApp() {
       lng: candidate.lng,
     }
 
-    const autoPlaceId = String(session.pinIntelV2?.place?.sourceId || "").trim()
-    const autoSource = String(session.pinIntelV2?.place?.source || "").toLowerCase()
-    const enrichmentMatchesSelected =
-      !!autoPlaceId &&
-      autoPlaceId === candidate.placeId &&
-      (autoSource === "google" || autoSource === "")
-
-    console.log("📍 Quick pin candidate selected:", {
+    console.log("📍 Quick pin candidate selected (pending until Step 3):", {
       selected,
-      autoPlaceId: autoPlaceId || null,
-      autoSource: autoSource || null,
-      enrichmentMatchesSelected,
       predicted: session.predicted,
+      pinId: session.draftPin.id,
     })
 
-    if (enrichmentMatchesSelected) {
-      finishQuickPinSave({
-        ...session.draftPin,
-        latitude: session.predicted.lat,
-        longitude: session.predicted.lng,
-        googlePlaceId: candidate.placeId,
-        placeId: candidate.placeId,
-      })
-      return
+    const selectionUpdates: Partial<PinData> = {
+      googlePlaceId: candidate.placeId,
+      placeId: candidate.placeId,
+      selectedGooglePlaceId: candidate.placeId,
+      selectedGoogleCandidate: selected,
+      latitude: session.predicted.lat,
+      longitude: session.predicted.lng,
+      isPending: true,
     }
+    updatePinInStorage(session.draftPin.id, selectionUpdates)
+    setPins((prev) =>
+      prev.map((p) => (p.id === session.draftPin.id ? { ...p, ...selectionUpdates } : p))
+    )
 
-    // Step 2 boundary: do not save auto-enrichment that may belong to a different place.
     setQuickPinChooser({
       ...session,
+      draftPin: { ...session.draftPin, ...selectionUpdates },
       selected,
     })
-  }, [finishQuickPinSave])
+  }, [updatePinInStorage])
 
   const handleQuickPinNoneOfThese = useCallback(() => {
     const session = quickPinChooserRef.current
     if (!session) return
 
     const predicted = session.predicted
-    const skeleton: PinData = {
-      id: session.draftPin.id,
+    const pin = {
+      ...session.draftPin,
       latitude: predicted.lat,
       longitude: predicted.lng,
-      locationName: "Pinned location",
-      mediaUrl: "/pinit-placeholder.jpg",
-      mediaType: "photo",
-      audioUrl: null,
-      timestamp: session.draftPin.timestamp,
-      title: "Pinned location",
-      description: "Pinned location",
-      tags: ["mappo", "travel"],
-      additionalPhotos: [],
       isPending: true,
     }
 
     console.log("📍 Quick pin none of these → Adjust Pin", predicted)
-    addPin(skeleton)
-    setEditingPin(skeleton)
+    setEditingPin(pin)
     setPendingPinLocation(predicted)
     setCommittedPinLocation(predicted)
     setOriginalPinLocation(predicted)
-    setPinEditReturnScreen("map")
+    setPinEditReturnScreen("library")
     setQuickPinChooser(null)
     setCurrentScreen("map")
-  }, [addPin, setCurrentScreen])
+  }, [setCurrentScreen])
 
   const handleQuickPinHeldDismiss = useCallback(() => {
     setQuickPinChooser(null)
@@ -3394,28 +3364,43 @@ export default function PINITApp() {
 
   if (currentScreen === "library") {
     return (
+      <>
       <PinLibrary
         pins={storedPins}
-        onBack={() => setCurrentScreen("map")}
+        onBack={() => {
+          setQuickPinChooser(null)
+          setCurrentScreen("map")
+        }}
         onPinSelect={(pin: PinData) => {
           console.log("📌 Pin selected from library:", pin.title, "isPending:", pin.isPending)
           
-          // If pin is pending, open map editor to allow location adjustment
+          // If pin is pending, open chooser when Google candidates exist; otherwise Adjust Pin
           if (pin.isPending) {
-            console.log("📌 Opening pending pin in map editor")
-            
-            // Mark pending pin as viewed when opened
             if (!pin.isViewed) {
               updatePinInStorage(pin.id, { isViewed: true })
-              // Update local state
               setPins(prev => prev.map(p => 
                 p.id === pin.id ? { ...p, isViewed: true } : p
               ))
               console.log("✅ Marked pending pin as viewed:", pin.id)
             }
-            
+
+            const candidates = parseQuickPinCandidates(pin.googleCandidates)
+            if (candidates.length > 0) {
+              console.log("📌 Opening pending pin in Google candidate chooser", { count: candidates.length })
+              setQuickPinChooser({
+                predicted: { lat: pin.latitude, lng: pin.longitude },
+                gps: {
+                  lat: Number.isFinite(Number(pin.gpsLatitude)) ? Number(pin.gpsLatitude) : pin.latitude,
+                  lng: Number.isFinite(Number(pin.gpsLongitude)) ? Number(pin.gpsLongitude) : pin.longitude,
+                },
+                candidates,
+                draftPin: { ...pin, isViewed: true },
+              })
+              return
+            }
+
+            console.log("📌 Opening pending pin in map editor")
             setEditingPin(pin)
-            // Initialize both pending and committed to the pin's current location
             setPendingPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setCommittedPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
@@ -3441,6 +3426,16 @@ export default function PINITApp() {
           console.log("🗑️ Pin deleted:", pinId)
         }}
       />
+      {quickPinChooser ? (
+        <QuickPinPlaceChooser
+          candidates={quickPinChooser.candidates}
+          selected={quickPinChooser.selected}
+          onSelect={handleQuickPinCandidateSelect}
+          onNoneOfThese={handleQuickPinNoneOfThese}
+          onDismissHeld={handleQuickPinHeldDismiss}
+        />
+      ) : null}
+      </>
     )
   }
 

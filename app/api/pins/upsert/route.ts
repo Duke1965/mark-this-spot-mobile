@@ -27,6 +27,61 @@ function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
   return out
 }
 
+function sanitizeGoogleCandidates(raw: unknown) {
+  if (!Array.isArray(raw)) return undefined
+  const out: Array<{
+    placeId: string
+    name: string
+    lat: number
+    lng: number
+    distanceM: number
+    types: string[]
+    category?: string
+  }> = []
+  for (const row of raw) {
+    const placeId = typeof row?.placeId === 'string' ? row.placeId.trim() : ''
+    const name = typeof row?.name === 'string' ? row.name.trim() : ''
+    const lat = Number(row?.lat)
+    const lng = Number(row?.lng)
+    const distanceM = Number(row?.distanceM)
+    if (!placeId || !name) continue
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+    const types = Array.isArray(row?.types) ? row.types.map((t: unknown) => String(t)) : []
+    const item: {
+      placeId: string
+      name: string
+      lat: number
+      lng: number
+      distanceM: number
+      types: string[]
+      category?: string
+    } = {
+      placeId,
+      name,
+      lat,
+      lng,
+      distanceM: Number.isFinite(distanceM) ? distanceM : 0,
+      types
+    }
+    if (typeof row?.category === 'string' && row.category.trim()) item.category = row.category.trim()
+    out.push(item)
+    if (out.length >= 3) break
+  }
+  return out.length > 0 ? out : undefined
+}
+
+function sanitizeSelectedGoogleCandidate(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return undefined
+  const row = raw as any
+  const placeId = typeof row.placeId === 'string' ? row.placeId.trim() : ''
+  const name = typeof row.name === 'string' ? row.name.trim() : ''
+  const lat = Number(row.lat)
+  const lng = Number(row.lng)
+  if (!placeId || !name) return undefined
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined
+  return { placeId, name, lat, lng }
+}
+
 function sanitizePin(pin: any) {
   // Prevent accidentally storing giant data URLs in Firestore.
   const mediaUrl =
@@ -67,6 +122,11 @@ function sanitizePin(pin: any) {
     platform: typeof pin.platform === 'string' ? pin.platform : undefined,
     isPending: typeof pin.isPending === 'boolean' ? pin.isPending : undefined,
     isViewed: typeof pin.isViewed === 'boolean' ? pin.isViewed : undefined,
+    googleCandidates: sanitizeGoogleCandidates(pin.googleCandidates),
+    gpsLatitude: Number.isFinite(Number(pin.gpsLatitude)) ? Number(pin.gpsLatitude) : undefined,
+    gpsLongitude: Number.isFinite(Number(pin.gpsLongitude)) ? Number(pin.gpsLongitude) : undefined,
+    selectedGooglePlaceId: typeof pin.selectedGooglePlaceId === 'string' ? pin.selectedGooglePlaceId : undefined,
+    selectedGoogleCandidate: sanitizeSelectedGoogleCandidate(pin.selectedGoogleCandidate),
     aiConfidence: typeof pin.aiConfidence === 'string' ? pin.aiConfidence : undefined,
     aiUsedFallback: typeof pin.aiUsedFallback === 'boolean' ? pin.aiUsedFallback : undefined,
     aiGeneratedAt: typeof pin.aiGeneratedAt === 'string' ? pin.aiGeneratedAt : undefined
