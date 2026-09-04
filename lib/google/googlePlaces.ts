@@ -1,6 +1,6 @@
 /**
  * Server-only Google Places client (Pin-time only).
- * Uses a server key via GOOGLE_MAPS_API_KEY.
+ * Places API (New) via GOOGLE_MAPS_API_KEY. Never use NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
  */
 
 import { createHash } from 'crypto'
@@ -36,6 +36,10 @@ export type GooglePlaceDetails = {
   photos?: Array<{ photoReference: string; width?: number; height?: number }>
 }
 
+const NEARBY_FIELD_MASK = 'places.id,places.displayName,places.location,places.types'
+const DETAILS_FIELD_MASK =
+  'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos'
+
 function requireApiKey(): string {
   const key = process.env.GOOGLE_MAPS_API_KEY
   if (!key) throw new Error('Missing GOOGLE_MAPS_API_KEY')
@@ -49,34 +53,107 @@ function envInt(name: string, def: number): number {
   return Number.isFinite(n) ? Math.floor(n) : def
 }
 
-async function fetchJsonWithTimeout(url: string, timeoutMs: number): Promise<any> {
+function placesHeaders(apiKey: string, fieldMask?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Goog-Api-Key': apiKey
+  }
+  if (fieldMask) headers['X-Goog-FieldMask'] = fieldMask
+  return headers
+}
+
+function googleErrorStatus(httpStatus: number, body: any): string {
+  const status = typeof body?.error?.status === 'string' ? body.error.status : ''
+  if (status) return status
+  return `HTTP_${httpStatus}`
+}
+
+async function fetchPlacesJson(input: {
+  url: string
+  method: 'GET' | 'POST'
+  apiKey: string
+  fieldMask: string
+  timeoutMs: number
+  body?: unknown
+}): Promise<{ ok: true; data: any } | { ok: false; status: string }> {
   const controller = new AbortController()
-  const t = setTimeout(() => controller.abort(), timeoutMs)
+  const t = setTimeout(() => controller.abort(), input.timeoutMs)
   try {
-    const resp = await fetch(url, { signal: controller.signal })
+    const headers: Record<string, string> = {
+      ...placesHeaders(input.apiKey, input.fieldMask)
+    }
+    if (input.method === 'POST') headers['Content-Type'] = 'application/json'
+
+    const resp = await fetch(input.url, {
+      method: input.method,
+      headers,
+      body: input.method === 'POST' ? JSON.stringify(input.body ?? {}) : undefined,
+      signal: controller.signal
+    })
     const text = await resp.text()
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    return text ? JSON.parse(text) : null
+    let data: any = null
+    if (text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = null
+      }
+    }
+    if (!resp.ok) {
+      return { ok: false, status: googleErrorStatus(resp.status, data) }
+    }
+    return { ok: true, data }
   } finally {
     clearTimeout(t)
   }
 }
 
-async function fetchBytesWithTimeout(
-  url: string,
+async function fetchPhotoBytes(input: {
+  url: string
+  apiKey: string
   timeoutMs: number
-): Promise<{ buffer: Buffer; contentType: string }> {
+}): Promise<{ buffer: Buffer; contentType: string }> {
   const controller = new AbortController()
-  const t = setTimeout(() => controller.abort(), timeoutMs)
+  const t = setTimeout(() => controller.abort(), input.timeoutMs)
   try {
-    const resp = await fetch(url, { signal: controller.signal, redirect: 'follow' })
+    const resp = await fetch(input.url, {
+      method: 'GET',
+      headers: placesHeaders(input.apiKey),
+      signal: controller.signal,
+      redirect: 'follow'
+    })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const contentType = resp.headers.get('content-type') || 'image/jpeg'
+    if (contentType.toLowerCase().includes('application/json')) {
+      throw new Error(`HTTP ${resp.status}`)
+    }
     const arrayBuffer = await resp.arrayBuffer()
     return { buffer: Buffer.from(arrayBuffer), contentType }
   } finally {
     clearTimeout(t)
   }
+}
+
+function toPlaceId(raw: unknown): string {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  return s.startsWith('places/') ? s.slice('places/'.length) : s
+}
+
+function displayNameText(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (value && typeof value === 'object' && typeof (value as any).text === 'string') {
+    const t = String((value as any).text).trim()
+    return t || undefined
+  }
+  return undefined
+}
+
+function sanitizePhotoResourceName(name: string): string | null {
+  const n = String(name || '').trim()
+  if (!n.startsWith('places/')) return null
+  if (n.includes('://') || n.includes('..') || n.includes('?') || n.includes('#')) return null
+  if (!n.includes('/photos/')) return null
+  return n
 }
 
 function looksLikeAddressOnly(types: string[] | undefined): boolean {
@@ -178,47 +255,55 @@ export async function nearbySearch(input: {
 }): Promise<GoogleNearbySelection> {
   const key = requireApiKey()
   const radius = Math.max(10, Math.min(250, input.radiusMeters ?? envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80)))
-
-  const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
-  url.searchParams.set('key', key)
-  url.searchParams.set('location', `${input.lat},${input.lon}`)
-  url.searchParams.set('radius', String(radius))
-  url.searchParams.set('language', 'en')
-  url.searchParams.set('region', 'za')
-
-  // Bias the search toward the user hint (reduces "wrong POI next door" picks).
-  const term = String(input.term || '').trim()
-  if (term.length >= 3 && term.length <= 80 && !/^[-+]?\d+\.\d+/.test(term)) {
-    url.searchParams.set('keyword', term)
-  }
+  const thresh = input.maxDistanceMeters ?? envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250)
+  const empty = (reasonIfNotUsed: string): GoogleNearbySelection => ({
+    selected: null,
+    candidates: [],
+    thresholdUsed: thresh,
+    reasonIfNotUsed
+  })
 
   const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
-  const data = await fetchJsonWithTimeout(url.toString(), timeoutMs)
-  const status = String(data?.status || '')
-  if (status !== 'OK') {
-    return {
-      selected: null,
-      candidates: [],
-      thresholdUsed: input.maxDistanceMeters ?? envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250),
-      reasonIfNotUsed: `google_nearby_status:${status}`
+  const result = await fetchPlacesJson({
+    url: 'https://places.googleapis.com/v1/places:searchNearby',
+    method: 'POST',
+    apiKey: key,
+    fieldMask: NEARBY_FIELD_MASK,
+    timeoutMs,
+    body: {
+      languageCode: 'en',
+      regionCode: 'ZA',
+      maxResultCount: 20,
+      locationRestriction: {
+        circle: {
+          center: { latitude: input.lat, longitude: input.lon },
+          radius
+        }
+      }
     }
+  })
+
+  if (!result.ok) {
+    return empty(`google_nearby_status:${result.status}`)
   }
 
-  const results = Array.isArray(data?.results) ? data.results : []
+  const results = Array.isArray(result.data?.places) ? result.data.places : []
+  if (results.length === 0) {
+    return empty('google_nearby_status:ZERO_RESULTS')
+  }
+
   const mapped: GoogleNearbyCandidateWithDistance[] = results
     .map((r: any) => {
-      const placeId = r?.place_id ? String(r.place_id) : ''
-      const loc = r?.geometry?.location
-      const lat = Number(loc?.lat)
-      const lon = Number(loc?.lng)
+      const placeId = toPlaceId(r?.id || r?.name)
+      const lat = Number(r?.location?.latitude)
+      const lon = Number(r?.location?.longitude)
       if (!placeId || !Number.isFinite(lat) || !Number.isFinite(lon)) return null
 
-      const name = typeof r?.name === 'string' ? r.name : undefined
+      const name = displayNameText(r?.displayName)
       const types = Array.isArray(r?.types) ? r.types.map(String) : undefined
       const distanceMeters = haversineDistanceMeters({ lat: input.lat, lon: input.lon }, { lat, lon })
-      const vicinity = typeof r?.vicinity === 'string' ? r.vicinity : undefined
       const isChain = isLikelyChain(name, types)
-      return { placeId, name, types, location: { lat, lon }, distanceMeters, vicinity, isChain }
+      return { placeId, name, types, location: { lat, lon }, distanceMeters, isChain }
     })
     .filter(Boolean) as GoogleNearbyCandidateWithDistance[]
 
@@ -226,11 +311,10 @@ export async function nearbySearch(input: {
   const nonAddress = mapped.filter((c) => !looksLikeAddressOnly(c.types))
   const usable = nonAddress.length ? nonAddress : mapped
 
-  // Thresholds (meters)
-  const thresh = input.maxDistanceMeters ?? envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS', 250)
   const threshChain = input.maxDistanceMetersChain ?? envInt('GOOGLE_PIN_INTEL_MAX_DISTANCE_METERS_CHAIN', 100)
 
-  // Prefer hint matches when present.
+  // Prefer hint matches when present. Nearby Search (New) has no keyword param;
+  // matching stays client-side so pin-intel ranking behaviour is unchanged.
   const hint = String(input.term || '').trim()
   const within = usable.filter((c) => c.distanceMeters <= (c.isChain ? threshChain : thresh))
   const hintMatchesWithin = hint ? within.filter((c) => hintMatches(hint, c.name)) : []
@@ -265,7 +349,6 @@ export async function nearbySearch(input: {
     .slice(0, 3)
     .map((c) => ({ ...c, selected: c.placeId === selected.placeId }))
 
-  // Log per candidate for server debugging.
   try {
     console.log('📍 Google Nearby candidates:', {
       pin: { lat: input.lat, lon: input.lon },
@@ -290,50 +373,44 @@ export async function nearbySearch(input: {
 
 export async function placeDetails(placeId: string): Promise<GooglePlaceDetails | null> {
   const key = requireApiKey()
-  const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-  url.searchParams.set('key', key)
-  url.searchParams.set('place_id', placeId)
-  url.searchParams.set(
-    'fields',
-    [
-      'place_id',
-      'name',
-      'formatted_address',
-      'website',
-      'types',
-      'photos',
-      'formatted_phone_number',
-      'geometry/location'
-    ].join(',')
-  )
-  url.searchParams.set('language', 'en')
-  url.searchParams.set('region', 'za')
+  const id = toPlaceId(placeId)
+  if (!id) return null
 
   const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
-  const data = await fetchJsonWithTimeout(url.toString(), timeoutMs)
-  const status = String(data?.status || '')
-  if (status !== 'OK') return null
+  const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`)
+  url.searchParams.set('languageCode', 'en')
+  url.searchParams.set('regionCode', 'ZA')
 
-  const r = data?.result
-  if (!r?.place_id) return null
+  const result = await fetchPlacesJson({
+    url: url.toString(),
+    method: 'GET',
+    apiKey: key,
+    fieldMask: DETAILS_FIELD_MASK,
+    timeoutMs
+  })
+  if (!result.ok) return null
+
+  const r = result.data
+  const resolvedId = toPlaceId(r?.id || r?.name || id)
+  if (!resolvedId) return null
+
+  const lat = Number(r?.location?.latitude)
+  const lon = Number(r?.location?.longitude)
 
   return {
-    placeId: String(r.place_id),
-    name: typeof r?.name === 'string' ? r.name : undefined,
-    formattedAddress: typeof r?.formatted_address === 'string' ? r.formatted_address : undefined,
-    website: typeof r?.website === 'string' ? r.website : undefined,
+    placeId: resolvedId,
+    name: displayNameText(r?.displayName),
+    formattedAddress: typeof r?.formattedAddress === 'string' ? r.formattedAddress : undefined,
+    website: typeof r?.websiteUri === 'string' ? r.websiteUri : undefined,
     types: Array.isArray(r?.types) ? r.types.map(String) : undefined,
-    phone: typeof r?.formatted_phone_number === 'string' ? r.formatted_phone_number : undefined,
-    location:
-      r?.geometry?.location && Number.isFinite(Number(r.geometry.location.lat)) && Number.isFinite(Number(r.geometry.location.lng))
-        ? { lat: Number(r.geometry.location.lat), lon: Number(r.geometry.location.lng) }
-        : undefined,
+    phone: typeof r?.nationalPhoneNumber === 'string' ? r.nationalPhoneNumber : undefined,
+    location: Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : undefined,
     photos: Array.isArray(r?.photos)
       ? r.photos
           .map((p: any) => ({
-            photoReference: typeof p?.photo_reference === 'string' ? p.photo_reference : '',
-            width: Number.isFinite(Number(p?.width)) ? Number(p.width) : undefined,
-            height: Number.isFinite(Number(p?.height)) ? Number(p.height) : undefined
+            photoReference: sanitizePhotoResourceName(String(p?.name || '')) || '',
+            width: Number.isFinite(Number(p?.widthPx)) ? Number(p.widthPx) : undefined,
+            height: Number.isFinite(Number(p?.heightPx)) ? Number(p.heightPx) : undefined
           }))
           .filter((p: any) => p.photoReference)
       : []
@@ -342,17 +419,15 @@ export async function placeDetails(placeId: string): Promise<GooglePlaceDetails 
 
 export async function fetchPhoto(photoRef: string, maxWidth: number): Promise<{ buffer: Buffer; contentType: string }> {
   const key = requireApiKey()
-  const maxW = Math.max(400, Math.min(1600, Math.floor(maxWidth || 1200)))
-  const url = new URL('https://maps.googleapis.com/maps/api/place/photo')
-  url.searchParams.set('key', key)
-  url.searchParams.set('maxwidth', String(maxW))
-  url.searchParams.set('photoreference', photoRef)
+  const resourceName = sanitizePhotoResourceName(photoRef)
+  if (!resourceName) throw new Error('Invalid photo resource')
 
+  const maxW = Math.max(400, Math.min(1600, Math.floor(maxWidth || 1200)))
+  const url = `https://places.googleapis.com/v1/${resourceName}/media?maxWidthPx=${maxW}`
   const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
-  return await fetchBytesWithTimeout(url.toString(), timeoutMs)
+  return await fetchPhotoBytes({ url, apiKey: key, timeoutMs })
 }
 
 export function hashPhotoRef(photoRef: string): string {
   return createHash('md5').update(photoRef).digest('hex').slice(0, 10)
 }
-
