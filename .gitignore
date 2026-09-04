@@ -49,3 +49,5 @@ sw.js
 
 .vercel
 .env*
+package-lock.json
+tsconfig.tsbuildinfo
