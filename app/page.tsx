@@ -23,6 +23,12 @@ import { PinResults } from "@/components/PinResults"
 import { LocationPermissionPrompt } from "@/components/LocationPermissionPrompt"
 import { useAuth } from "@/hooks/useAuth"
 import { PinData } from "@/lib/types"
+import {
+  parseQuickPinCandidates,
+  QuickPinPlaceChooser,
+  type QuickPinCandidate,
+  type QuickPinSelectedCandidate,
+} from "@/components/QuickPinPlaceChooser"
 import { auth } from "@/lib/firebase"
 
 import { healPinData, checkDataIntegrity, autoHealOnStartup } from "@/lib/dataHealing"
@@ -281,6 +287,15 @@ export default function PINITApp() {
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
+  const [quickPinChooser, setQuickPinChooser] = useState<{
+    predicted: { lat: number; lng: number }
+    gps: { lat: number; lng: number }
+    candidates: QuickPinCandidate[]
+    pinIntelV2: any
+    draftPin: PinData
+    selected?: QuickPinSelectedCandidate
+  } | null>(null)
+  const [pinEditReturnScreen, setPinEditReturnScreen] = useState<"map" | "library">("library")
   const [quickPinStage, setQuickPinStage] = useState<string>("")
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
@@ -293,6 +308,7 @@ export default function PINITApp() {
   const quickPinInFlightRef = useRef(false)
   const quickPinControllerRef = useRef<AbortController | null>(null)
   const quickPinTimeoutRef = useRef<number | null>(null)
+  const quickPinChooserRef = useRef<typeof quickPinChooser>(null)
   const successPopupTimerRef = useRef<number | null>(null)
   const fetchLocationPhotosRef = useRef<null | ((lat: number, lng: number, externalSignal?: AbortSignal, bypassCache?: boolean) => Promise<any[]>)>(null)
   const editingPinRef = useRef<PinData | null>(null)
@@ -356,6 +372,12 @@ export default function PINITApp() {
 
     const handleBackButton = (event: PopStateEvent) => {
       event.preventDefault()
+
+      if (quickPinChooserRef.current) {
+        setQuickPinChooser(null)
+        pushHistoryStay()
+        return
+      }
 
       // Pin location edit overlay (currentScreen stays "map")
       if (editingPinRef.current) {
@@ -1287,6 +1309,11 @@ export default function PINITApp() {
       userLocation_state: userLocation ? { lat: userLocation.latitude, lng: userLocation.longitude } : null,
     })
 
+    if (quickPinChooser) {
+      console.log("📌 Early return: quick pin chooser is open")
+      return
+    }
+
     if (quickPinInFlightRef.current || isQuickPinning) {
       console.log("📌 Early return: quick pin already in flight", {
         quickPinInFlight: quickPinInFlightRef.current,
@@ -1302,6 +1329,7 @@ export default function PINITApp() {
     }
     setShowSuccessPopup(false)
     setSuccessMessage("")
+    setQuickPinChooser(null)
 
     // Cancel any previous in-flight quick-pin network work
     if (quickPinControllerRef.current) {
@@ -1550,6 +1578,22 @@ export default function PINITApp() {
         aiGeneratedAt: new Date().toISOString()
       }
 
+      const candidates = parseQuickPinCandidates(pinIntelV2?.candidates)
+      if (candidates.length > 0) {
+        setQuickPinChooser({
+          predicted: { lat: pinLatitude, lng: pinLongitude },
+          gps: { lat: currentLocation.latitude, lng: currentLocation.longitude },
+          candidates,
+          pinIntelV2,
+          draftPin: newPin,
+        })
+        console.log("📍 Quick pin candidates ready:", {
+          count: candidates.length,
+          predicted: { lat: pinLatitude, lng: pinLongitude },
+        })
+        return
+      }
+
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)
       addPin(newPin)
       console.log("📍 Quick pin created with photo:", newPin)
@@ -1594,9 +1638,103 @@ export default function PINITApp() {
     locationLoading,
     motionData,
     permissionStatus,
+    quickPinChooser,
     user,
     userLocation,
   ])
+
+  const finishQuickPinSave = useCallback((pin: PinData) => {
+    addPin(pin)
+    setQuickPinChooser(null)
+    setQuickPinStage("Pinned!")
+    setSuccessMessage("Pin saved.")
+    setShowSuccessPopup(true)
+    if (successPopupTimerRef.current) window.clearTimeout(successPopupTimerRef.current)
+    successPopupTimerRef.current = window.setTimeout(() => {
+      setShowSuccessPopup(false)
+      console.log("🔄 Pin created - ready for next pin")
+    }, 1500)
+  }, [addPin])
+
+  const handleQuickPinCandidateSelect = useCallback((candidate: QuickPinCandidate) => {
+    const session = quickPinChooserRef.current
+    if (!session) return
+
+    const selected: QuickPinSelectedCandidate = {
+      placeId: candidate.placeId,
+      name: candidate.name,
+      lat: candidate.lat,
+      lng: candidate.lng,
+    }
+
+    const autoPlaceId = String(session.pinIntelV2?.place?.sourceId || "").trim()
+    const autoSource = String(session.pinIntelV2?.place?.source || "").toLowerCase()
+    const enrichmentMatchesSelected =
+      !!autoPlaceId &&
+      autoPlaceId === candidate.placeId &&
+      (autoSource === "google" || autoSource === "")
+
+    console.log("📍 Quick pin candidate selected:", {
+      selected,
+      autoPlaceId: autoPlaceId || null,
+      autoSource: autoSource || null,
+      enrichmentMatchesSelected,
+      predicted: session.predicted,
+    })
+
+    if (enrichmentMatchesSelected) {
+      finishQuickPinSave({
+        ...session.draftPin,
+        latitude: session.predicted.lat,
+        longitude: session.predicted.lng,
+        googlePlaceId: candidate.placeId,
+        placeId: candidate.placeId,
+      })
+      return
+    }
+
+    // Step 2 boundary: do not save auto-enrichment that may belong to a different place.
+    setQuickPinChooser({
+      ...session,
+      selected,
+    })
+  }, [finishQuickPinSave])
+
+  const handleQuickPinNoneOfThese = useCallback(() => {
+    const session = quickPinChooserRef.current
+    if (!session) return
+
+    const predicted = session.predicted
+    const skeleton: PinData = {
+      id: session.draftPin.id,
+      latitude: predicted.lat,
+      longitude: predicted.lng,
+      locationName: "Pinned location",
+      mediaUrl: "/pinit-placeholder.jpg",
+      mediaType: "photo",
+      audioUrl: null,
+      timestamp: session.draftPin.timestamp,
+      title: "Pinned location",
+      description: "Pinned location",
+      tags: ["mappo", "travel"],
+      additionalPhotos: [],
+      isPending: true,
+    }
+
+    console.log("📍 Quick pin none of these → Adjust Pin", predicted)
+    addPin(skeleton)
+    setEditingPin(skeleton)
+    setPendingPinLocation(predicted)
+    setCommittedPinLocation(predicted)
+    setOriginalPinLocation(predicted)
+    setPinEditReturnScreen("map")
+    setQuickPinChooser(null)
+    setCurrentScreen("map")
+  }, [addPin, setCurrentScreen])
+
+  const handleQuickPinHeldDismiss = useCallback(() => {
+    setQuickPinChooser(null)
+  }, [])
 
   // NEW: Generate intelligent AI content based on location and context
   // Prioritizes Foursquare data (title/name, description) over AI-generated content
@@ -2659,6 +2797,7 @@ export default function PINITApp() {
         setCommittedPinLocation(null)
         setOriginalPinLocation(null)
         setIsDraggingPin(false)
+        setPinEditReturnScreen("library")
       }, 100)
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -2676,15 +2815,18 @@ export default function PINITApp() {
   // Handler for Cancel button
   const handlePinEditCancel = useCallback(() => {
     console.log("❌ Pin editing cancelled")
+    const returnTo = pinEditReturnScreen
     setEditingPin(null)
         setPendingPinLocation(null)
         setCommittedPinLocation(null)
     setOriginalPinLocation(null)
-    setCurrentScreen("library")
-  }, [setCurrentScreen])
+    setPinEditReturnScreen("library")
+    setCurrentScreen(returnTo)
+  }, [pinEditReturnScreen, setCurrentScreen])
 
   editingPinRef.current = editingPin
   pinEditCancelRef.current = handlePinEditCancel
+  quickPinChooserRef.current = quickPinChooser
 
   const registerRecommendationsSystemBack = useCallback((handler: (() => boolean) | null) => {
     recommendationsSystemBackRef.current = handler
@@ -3266,6 +3408,7 @@ export default function PINITApp() {
             setPendingPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setCommittedPinLocation({ lat: pin.latitude, lng: pin.longitude })
             setOriginalPinLocation({ lat: pin.latitude, lng: pin.longitude })
+            setPinEditReturnScreen("library")
             setCurrentScreen("map")
           } else {
             // If pin is completed, open results page
@@ -3934,6 +4077,16 @@ export default function PINITApp() {
         permissionStatus={permissionStatus}
       />
 
+      {quickPinChooser ? (
+        <QuickPinPlaceChooser
+          candidates={quickPinChooser.candidates}
+          selected={quickPinChooser.selected}
+          onSelect={handleQuickPinCandidateSelect}
+          onNoneOfThese={handleQuickPinNoneOfThese}
+          onDismissHeld={handleQuickPinHeldDismiss}
+        />
+      ) : null}
+
       {/* Success Popup - success/error-aware message */}
       {showSuccessPopup && (
         <div
@@ -4306,14 +4459,14 @@ export default function PINITApp() {
           {/* Main Pin Button with Compass M logo */}
           <button
           onClick={handleQuickPin}
-          disabled={isQuickPinning}
+          disabled={isQuickPinning || !!quickPinChooser}
           style={{
             width: "250px",
             height: "250px",
             borderRadius: "50%",
             border: motionData.isMoving && motionData.speed > 5 ? "4px solid #22C55E" : "3px solid rgba(199, 238, 229, 0.88)",
             background: "rgba(238, 248, 244, 0.18)",
-            cursor: isQuickPinning ? "not-allowed" : "pointer",
+            cursor: isQuickPinning || quickPinChooser ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
             boxShadow: motionData.isMoving && motionData.speed > 5 ? "0 8px 22px rgba(34, 197, 94, 0.24)" : "0 8px 20px rgba(78, 63, 43, 0.12)",
             display: "flex",
@@ -4323,7 +4476,7 @@ export default function PINITApp() {
             color: "white",
             fontSize: "1.125rem",
             fontWeight: "bold",
-            opacity: isQuickPinning ? 0.7 : 1,
+            opacity: isQuickPinning || quickPinChooser ? 0.7 : 1,
             position: "relative",
             zIndex: 2,
             overflow: "hidden",
