@@ -245,6 +245,23 @@ function preferenceScore(types: string[] | undefined): number {
   return score
 }
 
+function diagnosticCandidates(
+  usable: GoogleNearbyCandidateWithDistance[],
+  selectedPlaceId?: string
+): Array<GoogleNearbyCandidateWithDistance & { selected: boolean }> {
+  return usable
+    .filter((c) => {
+      const name = String(c.name || '').trim()
+      const lat = Number(c.location?.lat)
+      const lon = Number(c.location?.lon)
+      return !!String(c.placeId || '').trim() && !!name && Number.isFinite(lat) && Number.isFinite(lon)
+    })
+    .slice()
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 3)
+    .map((c) => ({ ...c, selected: !!selectedPlaceId && c.placeId === selectedPlaceId }))
+}
+
 export async function nearbySearch(input: {
   lat: number
   lon: number
@@ -336,10 +353,7 @@ export async function nearbySearch(input: {
   if (pool.length === 0) {
     return {
       selected: null,
-      candidates: usable
-        .slice(0, 3)
-        .map((c) => ({ ...c, selected: false }))
-        .sort((a, b) => a.distanceMeters - b.distanceMeters),
+      candidates: diagnosticCandidates(usable),
       thresholdUsed: thresh,
       reasonIfNotUsed: 'google_no_candidate_within_threshold'
     }
@@ -359,13 +373,7 @@ export async function nearbySearch(input: {
       return a.distanceMeters - b.distanceMeters
     })[0]!
   const thresholdUsed = selected.isChain ? threshChain : thresh
-
-  // Return top 3 candidates for diagnostics (sorted by distance)
-  const top = usable
-    .slice()
-    .sort((a, b) => a.distanceMeters - b.distanceMeters)
-    .slice(0, 3)
-    .map((c) => ({ ...c, selected: c.placeId === selected.placeId }))
+  const top = diagnosticCandidates(usable, selected.placeId)
 
   try {
     console.log('📍 Google Nearby candidates:', {

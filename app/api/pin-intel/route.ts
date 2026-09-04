@@ -97,6 +97,44 @@ function googleTypesToCategory(types?: string[]): string | undefined {
   return undefined
 }
 
+type PinIntelNearbyCandidate = {
+  placeId: string
+  name: string
+  lat: number
+  lng: number
+  distanceM: number
+  types: string[]
+  category?: string
+}
+
+function toPinIntelNearbyCandidates(rows: any[] | undefined): PinIntelNearbyCandidate[] {
+  if (!Array.isArray(rows)) return []
+  const out: PinIntelNearbyCandidate[] = []
+  for (const c of rows) {
+    const placeId = String(c?.placeId || '').trim()
+    const name = String(c?.name || '').trim()
+    const lat = Number(c?.location?.lat)
+    const lng = Number(c?.location?.lon)
+    const distanceM = Number(c?.distanceMeters)
+    if (!placeId || !name) continue
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(distanceM)) continue
+    const types = Array.isArray(c?.types) ? c.types.map((t: unknown) => String(t)) : []
+    const category = googleTypesToCategory(types)
+    const item: PinIntelNearbyCandidate = {
+      placeId,
+      name,
+      lat,
+      lng,
+      distanceM: Math.round(distanceM),
+      types
+    }
+    if (category) item.category = category
+    out.push(item)
+    if (out.length >= 3) break
+  }
+  return out
+}
+
 function parseLocalityFromFormattedAddress(addr: string | undefined): { locality?: string; country?: string } {
   const a = (addr || '').trim()
   if (!a) return {}
@@ -318,6 +356,7 @@ export async function GET(request: NextRequest) {
 
     // Images we return (hosted URLs only)
     const images: PinIntelImage[] = []
+    let googleNearbyCandidates: PinIntelNearbyCandidate[] = []
 
     // 0) Google cache-first + pin-time lookup (only if enabled)
     let place: any | null = null
@@ -402,6 +441,9 @@ export async function GET(request: NextRequest) {
                   isChain: !!c.isChain
                 }))
               : []
+            googleNearbyCandidates = toPinIntelNearbyCandidates(sel.candidates)
+            googleDiag.candidateCount = googleNearbyCandidates.length
+            googleDiag.candidatesFromGoogleNearby = googleNearbyCandidates.length > 0
 
             if (!sel.selected?.placeId) {
               googleDiag.reasonIfNotUsed = sel.reasonIfNotUsed || 'google_no_candidate'
@@ -848,11 +890,14 @@ export async function GET(request: NextRequest) {
         title,
         description,
         images,
+        candidates: googleNearbyCandidates,
         diagnostics: {
           provider: place.source,
           googleUsed: !!googleDiag.used,
           cacheHit: !!googleDiag.cacheHit,
           google: googleDiag,
+          candidatesFromGoogleNearby: googleNearbyCandidates.length > 0,
+          candidateCount: googleNearbyCandidates.length,
           websiteValidated,
           imageSummary: {
             googlePhotos: images.filter((i) => i.source === 'google').length,
