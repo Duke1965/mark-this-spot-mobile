@@ -264,7 +264,7 @@ function getMapboxStaticUrl(lat: number, lon: number): string | null {
 }
 
 /**
- * GET /api/pin-intel?lat=..&lon=..&hint=..
+ * GET /api/pin-intel?lat=..&lon=..&hint=..&includeCandidates=1
  *
  * Returns consistent PinIntel payload:
  * - place identity (Geoapify)
@@ -292,6 +292,12 @@ export async function GET(request: NextRequest) {
     const hint = searchParams.get('hint') || undefined
     const mode = (searchParams.get('mode') || '').toLowerCase()
     const maxDistanceRaw = searchParams.get('maxDistanceM') || searchParams.get('max_distance_m')
+    const includeCandidatesRaw = (
+      searchParams.get('includeCandidates') ||
+      searchParams.get('include_candidates') ||
+      ''
+    ).toLowerCase()
+    const includeCandidates = includeCandidatesRaw === '1' || includeCandidatesRaw === 'true'
 
     const lat = latRaw ? Number(latRaw) : NaN
     const lon = lonRaw ? Number(lonRaw) : NaN
@@ -344,6 +350,9 @@ export async function GET(request: NextRequest) {
       cacheHit: false,
       used: false,
       called: false,
+      candidatesRequested: includeCandidates,
+      geoCacheExisted: false,
+      candidateNearbyForced: false,
       placeId: undefined as string | undefined,
       reasonIfNotUsed: undefined as string | undefined,
       thresholdUsed: undefined as number | undefined,
@@ -383,7 +392,12 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      if (cached?.place?.place_id) {
+      googleDiag.geoCacheExisted = !!cached?.place?.place_id
+      googleDiag.candidatesRequested = includeCandidates
+
+      // Quick Pin chooser needs Nearby candidates even when a geo-cache entry exists.
+      // Adjust Pin and other callers keep the existing cache short-circuit (no extra Nearby).
+      if (cached?.place?.place_id && !includeCandidates) {
         googleDiag.cacheHit = true
         googleDiag.cache.read = 'hit'
         googleDiag.used = true
@@ -409,7 +423,11 @@ export async function GET(request: NextRequest) {
           images.push({ url: u, source: 'google', sourceUrl: `google:place:${cached.place.place_id}` })
         }
       } else {
-        googleDiag.cache.read = 'miss'
+        if (cached?.place?.place_id && includeCandidates) {
+          googleDiag.candidateNearbyForced = true
+          fallbacksUsed.push('nearby_forced_for_candidates')
+        }
+        googleDiag.cache.read = cached?.place?.place_id ? 'hit' : 'miss'
         // Daily safety limit before calling Google
         const key = limiterKeyForRequest(request)
         const limit = await checkAndIncrementGoogleDailyLimit({ key })
@@ -884,6 +902,16 @@ export async function GET(request: NextRequest) {
 
     timings.total_ms = Date.now() - startedAt
 
+    console.log('📍 pin-intel candidates', {
+      includeCandidates,
+      geoCacheExisted: !!googleDiag.geoCacheExisted,
+      candidateNearbyForced: !!googleDiag.candidateNearbyForced,
+      nearbyCalls: googleDiag.calls?.nearby ?? 0,
+      detailsCalls: googleDiag.calls?.details ?? 0,
+      photoCalls: googleDiag.calls?.photos ?? 0,
+      candidateCount: googleNearbyCandidates.length
+    })
+
     return NextResponse.json(
       {
         place,
@@ -896,6 +924,9 @@ export async function GET(request: NextRequest) {
           googleUsed: !!googleDiag.used,
           cacheHit: !!googleDiag.cacheHit,
           google: googleDiag,
+          candidatesRequested: includeCandidates,
+          geoCacheExisted: !!googleDiag.geoCacheExisted,
+          candidateNearbyForced: !!googleDiag.candidateNearbyForced,
           candidatesFromGoogleNearby: googleNearbyCandidates.length > 0,
           candidateCount: googleNearbyCandidates.length,
           websiteValidated,

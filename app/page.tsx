@@ -1414,15 +1414,26 @@ export default function PINITApp() {
       let pinIntelV2: any = null
       try {
         console.log("🌐 API request about to be made:", {
-          url: `/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`,
+          url: `/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}&includeCandidates=1`,
         })
-        const resp = await fetch(`/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}`, {
-          signal: controller.signal,
-          cache: 'no-store'
-        })
+        const resp = await fetch(
+          `/api/pin-intel?lat=${encodeURIComponent(String(pinLatitude))}&lon=${encodeURIComponent(String(pinLongitude))}&includeCandidates=1`,
+          {
+            signal: controller.signal,
+            cache: 'no-store'
+          }
+        )
         console.log("🌐 API request completed:", { ok: resp.ok, status: resp.status })
         if (resp.ok) {
           pinIntelV2 = await resp.json()
+          console.log("📍 Quick pin intel candidates:", {
+            candidateCount: Array.isArray(pinIntelV2?.candidates) ? pinIntelV2.candidates.length : 0,
+            candidatesRequested: pinIntelV2?.diagnostics?.candidatesRequested ?? null,
+            candidateNearbyForced: pinIntelV2?.diagnostics?.candidateNearbyForced ?? null,
+            geoCacheExisted: pinIntelV2?.diagnostics?.geoCacheExisted ?? null,
+            cacheHit: pinIntelV2?.diagnostics?.cacheHit ?? null,
+            nearbyCalls: pinIntelV2?.diagnostics?.google?.calls?.nearby ?? null,
+          })
         } else {
           console.warn("⚠️ /api/pin-intel failed:", resp.status)
         }
