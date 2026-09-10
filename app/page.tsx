@@ -2630,6 +2630,115 @@ export default function PINITApp() {
         return
       }
 
+      // Named Google place from the already-fetched pin-intel payload: complete
+      // like candidate selection. Do not overwrite with AI/generic text.
+      const googleSource = String(pinIntelV2?.place?.source || "").trim().toLowerCase()
+      const googleSourceId = String(
+        pinIntelV2?.place?.sourceId || pinIntelV2?.diagnostics?.google?.placeId || ""
+      ).trim()
+      const googleName = String(pinIntelV2?.place?.name || pinIntelV2?.title || "").trim()
+      const googleNameLower = googleName.toLowerCase()
+      const googleNameOk =
+        !!googleName &&
+        googleNameLower !== "location" &&
+        googleNameLower !== "unknown place" &&
+        googleNameLower !== "unknownplace" &&
+        googleNameLower !== "pinned location" &&
+        googleNameLower !== "place"
+
+      if (googleSource === "google" && googleSourceId && googleNameOk) {
+        const title = String(pinIntelV2?.title || googleName).trim() || googleName
+        const description = sanitizePlaceDescription(
+          String(pinIntelV2?.description || "").trim() || `Pinned near ${googleName}.`
+        )
+        const images = Array.isArray(pinIntelV2?.images) ? pinIntelV2.images : []
+        const usable = images.filter((img: any) => img?.url && img?.source !== "area")
+        const primaryImageUrl = usable[0]?.url || "/pinit-placeholder.jpg"
+        const additionalPhotos = usable.slice(1).map((img: any) => ({
+          url: String(img.url),
+          placeName: googleName,
+        }))
+        const category =
+          typeof pinIntelV2?.place?.category === "string" && pinIntelV2.place.category.trim()
+            ? pinIntelV2.place.category.trim()
+            : undefined
+        const websiteRaw =
+          typeof pinIntelV2?.place?.website === "string" ? pinIntelV2.place.website.trim() : ""
+        const website = acceptedOfficialWebsiteHref(websiteRaw) ? websiteRaw : undefined
+        const gpsLatitude = Number.isFinite(Number(editingPin.gpsLatitude))
+          ? Number(editingPin.gpsLatitude)
+          : undefined
+        const gpsLongitude = Number.isFinite(Number(editingPin.gpsLongitude))
+          ? Number(editingPin.gpsLongitude)
+          : undefined
+
+        const completionUpdates: Partial<PinData> = {
+          title,
+          locationName: googleName,
+          description,
+          mediaUrl: primaryImageUrl,
+          mediaType: "photo",
+          additionalPhotos,
+          googlePlaceId: googleSourceId,
+          placeId: googleSourceId,
+          latitude: committedLocation.lat,
+          longitude: committedLocation.lng,
+          isPending: false,
+          googleCandidates: [],
+          selectedGooglePlaceId: undefined,
+          selectedGoogleCandidate: undefined,
+        }
+        if (category) completionUpdates.category = category
+        if (website) completionUpdates.website = website
+        if (gpsLatitude != null) completionUpdates.gpsLatitude = gpsLatitude
+        if (gpsLongitude != null) completionUpdates.gpsLongitude = gpsLongitude
+        if (Array.isArray(pinIntelV2?.place?.types) && pinIntelV2.place.types.length) {
+          completionUpdates.types = pinIntelV2.place.types.map((t: unknown) => String(t))
+        }
+
+        const pinId = editingPin.id
+        updatePinInStorage(pinId, completionUpdates)
+        setPins((prev) =>
+          prev.map((p) => {
+            if (p.id !== pinId) return p
+            const next: PinData = { ...p, ...completionUpdates, isPending: false }
+            delete next.selectedGooglePlaceId
+            delete next.selectedGoogleCandidate
+            next.googleCandidates = []
+            return next
+          })
+        )
+
+        const completedPin: PinData = {
+          ...editingPin,
+          ...completionUpdates,
+          isPending: false,
+          googleCandidates: [],
+        }
+        delete completedPin.selectedGooglePlaceId
+        delete completedPin.selectedGoogleCandidate
+
+        console.log("📍 Adjust pin completed from Google pin-intel:", {
+          pinId,
+          placeId: googleSourceId,
+          title,
+          hasWebsite: !!website,
+        })
+
+        setCurrentResultPin(completedPin)
+        setCurrentScreen("results")
+
+        setTimeout(() => {
+          setEditingPin(null)
+          setPendingPinLocation(null)
+          setCommittedPinLocation(null)
+          setOriginalPinLocation(null)
+          setIsDraggingPin(false)
+          setPinEditReturnScreen("library")
+        }, 100)
+        return
+      }
+
       // Prefer /api/pin-intel images; fallback to existing photo method
       let locationPhotos = editingPin.additionalPhotos || []
       if (pinIntelV2?.images?.length) {
@@ -2848,6 +2957,9 @@ export default function PINITApp() {
         tags: editingPin.tags || ["mappo", "travel"],
         // Mark as completed (no longer pending) - user can edit again later if needed
         isPending: false,
+        googleCandidates: [],
+        selectedGooglePlaceId: undefined,
+        selectedGoogleCandidate: undefined,
         // AI generation metadata
         aiConfidence: aiTextResult?.confidence,
         aiUsedFallback: aiTextResult?.used_fallback,
@@ -2865,11 +2977,10 @@ export default function PINITApp() {
         description: updatedPin.description?.substring(0, 100)
       })
       
-      // Remove the old pending pin and add the updated completed pin
-      // This ensures the pending card disappears from the library
-      removePinFromStorage(editingPin.id)
-      addPinFromStorage(updatedPin)
-      console.log("🔄 Removed old pending pin and added completed pin to storage")
+      // Update the existing pin in place (same ID as candidate completion).
+      updatePinInStorage(editingPin.id, updatedPin)
+      setPins((prev) => prev.map((p) => (p.id === editingPin.id ? updatedPin : p)))
+      console.log("🔄 Updated completed pin in storage:", updatedPin.id)
       
       // Show results page with updated pin FIRST
       setCurrentResultPin(updatedPin)
@@ -2895,7 +3006,7 @@ export default function PINITApp() {
       isUpdatingPinRef.current = false
       pinEditControllerRef.current = null
     }
-  }, [editingPin, editingPinLocation, originalPinLocation, motionData, fetchLocationPhotos, generateAIContent, addPinFromStorage, setCurrentResultPin, setCurrentScreen, isUpdatingPinLocation])
+  }, [editingPin, editingPinLocation, originalPinLocation, motionData, fetchLocationPhotos, generateAIContent, updatePinInStorage, setCurrentResultPin, setCurrentScreen, isUpdatingPinLocation])
   
   // Handler for Cancel button
   const handlePinEditCancel = useCallback(() => {
