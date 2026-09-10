@@ -8,6 +8,7 @@ type PlaceLike = {
   locality?: string
   region?: string
   country?: string
+  source?: string
 }
 
 function norm(s: string | undefined): string {
@@ -74,34 +75,147 @@ function isBadWebsiteTitleCandidate(raw: string): boolean {
   return false
 }
 
-function isMarketingFluff(desc: string): boolean {
+const GENERIC_CATEGORY_LABELS = [
+  'accommodation',
+  'hotel',
+  'guest house',
+  'restaurant',
+  'cafe',
+  'bar',
+  'museum',
+  'gallery',
+  'winery',
+  'attraction',
+  'monument',
+  'heritage site',
+  'landmark',
+  'park',
+  'nature spot',
+  'beach',
+  'place of worship',
+  'historic building',
+  'shopping',
+  'market',
+  'souvenir shop',
+  'place'
+]
+
+function looksGenericFormatterDescription(desc: string | undefined): boolean {
+  const t = normalizeForCompare(desc || '').replace(/\.+$/, '')
+  if (!t) return true
+  if (t === 'place' || t === 'pinned location' || t === 'location') return true
+  for (const label of GENERIC_CATEGORY_LABELS) {
+    if (t === label) return true
+    const inPrefix = `${label} in `
+    const nearPrefix = `${label} near `
+    let rest = ''
+    if (t.startsWith(inPrefix)) rest = t.slice(inPrefix.length)
+    else if (t.startsWith(nearPrefix)) rest = t.slice(nearPrefix.length)
+    else continue
+    // Formatter output is only "{category} in {locality}." — extra clauses are useful copy.
+    if (rest && !/[.:,;]/.test(rest) && rest.split(' ').filter(Boolean).length <= 5) return true
+  }
+  return false
+}
+
+function isBoilerplateDescription(desc: string): boolean {
+  const d = normalizeForCompare(desc)
+  if (!d) return true
+  const exact = [
+    'home',
+    'welcome',
+    'welcome to our website',
+    'official website',
+    'homepage'
+  ]
+  if (exact.includes(d.replace(/\.+$/, ''))) return true
+  const banned = [
+    'we use cookies',
+    'this website uses cookies',
+    'accept cookies',
+    'cookie policy',
+    'privacy policy',
+    'terms of service',
+    'terms and conditions',
+    'all rights reserved',
+    'add to cart',
+    'shopping cart',
+    'page not found',
+    'error 404'
+  ]
+  if (banned.some((p) => d.includes(p))) return true
+  if (/\b(log in|sign in|login to|create an account)\b/.test(d) && d.length < 80) return true
+  return false
+}
+
+function isSpammyDescription(desc: string): boolean {
   const d = desc.toLowerCase()
   if (d.includes('!!!')) return true
-  if (d.includes('best ') || d.includes('cheap ') || d.includes('sale') || d.includes('discount')) return true
-  if (d.includes('click here') || d.includes('book now') || d.includes('order now')) return true
-  // Common spam/off-topic patterns that should never become a place description.
+  if (d.includes('click here')) return true
+  if (d.includes('order now')) return true
+  // Gambling / SEO spam — not ordinary hospitality marketing.
   if (d.includes('bankroll') || d.includes('odds') || d.includes('tipster') || d.includes('betting')) return true
   if (d.includes('casino') || d.includes('slots') || d.includes('gambling')) return true
   if (d.includes('seo') || d.includes('lorem ipsum')) return true
+  if ((d.match(/\|/g) || []).length >= 3) return true
   return false
 }
 
 function tokensForRelevance(name: string | undefined): string[] {
   const n = normalizeForCompare(name || '')
   if (!n) return []
+  const stop = new Set(['the', 'and', 'for', 'with', 'near', 'from'])
   return n
     .split(' ')
     .map((t) => t.trim())
-    .filter((t) => t.length >= 4)
+    .filter((t) => t.length >= 4 && !stop.has(t))
     .slice(0, 6)
+}
+
+function categoryHint(place: PlaceLike | undefined): string {
+  const raw = (place?.category || '').toLowerCase()
+  if (!raw) return ''
+  const last = raw.split('.').filter(Boolean).pop() || ''
+  return last.replace(/_/g, ' ')
 }
 
 function descriptionSeemsRelevant(desc: string, place: PlaceLike | undefined): boolean {
   const d = normalizeForCompare(desc)
   if (!d) return false
   const tokens = tokensForRelevance(place?.name)
+  if (tokens.some((t) => d.includes(t))) return true
+
+  const locality = normalizeForCompare(place?.locality || '')
+  if (locality.length >= 4 && d.includes(locality)) return true
+  const region = normalizeForCompare(place?.region || '')
+  if (region.length >= 4 && d.includes(region)) return true
+
+  const cat = categoryHint(place)
+  if (cat.length >= 4 && d.includes(cat)) return true
+
+  // Google websiteUri is already bound to this Place ID, so locality/name
+  // matches are a bonus rather than a hard requirement.
+  if (String(place?.source || '').toLowerCase() === 'google') return true
   if (tokens.length === 0) return true
-  return tokens.some((t) => d.includes(t))
+  return false
+}
+
+function pickWebsiteDescription(meta: WebsiteMeta | null | undefined): string[] {
+  const og = norm(meta?.ogDescription)
+  const metaDesc = norm(meta?.metaDescription)
+  const unique = Array.from(new Set([og, metaDesc].filter(Boolean)))
+  unique.sort((a, b) => b.length - a.length)
+  return unique
+}
+
+function isUsableWebsiteDescription(desc: string, place: PlaceLike | undefined): boolean {
+  const hint = clampDescription(desc)
+  if (hint.length < 32) return false
+  if (looksGenericFormatterDescription(hint)) return false
+  if (isBoilerplateDescription(hint)) return false
+  if (isSpammyDescription(hint)) return false
+  if (!descriptionSeemsRelevant(hint, place)) return false
+  return true
 }
 
 function clampDescription(desc: string): string {
@@ -135,15 +249,13 @@ export function mergeTitleDescription(input: {
     }
   }
 
-  // Description
+  // Description: prefer a usable official-site meta/OG description over generic
+  // formatter text such as "Accommodation in Riebeek West."
   let description = baseDescription
-  const metaDescRaw = norm(meta?.metaDescription) || norm(meta?.ogDescription)
-  if (metaDescRaw && !isMarketingFluff(metaDescRaw) && descriptionSeemsRelevant(metaDescRaw, input.place)) {
-    // Use as a hint only when it seems relevant and not wildly different
-    const hint = clampDescription(metaDescRaw)
-    if (hint.length >= 40) {
-      description = hint
-    }
+  for (const candidate of pickWebsiteDescription(meta)) {
+    if (!isUsableWebsiteDescription(candidate, input.place)) continue
+    description = clampDescription(candidate)
+    break
   }
   if (!description) description = baseDescription || 'Pinned location.'
 
