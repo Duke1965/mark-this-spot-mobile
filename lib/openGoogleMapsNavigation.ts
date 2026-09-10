@@ -16,8 +16,14 @@ export function buildGoogleMapsSearchUrl(opts: {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
 }
 
+export function openExternalUrl(url: string) {
+  if (typeof window === "undefined") return
+  const href = String(url || "").trim()
+  if (!href) return
+  window.open(href, "_blank", "noopener,noreferrer")
+}
+
 export function openGoogleMapsNavigation(opts: Parameters<typeof buildGoogleMapsSearchUrl>[0]) {
   if (typeof window === "undefined") return
-  const url = buildGoogleMapsSearchUrl(opts)
-  window.open(url, "_blank", "noopener,noreferrer")
+  openExternalUrl(buildGoogleMapsSearchUrl(opts))
 }

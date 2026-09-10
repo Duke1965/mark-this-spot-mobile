@@ -12,6 +12,8 @@ export interface PinData {
   timestamp: string
   title: string
   description?: string
+  /** Accepted official website URL from pin-intel (full href). Optional, backwards compatible. */
+  website?: string
   tags?: string[]
   isRecommended?: boolean
   googlePlaceId?: string

@@ -1,11 +1,16 @@
 "use client"
 
-import { useEffect, useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties, type MouseEvent } from "react"
 import { ArrowLeft, Send } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import type { PinData } from "@/lib/types"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
+import {
+  acceptedOfficialWebsiteHref,
+  displayOfficialWebsiteHost,
+} from "@/lib/places/formatPlaceText"
+import { openExternalUrl } from "@/lib/openGoogleMapsNavigation"
 
 const PLACEHOLDER_PHOTO = "/pinit-placeholder.jpg"
 
@@ -16,6 +21,41 @@ function pinViewPhotoUrl(pin: PinData): string | null {
     (p) => typeof p?.url === "string" && p.url.trim() && p.url !== PLACEHOLDER_PHOTO
   )
   return extra?.url?.trim() || null
+}
+
+function DescriptionWithOfficialWebsite({
+  text,
+  website,
+}: {
+  text: string
+  website?: string
+}) {
+  const href = acceptedOfficialWebsiteHref(website)
+  const host = displayOfficialWebsiteHost(website)
+  if (!href || !host) return <>{text}</>
+
+  const hostAt = text.toLowerCase().indexOf(host.toLowerCase())
+  if (hostAt < 0) return <>{text}</>
+
+  const before = text.slice(0, hostAt)
+  const shown = text.slice(hostAt, hostAt + host.length)
+  const after = text.slice(hostAt + host.length)
+
+  const onOpen = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    openExternalUrl(href)
+  }
+
+  return (
+    <>
+      {before}
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onOpen} style={styles.siteLink}>
+        {shown}
+      </a>
+      {after}
+    </>
+  )
 }
 
 export function PinResults({
@@ -62,7 +102,11 @@ export function PinResults({
             </div>
           ) : null}
           <div style={styles.title}>{title}</div>
-          {description ? <div style={styles.desc}>{description}</div> : null}
+          {description ? (
+            <div style={styles.desc}>
+              <DescriptionWithOfficialWebsite text={description} website={pin.website} />
+            </div>
+          ) : null}
 
           <div style={styles.actions}>
             <button type="button" onClick={() => onSave(pin)} style={styles.btn}>
@@ -132,6 +176,13 @@ const styles: Record<string, CSSProperties> = {
   },
   title: { fontWeight: 950, fontSize: "1.15rem" },
   desc: { opacity: 0.75, lineHeight: 1.35, marginTop: 8 },
+  siteLink: {
+    color: "inherit",
+    fontWeight: 700,
+    textDecoration: "underline",
+    textUnderlineOffset: 2,
+    cursor: "pointer",
+  },
   actions: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 },
   btn: {
     background: "rgba(79,59,43,0.08)",

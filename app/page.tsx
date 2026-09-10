@@ -41,6 +41,7 @@ import { postPinIntel, cancelPinIntel, maybeCallPinIntel } from "@/lib/pinIntelA
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
+import { acceptedOfficialWebsiteHref } from "@/lib/places/formatPlaceText"
 import MapboxMap from "@/components/map/MapboxMap"
 import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
@@ -1725,6 +1726,8 @@ export default function PINITApp() {
       const types = Array.isArray(intel?.place?.types)
         ? intel.place.types.map((t: unknown) => String(t))
         : candidate.types
+      const websiteRaw = typeof intel?.place?.website === "string" ? intel.place.website.trim() : ""
+      const website = acceptedOfficialWebsiteHref(websiteRaw) ? websiteRaw : undefined
 
       const gpsLatitude = Number.isFinite(Number(session.draftPin.gpsLatitude))
         ? Number(session.draftPin.gpsLatitude)
@@ -1753,6 +1756,7 @@ export default function PINITApp() {
         selectedGooglePlaceId: undefined,
         selectedGoogleCandidate: undefined,
       }
+      if (website) completionUpdates.website = website
 
       updatePinInStorage(pinId, completionUpdates)
       setPins((prev) =>

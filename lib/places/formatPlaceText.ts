@@ -115,6 +115,15 @@ export function displayOfficialWebsiteHost(website: string | undefined): string 
   }
 }
 
+/** Full accepted official href for navigation. Separate from the displayed host. */
+export function acceptedOfficialWebsiteHref(website: string | undefined): string | null {
+  const host = displayOfficialWebsiteHost(website)
+  if (!host) return null
+  const raw = (website || '').trim()
+  if (!raw) return null
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+}
+
 export function buildTitle(place: PlaceTextInput | null | undefined): string {
   if (!place) return 'Location'
   const name = (place.name || '').trim()

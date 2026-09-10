@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebaseAdmin'
+import { isLikelyOfficialWebsiteUrl } from '@/lib/places/websiteDiscovery'
 
 export const runtime = 'nodejs'
 
@@ -100,6 +101,10 @@ function sanitizePin(pin: any) {
     timestamp: String(pin.timestamp || new Date().toISOString()),
     title: String(pin.title || ''),
     description: typeof pin.description === 'string' ? pin.description : undefined,
+    website:
+      typeof pin.website === 'string' && isLikelyOfficialWebsiteUrl(pin.website)
+        ? pin.website.trim()
+        : undefined,
     tags: Array.isArray(pin.tags) ? pin.tags : undefined,
     isRecommended: !!pin.isRecommended,
     googlePlaceId: typeof pin.googlePlaceId === 'string' ? pin.googlePlaceId : undefined,
