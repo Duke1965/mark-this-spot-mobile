@@ -23,23 +23,10 @@ function pinViewPhotoUrl(pin: PinData): string | null {
   return extra?.url?.trim() || null
 }
 
-function DescriptionWithOfficialWebsite({
-  text,
-  website,
-}: {
-  text: string
-  website?: string
-}) {
+function OfficialWebsiteVisitLine({ website }: { website?: string }) {
   const href = acceptedOfficialWebsiteHref(website)
   const host = displayOfficialWebsiteHost(website)
-  if (!href || !host) return <>{text}</>
-
-  const hostAt = text.toLowerCase().indexOf(host.toLowerCase())
-  if (hostAt < 0) return <>{text}</>
-
-  const before = text.slice(0, hostAt)
-  const shown = text.slice(hostAt, hostAt + host.length)
-  const after = text.slice(hostAt + host.length)
+  if (!href || !host) return null
 
   const onOpen = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -48,13 +35,13 @@ function DescriptionWithOfficialWebsite({
   }
 
   return (
-    <>
-      {before}
+    <div style={styles.visit}>
+      Visit{" "}
       <a href={href} target="_blank" rel="noopener noreferrer" onClick={onOpen} style={styles.siteLink}>
-        {shown}
-      </a>
-      {after}
-    </>
+        {host}
+      </a>{" "}
+      for more information.
+    </div>
   )
 }
 
@@ -102,11 +89,8 @@ export function PinResults({
             </div>
           ) : null}
           <div style={styles.title}>{title}</div>
-          {description ? (
-            <div style={styles.desc}>
-              <DescriptionWithOfficialWebsite text={description} website={pin.website} />
-            </div>
-          ) : null}
+          {description ? <div style={styles.desc}>{description}</div> : null}
+          <OfficialWebsiteVisitLine website={pin.website} />
 
           <div style={styles.actions}>
             <button type="button" onClick={() => onSave(pin)} style={styles.btn}>
@@ -176,6 +160,7 @@ const styles: Record<string, CSSProperties> = {
   },
   title: { fontWeight: 950, fontSize: "1.15rem" },
   desc: { color: "rgba(58, 46, 30, 0.75)", lineHeight: 1.35, marginTop: 8 },
+  visit: { color: "rgba(58, 46, 30, 0.75)", lineHeight: 1.35, marginTop: 10 },
   siteLink: {
     color: "#1a73e8",
     fontWeight: 500,

@@ -12,7 +12,7 @@ export type PlaceTextInput = {
   address?: string
   city?: string
   region?: string
-  /** Already-accepted official website URL, if any. Used only for a modest "Visit {host}" clause. */
+  /** Already-accepted official website URL. Presentation is owned by PinResults, not the description. */
   website?: string
 }
 
@@ -139,14 +139,12 @@ export function buildDescription(place: PlaceTextInput | null | undefined): stri
 
   const locality = pickLocality(place)
   const cat = categoryLabel(place.categories)
-  const websiteHost = displayOfficialWebsiteHost(place.website)
-  const visitClause = websiteHost ? ` Visit ${websiteHost} for more information.` : ''
 
   if (isTrustworthyPlaceName(place.name)) {
     const name = String(place.name).trim()
     const kind = withIndefiniteArticle(categoryNounPhrase(cat))
     const named = locality ? `${name} is ${kind} in ${locality}.` : `${name} is ${kind}.`
-    return sanitizePlaceDescription(`${named}${visitClause}`.replace(/\s+/g, ' ').trim())
+    return sanitizePlaceDescription(named.replace(/\s+/g, ' ').trim())
   }
 
   const parts: string[] = []
