@@ -1,11 +1,22 @@
 "use client"
 
-import type { CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 import { ArrowLeft, Send } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
 import type { PinData } from "@/lib/types"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
+
+const PLACEHOLDER_PHOTO = "/pinit-placeholder.jpg"
+
+function pinViewPhotoUrl(pin: PinData): string | null {
+  const media = typeof pin.mediaUrl === "string" ? pin.mediaUrl.trim() : ""
+  if (media && media !== PLACEHOLDER_PHOTO) return media
+  const extra = pin.additionalPhotos?.find(
+    (p) => typeof p?.url === "string" && p.url.trim() && p.url !== PLACEHOLDER_PHOTO
+  )
+  return extra?.url?.trim() || null
+}
 
 export function PinResults({
   pin,
@@ -20,6 +31,12 @@ export function PinResults({
 }) {
   const title = String(pin?.title || pin?.locationName || "Saved Place").trim()
   const description = sanitizePlaceDescription(pin?.description || "")
+  const photoUrl = pinViewPhotoUrl(pin)
+  const [photoFailed, setPhotoFailed] = useState(false)
+  useEffect(() => {
+    setPhotoFailed(false)
+  }, [photoUrl, pin.id])
+  const showPhoto = !!photoUrl && !photoFailed
 
   return (
     <div style={styles.screen}>
@@ -34,6 +51,16 @@ export function PinResults({
 
       <div style={styles.content}>
         <div style={styles.card}>
+          {showPhoto ? (
+            <div style={styles.photoWrap}>
+              <img
+                src={photoUrl}
+                alt={title}
+                style={styles.photo}
+                onError={() => setPhotoFailed(true)}
+              />
+            </div>
+          ) : null}
           <div style={styles.title}>{title}</div>
           {description ? <div style={styles.desc}>{description}</div> : null}
 
@@ -90,6 +117,18 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 16,
     padding: 14,
     backdropFilter: "blur(12px)",
+  },
+  photoWrap: {
+    margin: "-14px -14px 12px",
+    borderRadius: "16px 16px 0 0",
+    overflow: "hidden",
+    background: "rgba(79,59,43,0.06)",
+  },
+  photo: {
+    width: "100%",
+    aspectRatio: "16 / 10",
+    objectFit: "cover",
+    display: "block",
   },
   title: { fontWeight: 950, fontSize: "1.15rem" },
   desc: { opacity: 0.75, lineHeight: 1.35, marginTop: 8 },
