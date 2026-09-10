@@ -293,6 +293,8 @@ export default function PINITApp() {
     candidates: QuickPinCandidate[]
     draftPin: PinData
     selected?: QuickPinSelectedCandidate
+    busy?: boolean
+    error?: string
   } | null>(null)
   const [pinEditReturnScreen, setPinEditReturnScreen] = useState<"map" | "library">("library")
   const [quickPinStage, setQuickPinStage] = useState<string>("")
@@ -308,6 +310,7 @@ export default function PINITApp() {
   const quickPinControllerRef = useRef<AbortController | null>(null)
   const quickPinTimeoutRef = useRef<number | null>(null)
   const quickPinChooserRef = useRef<typeof quickPinChooser>(null)
+  const quickPinEnrichInFlightRef = useRef(false)
   const successPopupTimerRef = useRef<number | null>(null)
   const fetchLocationPhotosRef = useRef<null | ((lat: number, lng: number, externalSignal?: AbortSignal, bypassCache?: boolean) => Promise<any[]>)>(null)
   const editingPinRef = useRef<PinData | null>(null)
@@ -1653,47 +1656,144 @@ export default function PINITApp() {
     userLocation,
   ])
 
-  const handleQuickPinCandidateSelect = useCallback((candidate: QuickPinCandidate) => {
+  const handleQuickPinCandidateSelect = useCallback(async (candidate: QuickPinCandidate) => {
     const session = quickPinChooserRef.current
-    if (!session) return
+    if (!session || session.busy || quickPinEnrichInFlightRef.current) return
 
-    const selected: QuickPinSelectedCandidate = {
-      placeId: candidate.placeId,
-      name: candidate.name,
-      lat: candidate.lat,
-      lng: candidate.lng,
-    }
+    const placeId = String(candidate.placeId || "").trim()
+    if (!placeId) return
 
-    console.log("📍 Quick pin candidate selected (pending until Step 3):", {
-      selected,
-      predicted: session.predicted,
-      pinId: session.draftPin.id,
-    })
-
-    const selectionUpdates: Partial<PinData> = {
-      googlePlaceId: candidate.placeId,
-      placeId: candidate.placeId,
-      selectedGooglePlaceId: candidate.placeId,
-      selectedGoogleCandidate: selected,
-      latitude: session.predicted.lat,
-      longitude: session.predicted.lng,
-      isPending: true,
-    }
-    updatePinInStorage(session.draftPin.id, selectionUpdates)
-    setPins((prev) =>
-      prev.map((p) => (p.id === session.draftPin.id ? { ...p, ...selectionUpdates } : p))
+    const pinId = session.draftPin.id
+    const predicted = session.predicted
+    quickPinEnrichInFlightRef.current = true
+    setQuickPinChooser((prev) =>
+      prev ? { ...prev, busy: true, error: undefined, selected: undefined } : prev
     )
 
-    setQuickPinChooser({
-      ...session,
-      draftPin: { ...session.draftPin, ...selectionUpdates },
-      selected,
-    })
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => {
+      try {
+        controller.abort()
+      } catch {
+        // ignore
+      }
+    }, 25000)
+
+    try {
+      const q = new URLSearchParams({
+        placeId,
+        lat: String(predicted.lat),
+        lon: String(predicted.lng),
+      })
+      console.log("📍 Quick pin candidate selected — Place ID enrichment:", {
+        placeId,
+        predicted,
+        pinId,
+      })
+      const resp = await fetch(`/api/pin-intel?${q.toString()}`, {
+        signal: controller.signal,
+        cache: "no-store",
+      })
+
+      if (!resp.ok) {
+        throw new Error(`pin-intel_${resp.status}`)
+      }
+
+      const intel = await resp.json()
+      const source = String(intel?.place?.source || "").trim()
+      const sourceId = String(intel?.place?.sourceId || intel?.diagnostics?.google?.placeId || "").trim()
+      if (source !== "google" || !sourceId) {
+        throw new Error("google_identity_missing")
+      }
+
+      const googleName = String(intel?.place?.name || candidate.name || "").trim() || candidate.name
+      const title = String(intel?.title || googleName).trim() || googleName
+      const description = sanitizePlaceDescription(
+        String(intel?.description || "").trim() || `Pinned near ${googleName}.`
+      )
+      const images = Array.isArray(intel?.images) ? intel.images : []
+      const usable = images.filter((img: any) => img?.url && img?.source !== "area")
+      const primaryImageUrl = usable[0]?.url || "/pinit-placeholder.jpg"
+      const additionalPhotos = usable.slice(1).map((img: any) => ({
+        url: String(img.url),
+        placeName: googleName,
+      }))
+      const category =
+        typeof intel?.place?.category === "string" && intel.place.category.trim()
+          ? intel.place.category.trim()
+          : candidate.category
+      const types = Array.isArray(intel?.place?.types)
+        ? intel.place.types.map((t: unknown) => String(t))
+        : candidate.types
+
+      const gpsLatitude = Number.isFinite(Number(session.draftPin.gpsLatitude))
+        ? Number(session.draftPin.gpsLatitude)
+        : session.gps.lat
+      const gpsLongitude = Number.isFinite(Number(session.draftPin.gpsLongitude))
+        ? Number(session.draftPin.gpsLongitude)
+        : session.gps.lng
+
+      const completionUpdates: Partial<PinData> = {
+        title,
+        locationName: googleName,
+        description,
+        mediaUrl: primaryImageUrl,
+        mediaType: "photo",
+        additionalPhotos,
+        googlePlaceId: sourceId,
+        placeId: sourceId,
+        types,
+        category,
+        latitude: predicted.lat,
+        longitude: predicted.lng,
+        gpsLatitude,
+        gpsLongitude,
+        isPending: false,
+        googleCandidates: [],
+        selectedGooglePlaceId: undefined,
+        selectedGoogleCandidate: undefined,
+      }
+
+      updatePinInStorage(pinId, completionUpdates)
+      setPins((prev) =>
+        prev.map((p) => {
+          if (p.id !== pinId) return p
+          const next: PinData = { ...p, ...completionUpdates, isPending: false }
+          delete next.selectedGooglePlaceId
+          delete next.selectedGoogleCandidate
+          next.googleCandidates = []
+          return next
+        })
+      )
+
+      console.log("📍 Quick pin completed from Google candidate:", {
+        pinId,
+        placeId: sourceId,
+        title,
+        predicted,
+      })
+      setQuickPinChooser(null)
+    } catch (error) {
+      console.warn("⚠️ Quick pin candidate enrichment failed — pending pin kept:", error)
+      setQuickPinChooser((prev) =>
+        prev
+          ? {
+              ...prev,
+              busy: false,
+              selected: undefined,
+              error: "Couldn’t finish this place. Try again, or choose None of these.",
+            }
+          : prev
+      )
+    } finally {
+      window.clearTimeout(timeoutId)
+      quickPinEnrichInFlightRef.current = false
+    }
   }, [updatePinInStorage])
 
   const handleQuickPinNoneOfThese = useCallback(() => {
     const session = quickPinChooserRef.current
-    if (!session) return
+    if (!session || session.busy || quickPinEnrichInFlightRef.current) return
 
     const predicted = session.predicted
     const pin = {
@@ -3430,6 +3530,8 @@ export default function PINITApp() {
         <QuickPinPlaceChooser
           candidates={quickPinChooser.candidates}
           selected={quickPinChooser.selected}
+          busy={!!quickPinChooser.busy}
+          error={quickPinChooser.error}
           onSelect={handleQuickPinCandidateSelect}
           onNoneOfThese={handleQuickPinNoneOfThese}
           onDismissHeld={handleQuickPinHeldDismiss}
@@ -4087,6 +4189,8 @@ export default function PINITApp() {
         <QuickPinPlaceChooser
           candidates={quickPinChooser.candidates}
           selected={quickPinChooser.selected}
+          busy={!!quickPinChooser.busy}
+          error={quickPinChooser.error}
           onSelect={handleQuickPinCandidateSelect}
           onNoneOfThese={handleQuickPinNoneOfThese}
           onDismissHeld={handleQuickPinHeldDismiss}

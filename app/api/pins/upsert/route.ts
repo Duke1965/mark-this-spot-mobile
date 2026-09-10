@@ -156,19 +156,25 @@ export async function POST(req: Request) {
   }
 
   try {
+    const payload: Record<string, any> = {
+      ...clean,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp()
+    }
+
+    // merge:true keeps omitted fields. Completed pins must drop chooser-only metadata.
+    if (pin.isPending === false) {
+      payload.googleCandidates = FieldValue.delete()
+      payload.selectedGooglePlaceId = FieldValue.delete()
+      payload.selectedGoogleCandidate = FieldValue.delete()
+    }
+
     await db
       .collection('users')
       .doc(uid)
       .collection('pins')
       .doc(clean.id)
-      .set(
-        {
-          ...clean,
-          updatedAt: FieldValue.serverTimestamp(),
-          createdAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      )
+      .set(payload, { merge: true })
 
     return NextResponse.json({ ok: true, id: clean.id })
   } catch (e: any) {

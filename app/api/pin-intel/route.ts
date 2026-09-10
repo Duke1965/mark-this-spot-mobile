@@ -135,6 +135,236 @@ function toPinIntelNearbyCandidates(rows: any[] | undefined): PinIntelNearbyCand
   return out
 }
 
+function googlePlaceFromCachedDoc(input: {
+  cachedPlace: {
+    place_id: string
+    name?: string
+    address?: string
+    website?: string
+    types?: string[]
+  }
+  lat: number
+  lon: number
+}) {
+  const { locality, country } = parseLocalityFromFormattedAddress(input.cachedPlace.address)
+  const name = input.cachedPlace.name || `${input.lat.toFixed(4)}, ${input.lon.toFixed(4)}`
+  return {
+    lat: input.lat,
+    lng: input.lon,
+    name,
+    address: input.cachedPlace.address,
+    locality,
+    country,
+    website: input.cachedPlace.website,
+    category: googleTypesToCategory(input.cachedPlace.types),
+    source: 'google' as const,
+    sourceId: input.cachedPlace.place_id,
+    confidence: 0.95,
+    canonicalQuery: [input.cachedPlace.name, locality].filter(Boolean).join(' ').trim() || name
+  }
+}
+
+/**
+ * Resolve an explicitly selected Google Place ID (no Nearby, no geo-cache identity).
+ * On failure returns place: null so the caller can fail closed without Geoapify substitution.
+ */
+async function resolveExplicitGooglePlaceId(input: {
+  placeId: string
+  lat: number
+  lon: number
+  request: NextRequest
+  googleCacheTtlDays: number
+  googleEnablePhotos: boolean
+  googleMaxPhotos: number
+  googleDiag: any
+  timings: Record<string, number>
+  fallbacksUsed: string[]
+  images: PinIntelImage[]
+  uploadFailures: Array<{ source: string; url: string; stage?: 'init' | 'download' | 'upload'; message?: string }>
+}): Promise<{ place: any | null; googlePhotosSucceeded: number }> {
+  const {
+    placeId,
+    lat,
+    lon,
+    request,
+    googleCacheTtlDays,
+    googleEnablePhotos,
+    googleMaxPhotos,
+    googleDiag,
+    timings,
+    fallbacksUsed,
+    images,
+    uploadFailures
+  } = input
+
+  googleDiag.placeIdLookup = true
+  googleDiag.requestedPlaceId = placeId
+  googleDiag.placeId = placeId
+
+  const tCache = Date.now()
+  const cachedById = await getCachedGooglePlaceById({ placeId, ttlDays: googleCacheTtlDays })
+  timings.google_cache_by_id_ms = Date.now() - tCache
+
+  if (cachedById?.place?.place_id) {
+    googleDiag.cacheHit = true
+    googleDiag.cache.read = 'hit'
+    googleDiag.used = true
+    googleDiag.placeId = cachedById.place.place_id
+    const place = googlePlaceFromCachedDoc({ cachedPlace: cachedById.place, lat, lon })
+    for (const u of (cachedById.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
+      images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
+    }
+    return { place, googlePhotosSucceeded: images.filter((i) => i.source === 'google').length }
+  }
+
+  googleDiag.cache.read = 'miss'
+
+  const key = limiterKeyForRequest(request)
+  const limit = await checkAndIncrementGoogleDailyLimit({ key })
+  googleDiag.dailyLimitRemaining = limit.remaining
+  if (!limit.allowed) {
+    googleDiag.reasonIfNotUsed = 'google_daily_limit_reached'
+    fallbacksUsed.push('google_daily_limit_reached')
+    return { place: null, googlePhotosSucceeded: 0 }
+  }
+
+  try {
+    googleDiag.called = true
+    const tDetails = Date.now()
+    googleDiag.calls.details++
+    const det = await placeDetails(placeId)
+    timings.google_details_ms = Date.now() - tDetails
+    if (!det?.placeId) {
+      googleDiag.reasonIfNotUsed = 'google_no_details'
+      fallbacksUsed.push('google_no_details')
+      return { place: null, googlePhotosSucceeded: 0 }
+    }
+
+    googleDiag.placeId = det.placeId
+    const { locality, country } = parseLocalityFromFormattedAddress(det.formattedAddress)
+    const place = {
+      lat,
+      lng: lon,
+      name: det.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+      category: googleTypesToCategory(det.types),
+      address: det.formattedAddress,
+      locality,
+      country,
+      website: det.website,
+      phone: det.phone,
+      source: 'google' as const,
+      sourceId: det.placeId,
+      confidence: 0.95,
+      canonicalQuery: [det.name, locality].filter(Boolean).join(' ').trim() || (det.name || '')
+    }
+
+    const cacheGeoMaxM = Math.max(
+      10,
+      Math.min(500, envInt('PINIT_GOOGLE_CACHE_GEO_MAX_DISTANCE_METERS', 120))
+    )
+    const distM =
+      det.location && Number.isFinite(det.location.lat) && Number.isFinite(det.location.lon)
+        ? Math.round(haversineMeters({ lat, lon }, { lat: det.location.lat, lon: det.location.lon }))
+        : 999999
+    const allowGeoBind = distM <= cacheGeoMaxM
+    if (!allowGeoBind) fallbacksUsed.push(`skip_cache_geo_bind_far:${distM}m`)
+
+    try {
+      const wr = await setCachedGooglePlace({
+        lat,
+        lon,
+        writeGeo: allowGeoBind,
+        writeCoarseGeo: allowGeoBind,
+        place: {
+          place_id: det.placeId,
+          name: det.name,
+          address: det.formattedAddress,
+          website: det.website,
+          types: det.types,
+          photoStorageUrls: [],
+          placeLat: det.location?.lat,
+          placeLon: det.location?.lon,
+          lat,
+          lon,
+          source: 'google'
+        }
+      })
+      googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
+      if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
+    } catch {
+      googleDiag.cache.write = 'error'
+    }
+
+    const hostedPhotoUrls: string[] = []
+    if (googleEnablePhotos && googleMaxPhotos > 0) {
+      const tPhotos = Date.now()
+      const photos = Array.isArray(det.photos) ? det.photos : []
+      for (const p of photos.slice(0, googleMaxPhotos)) {
+        try {
+          googleDiag.calls.photos++
+          const got = await fetchPhoto(p.photoReference, 1200)
+          const ext = got.contentType.toLowerCase().includes('png')
+            ? 'png'
+            : got.contentType.toLowerCase().includes('webp')
+              ? 'webp'
+              : 'jpg'
+          const hash = hashPhotoRef(p.photoReference)
+          const path = `place_cache/google/${det.placeId}/${hash}.${ext}`
+          const url = await uploadToStorage(got.buffer, path, got.contentType)
+          hostedPhotoUrls.push(url)
+          images.push({ url, source: 'google', sourceUrl: `google:photo:${hash}` })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          uploadFailures.push({ source: 'google', url: `google:photo`, stage: 'upload', message: msg })
+        }
+      }
+      timings.google_photos_ms = Date.now() - tPhotos
+    } else {
+      fallbacksUsed.push('google_photos_disabled')
+    }
+
+    const googlePhotosSucceeded = images.filter((i) => i.source === 'google').length
+
+    if (hostedPhotoUrls.length > 0) {
+      const tCacheSet = Date.now()
+      try {
+        const wr = await setCachedGooglePlace({
+          lat,
+          lon,
+          writeGeo: allowGeoBind,
+          writeCoarseGeo: allowGeoBind,
+          place: {
+            place_id: det.placeId,
+            name: det.name,
+            address: det.formattedAddress,
+            website: det.website,
+            types: det.types,
+            photoStorageUrls: hostedPhotoUrls,
+            placeLat: det.location?.lat,
+            placeLon: det.location?.lon,
+            lat,
+            lon,
+            source: 'google'
+          }
+        })
+        googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
+        if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
+      } catch {
+        googleDiag.cache.write = 'error'
+      }
+      timings.google_cache_set_ms = Date.now() - tCacheSet
+    }
+
+    googleDiag.used = true
+    return { place, googlePhotosSucceeded }
+  } catch (e) {
+    googleDiag.error = e instanceof Error ? e.message : String(e)
+    googleDiag.reasonIfNotUsed = 'google_error'
+    fallbacksUsed.push('google_error')
+    return { place: null, googlePhotosSucceeded: 0 }
+  }
+}
+
 function parseLocalityFromFormattedAddress(addr: string | undefined): { locality?: string; country?: string } {
   const a = (addr || '').trim()
   if (!a) return {}
@@ -265,12 +495,16 @@ function getMapboxStaticUrl(lat: number, lon: number): string | null {
 
 /**
  * GET /api/pin-intel?lat=..&lon=..&hint=..&includeCandidates=1
+ * GET /api/pin-intel?placeId=..&lat=..&lon=..
  *
  * Returns consistent PinIntel payload:
- * - place identity (Geoapify)
+ * - place identity (Google Place ID when provided, otherwise Nearby/Geoapify)
  * - stable title/description derived from metadata
  * - website-first images (uploaded to Firebase Storage)
  * - diagnostics for road testing
+ *
+ * When placeId is supplied, Nearby and geo-cache identity selection are skipped.
+ * If that Place ID cannot be resolved, the handler fails closed (no Geoapify substitute).
  */
 export async function GET(request: NextRequest) {
   const startedAt = Date.now()
@@ -298,6 +532,11 @@ export async function GET(request: NextRequest) {
       ''
     ).toLowerCase()
     const includeCandidates = includeCandidatesRaw === '1' || includeCandidatesRaw === 'true'
+    const requestedPlaceId = (
+      searchParams.get('placeId') ||
+      searchParams.get('place_id') ||
+      ''
+    ).trim()
 
     const lat = latRaw ? Number(latRaw) : NaN
     const lon = lonRaw ? Number(lonRaw) : NaN
@@ -351,6 +590,8 @@ export async function GET(request: NextRequest) {
       used: false,
       called: false,
       candidatesRequested: includeCandidates,
+      placeIdLookup: !!requestedPlaceId,
+      requestedPlaceId: requestedPlaceId || undefined,
       geoCacheExisted: false,
       candidateNearbyForced: false,
       placeId: undefined as string | undefined,
@@ -370,7 +611,24 @@ export async function GET(request: NextRequest) {
     // 0) Google cache-first + pin-time lookup (only if enabled)
     let place: any | null = null
     let googlePhotosSucceeded = 0
-    if (googleEnabled) {
+    if (googleEnabled && requestedPlaceId) {
+      const resolved = await resolveExplicitGooglePlaceId({
+        placeId: requestedPlaceId,
+        lat,
+        lon,
+        request,
+        googleCacheTtlDays,
+        googleEnablePhotos,
+        googleMaxPhotos,
+        googleDiag,
+        timings,
+        fallbacksUsed,
+        images,
+        uploadFailures
+      })
+      place = resolved.place
+      googlePhotosSucceeded = resolved.googlePhotosSucceeded
+    } else if (googleEnabled) {
       const tG0 = Date.now()
       let cached = await getCachedGooglePlaceByLatLon({ lat, lon, ttlDays: googleCacheTtlDays })
       timings.google_cache_ms = Date.now() - tG0
@@ -642,6 +900,31 @@ export async function GET(request: NextRequest) {
       fallbacksUsed.push('google_flag_on_missing_key')
     }
 
+    // Explicit Place ID must stay authoritative. Never substitute Geoapify/another identity.
+    if (requestedPlaceId && !place) {
+      if (!googleDiag.reasonIfNotUsed) {
+        googleDiag.reasonIfNotUsed = googleEnabled ? 'google_place_id_unresolved' : 'google_disabled'
+      }
+      fallbacksUsed.push(googleDiag.reasonIfNotUsed)
+      timings.total_ms = Date.now() - startedAt
+      return NextResponse.json(
+        {
+          error: 'Selected Google place could not be resolved',
+          reason: googleDiag.reasonIfNotUsed,
+          diagnostics: {
+            provider: undefined,
+            googleUsed: false,
+            cacheHit: !!googleDiag.cacheHit,
+            google: googleDiag,
+            placeIdRequested: true,
+            timings,
+            fallbacksUsed
+          }
+        },
+        { status: 422, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
+
     // 1) Place resolve (Geoapify)
     const t0 = Date.now()
     if (!place) {
@@ -904,6 +1187,7 @@ export async function GET(request: NextRequest) {
 
     console.log('📍 pin-intel candidates', {
       includeCandidates,
+      placeIdRequested: !!requestedPlaceId,
       geoCacheExisted: !!googleDiag.geoCacheExisted,
       candidateNearbyForced: !!googleDiag.candidateNearbyForced,
       nearbyCalls: googleDiag.calls?.nearby ?? 0,
@@ -924,6 +1208,7 @@ export async function GET(request: NextRequest) {
           googleUsed: !!googleDiag.used,
           cacheHit: !!googleDiag.cacheHit,
           google: googleDiag,
+          placeIdRequested: !!requestedPlaceId,
           candidatesRequested: includeCandidates,
           geoCacheExisted: !!googleDiag.geoCacheExisted,
           candidateNearbyForced: !!googleDiag.candidateNearbyForced,

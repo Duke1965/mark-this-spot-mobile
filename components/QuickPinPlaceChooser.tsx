@@ -20,6 +20,8 @@ export type QuickPinSelectedCandidate = {
 type QuickPinPlaceChooserProps = {
   candidates: QuickPinCandidate[]
   selected?: QuickPinSelectedCandidate | null
+  busy?: boolean
+  error?: string | null
   onSelect: (candidate: QuickPinCandidate) => void
   onNoneOfThese: () => void
   onDismissHeld?: () => void
@@ -141,6 +143,8 @@ export function parseQuickPinCandidates(raw: unknown): QuickPinCandidate[] {
 export function QuickPinPlaceChooser({
   candidates,
   selected,
+  busy,
+  error,
   onSelect,
   onNoneOfThese,
   onDismissHeld,
@@ -232,7 +236,18 @@ export function QuickPinPlaceChooser({
           {heading}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+        {busy ? (
+          <div style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "rgba(58,46,30,0.78)" }}>
+            Finishing this place…
+          </div>
+        ) : null}
+        {error && !busy ? (
+          <div style={{ marginBottom: "0.75rem", fontSize: "0.92rem", fontWeight: 650, color: "rgba(146, 64, 14, 0.95)", lineHeight: 1.4 }}>
+            {error}
+          </div>
+        ) : null}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", opacity: busy ? 0.6 : 1 }}>
           {candidates.map((candidate) => {
             const secondary = candidateSecondaryLine(candidate)
             if (isSingle) {
@@ -262,7 +277,11 @@ export function QuickPinPlaceChooser({
                   </div>
                   <button
                     type="button"
-                    onClick={() => onSelect(candidate)}
+                    disabled={!!busy}
+                    onClick={() => {
+                      if (busy) return
+                      onSelect(candidate)
+                    }}
                     style={{
                       width: "100%",
                       minHeight: "52px",
@@ -272,7 +291,7 @@ export function QuickPinPlaceChooser({
                       color: "var(--pinit-fg)",
                       fontWeight: 800,
                       fontSize: "1rem",
-                      cursor: "pointer",
+                      cursor: busy ? "not-allowed" : "pointer",
                     }}
                   >
                     Yes, that&apos;s it
@@ -285,7 +304,11 @@ export function QuickPinPlaceChooser({
               <button
                 key={candidate.placeId}
                 type="button"
-                onClick={() => onSelect(candidate)}
+                disabled={!!busy}
+                onClick={() => {
+                  if (busy) return
+                  onSelect(candidate)
+                }}
                 style={{
                   width: "100%",
                   textAlign: "left",
@@ -295,7 +318,7 @@ export function QuickPinPlaceChooser({
                   border: "1px solid rgba(79,59,43,0.14)",
                   background: "rgba(255,255,255,0.72)",
                   color: "var(--pinit-fg)",
-                  cursor: "pointer",
+                  cursor: busy ? "not-allowed" : "pointer",
                 }}
               >
                 <div
@@ -320,7 +343,11 @@ export function QuickPinPlaceChooser({
 
         <button
           type="button"
-          onClick={onNoneOfThese}
+          disabled={!!busy}
+          onClick={() => {
+            if (busy) return
+            onNoneOfThese()
+          }}
           style={{
             marginTop: "0.85rem",
             width: "100%",
@@ -331,7 +358,8 @@ export function QuickPinPlaceChooser({
             color: "rgba(58,46,30,0.72)",
             fontWeight: 700,
             fontSize: "0.95rem",
-            cursor: "pointer",
+            cursor: busy ? "not-allowed" : "pointer",
+            opacity: busy ? 0.55 : 1,
             textDecoration: "underline",
             textUnderlineOffset: "3px",
           }}
