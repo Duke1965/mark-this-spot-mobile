@@ -998,7 +998,6 @@ export async function GET(request: NextRequest) {
     }
 
     const baseTitle = buildTitle(formatterInput)
-    const baseDescription = buildDescription(formatterInput)
 
     // 2) Website-first images (only if website exists) — only needed if Google didn't already give us photos.
     const cacheKey = `pinintel:${lat.toFixed(5)}:${lon.toFixed(5)}`
@@ -1081,6 +1080,13 @@ export async function GET(request: NextRequest) {
     } else {
       fallbacksUsed.push('no_website')
     }
+
+    // Named factual fallback uses the website only after official-URL checks
+    // (and after Serper title-mismatch may have cleared a discovered URL).
+    const baseDescription = buildDescription({
+      ...formatterInput,
+      website: place.website
+    })
 
     // 2b) Merge title/description with website metadata hints (no crawling)
     const merged = mergeTitleDescription({

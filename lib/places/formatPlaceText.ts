@@ -4,6 +4,7 @@
  */
 
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
+import { isLikelyOfficialWebsiteUrl } from '@/lib/places/websiteDiscovery'
 
 export type PlaceTextInput = {
   name?: string
@@ -11,6 +12,8 @@ export type PlaceTextInput = {
   address?: string
   city?: string
   region?: string
+  /** Already-accepted official website URL, if any. Used only for a modest "Visit {host}" clause. */
+  website?: string
 }
 
 function isStreetyName(name: string): boolean {
@@ -73,6 +76,45 @@ function pickLocality(place: { city?: string; region?: string }): string | undef
   return place.city || place.region || undefined
 }
 
+function isTrustworthyPlaceName(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n) return false
+  const lower = n.toLowerCase()
+  if (lower === 'unknown place' || lower === 'location' || lower === 'pinned location') return false
+  if (isStreetyName(n)) return false
+  return true
+}
+
+function categoryNounPhrase(catLabel: string): string {
+  const lower = catLabel.trim().toLowerCase()
+  if (!lower || lower === 'place') return 'place'
+  if (lower === 'accommodation') return 'accommodation property'
+  return lower
+}
+
+function withIndefiniteArticle(nounPhrase: string): string {
+  const phrase = nounPhrase.trim()
+  if (!phrase) return 'a place'
+  const first = phrase.charAt(0).toLowerCase()
+  const article = 'aeiou'.includes(first) ? 'an' : 'a'
+  return `${article} ${phrase}`
+}
+
+/** Human-friendly host for display (no scheme, no www). Returns null if the URL is not acceptable. */
+export function displayOfficialWebsiteHost(website: string | undefined): string | null {
+  const raw = (website || '').trim()
+  if (!raw) return null
+  if (!isLikelyOfficialWebsiteUrl(raw)) return null
+  try {
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    const host = new URL(withScheme).hostname.toLowerCase().replace(/^www\./, '')
+    if (!host || !host.includes('.')) return null
+    return host
+  } catch {
+    return null
+  }
+}
+
 export function buildTitle(place: PlaceTextInput | null | undefined): string {
   if (!place) return 'Location'
   const name = (place.name || '').trim()
@@ -88,6 +130,15 @@ export function buildDescription(place: PlaceTextInput | null | undefined): stri
 
   const locality = pickLocality(place)
   const cat = categoryLabel(place.categories)
+  const websiteHost = displayOfficialWebsiteHost(place.website)
+  const visitClause = websiteHost ? ` Visit ${websiteHost} for more information.` : ''
+
+  if (isTrustworthyPlaceName(place.name)) {
+    const name = String(place.name).trim()
+    const kind = withIndefiniteArticle(categoryNounPhrase(cat))
+    const named = locality ? `${name} is ${kind} in ${locality}.` : `${name} is ${kind}.`
+    return sanitizePlaceDescription(`${named}${visitClause}`.replace(/\s+/g, ' ').trim())
+  }
 
   const parts: string[] = []
   if (locality) parts.push(`${cat} in ${locality}.`)
@@ -97,4 +148,3 @@ export function buildDescription(place: PlaceTextInput | null | undefined): stri
 
   return sanitizePlaceDescription(parts.join(' ').replace(/\s+/g, ' ').trim())
 }
-

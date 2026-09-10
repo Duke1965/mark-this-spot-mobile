@@ -249,8 +249,8 @@ export function mergeTitleDescription(input: {
     }
   }
 
-  // Description: prefer a usable official-site meta/OG description over generic
-  // formatter text such as "Accommodation in Riebeek West."
+  // Description: prefer a usable official-site meta/OG description over the
+  // named factual formatter fallback (name + category + locality [+ host]).
   let description = baseDescription
   for (const candidate of pickWebsiteDescription(meta)) {
     if (!isUsableWebsiteDescription(candidate, input.place)) continue
