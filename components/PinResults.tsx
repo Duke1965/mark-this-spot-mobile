@@ -175,10 +175,10 @@ const styles: Record<string, CSSProperties> = {
     display: "block",
   },
   title: { fontWeight: 950, fontSize: "1.15rem" },
-  desc: { opacity: 0.75, lineHeight: 1.35, marginTop: 8 },
+  desc: { color: "rgba(58, 46, 30, 0.75)", lineHeight: 1.35, marginTop: 8 },
   siteLink: {
-    color: "inherit",
-    fontWeight: 700,
+    color: "#1a73e8",
+    fontWeight: 500,
     textDecoration: "underline",
     textUnderlineOffset: 2,
     cursor: "pointer",
