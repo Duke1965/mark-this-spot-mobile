@@ -3065,21 +3065,14 @@ export default function PINITApp() {
 
   // Results page handlers
   const handleSaveFromResults = (pin: PinData) => {
-    // Include personal thoughts in the saved pin and mark as completed
-    const pinToSave = {
-      ...pin,
-      personalThoughts: pin.personalThoughts || undefined,
-      isPending: false // Mark as completed when saved from results
-    }
-    
-    // Remove the old pending pin if it exists (by ID)
-    // This ensures the pending card disappears from the library
-    removePinFromStorage(pin.id)
-    
-    // Add the completed pin
-    addPin(pinToSave)
-    
-    console.log("💾 Pin saved from results - old pending pin removed, completed pin added:", pinToSave.id)
+    // Pin already exists from Quick Pin / Adjust completion. Update in place —
+    // do not delete + recreate (that raced Firestore delete against upsert).
+    updatePinInStorage(pin.id, { isPending: false })
+    setPins((prev) =>
+      prev.map((p) => (p.id === pin.id ? { ...p, isPending: false } : p))
+    )
+
+    console.log("💾 Pin saved from results:", pin.id)
 
     // Best-effort: also publish this pin as a community recommendation (Firestore),
     // so it shows across the user's devices and for other users in the same area.
@@ -3092,7 +3085,7 @@ export default function PINITApp() {
         await fetch("/api/recommendations/upsert-pin", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ pin: pinToSave })
+          body: JSON.stringify({ pin: { ...pin, isPending: false } })
         })
       } catch {
         // ignore
