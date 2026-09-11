@@ -339,9 +339,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       >
         {/* Card content */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px' }}>
-          {/* Thumbnail image - matches AI Recommendations style */}
+          {/* Thumbnail image — Pins tab is 80px (~33% larger than the previous 60px). Recommended stays 60px. */}
           <div style={{
-            width: '60px',
+            width: type === 'pin' ? '80px' : '60px',
             height: '100%',
             borderRadius: '12px',
             background: 'rgba(79,59,43,0.06)',
@@ -353,7 +353,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             overflow: 'hidden',
             flexShrink: 0,
             position: 'relative',
-            minHeight: '60px'
+            minHeight: type === 'pin' ? '80px' : '60px'
           }}>
             {/* Priority: Direct mediaUrl from pin, then first photo from additionalPhotos */}
             {item.mediaUrl ? (
@@ -434,10 +434,10 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
           </div>
           
           {/* Content area - matches AI Recommendations style */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             {/* Top section - Title */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', minWidth: 0 }}>
+              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', flex: 1, minWidth: 0, overflowWrap: 'break-word' }}>
                 {getDisplayTitle(item)}
               </h4>
             </div>
@@ -450,7 +450,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
               fontSize: '11px',
               color: 'rgba(79,59,43,0.7)',
               alignSelf: 'flex-start',
-              marginBottom: '8px'
+              marginBottom: '8px',
+              maxWidth: '100%',
+              overflowWrap: 'break-word'
             }}>
               📍 {item.locationName}
             </span>
