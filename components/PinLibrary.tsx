@@ -40,11 +40,13 @@ interface PinLibraryProps {
   onPinSelect: (pin: PinData) => void
   onPinUpdate: (pinId: string, updates: any) => void
   onPinDelete?: (pinId: string) => void
+  /** Opens this tab on mount. Default Pins. */
+  initialTab?: "pins" | "saved" | "postcards" | "recommended"
 }
 
-export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
+export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete, initialTab = "pins" }: PinLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentTab, setCurrentTab] = useState<"pins" | "saved" | "postcards" | "recommended">("pins")
+  const [currentTab, setCurrentTab] = useState<"pins" | "saved" | "postcards" | "recommended">(initialTab)
   const [localDraft, setLocalDraft] = useState<LocalPostcardDraft | null>(null)
 
   const readLocalDraft = () => {

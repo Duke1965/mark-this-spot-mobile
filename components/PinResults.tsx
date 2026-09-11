@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type CSSProperties, type MouseEvent } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react"
 import { ArrowLeft, Send } from "lucide-react"
 import { MAPPO_SUBPAGE_BG } from "@/lib/mappoBackgrounds"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
@@ -50,11 +50,13 @@ export function PinResults({
   onSave,
   onShare,
   onBack,
+  onAfterSuccessfulSave,
 }: {
   pin: PinData
   onSave: (pin: PinData) => void
   onShare: (pin: PinData) => void
   onBack: () => void
+  onAfterSuccessfulSave?: () => void
 }) {
   const title = String(pin?.title || pin?.locationName || "Saved Place").trim()
   const description = sanitizePlaceDescription(pin?.description || "")
@@ -62,18 +64,34 @@ export function PinResults({
   const [photoFailed, setPhotoFailed] = useState(false)
   const [saveNotice, setSaveNotice] = useState(false)
   const alreadySaved = pin.isSaved === true
+  const saveNavigateTimerRef = useRef<number | null>(null)
   useEffect(() => {
     setPhotoFailed(false)
   }, [photoUrl, pin.id])
   useEffect(() => {
     setSaveNotice(false)
   }, [pin.id])
+  useEffect(() => {
+    return () => {
+      if (saveNavigateTimerRef.current != null) {
+        window.clearTimeout(saveNavigateTimerRef.current)
+        saveNavigateTimerRef.current = null
+      }
+    }
+  }, [])
   const showPhoto = !!photoUrl && !photoFailed
 
   const onPressSave = () => {
     if (alreadySaved) return
     onSave(pin)
     setSaveNotice(true)
+    if (saveNavigateTimerRef.current != null) {
+      window.clearTimeout(saveNavigateTimerRef.current)
+    }
+    saveNavigateTimerRef.current = window.setTimeout(() => {
+      saveNavigateTimerRef.current = null
+      onAfterSuccessfulSave?.()
+    }, 1400)
   }
 
   return (

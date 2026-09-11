@@ -813,10 +813,17 @@ export default function PINITApp() {
     return pins.filter(pin => pin.isPending === true && !pin.isViewed).length
   }, [pins])
 
-  const openLibrary = useCallback(() => {
+  const [libraryInitialTab, setLibraryInitialTab] = useState<"pins" | "saved" | "postcards" | "recommended">("pins")
+
+  const goToLibrary = useCallback((tab: "pins" | "saved" | "postcards" | "recommended" = "pins") => {
+    setLibraryInitialTab(tab)
     setCurrentScreen("library")
-    // Don't reset badge here - only when pin is actually viewed
   }, [setCurrentScreen])
+
+  const openLibrary = useCallback(() => {
+    goToLibrary("pins")
+    // Don't reset badge here - only when pin is actually viewed
+  }, [goToLibrary])
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
@@ -3523,17 +3530,17 @@ export default function PINITApp() {
 
 
   if (currentScreen === "story") {
-    return <PinStoryMode pins={pins} onBack={() => setCurrentScreen("library")} />
+    return <PinStoryMode pins={pins} onBack={() => goToLibrary("pins")} />
   }
 
   if (currentScreen === "story-builder") {
     return (
       <PinStoryBuilder
         pins={pins}
-        onBack={() => setCurrentScreen("library")}
+        onBack={() => goToLibrary("pins")}
         onCreateStory={(selectedPins, storyTitle) => {
           console.log("Story created:", storyTitle, selectedPins)
-          setCurrentScreen("library")
+          goToLibrary("pins")
           setLastActivity("story-created")
         }}
       />
@@ -3588,6 +3595,10 @@ export default function PINITApp() {
         onSave={handleSaveFromResults}
         onShare={handleShareFromResults}
         onBack={handleBackFromResults}
+        onAfterSuccessfulSave={() => {
+          setCurrentResultPin(null)
+          goToLibrary("saved")
+        }}
       />
     )
   }
@@ -3597,8 +3608,10 @@ export default function PINITApp() {
       <>
       <PinLibrary
         pins={storedPins}
+        initialTab={libraryInitialTab}
         onBack={() => {
           setQuickPinChooser(null)
+          setLibraryInitialTab("pins")
           setCurrentScreen("map")
         }}
         onPinSelect={(pin: PinData) => {
