@@ -44,7 +44,7 @@ interface PinLibraryProps {
 
 export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete }: PinLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentTab, setCurrentTab] = useState<"pins" | "postcards" | "recommended">("pins")
+  const [currentTab, setCurrentTab] = useState<"pins" | "saved" | "postcards" | "recommended">("pins")
   const [localDraft, setLocalDraft] = useState<LocalPostcardDraft | null>(null)
 
   const readLocalDraft = () => {
@@ -130,6 +130,8 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         const regularPins = pins.filter(pin => !pin.isRecommended)
         console.log("📍 Regular pins found:", regularPins.length)
         return regularPins
+      case "saved":
+        return pins.filter(pin => pin.isSaved === true)
       case "recommended":
         const recommended = pins.filter(pin => pin.isRecommended)
         console.log("⭐ Recommended found:", recommended.length)
@@ -648,75 +650,41 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
 
       {/* Tab Navigation */}
       <div style={{ padding: "1rem", background: "rgba(255,255,255,0.6)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem" }}>
+        <div style={{ display: "flex", gap: "0.2rem", marginBottom: "1rem" }}>
+          {([
+            { id: "pins" as const, emoji: "📍", label: "Pins" },
+            { id: "saved" as const, emoji: "🔖", label: "Saved" },
+            { id: "postcards" as const, emoji: "💌", label: "My Postcards" },
+            { id: "recommended" as const, emoji: "⭐", label: "Recommended" },
+          ]).map((tab) => (
           <button
-            onClick={() => setCurrentTab("pins")}
+            key={tab.id}
+            onClick={() => setCurrentTab(tab.id)}
             style={{
               flex: 1,
-              padding: "0.75rem 0.5rem",
+              minWidth: 0,
+              padding: "0.55rem 0.2rem",
               borderRadius: "0.75rem",
               border: "1px solid rgba(79,59,43,0.12)",
-              background: currentTab === "pins" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
+              background: currentTab === tab.id ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
               color: "#4f3b2b",
               cursor: "pointer",
-              fontSize: "0.875rem",
+              fontSize: "0.72rem",
+              lineHeight: 1.2,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "0.25rem",
+              justifyContent: "center",
+              gap: "0.15rem",
               transition: "all 0.2s ease",
+              textAlign: "center",
             }}
             type="button"
           >
-            <span style={{ fontSize: "1.25rem" }}>📍</span>
-            <span>Pins</span>
+            <span style={{ fontSize: "1.1rem" }}>{tab.emoji}</span>
+            <span style={{ wordBreak: "break-word" }}>{tab.label}</span>
           </button>
-
-          <button
-            onClick={() => setCurrentTab("postcards")}
-            style={{
-              flex: 1,
-              padding: "0.75rem 0.5rem",
-              borderRadius: "0.75rem",
-              border: "1px solid rgba(79,59,43,0.12)",
-              background: currentTab === "postcards" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
-              color: "#4f3b2b",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.25rem",
-              transition: "all 0.2s ease",
-            }}
-            type="button"
-          >
-            <span style={{ fontSize: "1.25rem" }}>💌</span>
-            <span>My Postcards</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab("recommended")}
-            style={{
-              flex: 1,
-              padding: "0.75rem 0.5rem",
-              borderRadius: "0.75rem",
-              border: "1px solid rgba(79,59,43,0.12)",
-              background: currentTab === "recommended" ? "rgba(79,59,43,0.12)" : "rgba(255,255,255,0.5)",
-              color: "#4f3b2b",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.25rem",
-              transition: "all 0.2s ease",
-            }}
-            type="button"
-          >
-            <span style={{ fontSize: "1.25rem" }}>⭐</span>
-            <span>Recommended</span>
-          </button>
+          ))}
         </div>
 
         {/* Search (pins and recommended only) */}
@@ -839,10 +807,22 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
         ) : filteredData.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", opacity: 0.7 }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
-              {currentTab === "recommended" ? "⭐" : "📍"}
+              {currentTab === "recommended" ? "⭐" : currentTab === "saved" ? "🔖" : "📍"}
             </div>
-            <h3>No {currentTab === "recommended" ? "recommendations" : "pins"} found</h3>
-            <p>{currentTab === "recommended" ? "Check back later for new recommendations." : "Create your first pin to get started!"}</p>
+            <h3>
+              {currentTab === "recommended"
+                ? "No recommendations found"
+                : currentTab === "saved"
+                  ? "No saved pins yet"
+                  : "No pins found"}
+            </h3>
+            <p>
+              {currentTab === "recommended"
+                ? "Check back later for new recommendations."
+                : currentTab === "saved"
+                  ? "Open a pin and press Save to keep it here."
+                  : "Create your first pin to get started!"}
+            </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>

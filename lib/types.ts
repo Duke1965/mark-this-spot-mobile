@@ -43,6 +43,8 @@ export interface PinData {
   platform?: string
   isPending?: boolean // NEW: True if pin needs location confirmation (created while traveling)
   isViewed?: boolean // NEW: True if pending pin has been viewed/opened by user
+  /** True when the user explicitly pressed Save on Pin Results. Optional; absent = not saved. */
+  isSaved?: boolean
   // Lightweight Google Nearby candidates for later Quick Pin chooser (optional, backwards compatible)
   googleCandidates?: GooglePinCandidate[]
   gpsLatitude?: number

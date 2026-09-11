@@ -3065,12 +3065,14 @@ export default function PINITApp() {
 
   // Results page handlers
   const handleSaveFromResults = (pin: PinData) => {
-    // Pin already exists from Quick Pin / Adjust completion. Update in place —
-    // do not delete + recreate (that raced Firestore delete against upsert).
-    updatePinInStorage(pin.id, { isPending: false })
+    if (pin.isSaved) return
+
+    // Same pin document — mark as deliberately saved. No delete/recreate, no Google calls.
+    updatePinInStorage(pin.id, { isSaved: true })
     setPins((prev) =>
-      prev.map((p) => (p.id === pin.id ? { ...p, isPending: false } : p))
+      prev.map((p) => (p.id === pin.id ? { ...p, isSaved: true } : p))
     )
+    setCurrentResultPin((prev) => (prev && prev.id === pin.id ? { ...prev, isSaved: true } : prev))
 
     console.log("💾 Pin saved from results:", pin.id)
 
@@ -3085,17 +3087,12 @@ export default function PINITApp() {
         await fetch("/api/recommendations/upsert-pin", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ pin: { ...pin, isPending: false } })
+          body: JSON.stringify({ pin: { ...pin, isSaved: true } })
         })
       } catch {
         // ignore
       }
     })()
-    
-    setCurrentResultPin(null)
-    setTimeout(() => setCurrentScreen("map"), 100)
-    setQuickPinSuccess(true)
-    setTimeout(() => setQuickPinSuccess(false), 2000)
   }
 
   const handleShareFromResults = (_pin: PinData) => {

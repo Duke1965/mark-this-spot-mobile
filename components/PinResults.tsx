@@ -60,10 +60,21 @@ export function PinResults({
   const description = sanitizePlaceDescription(pin?.description || "")
   const photoUrl = pinViewPhotoUrl(pin)
   const [photoFailed, setPhotoFailed] = useState(false)
+  const [saveNotice, setSaveNotice] = useState(false)
+  const alreadySaved = pin.isSaved === true
   useEffect(() => {
     setPhotoFailed(false)
   }, [photoUrl, pin.id])
+  useEffect(() => {
+    setSaveNotice(false)
+  }, [pin.id])
   const showPhoto = !!photoUrl && !photoFailed
+
+  const onPressSave = () => {
+    if (alreadySaved) return
+    onSave(pin)
+    setSaveNotice(true)
+  }
 
   return (
     <div style={styles.screen}>
@@ -93,14 +104,22 @@ export function PinResults({
           <OfficialWebsiteVisitLine website={pin.website} />
 
           <div style={styles.actions}>
-            <button type="button" onClick={() => onSave(pin)} style={styles.btn}>
-              Save
+            <button
+              type="button"
+              onClick={onPressSave}
+              disabled={alreadySaved}
+              style={alreadySaved ? { ...styles.btn, ...styles.btnSaved } : styles.btn}
+            >
+              {alreadySaved ? "Saved" : "Save"}
             </button>
             <button type="button" onClick={() => (window.location.href = `/postcard/${encodeURIComponent(String(pin.id))}`)} style={styles.btn}>
               <Send size={18} />
               Send Postcard
             </button>
           </div>
+          {saveNotice || alreadySaved ? (
+            <div style={styles.savedHint}>Saved to Library</div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -180,5 +199,17 @@ const styles: Record<string, CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
+  },
+  btnSaved: {
+    background: "rgba(16, 185, 129, 0.14)",
+    border: "1px solid rgba(16, 185, 129, 0.35)",
+    color: "#047857",
+    cursor: "default",
+  },
+  savedHint: {
+    marginTop: 10,
+    fontSize: "0.85rem",
+    fontWeight: 700,
+    color: "#047857",
   },
 }

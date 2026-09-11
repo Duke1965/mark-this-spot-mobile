@@ -127,6 +127,7 @@ function sanitizePin(pin: any) {
     platform: typeof pin.platform === 'string' ? pin.platform : undefined,
     isPending: typeof pin.isPending === 'boolean' ? pin.isPending : undefined,
     isViewed: typeof pin.isViewed === 'boolean' ? pin.isViewed : undefined,
+    isSaved: typeof pin.isSaved === 'boolean' ? pin.isSaved : undefined,
     googleCandidates: sanitizeGoogleCandidates(pin.googleCandidates),
     gpsLatitude: Number.isFinite(Number(pin.gpsLatitude)) ? Number(pin.gpsLatitude) : undefined,
     gpsLongitude: Number.isFinite(Number(pin.gpsLongitude)) ? Number(pin.gpsLongitude) : undefined,
