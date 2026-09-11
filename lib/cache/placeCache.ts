@@ -151,7 +151,7 @@ export async function getCachedGooglePlaceById(input: {
 }
 
 export async function setCachedGooglePlace(input: {
-  place: Omit<CachedGooglePlace, 'updatedAt'>
+  place: Omit<CachedGooglePlace, 'updatedAt' | 'photoStorageUrls'> & { photoStorageUrls?: string[] }
   lat: number
   lon: number
   writeGeo?: boolean
@@ -174,14 +174,28 @@ export async function setCachedGooglePlace(input: {
     ? input.place.photoStorageUrls.map(String).filter(Boolean)
     : []
 
-  const payload: CachedGooglePlace = {
+  const payload: {
+    place_id: string
+    lat: number
+    lon: number
+    source: 'google'
+    updatedAt: ReturnType<typeof FieldValue.serverTimestamp>
+    photoStorageUrls?: string[]
+    name?: string
+    address?: string
+    website?: string
+    types?: string[]
+    placeLat?: number
+    placeLon?: number
+  } = {
     place_id: String(input.place.place_id),
     lat: input.lat,
     lon: input.lon,
-    photoStorageUrls,
     source: 'google',
     updatedAt: FieldValue.serverTimestamp()
   }
+  // Never merge photoStorageUrls: [] over an existing non-empty list.
+  if (photoStorageUrls.length > 0) payload.photoStorageUrls = photoStorageUrls
   if (input.place.name) payload.name = String(input.place.name)
   if (input.place.address) payload.address = String(input.place.address)
   if (input.place.website) payload.website = String(input.place.website)

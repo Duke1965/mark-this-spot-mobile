@@ -135,6 +135,11 @@ function toPinIntelNearbyCandidates(rows: any[] | undefined): PinIntelNearbyCand
   return out
 }
 
+function usableCachedPhotoUrls(urls: unknown, max: number): string[] {
+  if (!Array.isArray(urls) || max <= 0) return []
+  return urls.map((u) => String(u || '').trim()).filter(Boolean).slice(0, max)
+}
+
 function googlePlaceFromCachedDoc(input: {
   cachedPlace: {
     place_id: string
@@ -205,19 +210,24 @@ async function resolveExplicitGooglePlaceId(input: {
   const cachedById = await getCachedGooglePlaceById({ placeId, ttlDays: googleCacheTtlDays })
   timings.google_cache_by_id_ms = Date.now() - tCache
 
+  const cachedPhotos = usableCachedPhotoUrls(cachedById?.place?.photoStorageUrls, googleMaxPhotos)
+  let cachedPlace: ReturnType<typeof googlePlaceFromCachedDoc> | null = null
   if (cachedById?.place?.place_id) {
     googleDiag.cacheHit = true
     googleDiag.cache.read = 'hit'
     googleDiag.used = true
     googleDiag.placeId = cachedById.place.place_id
-    const place = googlePlaceFromCachedDoc({ cachedPlace: cachedById.place, lat, lon })
-    for (const u of (cachedById.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
-      images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
+    cachedPlace = googlePlaceFromCachedDoc({ cachedPlace: cachedById.place, lat, lon })
+    if (cachedPhotos.length > 0) {
+      for (const u of cachedPhotos) {
+        images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
+      }
+      return { place: cachedPlace, googlePhotosSucceeded: images.filter((i) => i.source === 'google').length }
     }
-    return { place, googlePhotosSucceeded: images.filter((i) => i.source === 'google').length }
+    fallbacksUsed.push('cache_identity_no_photos_refresh')
+  } else {
+    googleDiag.cache.read = 'miss'
   }
-
-  googleDiag.cache.read = 'miss'
 
   const key = limiterKeyForRequest(request)
   const limit = await checkAndIncrementGoogleDailyLimit({ key })
@@ -225,7 +235,7 @@ async function resolveExplicitGooglePlaceId(input: {
   if (!limit.allowed) {
     googleDiag.reasonIfNotUsed = 'google_daily_limit_reached'
     fallbacksUsed.push('google_daily_limit_reached')
-    return { place: null, googlePhotosSucceeded: 0 }
+    return { place: cachedPlace, googlePhotosSucceeded: 0 }
   }
 
   try {
@@ -237,7 +247,7 @@ async function resolveExplicitGooglePlaceId(input: {
     if (!det?.placeId) {
       googleDiag.reasonIfNotUsed = 'google_no_details'
       fallbacksUsed.push('google_no_details')
-      return { place: null, googlePhotosSucceeded: 0 }
+      return { place: cachedPlace, googlePhotosSucceeded: 0 }
     }
 
     googleDiag.placeId = det.placeId
@@ -281,7 +291,6 @@ async function resolveExplicitGooglePlaceId(input: {
           address: det.formattedAddress,
           website: det.website,
           types: det.types,
-          photoStorageUrls: [],
           placeLat: det.location?.lat,
           placeLon: det.location?.lon,
           lat,
@@ -361,7 +370,7 @@ async function resolveExplicitGooglePlaceId(input: {
     googleDiag.error = e instanceof Error ? e.message : String(e)
     googleDiag.reasonIfNotUsed = 'google_error'
     fallbacksUsed.push('google_error')
-    return { place: null, googlePhotosSucceeded: 0 }
+    return { place: cachedPlace, googlePhotosSucceeded: 0 }
   }
 }
 
@@ -788,11 +797,13 @@ export async function GET(request: NextRequest) {
               googleDiag.placeId = cand.placeId
               googleDiag.distanceMetersSelected = Math.round(cand.distanceMeters || 0)
 
-              // If we already cached this placeId from a previous pin, avoid details+photo calls.
+              // If we already cached this placeId with photos, avoid details+photo calls.
+              // Identity-only cache (empty photoStorageUrls) must still refresh Google photos.
               const tG1b = Date.now()
               const cachedById = await getCachedGooglePlaceById({ placeId: cand.placeId, ttlDays: googleCacheTtlDays })
               timings.google_cache_by_id_ms = Date.now() - tG1b
-              if (cachedById?.place?.place_id) {
+              const cachedPhotos = usableCachedPhotoUrls(cachedById?.place?.photoStorageUrls, googleMaxPhotos)
+              if (cachedById?.place?.place_id && cachedPhotos.length > 0) {
                 googleDiag.cacheHit = true
                 googleDiag.cache.read = 'hit'
                 googleDiag.used = true
@@ -813,11 +824,34 @@ export async function GET(request: NextRequest) {
                     [cachedById.place.name || cand.name, locality].filter(Boolean).join(' ').trim() ||
                     (cachedById.place.name || cand.name || '')
                 }
-                for (const u of (cachedById.place.photoStorageUrls || []).slice(0, googleMaxPhotos)) {
+                for (const u of cachedPhotos) {
                   images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
                 }
                 googlePhotosSucceeded = images.filter((i) => i.source === 'google').length
               } else {
+              if (cachedById?.place?.place_id) {
+                googleDiag.cacheHit = true
+                googleDiag.cache.read = 'hit'
+                googleDiag.used = true
+                fallbacksUsed.push('cache_identity_no_photos_refresh')
+                const { locality, country } = parseLocalityFromFormattedAddress(cachedById.place.address)
+                place = {
+                  lat,
+                  lng: lon,
+                  name: cachedById.place.name || cand.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+                  address: cachedById.place.address,
+                  locality,
+                  country,
+                  website: cachedById.place.website,
+                  category: googleTypesToCategory(cachedById.place.types),
+                  source: 'google' as const,
+                  sourceId: cachedById.place.place_id,
+                  confidence: 0.95,
+                  canonicalQuery:
+                    [cachedById.place.name || cand.name, locality].filter(Boolean).join(' ').trim() ||
+                    (cachedById.place.name || cand.name || '')
+                }
+              }
               // Only call Details after candidate passed the distance threshold (saves money).
               const tG2 = Date.now()
               googleDiag.calls.details++
@@ -868,7 +902,6 @@ export async function GET(request: NextRequest) {
                         address: det.formattedAddress,
                         website: det.website,
                         types: det.types,
-                        photoStorageUrls: [],
                         placeLat: det.location?.lat,
                         placeLon: det.location?.lon,
                         lat,
