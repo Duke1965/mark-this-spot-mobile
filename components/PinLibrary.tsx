@@ -127,7 +127,7 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
     
     switch (currentTab) {
       case "pins":
-        const regularPins = pins.filter(pin => !pin.isRecommended)
+        const regularPins = pins.filter(pin => !pin.isRecommended && pin.isSaved !== true)
         console.log("📍 Regular pins found:", regularPins.length)
         return regularPins
       case "saved":
