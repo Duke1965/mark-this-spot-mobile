@@ -1411,37 +1411,76 @@ export default function PINITApp() {
         console.log("📍 Stationary pinning - using current location")
       }
       
-      // NEW: Use unified /api/pin-intel for title/description + website-first images
+      // Lightweight Nearby candidates first. Enrichment happens later on Place-ID select
+      // (or via the existing full pin-intel payload when Nearby returns none).
       setQuickPinStage("Saving this spot…")
-      console.log("🧠 Fetching pin intel (Geoapify + website-first images)...")
+      console.log("🧠 Fetching pin intel (candidates-only Nearby)...")
       let pinIntelV2: any = null
       try {
+        const pinIntelUrl = `/api/pin-intel?lat=${encodeURIComponent(String(pinLatitude))}&lon=${encodeURIComponent(String(pinLongitude))}&candidatesOnly=1`
         console.log("🌐 API request about to be made:", {
-          url: `/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}&includeCandidates=1`,
+          url: `/api/pin-intel?lat=${pinLatitude}&lon=${pinLongitude}&candidatesOnly=1`,
         })
-        const resp = await fetch(
-          `/api/pin-intel?lat=${encodeURIComponent(String(pinLatitude))}&lon=${encodeURIComponent(String(pinLongitude))}&includeCandidates=1`,
-          {
-            signal: controller.signal,
-            cache: 'no-store'
-          }
-        )
+        const resp = await fetch(pinIntelUrl, {
+          signal: controller.signal,
+          cache: 'no-store'
+        })
         console.log("🌐 API request completed:", { ok: resp.ok, status: resp.status })
         if (resp.ok) {
           pinIntelV2 = await resp.json()
           console.log("📍 Quick pin intel candidates:", {
             candidateCount: Array.isArray(pinIntelV2?.candidates) ? pinIntelV2.candidates.length : 0,
+            candidatesOnly: pinIntelV2?.diagnostics?.candidatesOnly ?? null,
             candidatesRequested: pinIntelV2?.diagnostics?.candidatesRequested ?? null,
             candidateNearbyForced: pinIntelV2?.diagnostics?.candidateNearbyForced ?? null,
             geoCacheExisted: pinIntelV2?.diagnostics?.geoCacheExisted ?? null,
             cacheHit: pinIntelV2?.diagnostics?.cacheHit ?? null,
             nearbyCalls: pinIntelV2?.diagnostics?.google?.calls?.nearby ?? null,
+            detailsCalls: pinIntelV2?.diagnostics?.google?.calls?.details ?? null,
+            photoCalls: pinIntelV2?.diagnostics?.google?.calls?.photos ?? null,
           })
         } else {
           console.warn("⚠️ /api/pin-intel failed:", resp.status)
         }
       } catch (error) {
         console.warn("⚠️ Failed to fetch /api/pin-intel (non-critical):", error)
+      }
+
+      const candidates = parseQuickPinCandidates(pinIntelV2?.candidates)
+      if (candidates.length > 0) {
+        const newPin: PinData = {
+          id: Date.now().toString(),
+          latitude: pinLatitude,
+          longitude: pinLongitude,
+          gpsLatitude: currentLocation.latitude,
+          gpsLongitude: currentLocation.longitude,
+          locationName: "Pinned location",
+          mediaUrl: "/pinit-placeholder.jpg",
+          mediaType: "photo",
+          audioUrl: null,
+          timestamp: new Date().toISOString(),
+          title: "Pinned location",
+          description: "Pinned location",
+          tags: ["mappo", "travel"],
+          additionalPhotos: [],
+          isPending: true,
+          googleCandidates: candidates,
+        }
+        addPin(newPin)
+        console.log("📍 Quick pin saved pending with Google candidates:", {
+          count: candidates.length,
+          predicted: { lat: pinLatitude, lng: pinLongitude },
+        })
+        console.log("💾 Pin saved to pins array - accessible in pins section")
+
+        setQuickPinStage("Pinned!")
+        setSuccessMessage("Pin saved.")
+        setShowSuccessPopup(true)
+        successPopupTimerRef.current = window.setTimeout(() => {
+          setShowSuccessPopup(false)
+          console.log("🔄 Pin created - ready for next pin")
+        }, 1500)
+        return
       }
 
       // Prefer pin-intel v2 for place data
@@ -1565,7 +1604,6 @@ export default function PINITApp() {
         console.log(`🖼️ Using image: ${primaryImageUrl?.substring(0, 60)}...`)
       }
       
-      const candidates = parseQuickPinCandidates(pinIntelV2?.candidates)
       const newPin: PinData = {
         id: Date.now().toString(),
         latitude: pinLatitude,
@@ -1593,19 +1631,6 @@ export default function PINITApp() {
         aiConfidence: aiTextResult?.confidence,
         aiUsedFallback: aiTextResult?.used_fallback,
         aiGeneratedAt: new Date().toISOString()
-      }
-
-      if (candidates.length > 0) {
-        newPin.title = "Pinned location"
-        newPin.locationName = "Pinned location"
-        newPin.description = "Pinned location"
-        newPin.mediaUrl = "/pinit-placeholder.jpg"
-        newPin.additionalPhotos = []
-        newPin.googleCandidates = candidates
-        console.log("📍 Quick pin saved pending with Google candidates:", {
-          count: candidates.length,
-          predicted: { lat: pinLatitude, lng: pinLongitude },
-        })
       }
 
       // Save pin immediately to pins array (temporary - user can save permanently, share, or discard later)

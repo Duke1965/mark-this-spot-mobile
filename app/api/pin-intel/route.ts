@@ -495,6 +495,7 @@ function getMapboxStaticUrl(lat: number, lon: number): string | null {
 
 /**
  * GET /api/pin-intel?lat=..&lon=..&hint=..&includeCandidates=1
+ * GET /api/pin-intel?lat=..&lon=..&candidatesOnly=1
  * GET /api/pin-intel?placeId=..&lat=..&lon=..
  *
  * Returns consistent PinIntel payload:
@@ -502,6 +503,10 @@ function getMapboxStaticUrl(lat: number, lon: number): string | null {
  * - stable title/description derived from metadata
  * - website-first images (uploaded to Firebase Storage)
  * - diagnostics for road testing
+ *
+ * includeCandidates=1 still means: return Nearby candidates AND fully enrich the auto-selected place.
+ * candidatesOnly=1 means: Nearby candidates only when usable ones exist; otherwise fall through to
+ * the existing full coordinate-enrichment path. Do not auto-enrich the first candidate.
  *
  * When placeId is supplied, Nearby and geo-cache identity selection are skipped.
  * If that Place ID cannot be resolved, the handler fails closed (no Geoapify substitute).
@@ -532,6 +537,12 @@ export async function GET(request: NextRequest) {
       ''
     ).toLowerCase()
     const includeCandidates = includeCandidatesRaw === '1' || includeCandidatesRaw === 'true'
+    const candidatesOnlyRaw = (
+      searchParams.get('candidatesOnly') ||
+      searchParams.get('candidates_only') ||
+      ''
+    ).toLowerCase()
+    const candidatesOnly = candidatesOnlyRaw === '1' || candidatesOnlyRaw === 'true'
     const requestedPlaceId = (
       searchParams.get('placeId') ||
       searchParams.get('place_id') ||
@@ -590,6 +601,7 @@ export async function GET(request: NextRequest) {
       used: false,
       called: false,
       candidatesRequested: includeCandidates,
+      candidatesOnly,
       placeIdLookup: !!requestedPlaceId,
       requestedPlaceId: requestedPlaceId || undefined,
       geoCacheExisted: false,
@@ -652,10 +664,11 @@ export async function GET(request: NextRequest) {
 
       googleDiag.geoCacheExisted = !!cached?.place?.place_id
       googleDiag.candidatesRequested = includeCandidates
+      googleDiag.candidatesOnly = candidatesOnly
 
       // Quick Pin chooser needs Nearby candidates even when a geo-cache entry exists.
       // Adjust Pin and other callers keep the existing cache short-circuit (no extra Nearby).
-      if (cached?.place?.place_id && !includeCandidates) {
+      if (cached?.place?.place_id && !includeCandidates && !candidatesOnly) {
         googleDiag.cacheHit = true
         googleDiag.cache.read = 'hit'
         googleDiag.used = true
@@ -681,7 +694,7 @@ export async function GET(request: NextRequest) {
           images.push({ url: u, source: 'google', sourceUrl: `google:place:${cached.place.place_id}` })
         }
       } else {
-        if (cached?.place?.place_id && includeCandidates) {
+        if (cached?.place?.place_id && (includeCandidates || candidatesOnly)) {
           googleDiag.candidateNearbyForced = true
           fallbacksUsed.push('nearby_forced_for_candidates')
         }
@@ -720,6 +733,52 @@ export async function GET(request: NextRequest) {
             googleNearbyCandidates = toPinIntelNearbyCandidates(sel.candidates)
             googleDiag.candidateCount = googleNearbyCandidates.length
             googleDiag.candidatesFromGoogleNearby = googleNearbyCandidates.length > 0
+
+            // Initial Quick Pin: usable Nearby candidates are enough. Do not Details/photos/website
+            // the auto-selected place — the user has not chosen yet.
+            if (candidatesOnly && googleNearbyCandidates.length > 0) {
+              fallbacksUsed.push('candidates_only_return')
+              timings.total_ms = Date.now() - startedAt
+              console.log('📍 pin-intel candidatesOnly', {
+                candidatesOnly,
+                includeCandidates,
+                nearbyCalls: googleDiag.calls?.nearby ?? 0,
+                detailsCalls: googleDiag.calls?.details ?? 0,
+                photoCalls: googleDiag.calls?.photos ?? 0,
+                candidateCount: googleNearbyCandidates.length
+              })
+              return NextResponse.json(
+                {
+                  images: [],
+                  candidates: googleNearbyCandidates,
+                  diagnostics: {
+                    provider: undefined,
+                    googleUsed: false,
+                    cacheHit: !!googleDiag.cacheHit,
+                    google: googleDiag,
+                    placeIdRequested: false,
+                    candidatesRequested: includeCandidates,
+                    candidatesOnly: true,
+                    geoCacheExisted: !!googleDiag.geoCacheExisted,
+                    candidateNearbyForced: !!googleDiag.candidateNearbyForced,
+                    candidatesFromGoogleNearby: true,
+                    candidateCount: googleNearbyCandidates.length,
+                    websiteValidated: false,
+                    imageSummary: {
+                      googlePhotos: 0,
+                      websitePhotos: 0,
+                      unsplashPhotos: 0,
+                      mapStatic: 0
+                    },
+                    timings,
+                    fallbacksUsed,
+                    uploadFailures: [],
+                    websiteMeta: websiteMetaDiag
+                  }
+                },
+                { status: 200, headers: { 'Cache-Control': 'no-store' } }
+              )
+            }
 
             if (!sel.selected?.placeId) {
               googleDiag.reasonIfNotUsed = sel.reasonIfNotUsed || 'google_no_candidate'
@@ -1193,6 +1252,7 @@ export async function GET(request: NextRequest) {
 
     console.log('📍 pin-intel candidates', {
       includeCandidates,
+      candidatesOnly,
       placeIdRequested: !!requestedPlaceId,
       geoCacheExisted: !!googleDiag.geoCacheExisted,
       candidateNearbyForced: !!googleDiag.candidateNearbyForced,
@@ -1216,6 +1276,7 @@ export async function GET(request: NextRequest) {
           google: googleDiag,
           placeIdRequested: !!requestedPlaceId,
           candidatesRequested: includeCandidates,
+          candidatesOnly,
           geoCacheExisted: !!googleDiag.geoCacheExisted,
           candidateNearbyForced: !!googleDiag.candidateNearbyForced,
           candidatesFromGoogleNearby: googleNearbyCandidates.length > 0,
