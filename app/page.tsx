@@ -42,7 +42,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { acceptedOfficialWebsiteHref } from "@/lib/places/formatPlaceText"
-import { consumeOpenLibraryTab } from "@/lib/libraryNav"
+import { consumeOpenLibraryTab, hasPendingOpenLibraryTab } from "@/lib/libraryNav"
 import MapboxMap from "@/components/map/MapboxMap"
 import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
@@ -286,6 +286,8 @@ export default function PINITApp() {
     }
     return "map"
   })
+  /** Survives auth settle so home-restore cannot overwrite Postcard Done → Library. */
+  const libraryHandoffAppliedRef = useRef(false)
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
@@ -609,6 +611,11 @@ export default function PINITApp() {
     if (!authLoading && shouldSkipHomeRestoreForLegalReturn()) {
       return
     }
+    // Postcard Done → Library handoff: do not force map (same idea as legal-return skip).
+    // Applied handoff is kept in a ref so later auth/user updates cannot wipe Library.
+    if (!authLoading && (hasPendingOpenLibraryTab() || libraryHandoffAppliedRef.current)) {
+      return
+    }
     // Load saved app state on mount
     try {
       const savedState = localStorage.getItem("pinit-app-state")
@@ -827,10 +834,14 @@ export default function PINITApp() {
   }, [goToLibrary])
 
   // Postcard Created → Done: open Library on My Postcards via session handoff.
+  // Wait for auth — otherwise home-restore later forces map and wins the race.
   useEffect(() => {
+    if (authLoading) return
     const tab = consumeOpenLibraryTab()
-    if (tab) goToLibrary(tab)
-  }, [goToLibrary])
+    if (!tab) return
+    libraryHandoffAppliedRef.current = true
+    goToLibrary(tab)
+  }, [authLoading, goToLibrary])
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
