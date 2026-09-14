@@ -140,6 +140,26 @@ function usableCachedPhotoUrls(urls: unknown, max: number): string[] {
   return urls.map((u) => String(u || '').trim()).filter(Boolean).slice(0, max)
 }
 
+/** Cached place has a usable website string (structured-field completeness). */
+function cachedPlaceHasWebsite(website: unknown): boolean {
+  return typeof website === 'string' && website.trim().length > 0
+}
+
+function pushCachedGooglePhotos(input: {
+  images: PinIntelImage[]
+  photoUrls: string[]
+  placeId: string
+}): number {
+  for (const u of input.photoUrls) {
+    input.images.push({
+      url: u,
+      source: 'google',
+      sourceUrl: `google:place:${input.placeId}`
+    })
+  }
+  return input.images.filter((i) => i.source === 'google').length
+}
+
 function googlePlaceFromCachedDoc(input: {
   cachedPlace: {
     place_id: string
@@ -212,22 +232,40 @@ async function resolveExplicitGooglePlaceId(input: {
 
   const cachedPhotos = usableCachedPhotoUrls(cachedById?.place?.photoStorageUrls, googleMaxPhotos)
   let cachedPlace: ReturnType<typeof googlePlaceFromCachedDoc> | null = null
+  // Photos present but website missing → Details-only refresh; reuse photoStorageUrls.
+  let reuseCachedPhotos = false
   if (cachedById?.place?.place_id) {
     googleDiag.cacheHit = true
     googleDiag.cache.read = 'hit'
     googleDiag.used = true
     googleDiag.placeId = cachedById.place.place_id
     cachedPlace = googlePlaceFromCachedDoc({ cachedPlace: cachedById.place, lat, lon })
-    if (cachedPhotos.length > 0) {
-      for (const u of cachedPhotos) {
-        images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
-      }
-      return { place: cachedPlace, googlePhotosSucceeded: images.filter((i) => i.source === 'google').length }
+    const hasWebsite = cachedPlaceHasWebsite(cachedById.place.website)
+    if (cachedPhotos.length > 0 && hasWebsite) {
+      // Full cache hit: identity + photos + website → 0 Details, 0 Photo Media
+      const googlePhotosSucceeded = pushCachedGooglePhotos({
+        images,
+        photoUrls: cachedPhotos,
+        placeId: cachedById.place.place_id
+      })
+      return { place: cachedPlace, googlePhotosSucceeded }
     }
-    fallbacksUsed.push('cache_identity_no_photos_refresh')
+    if (cachedPhotos.length > 0 && !hasWebsite) {
+      fallbacksUsed.push('cache_identity_no_website_refresh')
+      reuseCachedPhotos = true
+      pushCachedGooglePhotos({
+        images,
+        photoUrls: cachedPhotos,
+        placeId: cachedById.place.place_id
+      })
+    } else {
+      fallbacksUsed.push('cache_identity_no_photos_refresh')
+    }
   } else {
     googleDiag.cache.read = 'miss'
   }
+
+  const googlePhotosAlready = () => images.filter((i) => i.source === 'google').length
 
   const key = limiterKeyForRequest(request)
   const limit = await checkAndIncrementGoogleDailyLimit({ key })
@@ -235,7 +273,7 @@ async function resolveExplicitGooglePlaceId(input: {
   if (!limit.allowed) {
     googleDiag.reasonIfNotUsed = 'google_daily_limit_reached'
     fallbacksUsed.push('google_daily_limit_reached')
-    return { place: cachedPlace, googlePhotosSucceeded: 0 }
+    return { place: cachedPlace, googlePhotosSucceeded: googlePhotosAlready() }
   }
 
   try {
@@ -247,7 +285,7 @@ async function resolveExplicitGooglePlaceId(input: {
     if (!det?.placeId) {
       googleDiag.reasonIfNotUsed = 'google_no_details'
       fallbacksUsed.push('google_no_details')
-      return { place: cachedPlace, googlePhotosSucceeded: 0 }
+      return { place: cachedPlace, googlePhotosSucceeded: googlePhotosAlready() }
     }
 
     googleDiag.placeId = det.placeId
@@ -296,12 +334,20 @@ async function resolveExplicitGooglePlaceId(input: {
           lat,
           lon,
           source: 'google'
+          // Intentionally omit photoStorageUrls when reusing cache photos —
+          // setCachedGooglePlace never writes [] over a good list.
         }
       })
       googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
       if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
     } catch {
       googleDiag.cache.write = 'error'
+    }
+
+    // Website-only completeness refresh: reuse cached photos, skip Photo Media.
+    if (reuseCachedPhotos) {
+      googleDiag.used = true
+      return { place, googlePhotosSucceeded: googlePhotosAlready() }
     }
 
     const hostedPhotoUrls: string[] = []
@@ -370,7 +416,7 @@ async function resolveExplicitGooglePlaceId(input: {
     googleDiag.error = e instanceof Error ? e.message : String(e)
     googleDiag.reasonIfNotUsed = 'google_error'
     fallbacksUsed.push('google_error')
-    return { place: cachedPlace, googlePhotosSucceeded: 0 }
+    return { place: cachedPlace, googlePhotosSucceeded: googlePhotosAlready() }
   }
 }
 
@@ -797,13 +843,14 @@ export async function GET(request: NextRequest) {
               googleDiag.placeId = cand.placeId
               googleDiag.distanceMetersSelected = Math.round(cand.distanceMeters || 0)
 
-              // If we already cached this placeId with photos, avoid details+photo calls.
-              // Identity-only cache (empty photoStorageUrls) must still refresh Google photos.
+              // Cache completeness: photos + website → full hit; photos without website →
+              // Details-only refresh (reuse photos); no photos → Details + Photo Media.
               const tG1b = Date.now()
               const cachedById = await getCachedGooglePlaceById({ placeId: cand.placeId, ttlDays: googleCacheTtlDays })
               timings.google_cache_by_id_ms = Date.now() - tG1b
               const cachedPhotos = usableCachedPhotoUrls(cachedById?.place?.photoStorageUrls, googleMaxPhotos)
-              if (cachedById?.place?.place_id && cachedPhotos.length > 0) {
+              const cachedHasWebsite = cachedPlaceHasWebsite(cachedById?.place?.website)
+              if (cachedById?.place?.place_id && cachedPhotos.length > 0 && cachedHasWebsite) {
                 googleDiag.cacheHit = true
                 googleDiag.cache.read = 'hit'
                 googleDiag.used = true
@@ -824,10 +871,107 @@ export async function GET(request: NextRequest) {
                     [cachedById.place.name || cand.name, locality].filter(Boolean).join(' ').trim() ||
                     (cachedById.place.name || cand.name || '')
                 }
-                for (const u of cachedPhotos) {
-                  images.push({ url: u, source: 'google', sourceUrl: `google:place:${cachedById.place.place_id}` })
+                googlePhotosSucceeded = pushCachedGooglePhotos({
+                  images,
+                  photoUrls: cachedPhotos,
+                  placeId: cachedById.place.place_id
+                })
+              } else if (cachedById?.place?.place_id && cachedPhotos.length > 0 && !cachedHasWebsite) {
+                googleDiag.cacheHit = true
+                googleDiag.cache.read = 'hit'
+                googleDiag.used = true
+                fallbacksUsed.push('cache_identity_no_website_refresh')
+                googlePhotosSucceeded = pushCachedGooglePhotos({
+                  images,
+                  photoUrls: cachedPhotos,
+                  placeId: cachedById.place.place_id
+                })
+                const tG2w = Date.now()
+                googleDiag.calls.details++
+                const detWebsite = await placeDetails(cand.placeId)
+                timings.google_details_ms = Date.now() - tG2w
+                if (!detWebsite?.placeId) {
+                  fallbacksUsed.push('google_no_details')
+                  googleDiag.reasonIfNotUsed = 'google_no_details'
+                  const { locality, country } = parseLocalityFromFormattedAddress(cachedById.place.address)
+                  place = {
+                    lat,
+                    lng: lon,
+                    name: cachedById.place.name || cand.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+                    address: cachedById.place.address,
+                    locality,
+                    country,
+                    website: cachedById.place.website,
+                    category: googleTypesToCategory(cachedById.place.types),
+                    source: 'google' as const,
+                    sourceId: cachedById.place.place_id,
+                    confidence: 0.95,
+                    canonicalQuery:
+                      [cachedById.place.name || cand.name, locality].filter(Boolean).join(' ').trim() ||
+                      (cachedById.place.name || cand.name || '')
+                  }
+                } else {
+                  const { locality, country } = parseLocalityFromFormattedAddress(detWebsite.formattedAddress)
+                  place = {
+                    lat,
+                    lng: lon,
+                    name: detWebsite.name || cand.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+                    category: googleTypesToCategory(detWebsite.types || cand.types),
+                    address: detWebsite.formattedAddress,
+                    locality,
+                    country,
+                    website: detWebsite.website,
+                    phone: detWebsite.phone,
+                    source: 'google' as const,
+                    sourceId: detWebsite.placeId,
+                    confidence: 0.95,
+                    canonicalQuery:
+                      [detWebsite.name, locality].filter(Boolean).join(' ').trim() || (detWebsite.name || '')
+                  }
+                  const cacheGeoMaxM = Math.max(
+                    10,
+                    Math.min(500, envInt('PINIT_GOOGLE_CACHE_GEO_MAX_DISTANCE_METERS', 120))
+                  )
+                  const distM = Number.isFinite(Number(cand.distanceMeters))
+                    ? Math.round(Number(cand.distanceMeters))
+                    : detWebsite.location &&
+                        Number.isFinite(detWebsite.location.lat) &&
+                        Number.isFinite(detWebsite.location.lon)
+                      ? Math.round(
+                          haversineMeters(
+                            { lat, lon },
+                            { lat: detWebsite.location.lat, lon: detWebsite.location.lon }
+                          )
+                        )
+                      : 999999
+                  const allowGeoBind = distM <= cacheGeoMaxM
+                  if (!allowGeoBind) fallbacksUsed.push(`skip_cache_geo_bind_far:${distM}m`)
+                  try {
+                    const wr = await setCachedGooglePlace({
+                      lat,
+                      lon,
+                      writeGeo: allowGeoBind,
+                      writeCoarseGeo: allowGeoBind,
+                      place: {
+                        place_id: detWebsite.placeId,
+                        name: detWebsite.name,
+                        address: detWebsite.formattedAddress,
+                        website: detWebsite.website,
+                        types: detWebsite.types,
+                        placeLat: detWebsite.location?.lat,
+                        placeLon: detWebsite.location?.lon,
+                        lat,
+                        lon,
+                        source: 'google'
+                        // Omit photoStorageUrls — preserve existing cached photos.
+                      }
+                    })
+                    googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
+                    if (!wr?.ok && wr?.error) googleDiag.cache.error = wr.error
+                  } catch {
+                    googleDiag.cache.write = 'error'
+                  }
                 }
-                googlePhotosSucceeded = images.filter((i) => i.source === 'google').length
               } else {
               if (cachedById?.place?.place_id) {
                 googleDiag.cacheHit = true
