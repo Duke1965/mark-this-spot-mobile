@@ -43,6 +43,7 @@ import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { acceptedOfficialWebsiteHref } from "@/lib/places/formatPlaceText"
 import { consumeOpenLibraryTab, hasPendingOpenLibraryTab } from "@/lib/libraryNav"
+import { getGooglePlaceIdentity } from "@/lib/placeIdentity"
 import MapboxMap from "@/components/map/MapboxMap"
 import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
@@ -3089,8 +3090,29 @@ export default function PINITApp() {
   }
 
   // Results page handlers
-  const handleSaveFromResults = (pin: PinData) => {
-    if (pin.isSaved) return
+  const handleSaveFromResults = (pin: PinData): "saved" | "already-saved" => {
+    if (pin.isSaved) return "already-saved"
+
+    const identity = getGooglePlaceIdentity(pin)
+    if (identity) {
+      const existingSaved = pins.find(
+        (p) =>
+          p.id !== pin.id &&
+          p.isSaved === true &&
+          getGooglePlaceIdentity(p) === identity
+      )
+      if (existingSaved) {
+        // Exact Google place already Saved — drop the newer duplicate only.
+        removePinFromStorage(pin.id)
+        setPins((prev) => prev.filter((p) => p.id !== pin.id))
+        console.log("💾 Already Saved place — removed duplicate pin:", {
+          removedId: pin.id,
+          keptId: existingSaved.id,
+          identity,
+        })
+        return "already-saved"
+      }
+    }
 
     // Same pin document — mark as deliberately saved. No delete/recreate, no Google calls.
     updatePinInStorage(pin.id, { isSaved: true })
@@ -3118,6 +3140,8 @@ export default function PINITApp() {
         // ignore
       }
     })()
+
+    return "saved"
   }
 
   const handleShareFromResults = (_pin: PinData) => {
