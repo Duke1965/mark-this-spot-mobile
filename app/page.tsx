@@ -1350,7 +1350,7 @@ export default function PINITApp() {
 
     quickPinInFlightRef.current = true
     setIsQuickPinning(true)
-    setQuickPinStage("Saving this spot…")
+    setQuickPinStage("Pinning this spot…")
     setLastActivity("quick-pin")
 
     try {
@@ -1372,7 +1372,7 @@ export default function PINITApp() {
         successPopupTimerRef.current = window.setTimeout(() => setShowSuccessPopup(false), 2000)
       }, 25000)
 
-      setQuickPinStage("Saving this spot…")
+      setQuickPinStage("Pinning this spot…")
       console.log("📌 Getting current location...")
       const currentLocation = await getCurrentLocation()
       console.log("📌 Current location resolved:", {
@@ -1420,7 +1420,7 @@ export default function PINITApp() {
       
       // Lightweight Nearby candidates first. Enrichment happens later on Place-ID select
       // (or via the existing full pin-intel payload when Nearby returns none).
-      setQuickPinStage("Saving this spot…")
+      setQuickPinStage("Pinning this spot…")
       console.log("🧠 Fetching pin intel (candidates-only Nearby)...")
       let pinIntelV2: any = null
       try {
@@ -1481,7 +1481,7 @@ export default function PINITApp() {
         console.log("💾 Pin saved to pins array - accessible in pins section")
 
         setQuickPinStage("Pinned!")
-        setSuccessMessage("Pin saved.")
+        setSuccessMessage("Successfully pinned!")
         setShowSuccessPopup(true)
         successPopupTimerRef.current = window.setTimeout(() => {
           setShowSuccessPopup(false)
@@ -1495,7 +1495,7 @@ export default function PINITApp() {
       const placeDescription = pinIntelV2?.description
 
       // Build photo carousel data from pin-intel images if available, otherwise fallback
-      setQuickPinStage("Saving this spot…")
+      setQuickPinStage("Pinning this spot…")
       let locationPhotos: any[] = []
       if (pinIntelV2?.images?.length) {
         // Avoid using "area" (map snapshot) as the primary photo on pins.
@@ -1647,7 +1647,7 @@ export default function PINITApp() {
 
       // Show simple success popup instead of results page
       setQuickPinStage("Pinned!")
-      setSuccessMessage("Pin saved.")
+      setSuccessMessage("Successfully pinned!")
       setShowSuccessPopup(true)
       
       // Auto-hide popup and stay on map screen after 1.5 seconds
@@ -4413,14 +4413,9 @@ export default function PINITApp() {
               margin: "0 auto 1rem auto"
             }}
           />
-          <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "#3a2e1e", marginBottom: "0.25rem" }}>
-            Saving this spot…
+          <div style={{ fontSize: "1.25rem", fontWeight: "700", color: "#3a2e1e" }}>
+            {quickPinStage || "Pinning this spot…"}
           </div>
-          {quickPinStage ? (
-            <div style={{ fontSize: "0.95rem", color: "rgba(58,46,30,0.7)" }}>
-              {quickPinStage}
-            </div>
-          ) : null}
         </div>
       )}
       
@@ -4640,7 +4635,7 @@ export default function PINITApp() {
             pointerEvents: "none",
           }}
         >
-          Tap to Discover
+          Tap to Remember This Place
         </div>
 
         <div

@@ -24,6 +24,14 @@ type LocalPostcardDraft = {
 }
 
 // Helper to get display title with fallback
+function formatFriendlyPinDate(timestamp: string): string {
+  return new Date(timestamp).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+}
+
 function getDisplayTitle(pin: PinData): string {
   const title = pin.title?.trim()
   if (title && title !== "Location" && title !== "Untitled Location") {
@@ -205,9 +213,9 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
             
             {/* Content area */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-                  PINNED
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600', lineHeight: 1.3 }}>
+                  A place you pinned
                 </h4>
                 <span style={{
                   background: 'rgba(239, 68, 68, 0.18)',
@@ -216,59 +224,47 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                   borderRadius: '12px',
                   fontSize: '11px',
                   fontWeight: '600',
-                  border: '1px solid rgba(239, 68, 68, 0.35)'
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  flexShrink: 0,
                 }}>
                   Pending
                 </span>
               </div>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={14} style={{ opacity: 0.7 }} />
-                <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                  {new Date(item.timestamp).toLocaleDateString()}
-                </span>
-              </div>
+              <span style={{ fontSize: '13px', opacity: 0.85, color: '#3a2e1e' }}>
+                {formatFriendlyPinDate(item.timestamp)}
+              </span>
             </div>
           </div>
-          
-          {/* Date line */}
-          <div style={{ marginTop: 12, fontSize: '12px', opacity: 0.8 }}>
-            {new Date(item.timestamp).toLocaleDateString()}
-          </div>
 
-          {/* Bottom row: left tags (none for pending), right actions */}
-          <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-            <div />
-            <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+          {/* Bottom row: Identify Place + Remove */}
+          <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  openGoogleMapsNavigation({
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                    placeName: item.locationName?.trim() || getDisplayTitle(item),
-                  })
+                  onPinSelect(item)
                 }}
                 style={{
-                  background: "rgba(79,59,43,0.08)",
-                  border: "1px solid rgba(79,59,43,0.15)",
-                  borderRadius: "6px",
-                  padding: "4px 8px",
-                  color: "#4f3b2b",
-                  fontSize: "11px",
+                  background: "rgba(79,59,43,0.92)",
+                  border: "1px solid rgba(79,59,43,0.25)",
+                  borderRadius: "8px",
+                  padding: "6px 12px",
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: "600",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(79,59,43,0.15)"
+                  e.currentTarget.style.background = "rgba(58,46,30,0.95)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(79,59,43,0.08)"
+                  e.currentTarget.style.background = "rgba(79,59,43,0.92)"
                 }}
               >
-                Go there
+                Identify Place
               </button>
               {onPinDelete ? (
                 <button
@@ -291,7 +287,6 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                   Remove
                 </button>
               ) : null}
-            </div>
           </div>
         </div>
       )
