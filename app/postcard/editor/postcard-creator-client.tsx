@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ImageMinus, ImageUp } from "lucide-react"
+import { ArrowLeft, ImageMinus } from "lucide-react"
 import { getTemplateConfig } from "./template-config"
 import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
@@ -15,7 +15,6 @@ const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "te
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const MAX_MESSAGE_LEN = 40
 const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
-type DraftSource = "camera" | "gallery"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
@@ -46,13 +45,7 @@ export default function PostcardCreatorClient() {
   const [scale, setScale] = useState(1)
   const [rotation, setRotation] = useState(0) // degrees
 
-  const [isReplacingPhoto, setIsReplacingPhoto] = useState(false)
-  const [photoSource, setPhotoSource] = useState<DraftSource | null>(null)
-  const photoFileInputRef = useRef<HTMLInputElement>(null)
   const photoImgRef = useRef<HTMLImageElement | null>(null)
-
-  const replacePhotoLabel =
-    photoSource === "gallery" ? "Choose another photo" : "Take another photo"
 
   const debugIdRef = useRef<string>("")
   const lastLogRef = useRef<number>(0)
@@ -119,11 +112,9 @@ export default function PostcardCreatorClient() {
         imageUrl?: string
         noPhoto?: boolean
         message?: string
-        source?: DraftSource
         transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
       }
       if (parsed?.imageUrl) setImageUrl(parsed.imageUrl)
-      if (parsed?.source === "camera" || parsed?.source === "gallery") setPhotoSource(parsed.source)
       if (typeof parsed?.noPhoto === "boolean") setNoPhoto(parsed.noPhoto)
       if (typeof parsed?.message === "string") setMessage(parsed.message.slice(0, MAX_MESSAGE_LEN))
       if (parsed?.transform) {
@@ -236,54 +227,6 @@ export default function PostcardCreatorClient() {
     }
   }
 
-  const normalizeImageToJpegDataUrl = async (src: { file?: File; url?: string }) => {
-    const MAX_DIM = 1600
-    const JPEG_QUALITY = 0.86
-
-    let objectUrl: string | null = null
-    try {
-      const url = src.file ? (objectUrl = URL.createObjectURL(src.file)) : String(src.url || "")
-      if (!url) throw new Error("Missing image")
-
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image()
-        el.decoding = "async"
-        el.onload = () => resolve(el)
-        el.onerror = () => reject(new Error("Failed to load image"))
-        el.src = url
-      })
-
-      const w = img.naturalWidth || img.width || 0
-      const h = img.naturalHeight || img.height || 0
-      if (!w || !h) throw new Error("Invalid image dimensions")
-
-      const scale = Math.min(1, MAX_DIM / Math.max(w, h))
-      const outW = Math.max(1, Math.round(w * scale))
-      const outH = Math.max(1, Math.round(h * scale))
-
-      const canvas = document.createElement("canvas")
-      canvas.width = outW
-      canvas.height = outH
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Canvas not available")
-      ctx.drawImage(img, 0, 0, outW, outH)
-
-      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY))
-      if (!blob) return canvas.toDataURL("image/jpeg", JPEG_QUALITY)
-
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader()
-        r.onload = () => resolve(typeof r.result === "string" ? r.result : "")
-        r.onerror = () => reject(new Error("Failed to encode image"))
-        r.readAsDataURL(blob)
-      })
-      if (!dataUrl) throw new Error("Failed to encode image")
-      return dataUrl
-    } finally {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }
-
   const resetTransformDefaults = () => {
     setTx(0)
     setTy(0)
@@ -301,43 +244,6 @@ export default function PostcardCreatorClient() {
       message,
       transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
     })
-  }
-
-  const onTakeAnotherPhoto = () => {
-    if (photoSource === "gallery") {
-      photoFileInputRef.current?.click()
-      return
-    }
-    // Camera (or legacy drafts without source): reopen Add Your Photo for same template.
-    saveDraft()
-    router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
-  }
-
-  const onPhotoFileSelected: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0]
-    e.currentTarget.value = ""
-    if (!file) return
-
-    setIsReplacingPhoto(true)
-    try {
-      const normalized = await normalizeImageToJpegDataUrl({ file })
-      setNoPhoto(false)
-      setImageFailed(false)
-      setImageUrl(normalized)
-      setPhotoSource("gallery")
-      resetTransformDefaults()
-      updateDraft({
-        imageUrl: normalized,
-        noPhoto: false,
-        source: "gallery",
-        message,
-        transform: { tx: 0, ty: 0, scale: 1, rotation: 0 },
-      })
-    } catch {
-      // ignore
-    } finally {
-      setIsReplacingPhoto(false)
-    }
   }
 
   const onDone = () => {
@@ -725,9 +631,6 @@ export default function PostcardCreatorClient() {
                 rows={6}
               />
               <div style={styles.photoActionsRow}>
-                <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                  <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : replacePhotoLabel}
-                </button>
                 {!noPhoto && imageUrl ? (
                   <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
                     <ImageMinus size={16} /> Remove Photo
@@ -753,9 +656,6 @@ export default function PostcardCreatorClient() {
               rows={3}
             />
             <div style={styles.photoActionsRow}>
-              <button type="button" onClick={onTakeAnotherPhoto} disabled={isReplacingPhoto} style={styles.photoActionBtn}>
-                <ImageUp size={16} /> {isReplacingPhoto ? "Loading…" : replacePhotoLabel}
-              </button>
               {!noPhoto && imageUrl ? (
                 <button type="button" onClick={onRemovePhoto} style={styles.photoActionBtnDanger}>
                   <ImageMinus size={16} /> Remove Photo
@@ -766,14 +666,6 @@ export default function PostcardCreatorClient() {
           </div>
         )}
       </div>
-
-      <input
-        ref={photoFileInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={onPhotoFileSelected}
-      />
 
       {exitDialog}
     </div>
@@ -1068,18 +960,6 @@ const styles: Record<string, any> = {
     marginTop: 10,
     display: "flex",
     flexWrap: "wrap",
-    gap: 8,
-  },
-  photoActionBtn: {
-    background: "rgba(79,59,43,0.08)",
-    border: "1px solid rgba(79,59,43,0.15)",
-    color: "#4f3b2b",
-    fontWeight: 900,
-    borderRadius: 12,
-    padding: "0.55rem 0.7rem",
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
     gap: 8,
   },
   photoActionBtnDanger: {
