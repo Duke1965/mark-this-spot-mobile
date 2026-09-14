@@ -932,7 +932,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
                   cursor: 'pointer'
                 }}
               >
-                Oldschool
+                Classic
               </button>
               <button
                 onClick={() => setStickerCategory("new")}
@@ -947,7 +947,7 @@ export function ContentEditor({ mediaUrl, mediaType, platform, editorMode = "cap
                   cursor: 'pointer'
                 }}
               >
-                New
+                Pop
               </button>
               <button
                 onClick={() => setStickerCategory("fun")}

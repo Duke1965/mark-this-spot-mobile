@@ -106,8 +106,8 @@ export const STICKER_CATALOG: StickerCatalogItem[] = [
 ]
 
 export const STICKER_CATEGORIES: Array<{ id: StickerCategory; label: string }> = [
-  { id: "old-school", label: "Old School" },
-  { id: "new", label: "New" },
+  { id: "old-school", label: "Classic" },
+  { id: "new", label: "Pop" },
   { id: "fun", label: "Fun" },
 ]
 
