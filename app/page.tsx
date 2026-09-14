@@ -42,6 +42,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { acceptedOfficialWebsiteHref } from "@/lib/places/formatPlaceText"
+import { consumeOpenLibraryTab } from "@/lib/libraryNav"
 import MapboxMap from "@/components/map/MapboxMap"
 import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
@@ -823,6 +824,12 @@ export default function PINITApp() {
   const openLibrary = useCallback(() => {
     goToLibrary("pins")
     // Don't reset badge here - only when pin is actually viewed
+  }, [goToLibrary])
+
+  // Postcard Created → Done: open Library on My Postcards via session handoff.
+  useEffect(() => {
+    const tab = consumeOpenLibraryTab()
+    if (tab) goToLibrary(tab)
   }, [goToLibrary])
 
   const [selectedPlace, setSelectedPlace] = useState<any>(null)

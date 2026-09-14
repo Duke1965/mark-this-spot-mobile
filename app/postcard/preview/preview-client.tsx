@@ -9,6 +9,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { auth } from "@/lib/firebase"
 import { usePostcardExit } from "../_components/usePostcardExit"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
+import { requestOpenLibraryTab } from "@/lib/libraryNav"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -355,7 +356,9 @@ export default function PreviewClient() {
           Back
         </button>
         {shareUrl ? (
-          <div style={{ fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 }}>Created</div>
+          <div style={{ fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 }}>
+            Your postcard is ready!
+          </div>
         ) : (
           <button
             onClick={onSend}
@@ -533,6 +536,7 @@ export default function PreviewClient() {
             </div>
           ) : null}
 
+          {!shareUrl ? (
           <div
             style={{
               width: "100%",
@@ -595,6 +599,7 @@ export default function PreviewClient() {
               placeholder="Add a place description"
             />
           </div>
+          ) : null}
 
           {shareUrl ? (
             <div
@@ -612,12 +617,7 @@ export default function PreviewClient() {
                 gap: 10,
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>How to share your postcard</div>
-              <div style={{ opacity: 0.9, lineHeight: 1.35 }}>
-                Choose one or more ways to share your postcard below. WhatsApp and SMS open in another app — when you're finished, return to Mappo and tap Done.
-              </div>
-              <div style={{ fontWeight: 900 }}>Share link</div>
-              <div style={{ opacity: 0.92, wordBreak: "break-all" }}>{shareUrl}</div>
+              <div style={{ fontWeight: 950, fontSize: "1.05rem" }}>Share your postcard</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
@@ -656,10 +656,13 @@ export default function PreviewClient() {
                     border: "1px solid rgba(79,59,43,0.18)",
                   }}
                   onClick={() => {
-            handleExit(() => router.push("/"))
+                    handleExit(() => {
+                      requestOpenLibraryTab("postcards")
+                      router.push("/")
+                    })
                   }}
                 >
-                  Home
+                  Done
                 </button>
               </div>
             </div>

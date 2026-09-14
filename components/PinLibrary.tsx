@@ -57,6 +57,10 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
   const [currentTab, setCurrentTab] = useState<"pins" | "saved" | "postcards" | "recommended">(initialTab)
   const [localDraft, setLocalDraft] = useState<LocalPostcardDraft | null>(null)
 
+  useEffect(() => {
+    setCurrentTab(initialTab)
+  }, [initialTab])
+
   const readLocalDraft = () => {
     try {
       if (typeof window === "undefined") return null
