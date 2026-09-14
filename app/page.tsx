@@ -3095,7 +3095,8 @@ export default function PINITApp() {
 
     const identity = getGooglePlaceIdentity(pin)
     if (identity) {
-      const existingSaved = pins.find(
+      // Library source of truth — avoid page-level mirrored `pins` dual-state.
+      const existingSaved = storedPins.find(
         (p) =>
           p.id !== pin.id &&
           p.isSaved === true &&
