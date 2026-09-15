@@ -416,6 +416,7 @@ export default function PostcardNewClient() {
               </div>
             )}
 
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <button
               onClick={onTakePhoto}
               disabled={isNormalizing}
@@ -443,6 +444,34 @@ export default function PostcardNewClient() {
                 Use your camera to capture a moment.
               </div>
             </button>
+
+            <div
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.62)",
+                border: "1px solid rgba(79,59,43,0.08)",
+                borderRadius: 14,
+                padding: "0.7rem 0.85rem",
+                color: "#3a2e1e",
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: "0.88rem", lineHeight: 1.3 }}>
+                💡 Discover more about where you are
+              </div>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: "0.8rem",
+                  lineHeight: 1.35,
+                  opacity: 0.88,
+                  fontWeight: 700,
+                }}
+              >
+                Take a photo of a landmark, restaurant or interesting place and Mappo will use your location to help identify it and add useful information to your postcard.
+              </div>
+            </div>
+            </div>
 
             <button
               onClick={onChooseGallery}
