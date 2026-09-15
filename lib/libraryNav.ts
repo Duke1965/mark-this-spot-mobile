@@ -95,3 +95,33 @@ export function consumePostcardEditorStepBack(): boolean {
   }
   return false
 }
+
+/** Session handoff: Add Your Photo visible Back → Templates (in-flow template change). */
+export const POSTCARD_TEMPLATE_STEP_BACK_KEY = "pinit-postcard-template-step-back-v1"
+
+export function requestPostcardTemplateStepBack() {
+  try {
+    sessionStorage.setItem(POSTCARD_TEMPLATE_STEP_BACK_KEY, "1")
+  } catch {
+    // ignore
+  }
+}
+
+export function consumePostcardTemplateStepBack(): boolean {
+  try {
+    const raw = sessionStorage.getItem(POSTCARD_TEMPLATE_STEP_BACK_KEY)
+    if (raw) {
+      sessionStorage.removeItem(POSTCARD_TEMPLATE_STEP_BACK_KEY)
+      return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}
+
+/** Leaving the postcard workflow (home / discard) — next entry is a genuine resume case. */
+export function clearPostcardWorkflowStepBacks() {
+  consumePostcardEditorStepBack()
+  consumePostcardTemplateStepBack()
+}

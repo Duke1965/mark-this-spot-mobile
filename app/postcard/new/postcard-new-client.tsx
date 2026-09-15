@@ -6,7 +6,7 @@ import { ArrowLeft, Camera, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { requestCameraPermission } from "@/lib/mobilePermissions"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
-import { consumePostcardEditorStepBack } from "@/lib/libraryNav"
+import { consumePostcardEditorStepBack, requestPostcardTemplateStepBack } from "@/lib/libraryNav"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -325,7 +325,14 @@ export default function PostcardNewClient() {
       >
         <button
           type="button"
-          onClick={() => (mode === "camera" ? setMode("chooser") : router.push("/postcard/templates"))}
+          onClick={() => {
+            if (mode === "camera") {
+              setMode("chooser")
+              return
+            }
+            requestPostcardTemplateStepBack()
+            router.push("/postcard/templates")
+          }}
           style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
         >
           <ArrowLeft size={20} />

@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { usePostcardExit } from "../_components/usePostcardExit"
@@ -9,7 +8,13 @@ import {
   mappoHeaderBarStyle,
   mappoTitleImageStyle,
 } from "@/lib/mappoHeaderStyles"
+import {
+  consumePostcardTemplateStepBack,
+  requestPostcardEditorStepBack,
+  clearPostcardWorkflowStepBacks,
+} from "@/lib/libraryNav"
 
+const DRAFT_KEY = "pinit-postcard-draft-v1"
 const TEMPLATES = ["template-1", "template-2", "template-3", "template-4"] as const
 const TEMPLATE_LABELS: Record<(typeof TEMPLATES)[number], string> = {
   "template-1": "Classic",
@@ -18,12 +23,44 @@ const TEMPLATE_LABELS: Record<(typeof TEMPLATES)[number], string> = {
   "template-4": "Sunset",
 }
 
+function applyInFlowTemplateSelection(template: string): "editor" | "photo" {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return "photo"
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== "object") return "photo"
+    const imageUrl = typeof parsed.imageUrl === "string" ? parsed.imageUrl : ""
+    const hasValidPhoto = imageUrl.length > 20 && !parsed.noPhoto
+    if (!hasValidPhoto) return "photo"
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...parsed, template }))
+    return "editor"
+  } catch {
+    return "photo"
+  }
+}
+
 export default function PostcardTemplatesPage() {
   const router = useRouter()
   const { handleExit, exitDialog } = usePostcardExit({ router })
 
   const onBack = () => {
-    handleExit(() => router.push("/"))
+    handleExit(() => {
+      clearPostcardWorkflowStepBacks()
+      router.push("/")
+    })
+  }
+
+  const onSelectTemplate = (t: (typeof TEMPLATES)[number]) => {
+    const inFlow = consumePostcardTemplateStepBack()
+    if (inFlow) {
+      const next = applyInFlowTemplateSelection(t)
+      if (next === "editor") {
+        router.push(`/postcard/editor?template=${encodeURIComponent(t)}`)
+        return
+      }
+      requestPostcardEditorStepBack()
+    }
+    router.push(`/postcard/new?template=${encodeURIComponent(t)}`)
   }
 
   return (
@@ -70,7 +107,7 @@ export default function PostcardTemplatesPage() {
             {TEMPLATES.map((t) => (
               <button
                 key={t}
-                onClick={() => router.push(`/postcard/new?template=${encodeURIComponent(t)}`)}
+                onClick={() => onSelectTemplate(t)}
                 style={{
                   border: "1px solid rgba(79,59,43,0.1)",
                   background: "rgba(255,255,255,0.72)",

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import DraftExitDialog from "./DraftExitDialog"
+import { clearPostcardWorkflowStepBacks } from "@/lib/libraryNav"
 
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 
@@ -114,11 +115,13 @@ export function usePostcardExit({
       open={exitOpen}
       onSave={() => {
         // Keep the draft as-is, then return home.
+        clearPostcardWorkflowStepBacks()
         pendingRef.current = null
         setExitOpen(false)
         router.push("/")
       }}
       onDiscard={() => {
+        clearPostcardWorkflowStepBacks()
         clearDraft()
         setExitOpen(false)
         proceed()
