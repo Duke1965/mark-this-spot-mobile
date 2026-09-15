@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Camera, FileText, Images } from "lucide-react"
+import { ArrowLeft, Camera, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { requestCameraPermission } from "@/lib/mobilePermissions"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
@@ -192,23 +192,6 @@ export default function PostcardNewClient() {
     // Pre-requesting photo permission can incorrectly fail and block selection.
     setError(null)
     fileInputRef.current?.click()
-  }
-
-  const onCreateWithoutPhoto = async () => {
-    setError(null)
-    setIsNormalizing(true)
-    try {
-      saveDraftAndGo(null, {
-        source: "gallery",
-        noPhoto: true,
-        title: "",
-        description: "",
-      })
-    } catch {
-      setError("We couldn’t start a blank postcard. Please try again.")
-    } finally {
-      setIsNormalizing(false)
-    }
   }
 
   return (
@@ -486,34 +469,6 @@ export default function PostcardNewClient() {
               </div>
               <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
                 Pick a photo from your device.
-              </div>
-            </button>
-
-            <button
-              onClick={onCreateWithoutPhoto}
-              disabled={isNormalizing}
-              style={{
-                width: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 8,
-                background: "rgba(255,255,255,0.65)",
-                border: "1px solid rgba(79,59,43,0.1)",
-                color: "#3a2e1e",
-                fontWeight: 900,
-                padding: "1.1rem 1rem",
-                borderRadius: 16,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                cursor: isNormalizing ? "not-allowed" : "pointer",
-                opacity: isNormalizing ? 0.7 : 1,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                <FileText size={18} /> <span>Build your own</span>
-              </div>
-              <div style={{ fontSize: "0.85rem", opacity: 0.9, fontWeight: 700 }}>
-                Start with just the style, message, and stickers.
               </div>
             </button>
 
