@@ -42,7 +42,7 @@ import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
 import { generatePinTextForPlace } from "@/lib/pinTextClient"
 import { sanitizePlaceDescription } from "@/lib/sanitizePlaceDescription"
 import { acceptedOfficialWebsiteHref } from "@/lib/places/formatPlaceText"
-import { consumeOpenLibraryTab, hasPendingOpenLibraryTab } from "@/lib/libraryNav"
+import { consumeOpenLibraryTab, hasPendingOpenLibraryTab, consumeOpenPinResults, hasPendingOpenPinResults } from "@/lib/libraryNav"
 import MapboxMap from "@/components/map/MapboxMap"
 import GoogleMapsMap from "@/components/map/GoogleMapsMap"
 import { resolvePlaceImage } from "@/lib/images/imageResolver"
@@ -288,6 +288,7 @@ export default function PINITApp() {
   })
   /** Survives auth settle so home-restore cannot overwrite Postcard Done → Library. */
   const libraryHandoffAppliedRef = useRef(false)
+  const pinResultsHandoffAppliedRef = useRef(false)
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo")
 
   const [isQuickPinning, setIsQuickPinning] = useState(false)
@@ -616,6 +617,9 @@ export default function PINITApp() {
     if (!authLoading && (hasPendingOpenLibraryTab() || libraryHandoffAppliedRef.current)) {
       return
     }
+    if (!authLoading && (hasPendingOpenPinResults() || pinResultsHandoffAppliedRef.current)) {
+      return
+    }
     // Load saved app state on mount
     try {
       const savedState = localStorage.getItem("pinit-app-state")
@@ -846,6 +850,21 @@ export default function PINITApp() {
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [savedForLaterPlaces, setSavedForLaterPlaces] = useState<any[]>([])
   const [currentResultPin, setCurrentResultPin] = useState<PinData | null>(null)
+
+  // Pin → Send Postcard Editor Back: reopen that pin's results without touching the pin.
+  useEffect(() => {
+    if (authLoading) return
+    if (!hasPendingOpenPinResults()) return
+    const source = storedPins.length > 0 ? storedPins : pins
+    if (source.length === 0) return
+    const pinId = consumeOpenPinResults()
+    if (!pinId) return
+    const pin = source.find((p) => p.id === pinId)
+    if (!pin) return
+    pinResultsHandoffAppliedRef.current = true
+    setCurrentResultPin(pin)
+    setCurrentScreen("results")
+  }, [authLoading, storedPins, pins])
 
   // Recommendation form state
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)

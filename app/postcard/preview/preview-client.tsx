@@ -216,8 +216,13 @@ export default function PreviewClient() {
             const nextTitle = typeof data?.title === "string" ? data.title : ""
             const nextDesc = typeof data?.description === "string" ? data.description : ""
             if (!cancelled) {
-              if (!draftTitle) setTitle(nextTitle.trim() || "My Special Place")
-              if (!draftDesc) setDescription(nextDesc.trim() || "A memorable place worth sharing.")
+              const titleToUse = draftTitle || nextTitle.trim() || "My Special Place"
+              const descToUse = draftDesc || nextDesc.trim() || "A memorable place worth sharing."
+              if (!draftTitle) setTitle(titleToUse)
+              if (!draftDesc) setDescription(descToUse)
+              if (!draftTitle || !draftDesc) {
+                saveMetaToDraft({ title: titleToUse, description: descToUse })
+              }
             }
           } else if (!cancelled) {
             if (!draftTitle) setTitle("My Special Place")
@@ -344,17 +349,21 @@ export default function PreviewClient() {
           gap: "0.75rem",
         }}
       >
-        <button
-          type="button"
-          onClick={() => {
-            saveMetaToDraft({ title, description })
-            router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)
-          }}
-          style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
-        >
-          <ArrowLeft size={20} />
-          Back
-        </button>
+        {shareUrl ? (
+          <div style={{ width: 72, flexShrink: 0 }} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              saveMetaToDraft({ title, description })
+              router.push(`/postcard/stickers?template=${encodeURIComponent(template)}`)
+            }}
+            style={{ ...mappoBackButtonStyle, flexShrink: 0 }}
+          >
+            <ArrowLeft size={20} />
+            Back
+          </button>
+        )}
         {shareUrl ? (
           <div style={{ fontSize: "1.125rem", fontWeight: 900, textAlign: "center", flex: 1 }}>
             Your postcard is ready!

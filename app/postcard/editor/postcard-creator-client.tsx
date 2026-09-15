@@ -8,6 +8,7 @@ import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { usePostcardExit } from "../_components/usePostcardExit"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
+import { requestOpenPinResults } from "@/lib/libraryNav"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -18,7 +19,7 @@ const PHOTO_GESTURE_HINT_KEY = "pinit-postcard-photo-gesture-hint-shown-v1"
 
 export default function PostcardCreatorClient() {
   const router = useRouter()
-  const { handleExit, exitDialog } = usePostcardExit({ router })
+  const { exitDialog } = usePostcardExit({ router })
   const searchParams = useSearchParams()
   const templateParam = (searchParams.get("template") || "").trim()
 
@@ -364,14 +365,25 @@ export default function PostcardCreatorClient() {
       <Header
         title="Postcard Editor"
         onBack={() => {
-          handleExit(() => {
-            saveDraft()
-            router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
-          })
+          saveDraft()
+          let fromPinId = ""
+          try {
+            const raw = sessionStorage.getItem(DRAFT_KEY)
+            const parsed = raw ? (JSON.parse(raw) as { fromPinId?: string }) : null
+            fromPinId = typeof parsed?.fromPinId === "string" ? parsed.fromPinId.trim() : ""
+          } catch {
+            // ignore
+          }
+          if (fromPinId) {
+            requestOpenPinResults(fromPinId)
+            router.push("/")
+            return
+          }
+          router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
         }}
         right={
           <button type="button" onClick={onDone} style={styles.doneBtn}>
-            Done
+            Next
           </button>
         }
         compact={isLandscape}

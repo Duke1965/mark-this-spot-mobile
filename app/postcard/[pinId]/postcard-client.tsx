@@ -136,6 +136,7 @@ export default function PostcardClient({
             title: resolvedTitle,
             description: resolvedDescription,
             message: "",
+            fromPinId: pinId,
           })
         )
         router.replace(`/postcard/editor?template=${encodeURIComponent(resolvedTemplate)}`)

@@ -36,3 +36,38 @@ export function consumeOpenLibraryTab(): LibraryOpenTab | null {
   }
   return null
 }
+
+/** Session handoff: reopen Pin Results after leaving a pin-origin postcard. */
+export const PIN_RESULTS_HANDOFF_KEY = "pinit-open-pin-results-v1"
+
+export function requestOpenPinResults(pinId: string) {
+  const id = pinId.trim()
+  if (!id) return
+  try {
+    sessionStorage.setItem(PIN_RESULTS_HANDOFF_KEY, id)
+  } catch {
+    // ignore
+  }
+}
+
+export function hasPendingOpenPinResults(): boolean {
+  try {
+    const id = sessionStorage.getItem(PIN_RESULTS_HANDOFF_KEY)
+    return typeof id === "string" && id.trim().length > 0
+  } catch {
+    return false
+  }
+}
+
+export function consumeOpenPinResults(): string | null {
+  try {
+    const id = sessionStorage.getItem(PIN_RESULTS_HANDOFF_KEY)
+    if (typeof id === "string" && id.trim()) {
+      sessionStorage.removeItem(PIN_RESULTS_HANDOFF_KEY)
+      return id.trim()
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}

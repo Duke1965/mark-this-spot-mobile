@@ -575,7 +575,7 @@ function TopBar({
           </button>
         ) : null}
         <button onClick={onDone} style={styles.doneBtn} type="button">
-          Done
+          Next
         </button>
       </div>
     </div>
