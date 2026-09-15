@@ -53,7 +53,7 @@ export function PinResults({
   onAfterSuccessfulSave,
 }: {
   pin: PinData
-  onSave: (pin: PinData) => "saved" | "already-saved" | void
+  onSave: (pin: PinData) => void
   onShare: (pin: PinData) => void
   onBack: () => void
   onAfterSuccessfulSave?: () => void
@@ -62,14 +62,14 @@ export function PinResults({
   const description = sanitizePlaceDescription(pin?.description || "")
   const photoUrl = pinViewPhotoUrl(pin)
   const [photoFailed, setPhotoFailed] = useState(false)
-  const [saveNotice, setSaveNotice] = useState<"saved" | "already-saved" | null>(null)
+  const [saveNotice, setSaveNotice] = useState(false)
   const alreadySaved = pin.isSaved === true
   const saveNavigateTimerRef = useRef<number | null>(null)
   useEffect(() => {
     setPhotoFailed(false)
   }, [photoUrl, pin.id])
   useEffect(() => {
-    setSaveNotice(null)
+    setSaveNotice(false)
   }, [pin.id])
   useEffect(() => {
     return () => {
@@ -83,8 +83,8 @@ export function PinResults({
 
   const onPressSave = () => {
     if (alreadySaved) return
-    const result = onSave(pin) || "saved"
-    setSaveNotice(result)
+    onSave(pin)
+    setSaveNotice(true)
     if (saveNavigateTimerRef.current != null) {
       window.clearTimeout(saveNavigateTimerRef.current)
     }
@@ -125,19 +125,17 @@ export function PinResults({
             <button
               type="button"
               onClick={onPressSave}
-              disabled={alreadySaved || saveNotice != null}
-              style={alreadySaved || saveNotice != null ? { ...styles.btn, ...styles.btnSaved } : styles.btn}
+              disabled={alreadySaved}
+              style={alreadySaved ? { ...styles.btn, ...styles.btnSaved } : styles.btn}
             >
-              {alreadySaved || saveNotice != null ? "Saved" : "Save"}
+              {alreadySaved ? "Saved" : "Save"}
             </button>
             <button type="button" onClick={() => (window.location.href = `/postcard/${encodeURIComponent(String(pin.id))}`)} style={styles.btn}>
               <Send size={18} />
               Send Postcard
             </button>
           </div>
-          {saveNotice === "already-saved" ? (
-            <div style={styles.savedHint}>Already Saved</div>
-          ) : saveNotice === "saved" || alreadySaved ? (
+          {saveNotice || alreadySaved ? (
             <div style={styles.savedHint}>Saved to Library</div>
           ) : null}
         </div>
