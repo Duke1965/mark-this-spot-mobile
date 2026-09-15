@@ -8,7 +8,7 @@ import { Caveat } from "next/font/google"
 import { getHintsEnabled } from "@/lib/hints"
 import { usePostcardExit } from "../_components/usePostcardExit"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
-import { requestOpenPinResults } from "@/lib/libraryNav"
+import { requestOpenPinResults, requestPostcardEditorStepBack } from "@/lib/libraryNav"
 
 const caveat = Caveat({ subsets: ["latin"], weight: ["500", "600"] })
 
@@ -379,6 +379,7 @@ export default function PostcardCreatorClient() {
             router.push("/")
             return
           }
+          requestPostcardEditorStepBack()
           router.push(`/postcard/new?template=${encodeURIComponent(template)}`)
         }}
         right={

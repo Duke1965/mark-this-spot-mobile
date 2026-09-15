@@ -71,3 +71,27 @@ export function consumeOpenPinResults(): string | null {
   }
   return null
 }
+
+/** Session handoff: Editor visible Back → Add Your Photo (skip Resume Draft prompt). */
+export const POSTCARD_EDITOR_STEP_BACK_KEY = "pinit-postcard-editor-step-back-v1"
+
+export function requestPostcardEditorStepBack() {
+  try {
+    sessionStorage.setItem(POSTCARD_EDITOR_STEP_BACK_KEY, "1")
+  } catch {
+    // ignore
+  }
+}
+
+export function consumePostcardEditorStepBack(): boolean {
+  try {
+    const raw = sessionStorage.getItem(POSTCARD_EDITOR_STEP_BACK_KEY)
+    if (raw) {
+      sessionStorage.removeItem(POSTCARD_EDITOR_STEP_BACK_KEY)
+      return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}

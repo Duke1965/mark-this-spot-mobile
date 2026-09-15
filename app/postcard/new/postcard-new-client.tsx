@@ -6,6 +6,7 @@ import { ArrowLeft, Camera, Images } from "lucide-react"
 import { ReliableCamera } from "@/components/reliable-camera"
 import { requestCameraPermission } from "@/lib/mobilePermissions"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
+import { consumePostcardEditorStepBack } from "@/lib/libraryNav"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -35,6 +36,9 @@ export default function PostcardNewClient() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    // In-flow Editor → Back: same active postcard, not an abandoned draft.
+    if (consumePostcardEditorStepBack()) return
+
     // If a draft exists, don't silently wipe it. Offer resume/replace.
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY)
