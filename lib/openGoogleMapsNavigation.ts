@@ -1,6 +1,9 @@
 /**
  * Build a Google Maps search URL for navigation / opening a place.
- * Prefer coordinates; otherwise fall back to a place name string.
+ *
+ * Prefer a known Google Place ID (with name, or coordinates as the required query).
+ * Fall back to coordinates, then to a place-name string.
+ * Existing callers that omit placeId keep the previous coordinate-first behaviour.
  */
 import { Capacitor } from "@capacitor/core"
 
@@ -8,14 +11,25 @@ export function buildGoogleMapsSearchUrl(opts: {
   latitude?: number | null
   longitude?: number | null
   placeName?: string | null
+  placeId?: string | null
+  googlePlaceId?: string | null
 }) {
+  const placeId = String(opts.placeId || opts.googlePlaceId || "").trim()
+  const name = String(opts.placeName || "").trim()
   const lat = Number(opts.latitude)
   const lng = Number(opts.longitude)
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng)
+
+  if (placeId) {
+    const query = name || (hasCoords ? `${lat},${lng}` : "Place")
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}&query_place_id=${encodeURIComponent(placeId)}`
+  }
+
+  if (hasCoords) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`
   }
-  const q = String(opts.placeName || "").trim() || "Place"
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name || "Place")}`
 }
 
 export function isNativeCapacitor(): boolean {

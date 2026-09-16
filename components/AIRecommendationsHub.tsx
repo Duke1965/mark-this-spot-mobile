@@ -87,12 +87,14 @@ function placeIdentityKey(rec: Recommendation): string {
 
 function buildDiscoverDetailShare(rec: Recommendation) {
   const title = rec.title || 'Check this place out'
+  const placeId = googlePlaceIdFromRecommendationFields(rec)
   const shareUrl = buildGoogleMapsSearchUrl({
     latitude: rec.location?.lat,
     longitude: rec.location?.lng,
     placeName: title,
+    placeId,
   })
-  const shareText = `${title}\n— discovered on Mappo!\n\n${shareUrl}`
+  const shareText = `${title}\nThought you might like this place!\n📍 Open in Google Maps:\n${shareUrl}\nShared from Mappo`
   return { title, shareUrl, shareText }
 }
 
@@ -3049,6 +3051,7 @@ export default function AIRecommendationsHub({
                     latitude: Number(selectedRecommendation.location.lat),
                     longitude: Number(selectedRecommendation.location.lng),
                     placeName: selectedRecommendation.title,
+                    placeId: googlePlaceIdFromRecommendationFields(selectedRecommendation),
                   })
                 }}
                 onMouseEnter={(e) => {
@@ -3235,21 +3238,7 @@ export default function AIRecommendationsHub({
                     fontSize: '0.9rem',
                   }}
                 >
-                  Choose how to share. WhatsApp and SMS open in another app — when
-                  you&apos;re finished, return to Mappo.
-                </div>
-                <div style={{ fontWeight: 900, color: '#4f3b2b', fontSize: '0.9rem' }}>
-                  Share link
-                </div>
-                <div
-                  style={{
-                    opacity: 0.92,
-                    wordBreak: 'break-all',
-                    color: '#3a2e1e',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  {shareUrl}
+                  Send {shareTitle} to someone.
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <a
