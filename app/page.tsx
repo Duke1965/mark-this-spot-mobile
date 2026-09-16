@@ -5084,8 +5084,8 @@ export default function PINITApp() {
 
         <button
           onClick={() => setCurrentScreen("recommendations")}
-          style={{ ...homeBottomNavItemStyle, position: "relative" }}
-          title="dY Recommendations"
+          style={{ ...homeBottomNavItemStyle, position: "relative", height: "auto", minHeight: 76 }}
+          title="Picked for You"
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
             e.currentTarget.style.transform = "scale(1.05)"
@@ -5098,7 +5098,7 @@ export default function PINITApp() {
           <div style={homeBottomNavIconSlotStyle}>
             <Star size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
           </div>
-          <span style={homeBottomNavLabelStyle}>Discover</span>
+          <span style={homeBottomNavLabelStyle}>Picked for You</span>
           {/* Notification Badge */}
           {recommendations.filter((r) => !r.isCompleted).length > 0 && (
             <div
