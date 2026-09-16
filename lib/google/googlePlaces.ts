@@ -40,6 +40,8 @@ export type GooglePlaceDetails = {
 
 const NEARBY_FIELD_MASK =
   'places.id,places.displayName,places.location,places.types,places.businessStatus'
+const TEXT_SEARCH_FIELD_MASK =
+  'places.id,places.displayName,places.location,places.businessStatus'
 const DETAILS_FIELD_MASK =
   'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos,businessStatus'
 
@@ -402,6 +404,97 @@ export async function nearbySearch(input: {
   }
 
   return { selected, candidates: top, thresholdUsed }
+}
+
+export type GoogleTextSearchCandidate = {
+  placeId: string
+  name?: string
+  location: { lat: number; lon: number }
+  distanceMeters: number
+  businessStatus?: string
+}
+
+/**
+ * Places API (New) Text Search. Sends textQuery to Google with a location bias.
+ * Used by AI identity resolution only — Nearby Search for Quick Pin is unchanged.
+ */
+export async function textSearch(input: {
+  textQuery: string
+  lat: number
+  lon: number
+  radiusMeters?: number
+  maxResultCount?: number
+}): Promise<
+  | { ok: true; candidates: GoogleTextSearchCandidate[] }
+  | { ok: false; status: string }
+> {
+  const query = String(input.textQuery || '').trim()
+  if (!query || !Number.isFinite(input.lat) || !Number.isFinite(input.lon)) {
+    return { ok: false, status: 'invalid' }
+  }
+
+  const key = requireApiKey()
+  const radius = Math.max(
+    50,
+    Math.min(50000, input.radiusMeters ?? 500)
+  )
+  const maxResultCount = Math.max(1, Math.min(10, input.maxResultCount ?? 8))
+  const timeoutMs = envInt('WEBSITE_SCRAPE_TIMEOUT_MS', 3500)
+
+  let result: Awaited<ReturnType<typeof fetchPlacesJson>>
+  try {
+    result = await fetchPlacesJson({
+      url: 'https://places.googleapis.com/v1/places:searchText',
+      method: 'POST',
+      apiKey: key,
+      fieldMask: TEXT_SEARCH_FIELD_MASK,
+      timeoutMs,
+      body: {
+        textQuery: query,
+        languageCode: 'en',
+        regionCode: 'ZA',
+        maxResultCount,
+        locationBias: {
+          circle: {
+            center: { latitude: input.lat, longitude: input.lon },
+            radius,
+          },
+        },
+      },
+    })
+  } catch {
+    return { ok: false, status: 'error' }
+  }
+
+  if (!result.ok) {
+    return { ok: false, status: result.status }
+  }
+
+  const results = Array.isArray(result.data?.places) ? result.data.places : []
+  const candidates: GoogleTextSearchCandidate[] = []
+  for (const r of results) {
+    const placeId = toPlaceId(r?.id || r?.name)
+    const lat = Number(r?.location?.latitude)
+    const lon = Number(r?.location?.longitude)
+    if (!placeId || !Number.isFinite(lat) || !Number.isFinite(lon)) continue
+    const name = displayNameText(r?.displayName)
+    const businessStatus =
+      typeof r?.businessStatus === 'string' && r.businessStatus.trim()
+        ? String(r.businessStatus).trim()
+        : undefined
+    candidates.push({
+      placeId,
+      name,
+      location: { lat, lon },
+      distanceMeters: haversineDistanceMeters(
+        { lat: input.lat, lon: input.lon },
+        { lat, lon }
+      ),
+      businessStatus,
+    })
+  }
+
+  return { ok: true, candidates }
 }
 
 export async function placeDetails(placeId: string): Promise<GooglePlaceDetails | null> {

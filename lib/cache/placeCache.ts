@@ -300,9 +300,12 @@ function utcDayKey(d: Date = new Date()): string {
 export async function checkAndIncrementGoogleDailyLimit(input: {
   key: string
   maxPerDay?: number
+  /** When false, only reads remaining quota — does not consume it. */
+  increment?: boolean
 }): Promise<{ allowed: boolean; remaining: number }> {
   const db = getAdminFirestore()
   const max = input.maxPerDay ?? envInt('GOOGLE_PIN_INTEL_MAX_NEW_PINS_PER_DAY', 50)
+  const increment = input.increment !== false
   if (!db) return { allowed: true, remaining: max }
 
   const day = utcDayKey()
@@ -313,10 +316,13 @@ export async function checkAndIncrementGoogleDailyLimit(input: {
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref)
       const count = snap.exists ? Number(snap.data()?.count || 0) : 0
-      const next = count + 1
       if (count >= max) {
         return { allowed: false, remaining: 0 }
       }
+      if (!increment) {
+        return { allowed: true, remaining: Math.max(0, max - count) }
+      }
+      const next = count + 1
       tx.set(ref, { count: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       return { allowed: true, remaining: Math.max(0, max - next) }
     })

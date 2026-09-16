@@ -3,11 +3,12 @@ import {
   getCachedGooglePlaceById,
   getCachedGooglePlaceByLatLon,
 } from "@/lib/cache/placeCache"
-import { hintMatches, nearbySearch, placeDetails } from "@/lib/google/googlePlaces"
+import { hintMatches, placeDetails, textSearch } from "@/lib/google/googlePlaces"
 import { resolveGooglePlacePhoto } from "@/lib/google/resolveGooglePlacePhoto"
 import { genuineCommunityPhotoUrl } from "@/lib/recommendations/communityPhoto"
 
 const CLOSED_PERMANENTLY = "CLOSED_PERMANENTLY"
+const MAX_MATCH_DISTANCE_M = 250
 
 export type AiGoogleIdentityResult =
   | {
@@ -36,7 +37,8 @@ function identityLimitKey(title: string, lat: number, lng: number): string {
 /**
  * Cache-first Google identity for an already-selected AI recommendation.
  * Geo-cache is used only when the cached name matches the rec title.
- * Nearby is accepted only when hintMatches(title, googleName) is true.
+ * Otherwise one Places Text Search (textQuery = title, location bias).
+ * A Nearby-selected POI is never accepted merely because it is close.
  */
 export async function resolveAiGoogleIdentity(input: {
   title: string
@@ -69,28 +71,57 @@ export async function resolveAiGoogleIdentity(input: {
   }
 
   if (!placeId) {
-    const limit = await checkAndIncrementGoogleDailyLimit({
+    const peek = await checkAndIncrementGoogleDailyLimit({
       key: identityLimitKey(title, lat, lng),
       maxPerDay: 1,
+      increment: false,
     })
-    if (!limit.allowed) {
+    if (!peek.allowed) {
       return { ok: false, reason: "limited" }
     }
 
-    const sel = await nearbySearch({ lat, lon: lng, term: title })
-    const picked = sel.selected
-    if (!picked?.placeId || !hintMatches(title, picked.name)) {
+    let search: Awaited<ReturnType<typeof textSearch>>
+    try {
+      search = await textSearch({
+        textQuery: title,
+        lat,
+        lon: lng,
+      })
+    } catch {
+      return { ok: false, reason: "error" }
+    }
+    if (!search.ok) {
+      return { ok: false, reason: "error" }
+    }
+
+    // Consume the daily slot only after a completed Text Search (match or confirmed miss).
+    await checkAndIncrementGoogleDailyLimit({
+      key: identityLimitKey(title, lat, lng),
+      maxPerDay: 1,
+    })
+
+    const matched = search.candidates
+      .filter(
+        (c) =>
+          !!c.placeId &&
+          hintMatches(title, c.name) &&
+          Number.isFinite(c.distanceMeters) &&
+          c.distanceMeters <= MAX_MATCH_DISTANCE_M
+      )
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)[0]
+
+    if (!matched?.placeId) {
       return { ok: false, reason: "no_match" }
     }
-    if (isClosedPermanently(picked.businessStatus)) {
+    if (isClosedPermanently(matched.businessStatus)) {
       return {
         ok: false,
         closedPermanently: true,
         reason: "closed_permanently",
-        placeId: picked.placeId,
+        placeId: matched.placeId,
       }
     }
-    placeId = picked.placeId
+    placeId = matched.placeId
   }
 
   const cachedById = await getCachedGooglePlaceById({ placeId })

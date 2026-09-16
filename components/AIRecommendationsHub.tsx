@@ -1857,7 +1857,13 @@ export default function AIRecommendationsHub({
 
   useEffect(() => {
     if (viewMode !== 'list' && !showReadOnlyRecommendation) return
-    let cancelled = false
+
+    const navToken = `${viewMode}|${showReadOnlyRecommendation ? 'detail' : 'list'}`
+    if (aiIdentityNavTokenRef.current !== navToken) {
+      aiIdentityTransientRef.current.clear()
+      aiIdentityNavTokenRef.current = navToken
+    }
+
     const pendingKeys: string[] = []
     const recByKey = new Map<string, Recommendation>()
 
@@ -1879,6 +1885,7 @@ export default function AIRecommendationsHub({
       const key = aiIdentityKey(rec)
       if (aiIdentityByKeyRef.current.has(key)) continue
       if (aiIdentityInFlightRef.current.has(key)) continue
+      if (aiIdentityTransientRef.current.has(key)) continue
       if (!pendingKeys.includes(key)) pendingKeys.push(key)
       if (!recByKey.has(key)) recByKey.set(key, rec)
     }
@@ -1913,9 +1920,10 @@ export default function AIRecommendationsHub({
         if (website && !next.website) next = { ...next, website }
         return next
       }
+      persistAIRecommendationsToServer([stamp(rec)])
+      if (!aiIdentityMountedRef.current) return
       setRecommendations((prev) => prev.map(stamp))
       setSelectedRecommendation((prev: Recommendation | null) => (prev ? stamp(prev) : prev))
-      persistAIRecommendationsToServer([stamp(rec)])
     }
 
     for (const key of pendingKeys) {
@@ -1930,10 +1938,10 @@ export default function AIRecommendationsHub({
       void fetch(`/api/recommendations/ai-identity?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
-          if (cancelled) return
           if (data?.closedPermanently) {
             aiIdentityByKeyRef.current.set(key, 'closed')
             persistAIRecommendationsToServer([{ ...rec, closedPermanently: true }])
+            if (!aiIdentityMountedRef.current) return
             setRecommendations((prev) => prev.filter((row) => aiIdentityKey(row) !== key))
             setSelectedRecommendation((prev: Recommendation | null) => {
               if (!prev || aiIdentityKey(prev) !== key) return prev
@@ -1945,28 +1953,29 @@ export default function AIRecommendationsHub({
             return
           }
           const placeId = typeof data?.placeId === 'string' ? data.placeId.trim() : ''
-          if (!data?.ok || !placeId) {
-            aiIdentityByKeyRef.current.set(key, 'miss')
+          if (data?.ok && placeId) {
+            aiIdentityByKeyRef.current.set(key, placeId)
+            applyIdentity(key, rec, {
+              placeId,
+              photoUrl: data.photoUrl,
+              website: data.website,
+            })
             return
           }
-          aiIdentityByKeyRef.current.set(key, placeId)
-          applyIdentity(key, rec, {
-            placeId,
-            photoUrl: data.photoUrl,
-            website: data.website,
-          })
+          const reason = typeof data?.reason === 'string' ? data.reason : ''
+          if (reason === 'no_match' || reason === 'limited') {
+            aiIdentityByKeyRef.current.set(key, reason === 'limited' ? 'limited' : 'miss')
+            return
+          }
+          // Transient: network/route/abort/stale. Do not sticky-miss; allow a later List/Detail try.
+          aiIdentityTransientRef.current.add(key)
         })
         .catch(() => {
-          if (cancelled) return
-          aiIdentityByKeyRef.current.set(key, 'miss')
+          aiIdentityTransientRef.current.add(key)
         })
         .finally(() => {
           aiIdentityInFlightRef.current.delete(key)
         })
-    }
-
-    return () => {
-      cancelled = true
     }
   }, [recommendations, persistAIRecommendationsToServer, viewMode, showReadOnlyRecommendation])
 
@@ -2112,6 +2121,16 @@ export default function AIRecommendationsHub({
   const communityPhotoInFlightRef = useRef<Set<string>>(new Set())
   const aiIdentityByKeyRef = useRef<Map<string, string>>(new Map())
   const aiIdentityInFlightRef = useRef<Set<string>>(new Set())
+  const aiIdentityTransientRef = useRef<Set<string>>(new Set())
+  const aiIdentityNavTokenRef = useRef('')
+  const aiIdentityMountedRef = useRef(true)
+
+  useEffect(() => {
+    aiIdentityMountedRef.current = true
+    return () => {
+      aiIdentityMountedRef.current = false
+    }
+  }, [])
 
   // Function to update recommendation markers on map
   const updateRecommendationMarkers = useCallback((map: GoogleMapInstance) => {
