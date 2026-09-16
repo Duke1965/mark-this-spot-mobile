@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import crypto from 'crypto'
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebaseAdmin'
+import {
+  genuineCommunityPhotoUrl,
+  googlePlaceIdFromRecommendationFields,
+} from '@/lib/recommendations/communityPhoto'
 
 export const runtime = 'nodejs'
 
@@ -93,6 +97,11 @@ export async function POST(req: Request) {
   const category = (pin.category || (Array.isArray(pin.types) ? pin.types[0] : '') || 'general')
     .toString()
     .slice(0, 64)
+  const googlePlaceId = googlePlaceIdFromRecommendationFields({
+    googlePlaceId: pin.googlePlaceId,
+    placeId: pin.placeId,
+  })
+  const mediaUrl = genuineCommunityPhotoUrl(pin.mediaUrl)
 
   try {
     await db.collection('recommendation_areas').doc(key).set(
@@ -103,29 +112,36 @@ export async function POST(req: Request) {
       { merge: true }
     )
 
+    const payload: Record<string, unknown> = {
+      kind: 'user',
+      lat,
+      lng,
+      title,
+      description,
+      category,
+      rating: typeof pin.rating === 'number' ? pin.rating : 4.0,
+      reason: 'Recommended by community',
+      createdByUid: uid,
+      personalizedForUid: null,
+      placeKey,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp()
+    }
+    if (googlePlaceId) {
+      payload.googlePlaceId = googlePlaceId
+      payload.placeId = googlePlaceId
+    }
+    if (mediaUrl) {
+      payload.mediaUrl = mediaUrl
+      payload.photoUrl = mediaUrl
+    }
+
     await db
       .collection('recommendation_areas')
       .doc(key)
       .collection('items')
       .doc(docId)
-      .set(
-        {
-          kind: 'user',
-          lat,
-          lng,
-          title,
-          description,
-          category,
-          rating: typeof pin.rating === 'number' ? pin.rating : 4.0,
-          reason: 'Recommended by community',
-          createdByUid: uid,
-          personalizedForUid: null,
-          placeKey,
-          updatedAt: FieldValue.serverTimestamp(),
-          createdAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      )
+      .set(payload, { merge: true })
 
     return NextResponse.json({ ok: true, areaKey: key, id: docId })
   } catch (e: any) {

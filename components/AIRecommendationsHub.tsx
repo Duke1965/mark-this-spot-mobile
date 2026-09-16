@@ -15,6 +15,10 @@ import {
   openGoogleMapsNavigation,
 } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
+import {
+  genuineCommunityPhotoUrl,
+  googlePlaceIdFromRecommendationFields,
+} from '@/lib/recommendations/communityPhoto'
 import { ArrowLeft } from 'lucide-react'
 import {
   mappoBackButtonAbsoluteStyle,
@@ -126,10 +130,12 @@ function RecommendationHeroImage({
 }) {
   const isDetail = variant === 'detail'
   const resolvedDetailUrl =
-    isDetail && detailImageUrl && detailImageUrl.trim().length > 0
-      ? detailImageUrl.trim()
+    isDetail && detailImageUrl && genuineCommunityPhotoUrl(detailImageUrl)
+      ? genuineCommunityPhotoUrl(detailImageUrl) || null
       : null
-  const hasUrlImage = !!(rec.photoUrl || rec.mediaUrl || resolvedDetailUrl)
+  const recPhotoUrl = genuineCommunityPhotoUrl(rec.photoUrl)
+  const recMediaUrl = genuineCommunityPhotoUrl(rec.mediaUrl)
+  const hasUrlImage = !!(recPhotoUrl || recMediaUrl || resolvedDetailUrl)
 
   const containerStyle: React.CSSProperties = isDetail
     ? {
@@ -179,10 +185,10 @@ function RecommendationHeroImage({
   }
 
   const urlImage =
-    rec.photoUrl ? (
-      <img src={rec.photoUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
-    ) : rec.mediaUrl ? (
-      <img src={rec.mediaUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
+    recPhotoUrl ? (
+      <img src={recPhotoUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
+    ) : recMediaUrl ? (
+      <img src={recMediaUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
     ) : resolvedDetailUrl ? (
       <img src={resolvedDetailUrl} alt={rec.title} style={imgCoverStyle} onError={onImgError} />
     ) : null
@@ -190,7 +196,7 @@ function RecommendationHeroImage({
   return (
     <div style={containerStyle}>
       {urlImage}
-      {!isDetail && !rec.photoUrl && !rec.mediaUrl && rec.fsq_id ? (
+      {!isDetail && !recPhotoUrl && !recMediaUrl && rec.fsq_id ? (
         <FsqImage
           fsqId={rec.fsq_id}
           lat={rec.location?.lat}
@@ -736,11 +742,19 @@ export default function AIRecommendationsHub({
           confidence: 0,
           reason: 'Recommended by community',
           timestamp: new Date(pin.timestamp),
-          photoUrl: pin.mediaUrl || undefined,
-          mediaUrl: pin.mediaUrl || undefined,
-          fallbackImage: pin.mediaUrl ? undefined : getFallbackImage(pin.category || 'general'),
-          googlePlaceId: pin.googlePlaceId || undefined,
-          placeId: pin.placeId || undefined,
+          photoUrl: genuineCommunityPhotoUrl(pin.mediaUrl),
+          mediaUrl: genuineCommunityPhotoUrl(pin.mediaUrl),
+          fallbackImage: genuineCommunityPhotoUrl(pin.mediaUrl)
+            ? undefined
+            : getFallbackImage(pin.category || 'general'),
+          googlePlaceId: googlePlaceIdFromRecommendationFields({
+            googlePlaceId: pin.googlePlaceId,
+            placeId: pin.placeId,
+          }),
+          placeId: googlePlaceIdFromRecommendationFields({
+            googlePlaceId: pin.googlePlaceId,
+            placeId: pin.placeId,
+          }),
         })
       }
       return out
@@ -1678,6 +1692,82 @@ export default function AIRecommendationsHub({
     scheduleFillStarterRecommendations,
   ])
 
+  useEffect(() => {
+    let cancelled = false
+    const pendingPlaceIds: string[] = []
+    const coordsByPlaceId = new Map<string, { lat: number; lng: number }>()
+
+    for (const rec of recommendations) {
+      if (rec.isAISuggestion) continue
+      if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) continue
+      const placeId = googlePlaceIdFromRecommendationFields(rec)
+      if (!placeId) continue
+      if (communityPhotoByPlaceIdRef.current.has(placeId)) continue
+      if (communityPhotoInFlightRef.current.has(placeId)) continue
+      if (!pendingPlaceIds.includes(placeId)) pendingPlaceIds.push(placeId)
+      const lat = rec.location?.lat
+      const lng = rec.location?.lng
+      if (
+        typeof lat === 'number' &&
+        typeof lng === 'number' &&
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        !coordsByPlaceId.has(placeId)
+      ) {
+        coordsByPlaceId.set(placeId, { lat, lng })
+      }
+    }
+
+    const applyResolvedPhoto = (placeId: string, photoUrl: string | null) => {
+      communityPhotoByPlaceIdRef.current.set(placeId, photoUrl)
+      if (!photoUrl) return
+      setRecommendations((prev) =>
+        prev.map((rec) => {
+          if (rec.isAISuggestion) return rec
+          if (googlePlaceIdFromRecommendationFields(rec) !== placeId) return rec
+          if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) return rec
+          return { ...rec, photoUrl, mediaUrl: photoUrl }
+        })
+      )
+      setSelectedRecommendation((prev: Recommendation | null) => {
+        if (!prev || prev.isAISuggestion) return prev
+        if (googlePlaceIdFromRecommendationFields(prev) !== placeId) return prev
+        if (genuineCommunityPhotoUrl(prev.photoUrl) || genuineCommunityPhotoUrl(prev.mediaUrl)) return prev
+        return { ...prev, photoUrl, mediaUrl: photoUrl }
+      })
+    }
+
+    for (const placeId of pendingPlaceIds) {
+      communityPhotoInFlightRef.current.add(placeId)
+      const coords = coordsByPlaceId.get(placeId)
+      const params = new URLSearchParams({ placeId })
+      if (coords) {
+        params.set('lat', String(coords.lat))
+        params.set('lng', String(coords.lng))
+      }
+      void fetch(`/api/recommendations/photo?${params.toString()}`)
+        .then((resp) => resp.json())
+        .then((data) => {
+          const photoUrl = genuineCommunityPhotoUrl(data?.photoUrl) || null
+          communityPhotoByPlaceIdRef.current.set(placeId, photoUrl)
+          if (cancelled) return
+          applyResolvedPhoto(placeId, photoUrl)
+        })
+        .catch(() => {
+          communityPhotoByPlaceIdRef.current.set(placeId, null)
+          if (cancelled) return
+          applyResolvedPhoto(placeId, null)
+        })
+        .finally(() => {
+          communityPhotoInFlightRef.current.delete(placeId)
+        })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [recommendations])
+
   // Handle view mode changes
   const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
     console.log('🗺️ Switching to view mode:', newViewMode)
@@ -1709,7 +1799,7 @@ export default function AIRecommendationsHub({
       return
     }
 
-    if (selectedRecommendation.photoUrl || selectedRecommendation.mediaUrl) {
+    if (genuineCommunityPhotoUrl(selectedRecommendation.photoUrl) || genuineCommunityPhotoUrl(selectedRecommendation.mediaUrl)) {
       setDetailImageUrl(null)
       return
     }
@@ -1807,6 +1897,8 @@ export default function AIRecommendationsHub({
   }, [])
 
   const lastRecommendationsSignatureRef = useRef<string>("")
+  const communityPhotoByPlaceIdRef = useRef<Map<string, string | null>>(new Map())
+  const communityPhotoInFlightRef = useRef<Set<string>>(new Set())
 
   // Function to update recommendation markers on map
   const updateRecommendationMarkers = useCallback((map: GoogleMapInstance) => {

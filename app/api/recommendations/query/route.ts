@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { FieldPath } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebaseAdmin'
+import { getCachedGooglePlaceById } from '@/lib/cache/placeCache'
+import {
+  genuineCommunityPhotoUrl,
+  googlePlaceIdFromRecommendationFields,
+} from '@/lib/recommendations/communityPhoto'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +23,11 @@ type StoredRecommendation = {
   updatedAt?: any
   createdByUid?: string
   personalizedForUid?: string | null
+  googlePlaceId?: string
+  placeId?: string
+  placeKey?: string
+  mediaUrl?: string
+  photoUrl?: string
 }
 
 function num(v: string | null): number | null {
@@ -121,11 +131,66 @@ export async function GET(req: Request) {
           isAISuggestion: data.kind === 'ai',
           confidence: typeof data.confidence === 'number' ? data.confidence : (data.kind === 'ai' ? 20 : 0),
           reason: data.reason || (data.kind === 'ai' ? 'AI suggestion' : 'Recommended by community'),
-          timestamp: new Date()
+          timestamp: new Date(),
+          ...(data.kind === 'user'
+            ? (() => {
+                const googlePlaceId = googlePlaceIdFromRecommendationFields({
+                  googlePlaceId: data.googlePlaceId,
+                  placeId: data.placeId,
+                  placeKey: data.placeKey,
+                })
+                const mediaUrl =
+                  genuineCommunityPhotoUrl(data.mediaUrl) ||
+                  genuineCommunityPhotoUrl(data.photoUrl)
+                const extra: Record<string, unknown> = {}
+                if (googlePlaceId) {
+                  extra.googlePlaceId = googlePlaceId
+                  extra.placeId = googlePlaceId
+                }
+                if (mediaUrl) {
+                  extra.mediaUrl = mediaUrl
+                  extra.photoUrl = mediaUrl
+                }
+                return extra
+              })()
+            : {})
         })
       }
     } catch {
       // ignore a single bucket failure
+    }
+  }
+
+  const placeIdsNeedingCachePhoto = Array.from(
+    new Set(
+      results
+        .filter((row) => row && row.isAISuggestion !== true && !row.photoUrl && !row.mediaUrl && row.googlePlaceId)
+        .map((row) => String(row.googlePlaceId))
+    )
+  )
+  if (placeIdsNeedingCachePhoto.length > 0) {
+    const cachedPhotos = await Promise.all(
+      placeIdsNeedingCachePhoto.map(async (placeId) => {
+        const cached = await getCachedGooglePlaceById({ placeId })
+        const urls = Array.isArray(cached?.place?.photoStorageUrls)
+          ? cached.place.photoStorageUrls
+          : []
+        const photoUrl = urls.map((u) => genuineCommunityPhotoUrl(u)).find(Boolean)
+        return { placeId, photoUrl }
+      })
+    )
+    const byPlaceId = new Map(
+      cachedPhotos
+        .filter((row) => row.photoUrl)
+        .map((row) => [row.placeId, row.photoUrl as string])
+    )
+    for (const row of results) {
+      if (row.isAISuggestion === true) continue
+      if (row.photoUrl || row.mediaUrl) continue
+      const photoUrl = byPlaceId.get(String(row.googlePlaceId || ''))
+      if (!photoUrl) continue
+      row.photoUrl = photoUrl
+      row.mediaUrl = photoUrl
     }
   }
 
