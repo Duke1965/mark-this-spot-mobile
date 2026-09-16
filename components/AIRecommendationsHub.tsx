@@ -7,10 +7,8 @@ import { usePinStorage } from '../hooks/usePinStorage'
 import { RecommendationForm } from './RecommendationForm'
 import { FsqImage } from './FsqImage'
 import type { PinData } from '../lib/types'
-// Google Maps removed - using Mapbox only
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
-import { MAPBOX_API_KEY } from '@/lib/mapConfig'
+import { loadGoogleMapsJs, type GoogleMapInstance, type GoogleMapsNs } from '@/lib/google/loadGoogleMapsJs'
+import { createGoogleHtmlMarker, type GoogleHtmlMarkerHandle } from '@/components/map/googleHtmlMarker'
 import { auth } from '@/lib/firebase'
 import {
   buildGoogleMapsSearchUrl,
@@ -277,7 +275,6 @@ export default function AIRecommendationsHub({
   const [isDiscoverMapLoading, setIsDiscoverMapLoading] = useState(true)
 
   // NEW: Add ref to track the user location marker
-  // Google Maps CSS removed - migrating to Mapbox
   
   // Use passed userLocation if available, otherwise fall back to hook location
   const location = userLocation || hookLocation
@@ -298,12 +295,14 @@ export default function AIRecommendationsHub({
     }
   }, [location, isInitialized])
   
-  // Map view - Mapbox implementation
+  // Map view - Google Maps implementation
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const recommendationMarkersRef = useRef<any[]>([])
-  const poiMarkersRef = useRef<Map<string, any>>(new Map())
-  const userMarkerRef = useRef<any>(null)
+  const mapInstanceRef = useRef<GoogleMapInstance | null>(null)
+  const googleMapsNsRef = useRef<GoogleMapsNs | null>(null)
+  const discoverMapLoadCancelledRef = useRef(false)
+  const recommendationMarkersRef = useRef<GoogleHtmlMarkerHandle[]>([])
+  const poiMarkersRef = useRef<Map<string, GoogleHtmlMarkerHandle>>(new Map())
+  const userMarkerRef = useRef<GoogleHtmlMarkerHandle | null>(null)
   const isMapInitializedRef = useRef<boolean>(false)
   const discoverMapTilesLoadedRef = useRef<boolean>(false)
   const lastLocationCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
@@ -508,7 +507,10 @@ export default function AIRecommendationsHub({
   }, [])
 
   // Fetch POIs from pin-intel and display them on the map
-  const fetchAndDisplayPOIs = useCallback(async (map: any, lat: number, lng: number) => {
+  const fetchAndDisplayPOIs = useCallback(async (map: GoogleMapInstance, lat: number, lng: number) => {
+    const mapsNs = googleMapsNsRef.current
+    if (!mapsNs) return
+
     try {
       console.log('🏪 Fetching POIs for map display...')
       const response = await fetch('/api/pinit/pin-intel', {
@@ -539,42 +541,45 @@ export default function AIRecommendationsHub({
       
       // Add markers for each POI (limit to 30 to avoid clutter)
       places.slice(0, 30).forEach((place: any) => {
+        if (!place || !isFinite(place.lat) || !isFinite(place.lng)) return
         const category = place.categories?.[0] || ''
         const icon = getPOIIcon(category)
         
-        // Create POI marker element
+        // Create POI marker element. Hover scale lives on an inner node so it
+        // does not overwrite the overlay's positioning transform.
         const poiElement = document.createElement('div')
         poiElement.style.width = '28px'
         poiElement.style.height = '28px'
-        poiElement.style.fontSize = '20px'
         poiElement.style.display = 'flex'
         poiElement.style.alignItems = 'center'
         poiElement.style.justifyContent = 'center'
         poiElement.style.cursor = 'pointer'
         poiElement.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
-        poiElement.style.transition = 'transform 0.2s ease'
-        poiElement.textContent = icon
         poiElement.title = place.name || category || 'POI'
+
+        const poiInner = document.createElement('div')
+        poiInner.style.fontSize = '20px'
+        poiInner.style.lineHeight = '1'
+        poiInner.style.transition = 'transform 0.2s ease'
+        poiInner.textContent = icon
+        poiElement.appendChild(poiInner)
         
-        // Add hover effect
         poiElement.addEventListener('mouseenter', () => {
-          poiElement.style.transform = 'scale(1.3)'
+          poiInner.style.transform = 'scale(1.3)'
         })
         poiElement.addEventListener('mouseleave', () => {
-          poiElement.style.transform = 'scale(1)'
+          poiInner.style.transform = 'scale(1)'
         })
         
-        // Add click handler to show POI details
         poiElement.addEventListener('click', () => {
           console.log('📍 POI clicked:', place.name)
-          // Could open a popup or add to recommendations here
         })
         
-        const marker = new mapboxgl.Marker({
-          element: poiElement
+        const marker = createGoogleHtmlMarker(mapsNs, map, {
+          lat: Number(place.lat),
+          lng: Number(place.lng),
+          element: poiElement,
         })
-          .setLngLat([place.lng, place.lat])
-          .addTo(map)
         
         poiMarkersRef.current.set(place.id || `poi-${Math.random().toString(36).substr(2, 9)}`, marker)
       })
@@ -1774,11 +1779,8 @@ export default function AIRecommendationsHub({
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
 
     try {
-      map.easeTo({
-        center: [lng, lat],
-        zoom: 16,
-        duration: 800,
-      })
+      map.panTo({ lat, lng })
+      map.setZoom(16)
       if (userMarkerRef.current) {
         userMarkerRef.current.setLngLat([lng, lat])
       }
@@ -1807,8 +1809,10 @@ export default function AIRecommendationsHub({
   const lastRecommendationsSignatureRef = useRef<string>("")
 
   // Function to update recommendation markers on map
-  // Update recommendation markers (Mapbox only)
-  const updateRecommendationMarkers = useCallback((map: any, mapLib: any) => {
+  const updateRecommendationMarkers = useCallback((map: GoogleMapInstance) => {
+    const mapsNs = googleMapsNsRef.current
+    if (!mapsNs) return
+
     if (!recommendations || recommendations.length === 0) {
       recommendationMarkersRef.current.forEach((marker) => marker.remove())
       recommendationMarkersRef.current = []
@@ -1923,7 +1927,7 @@ export default function AIRecommendationsHub({
       // If both types exist at the same coordinate, offset them slightly so both are visible.
       const presence = typeCoordToPresence.get(g.markerCoordKey)
       if (presence?.user && presence?.ai) {
-        el.style.transform = g.isAISuggestion ? "translateX(8px)" : "translateX(-8px)"
+        el.dataset.anchorOffsetX = g.isAISuggestion ? "8" : "-8"
       }
 
       el.title = `${g.items.length} ${g.isAISuggestion ? "AI" : "user"} recommendation${g.items.length === 1 ? "" : "s"}`
@@ -1950,9 +1954,11 @@ export default function AIRecommendationsHub({
         el.appendChild(badge)
       }
 
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([g.lng, g.lat])
-        .addTo(map)
+      const marker = createGoogleHtmlMarker(mapsNs, map, {
+        lat: g.lat,
+        lng: g.lng,
+        element: el,
+      })
 
       el.addEventListener("click", () => {
         // Show the exact items for this marker in the list view.
@@ -1966,7 +1972,7 @@ export default function AIRecommendationsHub({
       recommendationMarkersRef.current.push(marker)
     }
 
-    console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Mapbox map`)
+    console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Discover map`)
     tryMarkDiscoverMapDisplayReady()
   }, [recommendations, recommendationFilter, tryMarkDiscoverMapDisplayReady])
 
@@ -1983,64 +1989,81 @@ export default function AIRecommendationsHub({
       Number.isFinite(lng)
     if (!coordsExist) return
 
-    if (!MAPBOX_API_KEY) {
-      console.error("❌ Mapbox API key is missing")
+    const apiKey = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "").trim()
+    if (!apiKey) {
+      console.error("❌ Google Maps API key is missing")
+      setIsDiscoverMapLoading(false)
       return
     }
 
     if (mapInstanceRef.current) return
 
     lastLocationCoordsRef.current = { lat, lng }
+    isMapInitializedRef.current = true
+    discoverMapLoadCancelledRef.current = false
 
-    mapboxgl.accessToken = MAPBOX_API_KEY
+    const container = mapRef.current
 
-    try {
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: "mapbox://styles/mapbox/streets-v12",
-        center: [lng, lat],
-        zoom: 16,
-        interactive: true,
-      })
+    loadGoogleMapsJs(apiKey)
+      .then((maps) => {
+        if (discoverMapLoadCancelledRef.current || !container.isConnected) return
+        googleMapsNsRef.current = maps
 
-      mapInstanceRef.current = map
-      isMapInitializedRef.current = true
-
-      map.on("load", () => {
-        console.log("🗺️ Mapbox recommendations map loaded")
-        discoverMapTilesLoadedRef.current = true
-
-        const userEl = document.createElement("div")
-        userEl.style.width = "20px"
-        userEl.style.height = "20px"
-        userEl.style.borderRadius = "50%"
-        userEl.style.backgroundColor = "#22C55E"
-        userEl.style.border = "3px solid white"
-        userEl.style.boxShadow = "0 2px 8px rgba(0,0,0,0.4)"
-        userEl.style.cursor = "pointer"
-        userEl.title = "📍 Your Location"
-
-        const userMarker = new mapboxgl.Marker({
-          element: userEl,
+        const map = new maps.Map(container, {
+          center: { lat, lng },
+          zoom: 16,
+          gestureHandling: "greedy",
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          zoomControl: false,
+          clickableIcons: false,
         })
-          .setLngLat([lng, lat])
-          .addTo(map)
 
-        userMarkerRef.current = userMarker
+        mapInstanceRef.current = map
 
-        fetchAndDisplayPOIs(map, lat, lng)
+        let idleHandled = false
+        const onIdle = () => {
+          if (idleHandled || discoverMapLoadCancelledRef.current) return
+          idleHandled = true
+          console.log("🗺️ Discover Google Maps loaded")
+          discoverMapTilesLoadedRef.current = true
 
-        setTimeout(() => {
-          updateRecommendationMarkers(map, mapboxgl)
-        }, 100)
+          const userEl = document.createElement("div")
+          userEl.style.width = "20px"
+          userEl.style.height = "20px"
+          userEl.style.borderRadius = "50%"
+          userEl.style.backgroundColor = "#22C55E"
+          userEl.style.border = "3px solid white"
+          userEl.style.boxShadow = "0 2px 8px rgba(0,0,0,0.4)"
+          userEl.style.cursor = "pointer"
+          userEl.title = "📍 Your Location"
+
+          userMarkerRef.current = createGoogleHtmlMarker(maps, map, {
+            lat,
+            lng,
+            element: userEl,
+          })
+
+          fetchAndDisplayPOIs(map, lat, lng)
+
+          setTimeout(() => {
+            if (discoverMapLoadCancelledRef.current) return
+            updateRecommendationMarkers(map)
+          }, 100)
+        }
+
+        if (maps.event.addListenerOnce) {
+          maps.event.addListenerOnce(map, "idle", onIdle)
+        } else {
+          maps.event.addListener(map, "idle", onIdle)
+        }
       })
-
-      map.on("error", (e) => {
-        console.error("❌ Mapbox map error:", e)
+      .catch((error) => {
+        console.error("❌ Failed to initialize Discover Google map:", error)
+        isMapInitializedRef.current = false
+        setIsDiscoverMapLoading(false)
       })
-    } catch (error) {
-      console.error("❌ Failed to initialize Mapbox map:", error)
-    }
   }, [
     viewMode,
     location?.latitude,
@@ -2048,12 +2071,13 @@ export default function AIRecommendationsHub({
     location?.lat,
     location?.lng,
     updateRecommendationMarkers,
+    fetchAndDisplayPOIs,
   ])
 
   // Effect B: teardown only when viewMode changes (leaving Map tab or unmount)
   useEffect(() => {
     return () => {
-      if (!mapInstanceRef.current) return
+      discoverMapLoadCancelledRef.current = true
 
       recommendationMarkersRef.current.forEach((marker) => marker.remove())
       recommendationMarkersRef.current = []
@@ -2065,8 +2089,12 @@ export default function AIRecommendationsHub({
         userMarkerRef.current = null
       }
 
-      mapInstanceRef.current.remove()
+      const maps = googleMapsNsRef.current
+      if (maps && mapInstanceRef.current) {
+        maps.event.clearInstanceListeners(mapInstanceRef.current)
+      }
       mapInstanceRef.current = null
+      googleMapsNsRef.current = null
 
       isMapInitializedRef.current = false
       discoverMapTilesLoadedRef.current = false
@@ -2099,7 +2127,7 @@ export default function AIRecommendationsHub({
     
     // Update map center
     try {
-      mapInstanceRef.current.setCenter([lng, lat])
+      mapInstanceRef.current.setCenter({ lat, lng })
       
       // Update user marker position
       if (userMarkerRef.current) {
@@ -2116,12 +2144,12 @@ export default function AIRecommendationsHub({
     } catch (error) {
       console.warn('⚠️ Error updating map center:', error)
     }
-  }, [location?.latitude, location?.longitude, location?.lat, location?.lng, viewMode])
+  }, [location?.latitude, location?.longitude, location?.lat, location?.lng, viewMode, fetchAndDisplayPOIs])
 
   // Update markers when recommendation content changes (ids + coordinates)
   useEffect(() => {
     if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
-      updateRecommendationMarkers(mapInstanceRef.current, mapboxgl)
+      updateRecommendationMarkers(mapInstanceRef.current)
     }
   }, [recommendationMarkerSignature, viewMode, updateRecommendationMarkers])
 
@@ -2131,16 +2159,17 @@ export default function AIRecommendationsHub({
 
     const frameId = requestAnimationFrame(() => {
       const map = mapInstanceRef.current
+      const maps = googleMapsNsRef.current
       if (!map) return
 
       try {
-        map.resize()
+        maps?.event.trigger(map, "resize")
       } catch {
         // ignore
       }
 
       if (recommendations.length > 0) {
-        updateRecommendationMarkers(map, mapboxgl)
+        updateRecommendationMarkers(map)
       }
 
       if (discoverMapTilesLoadedRef.current) {
@@ -2326,7 +2355,7 @@ export default function AIRecommendationsHub({
             backdropFilter: 'blur(12px)',
             border: '1px solid rgba(79,59,43,0.1)',
           }}>
-            {/* Mapbox Map Container */}
+            {/* Discover map container */}
             <div
               ref={mapRef}
               style={{

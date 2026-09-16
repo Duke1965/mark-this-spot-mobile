@@ -1,6 +1,12 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react'
+import {
+  loadGoogleMapsJs,
+  type GoogleMapInstance,
+  type GoogleMapsNs,
+  type GoogleMarkerInstance,
+} from '@/lib/google/loadGoogleMapsJs'
 
 /**
  * Adjust Pin Location editor map (Google Maps JavaScript API).
@@ -18,70 +24,6 @@ export interface GoogleMapsMapProps {
     lng: number
     onDragEnd: (lat: number, lng: number) => void
   }
-}
-
-type GoogleMapsNs = {
-  Map: new (el: HTMLElement, opts: Record<string, unknown>) => GoogleMapInstance
-  Marker: new (opts: Record<string, unknown>) => GoogleMarkerInstance
-  event: { clearInstanceListeners: (instance: unknown) => void }
-}
-
-type GoogleMapInstance = {
-  setCenter: (pos: { lat: number; lng: number }) => void
-  setZoom: (zoom: number) => void
-  setOptions: (opts: Record<string, unknown>) => void
-}
-
-type GoogleMarkerInstance = {
-  setPosition: (pos: { lat: number; lng: number }) => void
-  getPosition: () => { lat: () => number; lng: () => number } | null
-  setMap: (map: GoogleMapInstance | null) => void
-  addListener: (event: string, handler: () => void) => unknown
-}
-
-const SCRIPT_ATTR = 'data-mappo-google-maps'
-let googleMapsLoadPromise: Promise<GoogleMapsNs> | null = null
-
-function getGoogleMaps(): GoogleMapsNs | null {
-  if (typeof window === 'undefined') return null
-  const maps = (window as unknown as { google?: { maps?: GoogleMapsNs } }).google?.maps
-  if (!maps?.Map || !maps?.Marker || !maps?.event) return null
-  return maps
-}
-
-function loadGoogleMapsJs(apiKey: string): Promise<GoogleMapsNs> {
-  const existing = getGoogleMaps()
-  if (existing) return Promise.resolve(existing)
-  if (googleMapsLoadPromise) return googleMapsLoadPromise
-
-  googleMapsLoadPromise = new Promise((resolve, reject) => {
-    const already = document.querySelector(`script[${SCRIPT_ATTR}]`) as HTMLScriptElement | null
-    const onReady = () => {
-      const maps = getGoogleMaps()
-      if (maps) resolve(maps)
-      else reject(new Error('Google Maps loaded but API is unavailable'))
-    }
-
-    if (already) {
-      already.addEventListener('load', onReady)
-      already.addEventListener('error', () => reject(new Error('Failed to load Google Maps')))
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`
-    script.async = true
-    script.defer = true
-    script.setAttribute(SCRIPT_ATTR, 'true')
-    script.onload = onReady
-    script.onerror = () => {
-      googleMapsLoadPromise = null
-      reject(new Error('Failed to load Google Maps'))
-    }
-    document.head.appendChild(script)
-  })
-
-  return googleMapsLoadPromise
 }
 
 function sameCoords(
