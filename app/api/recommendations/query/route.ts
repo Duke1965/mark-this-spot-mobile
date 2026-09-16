@@ -143,6 +143,9 @@ export async function GET(req: Request) {
                   genuineCommunityPhotoUrl(data.mediaUrl) ||
                   genuineCommunityPhotoUrl(data.photoUrl)
                 const extra: Record<string, unknown> = {}
+                const placeKey =
+                  typeof data.placeKey === 'string' ? data.placeKey.trim() : ''
+                if (placeKey) extra.placeKey = placeKey
                 if (googlePlaceId) {
                   extra.googlePlaceId = googlePlaceId
                   extra.placeId = googlePlaceId

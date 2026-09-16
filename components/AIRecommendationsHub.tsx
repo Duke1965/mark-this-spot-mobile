@@ -51,6 +51,7 @@ interface Recommendation {
   fsq_id?: string // Foursquare place ID
   googlePlaceId?: string
   placeId?: string
+  placeKey?: string
 }
 
 /** Stable place identity for map grouping (matches upsert-pin / upsert-ai placeKey intent). */
@@ -83,6 +84,55 @@ function placeIdentityKey(rec: Recommendation): string {
   }
 
   return `coord:unknown|t:${title || 'unknown'}`
+}
+
+function trimPlaceKey(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+/** Fill missing identity/photo metadata only; keep existing user-facing fields. */
+function enrichRecommendationIdentity(
+  existing: Recommendation,
+  incoming: Recommendation
+): Recommendation {
+  const placeKey = trimPlaceKey(existing.placeKey) || trimPlaceKey(incoming.placeKey)
+  const googlePlaceId =
+    googlePlaceIdFromRecommendationFields(existing) ||
+    googlePlaceIdFromRecommendationFields(incoming)
+  const existingPhoto =
+    genuineCommunityPhotoUrl(existing.photoUrl) ||
+    genuineCommunityPhotoUrl(existing.mediaUrl)
+  const incomingPhoto =
+    genuineCommunityPhotoUrl(incoming.photoUrl) ||
+    genuineCommunityPhotoUrl(incoming.mediaUrl)
+  const photo = existingPhoto || incomingPhoto
+
+  let changed = false
+  const next: Recommendation = { ...existing }
+
+  if (placeKey && !trimPlaceKey(existing.placeKey)) {
+    next.placeKey = placeKey
+    changed = true
+  }
+  if (googlePlaceId) {
+    if (!trimPlaceKey(existing.googlePlaceId)) {
+      next.googlePlaceId = googlePlaceId
+      changed = true
+    }
+    if (!trimPlaceKey(existing.placeId)) {
+      next.placeId = googlePlaceId
+      changed = true
+    }
+  }
+  if (!existingPhoto && photo) {
+    next.photoUrl = photo
+    next.mediaUrl = photo
+    changed = true
+  }
+
+  return changed ? next : existing
 }
 
 function buildDiscoverDetailShare(rec: Recommendation) {
@@ -377,20 +427,24 @@ export default function AIRecommendationsHub({
     return Array.from(clustersByKey.values())
   }
 
-  /** Merge incoming recommendations into prev; dedupe by id only; preserve existing items. */
+  /** Merge incoming recommendations into prev; dedupe by id; fill missing identity/photo only. */
   function mergeRecommendationsById(
     prev: Recommendation[],
     incoming: Recommendation[]
   ): Recommendation[] {
-    const existingIds = new Set(prev.map((r) => String(r.id)))
+    const byId = new Map(prev.map((r) => [String(r.id), r]))
     const added: Recommendation[] = []
     for (const r of incoming) {
       const id = String(r?.id ?? '')
-      if (!id || existingIds.has(id)) continue
-      existingIds.add(id)
+      if (!id) continue
+      const existing = byId.get(id)
+      if (existing) {
+        byId.set(id, enrichRecommendationIdentity(existing, r))
+        continue
+      }
       added.push(r)
     }
-    return [...prev, ...added]
+    return [...prev.map((r) => byId.get(String(r.id)) || r), ...added]
   }
 
   const getIdToken = useCallback(async (): Promise<string | null> => {
@@ -752,11 +806,14 @@ export default function AIRecommendationsHub({
           googlePlaceId: googlePlaceIdFromRecommendationFields({
             googlePlaceId: pin.googlePlaceId,
             placeId: pin.placeId,
+            placeKey: pin.placeKey,
           }),
           placeId: googlePlaceIdFromRecommendationFields({
             googlePlaceId: pin.googlePlaceId,
             placeId: pin.placeId,
+            placeKey: pin.placeKey,
           }),
+          placeKey: trimPlaceKey(pin.placeKey),
         })
       }
       return out
@@ -1768,6 +1825,15 @@ export default function AIRecommendationsHub({
     return () => {
       cancelled = true
     }
+  }, [recommendations])
+
+  useEffect(() => {
+    setSelectedRecommendation((prev: Recommendation | null) => {
+      if (!prev) return prev
+      const current = recommendations.find((r) => String(r.id) === String(prev.id))
+      if (!current) return prev
+      return enrichRecommendationIdentity(prev, current)
+    })
   }, [recommendations])
 
   // Handle view mode changes
