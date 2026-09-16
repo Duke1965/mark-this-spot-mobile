@@ -25,6 +25,7 @@ export type CachedGooglePlace = {
   photoStorageUrls: string[]
   updatedAt?: any
   source: 'google'
+  businessStatus?: string
 }
 
 function envInt(name: string, def: number): number {
@@ -187,6 +188,7 @@ export async function setCachedGooglePlace(input: {
     types?: string[]
     placeLat?: number
     placeLon?: number
+    businessStatus?: string
   } = {
     place_id: String(input.place.place_id),
     lat: input.lat,
@@ -202,6 +204,7 @@ export async function setCachedGooglePlace(input: {
   if (Array.isArray(input.place.types) && input.place.types.length) payload.types = input.place.types.map(String).filter(Boolean)
   if (Number.isFinite(Number(input.place.placeLat))) payload.placeLat = Number(input.place.placeLat)
   if (Number.isFinite(Number(input.place.placeLon))) payload.placeLon = Number(input.place.placeLon)
+  if (input.place.businessStatus) payload.businessStatus = String(input.place.businessStatus)
 
   try {
     const writes: Promise<any>[] = [db.collection('place_cache').doc(docId).set(payload, { merge: true })]

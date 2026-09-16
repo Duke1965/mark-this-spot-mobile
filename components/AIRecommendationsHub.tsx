@@ -52,6 +52,8 @@ interface Recommendation {
   googlePlaceId?: string
   placeId?: string
   placeKey?: string
+  website?: string
+  closedPermanently?: boolean
 }
 
 /** Stable place identity for map grouping (matches upsert-pin / upsert-ai placeKey intent). */
@@ -84,6 +86,21 @@ function placeIdentityKey(rec: Recommendation): string {
   }
 
   return `coord:unknown|t:${title || 'unknown'}`
+}
+
+function aiIdentityKey(rec: Pick<Recommendation, 'title' | 'location'>): string {
+  const title = String(rec.title || '').trim().toLowerCase()
+  const lat = rec.location?.lat
+  const lng = rec.location?.lng
+  if (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng)
+  ) {
+    return `${title}|${lat.toFixed(6)}|${lng.toFixed(6)}`
+  }
+  return `${title}|unknown`
 }
 
 function trimPlaceKey(value: unknown): string | undefined {
@@ -129,6 +146,14 @@ function enrichRecommendationIdentity(
   if (!existingPhoto && photo) {
     next.photoUrl = photo
     next.mediaUrl = photo
+    changed = true
+  }
+  const incomingWebsite =
+    typeof incoming.website === 'string' && incoming.website.trim().startsWith('http')
+      ? incoming.website.trim()
+      : undefined
+  if (incomingWebsite && !trimPlaceKey(existing.website)) {
+    next.website = incomingWebsite
     changed = true
   }
 
@@ -477,7 +502,12 @@ export default function AIRecommendationsHub({
                 location: r.location,
                 rating: r.rating,
                 confidence: r.confidence,
-                reason: r.reason
+                reason: r.reason,
+                googlePlaceId: r.googlePlaceId,
+                placeId: r.placeId,
+                mediaUrl: r.mediaUrl || r.photoUrl,
+                website: r.website,
+                closedPermanently: r.closedPermanently === true,
               }))
           })
         })
@@ -1757,7 +1787,6 @@ export default function AIRecommendationsHub({
     const coordsByPlaceId = new Map<string, { lat: number; lng: number }>()
 
     for (const rec of recommendations) {
-      if (rec.isAISuggestion) continue
       if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) continue
       const placeId = googlePlaceIdFromRecommendationFields(rec)
       if (!placeId) continue
@@ -1782,14 +1811,13 @@ export default function AIRecommendationsHub({
       if (!photoUrl) return
       setRecommendations((prev) =>
         prev.map((rec) => {
-          if (rec.isAISuggestion) return rec
           if (googlePlaceIdFromRecommendationFields(rec) !== placeId) return rec
           if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) return rec
           return { ...rec, photoUrl, mediaUrl: photoUrl }
         })
       )
       setSelectedRecommendation((prev: Recommendation | null) => {
-        if (!prev || prev.isAISuggestion) return prev
+        if (!prev) return prev
         if (googlePlaceIdFromRecommendationFields(prev) !== placeId) return prev
         if (genuineCommunityPhotoUrl(prev.photoUrl) || genuineCommunityPhotoUrl(prev.mediaUrl)) return prev
         return { ...prev, photoUrl, mediaUrl: photoUrl }
@@ -1826,6 +1854,121 @@ export default function AIRecommendationsHub({
       cancelled = true
     }
   }, [recommendations])
+
+  useEffect(() => {
+    if (viewMode !== 'list' && !showReadOnlyRecommendation) return
+    let cancelled = false
+    const pendingKeys: string[] = []
+    const recByKey = new Map<string, Recommendation>()
+
+    for (const rec of recommendations) {
+      if (!rec.isAISuggestion) continue
+      if (googlePlaceIdFromRecommendationFields(rec)) continue
+      const title = String(rec.title || '').trim()
+      const lat = rec.location?.lat
+      const lng = rec.location?.lng
+      if (
+        !title ||
+        typeof lat !== 'number' ||
+        typeof lng !== 'number' ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        continue
+      }
+      const key = aiIdentityKey(rec)
+      if (aiIdentityByKeyRef.current.has(key)) continue
+      if (aiIdentityInFlightRef.current.has(key)) continue
+      if (!pendingKeys.includes(key)) pendingKeys.push(key)
+      if (!recByKey.has(key)) recByKey.set(key, rec)
+    }
+
+    const applyIdentity = (
+      key: string,
+      rec: Recommendation,
+      data: {
+        placeId: string
+        photoUrl?: string | null
+        website?: string | null
+      }
+    ) => {
+      const placeId = String(data.placeId || '').trim()
+      if (!placeId) return
+      const photoUrl = genuineCommunityPhotoUrl(data.photoUrl)
+      const website =
+        typeof data.website === 'string' && data.website.trim().startsWith('http')
+          ? data.website.trim()
+          : undefined
+      const stamp = (row: Recommendation): Recommendation => {
+        if (aiIdentityKey(row) !== key && String(row.id) !== String(rec.id)) return row
+        let next: Recommendation = {
+          ...row,
+          googlePlaceId: row.googlePlaceId || placeId,
+          placeId: row.placeId || placeId,
+          placeKey: row.placeKey?.startsWith('place:') ? row.placeKey : `place:${placeId}`,
+        }
+        if (photoUrl && !genuineCommunityPhotoUrl(next.photoUrl) && !genuineCommunityPhotoUrl(next.mediaUrl)) {
+          next = { ...next, photoUrl, mediaUrl: photoUrl }
+        }
+        if (website && !next.website) next = { ...next, website }
+        return next
+      }
+      setRecommendations((prev) => prev.map(stamp))
+      setSelectedRecommendation((prev: Recommendation | null) => (prev ? stamp(prev) : prev))
+      persistAIRecommendationsToServer([stamp(rec)])
+    }
+
+    for (const key of pendingKeys) {
+      const rec = recByKey.get(key)
+      if (!rec) continue
+      aiIdentityInFlightRef.current.add(key)
+      const params = new URLSearchParams({
+        title: rec.title,
+        lat: String(rec.location.lat),
+        lng: String(rec.location.lng),
+      })
+      void fetch(`/api/recommendations/ai-identity?${params.toString()}`)
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (cancelled) return
+          if (data?.closedPermanently) {
+            aiIdentityByKeyRef.current.set(key, 'closed')
+            persistAIRecommendationsToServer([{ ...rec, closedPermanently: true }])
+            setRecommendations((prev) => prev.filter((row) => aiIdentityKey(row) !== key))
+            setSelectedRecommendation((prev: Recommendation | null) => {
+              if (!prev || aiIdentityKey(prev) !== key) return prev
+              setShowReadOnlyRecommendation(false)
+              setDetailImageUrl(null)
+              setShowDetailShareOptions(false)
+              return null
+            })
+            return
+          }
+          const placeId = typeof data?.placeId === 'string' ? data.placeId.trim() : ''
+          if (!data?.ok || !placeId) {
+            aiIdentityByKeyRef.current.set(key, 'miss')
+            return
+          }
+          aiIdentityByKeyRef.current.set(key, placeId)
+          applyIdentity(key, rec, {
+            placeId,
+            photoUrl: data.photoUrl,
+            website: data.website,
+          })
+        })
+        .catch(() => {
+          if (cancelled) return
+          aiIdentityByKeyRef.current.set(key, 'miss')
+        })
+        .finally(() => {
+          aiIdentityInFlightRef.current.delete(key)
+        })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [recommendations, persistAIRecommendationsToServer, viewMode, showReadOnlyRecommendation])
 
   useEffect(() => {
     setSelectedRecommendation((prev: Recommendation | null) => {
@@ -1967,6 +2110,8 @@ export default function AIRecommendationsHub({
   const lastRecommendationsSignatureRef = useRef<string>("")
   const communityPhotoByPlaceIdRef = useRef<Map<string, string | null>>(new Map())
   const communityPhotoInFlightRef = useRef<Set<string>>(new Set())
+  const aiIdentityByKeyRef = useRef<Map<string, string>>(new Map())
+  const aiIdentityInFlightRef = useRef<Set<string>>(new Set())
 
   // Function to update recommendation markers on map
   const updateRecommendationMarkers = useCallback((map: GoogleMapInstance) => {
@@ -3190,6 +3335,11 @@ export default function AIRecommendationsHub({
                   category: selectedRecommendation.category || 'general',
                   isAISuggestion:
                     selectedRecommendation.isAISuggestion || false,
+                  googlePlaceId:
+                    googlePlaceIdFromRecommendationFields(selectedRecommendation),
+                  placeId:
+                    googlePlaceIdFromRecommendationFields(selectedRecommendation),
+                  website: selectedRecommendation.website,
                 }
                 const ok = addPinToLibrary(savedPin)
                 console.log("Recommendation save result", {

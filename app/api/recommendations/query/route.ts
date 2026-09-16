@@ -28,6 +28,8 @@ type StoredRecommendation = {
   placeKey?: string
   mediaUrl?: string
   photoUrl?: string
+  website?: string
+  closedPermanently?: boolean
 }
 
 function num(v: string | null): number | null {
@@ -115,6 +117,7 @@ export async function GET(req: Request) {
           // Only include personalized AI for the current user (or global AI).
           const p = data.personalizedForUid ?? null
           if (p && (!uid || p !== uid)) continue
+          if (data.closedPermanently === true) continue
         }
 
         const outId = doc.id
@@ -132,7 +135,7 @@ export async function GET(req: Request) {
           confidence: typeof data.confidence === 'number' ? data.confidence : (data.kind === 'ai' ? 20 : 0),
           reason: data.reason || (data.kind === 'ai' ? 'AI suggestion' : 'Recommended by community'),
           timestamp: new Date(),
-          ...(data.kind === 'user'
+          ...((data.kind === 'user' || data.kind === 'ai')
             ? (() => {
                 const googlePlaceId = googlePlaceIdFromRecommendationFields({
                   googlePlaceId: data.googlePlaceId,
@@ -154,6 +157,11 @@ export async function GET(req: Request) {
                   extra.mediaUrl = mediaUrl
                   extra.photoUrl = mediaUrl
                 }
+                const website =
+                  typeof data.website === 'string' && data.website.trim().startsWith('http')
+                    ? data.website.trim()
+                    : ''
+                if (website) extra.website = website
                 return extra
               })()
             : {})
@@ -167,7 +175,7 @@ export async function GET(req: Request) {
   const placeIdsNeedingCachePhoto = Array.from(
     new Set(
       results
-        .filter((row) => row && row.isAISuggestion !== true && !row.photoUrl && !row.mediaUrl && row.googlePlaceId)
+        .filter((row) => row && !row.photoUrl && !row.mediaUrl && row.googlePlaceId)
         .map((row) => String(row.googlePlaceId))
     )
   )
@@ -188,7 +196,6 @@ export async function GET(req: Request) {
         .map((row) => [row.placeId, row.photoUrl as string])
     )
     for (const row of results) {
-      if (row.isAISuggestion === true) continue
       if (row.photoUrl || row.mediaUrl) continue
       const photoUrl = byPlaceId.get(String(row.googlePlaceId || ''))
       if (!photoUrl) continue

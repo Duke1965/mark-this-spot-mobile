@@ -29,24 +29,63 @@ export async function resolveGooglePlacePhoto(input: {
   lat?: number
   lng?: number
   limiterKey?: string
-}): Promise<{ photoUrl: string | null; source: "cache" | "google" | "none" }> {
+}): Promise<{
+  photoUrl: string | null
+  source: "cache" | "google" | "none"
+  businessStatus?: string
+  website?: string
+}> {
   const placeId = String(input.placeId || "").trim()
   if (!placeId) return { photoUrl: null, source: "none" }
 
   const cached = await getCachedGooglePlaceById({ placeId })
   const cachedUrl = firstCachedPhotoUrl(cached?.place?.photoStorageUrls)
-  if (cachedUrl) return { photoUrl: cachedUrl, source: "cache" }
+  const cachedStatus =
+    typeof cached?.place?.businessStatus === "string"
+      ? cached.place.businessStatus.trim()
+      : undefined
+  const cachedWebsite =
+    typeof cached?.place?.website === "string" ? cached.place.website.trim() : undefined
+  if (cachedUrl) {
+    return {
+      photoUrl: cachedUrl,
+      source: "cache",
+      businessStatus: cachedStatus || undefined,
+      website: cachedWebsite || undefined,
+    }
+  }
 
-  if (!photosEnabled()) return { photoUrl: null, source: "none" }
+  if (!photosEnabled()) {
+    return {
+      photoUrl: null,
+      source: "none",
+      businessStatus: cachedStatus || undefined,
+      website: cachedWebsite || undefined,
+    }
+  }
 
   const limit = await checkAndIncrementGoogleDailyLimit({
     key: input.limiterKey || `rec-photo:${placeId}`,
     maxPerDay: 1,
   })
-  if (!limit.allowed) return { photoUrl: null, source: "none" }
+  if (!limit.allowed) {
+    return {
+      photoUrl: null,
+      source: "none",
+      businessStatus: cachedStatus || undefined,
+      website: cachedWebsite || undefined,
+    }
+  }
 
   const details = await placeDetails(placeId)
-  if (!details?.placeId) return { photoUrl: null, source: "none" }
+  if (!details?.placeId) {
+    return {
+      photoUrl: null,
+      source: "none",
+      businessStatus: cachedStatus || undefined,
+      website: cachedWebsite || undefined,
+    }
+  }
 
   const lat =
     typeof input.lat === "number" && Number.isFinite(input.lat)
@@ -61,7 +100,7 @@ export async function resolveGooglePlacePhoto(input: {
   const photos = Array.isArray(details.photos) ? details.photos : []
   const hostedPhotoUrls: string[] = []
   const first = photos[0]
-  if (first?.photoReference) {
+  if (first?.photoReference && details.businessStatus !== "CLOSED_PERMANENTLY") {
     try {
       const got = await fetchPhoto(first.photoReference, 1200)
       const ext = got.contentType.toLowerCase().includes("png")
@@ -97,6 +136,7 @@ export async function resolveGooglePlacePhoto(input: {
           lat,
           lon: lng,
           source: "google",
+          businessStatus: details.businessStatus,
         },
       })
     } catch {
@@ -105,5 +145,10 @@ export async function resolveGooglePlacePhoto(input: {
   }
 
   const photoUrl = firstCachedPhotoUrl(hostedPhotoUrls) || null
-  return { photoUrl, source: photoUrl ? "google" : "none" }
+  return {
+    photoUrl,
+    source: photoUrl ? "google" : "none",
+    businessStatus: details.businessStatus,
+    website: details.website,
+  }
 }

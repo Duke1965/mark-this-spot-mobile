@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import crypto from 'crypto'
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebaseAdmin'
+import {
+  genuineCommunityPhotoUrl,
+  googlePlaceIdFromRecommendationFields,
+} from '@/lib/recommendations/communityPhoto'
 
 export const runtime = 'nodejs'
 
@@ -14,6 +18,12 @@ type AIRecPayload = {
   rating?: number
   confidence?: number
   reason?: string
+  googlePlaceId?: string
+  placeId?: string
+  mediaUrl?: string | null
+  photoUrl?: string | null
+  website?: string | null
+  closedPermanently?: boolean
 }
 
 const BUCKET_DEG = 0.0045
@@ -78,38 +88,59 @@ export async function POST(req: Request) {
 
     const desc = (it.description || '').toString().slice(0, 400)
     const category = (it.category || 'general').toString().slice(0, 64)
-    const placeKey = `coord:${lat.toFixed(6)},${lng.toFixed(6)}|t:${title.toLowerCase()}`
-    const docId = `a_${uid}_${safeId(placeKey)}`
+    const identityKey = `coord:${lat.toFixed(6)},${lng.toFixed(6)}|t:${title.toLowerCase()}`
+    const docId = `a_${uid}_${safeId(identityKey)}`
+    const googlePlaceId = googlePlaceIdFromRecommendationFields({
+      googlePlaceId: it.googlePlaceId,
+      placeId: it.placeId,
+    })
+    const mediaUrl =
+      genuineCommunityPhotoUrl(it.mediaUrl) || genuineCommunityPhotoUrl(it.photoUrl)
+    const website =
+      typeof it.website === 'string' && it.website.trim().startsWith('http')
+        ? it.website.trim().slice(0, 500)
+        : undefined
+    const closedPermanently = it.closedPermanently === true
+    const placeKey = googlePlaceId ? `place:${googlePlaceId}` : identityKey
 
     await db.collection('recommendation_areas').doc(key).set(
       { key, updatedAt: FieldValue.serverTimestamp() },
       { merge: true }
     )
 
+    const payload: Record<string, unknown> = {
+      kind: 'ai',
+      lat,
+      lng,
+      title,
+      description: desc,
+      category,
+      rating: typeof it.rating === 'number' ? it.rating : 4.0,
+      confidence: typeof it.confidence === 'number' ? it.confidence : 20,
+      reason: (it.reason || 'AI suggestion').toString().slice(0, 140),
+      createdByUid: uid,
+      personalizedForUid: uid,
+      placeKey,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp()
+    }
+    if (googlePlaceId) {
+      payload.googlePlaceId = googlePlaceId
+      payload.placeId = googlePlaceId
+    }
+    if (mediaUrl) {
+      payload.mediaUrl = mediaUrl
+      payload.photoUrl = mediaUrl
+    }
+    if (website) payload.website = website
+    if (closedPermanently) payload.closedPermanently = true
+
     await db
       .collection('recommendation_areas')
       .doc(key)
       .collection('items')
       .doc(docId)
-      .set(
-        {
-          kind: 'ai',
-          lat,
-          lng,
-          title,
-          description: desc,
-          category,
-          rating: typeof it.rating === 'number' ? it.rating : 4.0,
-          confidence: typeof it.confidence === 'number' ? it.confidence : 20,
-          reason: (it.reason || 'AI suggestion').toString().slice(0, 140),
-          createdByUid: uid,
-          personalizedForUid: uid,
-          placeKey,
-          updatedAt: FieldValue.serverTimestamp(),
-          createdAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      )
+      .set(payload, { merge: true })
 
     written++
   }

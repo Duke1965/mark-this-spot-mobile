@@ -10,6 +10,7 @@ export type GoogleNearbyCandidate = {
   name?: string
   types?: string[]
   location: { lat: number; lon: number }
+  businessStatus?: string
 }
 
 export type GoogleNearbyCandidateWithDistance = GoogleNearbyCandidate & {
@@ -34,11 +35,13 @@ export type GooglePlaceDetails = {
   phone?: string
   location?: { lat: number; lon: number }
   photos?: Array<{ photoReference: string; width?: number; height?: number }>
+  businessStatus?: string
 }
 
-const NEARBY_FIELD_MASK = 'places.id,places.displayName,places.location,places.types'
+const NEARBY_FIELD_MASK =
+  'places.id,places.displayName,places.location,places.types,places.businessStatus'
 const DETAILS_FIELD_MASK =
-  'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos'
+  'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos,businessStatus'
 
 function requireApiKey(): string {
   const key = process.env.GOOGLE_MAPS_API_KEY
@@ -209,7 +212,7 @@ function haversineDistanceMeters(a: { lat: number; lon: number }, b: { lat: numb
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-function hintMatches(hint: string | undefined, candidateName: string | undefined): boolean {
+export function hintMatches(hint: string | undefined, candidateName: string | undefined): boolean {
   const h = normalizeName(hint || '')
   const n = normalizeName(candidateName || '')
   if (!h || !n) return false
@@ -332,7 +335,11 @@ export async function nearbySearch(input: {
       const types = Array.isArray(r?.types) ? r.types.map(String) : undefined
       const distanceMeters = haversineDistanceMeters({ lat: input.lat, lon: input.lon }, { lat, lon })
       const isChain = isLikelyChain(name, types)
-      return { placeId, name, types, location: { lat, lon }, distanceMeters, isChain }
+      const businessStatus =
+        typeof r?.businessStatus === 'string' && r.businessStatus.trim()
+          ? String(r.businessStatus).trim()
+          : undefined
+      return { placeId, name, types, location: { lat, lon }, distanceMeters, isChain, businessStatus }
     })
     .filter(Boolean) as GoogleNearbyCandidateWithDistance[]
 
@@ -431,6 +438,10 @@ export async function placeDetails(placeId: string): Promise<GooglePlaceDetails 
     types: Array.isArray(r?.types) ? r.types.map(String) : undefined,
     phone: typeof r?.nationalPhoneNumber === 'string' ? r.nationalPhoneNumber : undefined,
     location: Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : undefined,
+    businessStatus:
+      typeof r?.businessStatus === 'string' && r.businessStatus.trim()
+        ? String(r.businessStatus).trim()
+        : undefined,
     photos: Array.isArray(r?.photos)
       ? r.photos
           .map((p: any) => ({
