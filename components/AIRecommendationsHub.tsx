@@ -20,6 +20,7 @@ import {
   mappoBackButtonAbsoluteStyle,
   mappoBackButtonStyle,
   mappoHeaderBarStyle,
+  mappoTitleImageStyle,
   mappoTitleSubtitleStyle,
 } from '@/lib/mappoHeaderStyles'
 
@@ -2254,23 +2255,11 @@ export default function AIRecommendationsHub({
           <ArrowLeft size={20} />
           Back
         </button>
-        <h1
-          style={{
-            margin: '2rem auto 0.15rem',
-            padding: '0 3.5rem',
-            color: '#1a2744',
-            fontSize: 'clamp(1.55rem, 5.8vw, 2.05rem)',
-            fontWeight: 700,
-            fontFamily: 'Georgia, "Palatino Linotype", Palatino, serif',
-            fontStyle: 'italic',
-            lineHeight: 1.2,
-          }}
-        >
-          Picked for You
-        </h1>
-        <p style={{ ...mappoTitleSubtitleStyle, textAlign: 'center', color: '#4f3b2b' }}>
-          Places we think you'll love
-        </p>
+        <img
+          src="/brand/mappo/mappo-picked-for-you-title.png"
+          alt="Picked for You"
+          style={mappoTitleImageStyle}
+        />
       </div>
 
       {/* View Mode Tabs - Map view disabled (migrating to Mapbox) */}

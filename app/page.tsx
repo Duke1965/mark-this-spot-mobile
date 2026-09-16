@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react"
-import { Camera, Library, Sparkles, MapPin, Check, Star, ArrowLeft } from "lucide-react"
+import { Camera, Library, Sparkles, MapPin, Check, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useLocationServices } from "@/hooks/useLocationServices"
 import { usePinStorage } from "@/hooks/usePinStorage"
@@ -71,8 +71,9 @@ const homeBottomNavItemStyle = {
   gap: "0.35rem",
   borderRadius: "0.5rem",
   transition: "all 0.2s ease",
-  height: 76,
+  minHeight: 76,
   minWidth: 76,
+  overflow: "visible" as const,
   boxSizing: "border-box" as const,
 }
 
@@ -94,6 +95,7 @@ const homeBottomNavLabelStyle = {
   opacity: 0.88,
   margin: 0,
   padding: 0,
+  overflow: "visible" as const,
 }
 
 function PostcardIcon({ size = 28 }: { size?: number }) {
@@ -115,6 +117,30 @@ function PostcardIcon({ size = 28 }: { size?: number }) {
       <line x1="13.6" y1="9.6" x2="19.2" y2="9.6" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
       <line x1="13.6" y1="11.7" x2="19.2" y2="11.7" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
       <line x1="13.6" y1="13.8" x2="18.2" y2="13.8" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
+    </svg>
+  )
+}
+
+function StarIcon({ size = 28 }: { size?: number }) {
+  const s = size
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block" }}
+    >
+      <polygon
+        points="12 2.8 14.85 9.05 21.7 9.85 16.6 14.55 18 21.2 12 17.85 6 21.2 7.4 14.55 2.3 9.85 9.15 9.05"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
@@ -5016,7 +5042,7 @@ export default function PINITApp() {
           right: "2rem",
           display: "flex",
           justifyContent: "space-around",
-          alignItems: "flex-end",
+          alignItems: "flex-start",
           padding: "1.5rem",
         }}
       >
@@ -5054,7 +5080,7 @@ export default function PINITApp() {
           }}
         >
           <div style={homeBottomNavIconSlotStyle}>
-            <Library size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+            <Library size={40} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
           </div>
           <span style={homeBottomNavLabelStyle}>Library</span>
           {/* Pin Count Badge - shows unviewed pending pins */}
@@ -5084,7 +5110,7 @@ export default function PINITApp() {
 
         <button
           onClick={() => setCurrentScreen("recommendations")}
-          style={{ ...homeBottomNavItemStyle, position: "relative", height: "auto", minHeight: 76 }}
+          style={{ ...homeBottomNavItemStyle, position: "relative" }}
           title="Picked for You"
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
@@ -5096,7 +5122,7 @@ export default function PINITApp() {
           }}
         >
           <div style={homeBottomNavIconSlotStyle}>
-            <Star size={35} style={{ color: MAPPO_HOME_TEXT_COLOR }} />
+            <StarIcon size={40} />
           </div>
           <span style={homeBottomNavLabelStyle}>Picked for You</span>
           {/* Notification Badge */}
