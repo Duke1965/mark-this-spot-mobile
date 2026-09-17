@@ -1883,7 +1883,9 @@ export default function AIRecommendationsHub({
         continue
       }
       const key = aiIdentityKey(rec)
-      if (aiIdentityByKeyRef.current.has(key)) continue
+      const prior = aiIdentityByKeyRef.current.get(key)
+      // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
+      if (prior && prior !== 'limited') continue
       if (aiIdentityInFlightRef.current.has(key)) continue
       if (aiIdentityTransientRef.current.has(key)) continue
       if (!pendingKeys.includes(key)) pendingKeys.push(key)
@@ -1963,11 +1965,12 @@ export default function AIRecommendationsHub({
             return
           }
           const reason = typeof data?.reason === 'string' ? data.reason : ''
-          if (reason === 'no_match' || reason === 'limited') {
-            aiIdentityByKeyRef.current.set(key, reason === 'limited' ? 'limited' : 'miss')
+          if (reason === 'no_match') {
+            aiIdentityByKeyRef.current.set(key, 'miss')
             return
           }
-          // Transient: network/route/abort/stale. Do not sticky-miss; allow a later List/Detail try.
+          // Transient: limiter/network/route/abort. Do not sticky-miss; later List/Detail may peek again.
+          aiIdentityByKeyRef.current.delete(key)
           aiIdentityTransientRef.current.add(key)
         })
         .catch(() => {

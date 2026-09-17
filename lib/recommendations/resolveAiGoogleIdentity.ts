@@ -31,7 +31,8 @@ function isClosedPermanently(status: string | undefined): boolean {
 
 function identityLimitKey(title: string, lat: number, lng: number): string {
   const name = title.trim().toLowerCase().slice(0, 80)
-  return `ai-identity:${lat.toFixed(4)}:${lng.toFixed(4)}:${name}`
+  // v2: Text Search only. Do not reuse `ai-identity:` docs consumed by the old Nearby path.
+  return `ai-identity-text:${lat.toFixed(4)}:${lng.toFixed(4)}:${name}`
 }
 
 /**
