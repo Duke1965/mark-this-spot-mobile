@@ -225,6 +225,16 @@ function enrichRecommendationIdentity(
   return changed ? next : existing
 }
 
+function aiRecommendationsMatch(a: Recommendation, b: Recommendation): boolean {
+  if (!a.isAISuggestion || !b.isAISuggestion) return false
+  if (String(a.id || '') && String(a.id) === String(b.id)) return true
+  if (aiIdentityKey(a) === aiIdentityKey(b)) return true
+  const aPlace = googlePlaceIdFromRecommendationFields(a)
+  const bPlace = googlePlaceIdFromRecommendationFields(b)
+  if (aPlace && bPlace && aPlace === bPlace) return true
+  return aiSamePlaceByNameAndDistance(a, b)
+}
+
 /** Community matches by id (Marras). AI also matches by title+coords / Place ID / name+250m. */
 function findExistingRecommendation(
   prev: Recommendation[],
@@ -236,15 +246,57 @@ function findExistingRecommendation(
     if (byId) return byId
   }
   if (!incoming.isAISuggestion) return undefined
-  const inKey = aiIdentityKey(incoming)
-  const inPlace = googlePlaceIdFromRecommendationFields(incoming)
-  return prev.find((existing) => {
-    if (!existing.isAISuggestion) return false
-    if (aiIdentityKey(existing) === inKey) return true
-    const exPlace = googlePlaceIdFromRecommendationFields(existing)
-    if (inPlace && exPlace && inPlace === exPlace) return true
-    return aiSamePlaceByNameAndDistance(existing, incoming)
-  })
+  return prev.find((existing) => aiRecommendationsMatch(existing, incoming))
+}
+
+function canonicalRecommendationRank(rec: Recommendation): number {
+  let rank = 0
+  if (googlePlaceIdFromRecommendationFields(rec)) rank += 4
+  if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) rank += 2
+  if (typeof rec.website === 'string' && rec.website.trim().startsWith('http')) rank += 1
+  return rank
+}
+
+/** Map/List selection identity → current object in canonical recommendations. Community: same id only. */
+function resolveCanonicalRecommendation(
+  canonical: Recommendation[],
+  selector: Recommendation
+): Recommendation | undefined {
+  if (!selector.isAISuggestion) {
+    const id = String(selector.id || '')
+    return id
+      ? canonical.find((r) => !r.isAISuggestion && String(r.id) === id)
+      : undefined
+  }
+  const matches = canonical.filter((r) => aiRecommendationsMatch(r, selector))
+  if (matches.length === 0) return undefined
+  let best = matches[0]
+  let bestRank = canonicalRecommendationRank(best)
+  for (let i = 1; i < matches.length; i++) {
+    const rank = canonicalRecommendationRank(matches[i])
+    if (rank > bestRank) {
+      best = matches[i]
+      bestRank = rank
+    }
+  }
+  return best
+}
+
+function resolveMarkerSelectionToCanonical(
+  canonical: Recommendation[],
+  selectors: Recommendation[]
+): Recommendation[] {
+  const seen = new Set<string>()
+  const out: Recommendation[] = []
+  for (const selector of selectors) {
+    const resolved = resolveCanonicalRecommendation(canonical, selector)
+    if (!resolved) continue
+    const id = String(resolved.id || '')
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(resolved)
+  }
+  return out
 }
 
 function buildDiscoverDetailShare(rec: Recommendation) {
@@ -491,8 +543,12 @@ export default function AIRecommendationsHub({
   
   // NEW: Load cached recommendations - will be defined after getLocationCacheKey and clusterPins
   
-  // NEW: State for filtered recommendations when viewing a specific cluster
-  const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
+  // Marker/cluster List is a view of canonical `recommendations`, keyed by selection identity.
+  const [markerSelectionItems, setMarkerSelectionItems] = useState<Recommendation[]>([])
+  const filteredRecommendations = useMemo(
+    () => resolveMarkerSelectionToCanonical(recommendations, markerSelectionItems),
+    [recommendations, markerSelectionItems]
+  )
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
@@ -1265,9 +1321,17 @@ export default function AIRecommendationsHub({
       return next
     })
 
-    // Update UI immediately (both main + any filtered list).
+    // Update UI immediately. Marker List is derived from canonical recommendations.
     setRecommendations((prev) => prev.filter((r) => String(r.id) !== id))
-    setFilteredRecommendations((prev) => prev.filter((r) => String(r.id) !== id))
+    setMarkerSelectionItems((prev) =>
+      prev.filter((selector) => {
+        if (String(selector.id) === id) return false
+        if (rec.isAISuggestion && selector.isAISuggestion && aiRecommendationsMatch(selector, rec)) {
+          return false
+        }
+        return true
+      })
+    )
   }, [])
 
   // Debug location data
@@ -1908,13 +1972,6 @@ export default function AIRecommendationsHub({
           return { ...rec, photoUrl, mediaUrl: photoUrl }
         })
       )
-      setFilteredRecommendations((prev) =>
-        prev.map((rec) => {
-          if (googlePlaceIdFromRecommendationFields(rec) !== placeId) return rec
-          if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) return rec
-          return { ...rec, photoUrl, mediaUrl: photoUrl }
-        })
-      )
       setSelectedRecommendation((prev: Recommendation | null) => {
         if (!prev) return prev
         if (googlePlaceIdFromRecommendationFields(prev) !== placeId) return prev
@@ -2024,7 +2081,6 @@ export default function AIRecommendationsHub({
       persistAIRecommendationsToServer([stamp(rec)])
       if (!aiIdentityMountedRef.current) return
       setRecommendations((prev) => prev.map(stamp))
-      setFilteredRecommendations((prev) => prev.map(stamp))
       setSelectedRecommendation((prev: Recommendation | null) => (prev ? stamp(prev) : prev))
     }
 
@@ -2388,9 +2444,9 @@ export default function AIRecommendationsHub({
       })
 
       el.addEventListener("click", () => {
-        // Show the exact items for this marker in the list view.
+        // Keep selection identity only; List derives current objects from recommendations.
         setRecommendationFilter(g.isAISuggestion ? "ai" : "user")
-        setFilteredRecommendations(g.items)
+        setMarkerSelectionItems(g.items)
         setIsShowingCluster(false)
         setCurrentCluster(null)
         setViewMode("list")
@@ -2906,7 +2962,7 @@ export default function AIRecommendationsHub({
                   onClick={() => {
                     setIsShowingCluster(false)
                     setCurrentCluster(null)
-                    setFilteredRecommendations([])
+                    setMarkerSelectionItems([])
                     setRecommendationFilter("all")
                     console.log('🧠 Returning to all recommendations')
                   }}
