@@ -422,6 +422,50 @@ function recTraceExplainResolve(selector: Recommendation, canonical: Recommendat
   }
 }
 
+const REC_TRACE_BUCKET_DEG = 0.0045
+const CAFE_FELIX_DIAG_LAT = -33.3833536
+const CAFE_FELIX_DIAG_LNG = 18.8912034
+
+function recTraceAreaKey(lat: number, lng: number): string {
+  const iLat = Math.round(lat / REC_TRACE_BUCKET_DEG)
+  const iLng = Math.round(lng / REC_TRACE_BUCKET_DEG)
+  return `${(iLat * REC_TRACE_BUCKET_DEG).toFixed(4)},${(iLng * REC_TRACE_BUCKET_DEG).toFixed(4)}`
+}
+
+function recTraceNeighborAreaKeys(lat: number, lng: number): string[] {
+  const iLat = Math.round(lat / REC_TRACE_BUCKET_DEG)
+  const iLng = Math.round(lng / REC_TRACE_BUCKET_DEG)
+  const keys: string[] = []
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLng = -1; dLng <= 1; dLng++) {
+      keys.push(
+        `${((iLat + dLat) * REC_TRACE_BUCKET_DEG).toFixed(4)},${((iLng + dLng) * REC_TRACE_BUCKET_DEG).toFixed(4)}`
+      )
+    }
+  }
+  return keys
+}
+
+function classifyCafeQueryFailure(serverTrace: any, clientHasToken: boolean): string {
+  const cafe = serverTrace?.cafeFelix
+  const uid = serverTrace?.uid ?? null
+  const areaQueried = cafe?.areaQueried === true
+  const encounters = Array.isArray(cafe?.documentsEncountered) ? cafe.documentsEncountered : []
+  const rejectedAuth = encounters.some(
+    (row: any) => row?.rejectionReason === 'ai_no_uid' || row?.rejectionReason === 'ai_uid_mismatch'
+  )
+  const accepted = encounters.some((row: any) => row?.accepted === true)
+  const noAuth = !uid || !clientHasToken
+  if (!areaQueried && noAuth) return 'A+B'
+  if (!areaQueried) return 'B'
+  if (areaQueried && rejectedAuth && !accepted) return 'A'
+  if (accepted) return 'OTHER: Café a_* was accepted by query'
+  if (areaQueried && encounters.length === 0) {
+    return 'OTHER: Café area queried, but a_* not in itemsSnap (limit/cell mismatch)'
+  }
+  return `OTHER: ${String(cafe?.classifiedFailure || cafe?.conclusion || 'unclassified')}`
+}
+
 function RecTracePanel() {
   const [open, setOpen] = useState(false)
   const [copyState, setCopyState] = useState('')
@@ -479,7 +523,7 @@ function RecTracePanel() {
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 800, color: '#fde68a' }}>
-            Temporary Café Felix + Marras Wines diagnostics. Clear between tests. Does not change recommendations.
+            Temporary query-gate diagnostics (Café Felix + Marras). Open Discover, then copy GATE_CLASSIFICATION. Does not change recommendations.
           </div>
           <textarea
             readOnly
@@ -1493,7 +1537,7 @@ export default function AIRecommendationsHub({
     }, 50)
   }, [fillStarterRecommendationsIfNeeded])
 
-  const loadRecommendationsFromServer = useCallback(async () => {
+  const loadRecommendationsFromServer = useCallback(async (reason: string = 'GPS_INIT') => {
     const lat = location?.latitude || location?.lat
     const lng = location?.longitude || location?.lng
     console.log('[Discover Debug] server load started', {
@@ -1506,16 +1550,52 @@ export default function AIRecommendationsHub({
       return
     }
     try {
+      const currentUser: any = (auth as any)?.currentUser
       const token = await getIdToken()
+      const neighborAreaKeys = recTraceNeighborAreaKeys(Number(lat), Number(lng))
+      const cafeAreaKey = recTraceAreaKey(CAFE_FELIX_DIAG_LAT, CAFE_FELIX_DIAG_LNG)
+      pushRecTrace('QUERY_CLIENT_AUTH', {
+        timestamp: new Date().toISOString(),
+        gps: { lat, lng },
+        authCurrentUserExists: !!currentUser,
+        currentUserUid: currentUser?.uid ? String(currentUser.uid) : null,
+        idTokenObtained: !!token,
+        authorizationHeaderSent: !!token,
+        hydrationReason: reason,
+        cafeAreaKey,
+        neighborAreaKeys,
+        cafeAreaInNine: neighborAreaKeys.includes(cafeAreaKey),
+      })
       const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       if (!resp.ok) {
         console.log('[Discover Debug] server load failed', { status: resp.status })
+        pushRecTrace('QUERY_SERVER', {
+          httpStatus: resp.status,
+          conclusion: 'query HTTP failed; cannot classify A/B from server itemsSnap',
+        })
         scheduleFillStarterRecommendations()
         return
       }
       const data = await resp.json()
+      const serverTrace = data?._recommendationQueryTrace
+      if (serverTrace) {
+        pushRecTrace('QUERY_SERVER', serverTrace)
+        pushRecTrace('GATE_CLASSIFICATION', {
+          classifiedFailure: classifyCafeQueryFailure(serverTrace, !!token),
+          cafeAreaKey: serverTrace?.cafeFelix?.areaKey,
+          cafeAreaQueried: serverTrace?.cafeFelix?.areaQueried,
+          cafeConclusion: serverTrace?.cafeFelix?.conclusion,
+          cafeDocumentsEncountered: serverTrace?.cafeFelix?.documentsEncountered,
+          marrasAreaIncluded: serverTrace?.marras?.areaIncluded,
+          marrasRichDocumentAccepted: serverTrace?.marras?.richDocumentAccepted,
+          marrasDocumentsEncountered: serverTrace?.marras?.documentsEncountered,
+          bearerReceived: serverTrace?.bearerReceived,
+          tokenVerified: serverTrace?.tokenVerified,
+          requestUid: serverTrace?.uid ?? null,
+        })
+      }
       const serverRecs: Recommendation[] = Array.isArray(data?.recommendations)
         ? data.recommendations
         : []

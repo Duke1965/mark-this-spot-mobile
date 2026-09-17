@@ -79,6 +79,51 @@ async function getUidFromRequest(req: Request): Promise<string | null> {
   }
 }
 
+const CAFE_FELIX_DIAG_LAT = -33.3833536
+const CAFE_FELIX_DIAG_LNG = 18.8912034
+
+function normalizeTraceTitle(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tracePlaceFromTitle(title: string | undefined): 'cafe-felix' | 'marras-wines' | null {
+  const n = normalizeTraceTitle(title || '')
+  if (n.includes('cafe felix')) return 'cafe-felix'
+  if (n.includes('marras wines') || n === 'marras') return 'marras-wines'
+  return null
+}
+
+function areaKey(lat: number, lng: number): string {
+  const { iLat, iLng } = areaIndices(lat, lng)
+  return areaKeyFromIndices(iLat, iLng)
+}
+
+function diagnosticGateDecision(
+  data: StoredRecommendation | undefined,
+  uid: string | null,
+  alreadySeen: boolean
+): { accepted: boolean; rejectionReason: string | null } {
+  if (!data || !data.kind) {
+    return { accepted: false, rejectionReason: 'missing_kind' }
+  }
+  if (data.kind === 'ai') {
+    const p = data.personalizedForUid ?? null
+    if (p && !uid) return { accepted: false, rejectionReason: 'ai_no_uid' }
+    if (p && uid && p !== uid) return { accepted: false, rejectionReason: 'ai_uid_mismatch' }
+    if (data.closedPermanently === true) {
+      return { accepted: false, rejectionReason: 'ai_closed_permanently' }
+    }
+  }
+  if (alreadySeen) return { accepted: false, rejectionReason: 'duplicate_id' }
+  return { accepted: true, rejectionReason: null }
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const lat = num(url.searchParams.get('lat'))
@@ -92,8 +137,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: 'firestore_unavailable' }, { status: 500 })
   }
 
+  const authHeader = req.headers.get('authorization') || ''
+  const bearerReceived = /^Bearer\s+\S+/i.test(authHeader.trim())
   const uid = await getUidFromRequest(req)
+  const tokenVerified = !!uid
   const keys = neighborAreaKeys(lat, lng)
+  const cafeAreaKey = areaKey(CAFE_FELIX_DIAG_LAT, CAFE_FELIX_DIAG_LNG)
+  const cafeAreaQueried = keys.includes(cafeAreaKey)
+  const cafeEncounters: Array<Record<string, unknown>> = []
+  const marrasEncounters: Array<Record<string, unknown>> = []
 
   const results: Array<any> = []
   const seen = new Set<string>()
@@ -111,6 +163,25 @@ export async function GET(req: Request) {
 
       for (const doc of itemsSnap.docs) {
         const data = doc.data() as StoredRecommendation
+        const tracePlace = tracePlaceFromTitle(data?.title)
+        if (tracePlace) {
+          const gate = diagnosticGateDecision(data, uid, seen.has(doc.id))
+          const row = {
+            areaKey: key,
+            documentId: doc.id,
+            kind: data?.kind ?? null,
+            personalizedForUid: data?.personalizedForUid ?? null,
+            requestUid: uid,
+            closedPermanently: data?.closedPermanently === true,
+            googlePlaceId: data?.googlePlaceId ?? null,
+            placeId: data?.placeId ?? null,
+            placeKey: data?.placeKey ?? null,
+            accepted: gate.accepted,
+            rejectionReason: gate.rejectionReason,
+          }
+          if (tracePlace === 'cafe-felix') cafeEncounters.push(row)
+          else marrasEncounters.push(row)
+        }
         if (!data || !data.kind) continue
 
         if (data.kind === 'ai') {
@@ -204,11 +275,61 @@ export async function GET(req: Request) {
     }
   }
 
+  const cafeAccepted = cafeEncounters.some((row) => row.accepted === true)
+  const cafeRejectedAuth = cafeEncounters.some(
+    (row) =>
+      row.rejectionReason === 'ai_no_uid' || row.rejectionReason === 'ai_uid_mismatch'
+  )
+  let cafeConclusion = 'OTHER'
+  if (!cafeAreaQueried && !uid) cafeConclusion = 'A+B'
+  else if (!cafeAreaQueried) cafeConclusion = 'B_AREA_NOT_QUERIED'
+  else if (cafeEncounters.length === 0) {
+    cafeConclusion =
+      'OTHER_AREA_QUERIED_BUT_DOC_NOT_IN_SNAP (not in top 60 or stored under a different cell)'
+  } else if (!cafeAccepted && cafeRejectedAuth) cafeConclusion = 'A_AUTH_REJECTED'
+  else if (cafeAccepted) cafeConclusion = 'ACCEPTED'
+  else cafeConclusion = 'OTHER_ENCOUNTERED_BUT_REJECTED'
+
+  const marrasAreaKeys = Array.from(
+    new Set(marrasEncounters.map((row) => String(row.areaKey || '')))
+  ).filter(Boolean)
+  const marrasRichAccepted = marrasEncounters.filter(
+    (row) =>
+      row.accepted === true &&
+      (row.googlePlaceId || String(row.placeKey || '').startsWith('place:'))
+  )
+
   return NextResponse.json({
     ok: true,
     areaKeys: keys,
     personalized: !!uid,
-    recommendations: results
+    recommendations: results,
+    _recommendationQueryTrace: {
+      bearerReceived,
+      tokenVerified,
+      uid,
+      userLat: lat,
+      userLng: lng,
+      neighborAreaKeys: keys,
+      cafeFelix: {
+        diagnosticCoords: { lat: CAFE_FELIX_DIAG_LAT, lng: CAFE_FELIX_DIAG_LNG },
+        areaKey: cafeAreaKey,
+        areaQueried: cafeAreaQueried,
+        documentsEncountered: cafeEncounters,
+        conclusion: cafeEncounters.length === 0 && !cafeAreaQueried
+          ? 'Café area key is NOT among the nine queried keys; a_* was never in itemsSnap'
+          : cafeEncounters.length === 0 && cafeAreaQueried
+            ? 'Café area WAS queried, but no Café Felix document appeared in itemsSnap'
+            : cafeConclusion,
+        classifiedFailure: cafeConclusion,
+      },
+      marras: {
+        areaKeysEncountered: marrasAreaKeys,
+        areaIncluded: marrasAreaKeys.some((k) => keys.includes(k)),
+        documentsEncountered: marrasEncounters,
+        richDocumentAccepted: marrasRichAccepted.length > 0,
+      },
+    },
   })
 }
 
