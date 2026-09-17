@@ -299,313 +299,6 @@ function resolveMarkerSelectionToCanonical(
   return out
 }
 
-const REC_TRACE_PREFIX = '[RECOMMENDATION-TRACE]'
-const REC_TRACE_STORAGE_KEY = 'recommendation-trace-v1'
-const REC_TRACE_STORAGE_KEY_LEGACY = 'cafe-felix-trace-v1'
-const recTraceBuffer: string[] = []
-const recTraceListeners = new Set<() => void>()
-
-function tracedPlaceKey(title: string | undefined): 'cafe-felix' | 'marras-wines' | null {
-  const n = normalizeAiPlaceName(title || '')
-  if (n.includes('cafe felix')) return 'cafe-felix'
-  if (n.includes('marras wines') || n === 'marras') return 'marras-wines'
-  return null
-}
-
-function isTracedPlaceRec(rec: { title?: string } | null | undefined): boolean {
-  return tracedPlaceKey(rec?.title) != null
-}
-
-function recTraceSnapshot(rec: Recommendation) {
-  return {
-    tracePlace: tracedPlaceKey(rec.title),
-    id: rec.id,
-    title: rec.title,
-    lat: rec.location?.lat ?? null,
-    lng: rec.location?.lng ?? null,
-    googlePlaceId: rec.googlePlaceId ?? null,
-    placeId: rec.placeId ?? null,
-    placeKey: rec.placeKey ?? null,
-    photoUrl: rec.photoUrl ?? null,
-    mediaUrl: rec.mediaUrl ?? null,
-    website: rec.website ?? null,
-    isAISuggestion: rec.isAISuggestion === true,
-  }
-}
-
-function pushRecTrace(stage: string, payload: unknown) {
-  const body =
-    typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
-  const line = `${REC_TRACE_PREFIX} ${stage}\n${body}`
-  console.log(REC_TRACE_PREFIX, stage, payload)
-  recTraceBuffer.push(`${new Date().toISOString()} ${line}`)
-  if (recTraceBuffer.length > 250) {
-    recTraceBuffer.splice(0, recTraceBuffer.length - 250)
-  }
-  if (typeof window !== 'undefined') {
-    const w = window as Window & {
-      __RECOMMENDATION_TRACE__?: string[]
-      __CAFE_FELIX_TRACE__?: string[]
-    }
-    w.__RECOMMENDATION_TRACE__ = recTraceBuffer
-    w.__CAFE_FELIX_TRACE__ = recTraceBuffer
-    const joined = recTraceBuffer.join('\n\n')
-    try {
-      sessionStorage.setItem(REC_TRACE_STORAGE_KEY, joined)
-      sessionStorage.setItem(REC_TRACE_STORAGE_KEY_LEGACY, joined)
-    } catch {
-      // ignore quota
-    }
-  }
-  recTraceListeners.forEach((fn) => fn())
-}
-
-function recTraceDistanceMeters(a: Recommendation, b: Recommendation): number | null {
-  const ac = recFiniteCoords(a)
-  const bc = recFiniteCoords(b)
-  if (!ac || !bc) return null
-  return Math.round(haversineDistanceMeters(ac, bc))
-}
-
-function recTraceRejectReason(selector: Recommendation, candidate: Recommendation): string {
-  if (!selector.isAISuggestion) {
-    if (candidate.isAISuggestion) return 'rejected: community selector vs AI candidate'
-    if (String(selector.id || '') && String(selector.id) === String(candidate.id)) {
-      return 'match: community same id'
-    }
-    return `rejected: community id mismatch (${selector.id} vs ${candidate.id})`
-  }
-  if (!candidate.isAISuggestion) return 'rejected: not AI'
-  if (String(selector.id || '') && String(selector.id) === String(candidate.id)) return 'match: same id'
-  if (aiIdentityKey(selector) === aiIdentityKey(candidate)) return 'match: aiIdentityKey'
-  const aPlace = googlePlaceIdFromRecommendationFields(selector)
-  const bPlace = googlePlaceIdFromRecommendationFields(candidate)
-  if (aPlace && bPlace && aPlace === bPlace) return 'match: Place ID'
-  if (!aiPlaceNamesMatch(selector.title, candidate.title)) {
-    return `rejected: names do not match (${normalizeAiPlaceName(selector.title)} vs ${normalizeAiPlaceName(candidate.title)})`
-  }
-  const dist = recTraceDistanceMeters(selector, candidate)
-  if (dist == null) return 'rejected: missing coordinates'
-  if (dist > AI_SAME_PLACE_MAX_DISTANCE_M) {
-    return `rejected: distance ${dist}m > ${AI_SAME_PLACE_MAX_DISTANCE_M}m`
-  }
-  return `match: name+distance (${dist}m)`
-}
-
-function recTraceWouldMatch(selector: Recommendation, candidate: Recommendation): boolean {
-  if (!selector.isAISuggestion) {
-    return !candidate.isAISuggestion && String(selector.id || '') === String(candidate.id || '')
-  }
-  return aiRecommendationsMatch(selector, candidate)
-}
-
-function recTraceExplainResolve(selector: Recommendation, canonical: Recommendation[]) {
-  const place = tracedPlaceKey(selector.title)
-  const candidates = canonical.filter((row) => tracedPlaceKey(row.title) === place)
-  const chosen = resolveCanonicalRecommendation(canonical, selector)
-  return {
-    tracePlace: place,
-    selector: recTraceSnapshot(selector),
-    gItemId: selector.id,
-    selectorNormalizedName: normalizeAiPlaceName(selector.title),
-    candidates: candidates.map((candidate) => ({
-      ...recTraceSnapshot(candidate),
-      normalizedName: normalizeAiPlaceName(candidate.title),
-      distanceMeters: recTraceDistanceMeters(selector, candidate),
-      richness: canonicalRecommendationRank(candidate),
-      why: recTraceRejectReason(selector, candidate),
-      wouldMatch: recTraceWouldMatch(selector, candidate),
-      chosen: !!chosen && String(chosen.id) === String(candidate.id),
-    })),
-    chosen: chosen ? recTraceSnapshot(chosen) : null,
-    chosenId: chosen?.id ?? null,
-  }
-}
-
-const REC_TRACE_BUCKET_DEG = 0.0045
-const CAFE_FELIX_DIAG_LAT = -33.3833536
-const CAFE_FELIX_DIAG_LNG = 18.8912034
-
-function recTraceAreaKey(lat: number, lng: number): string {
-  const iLat = Math.round(lat / REC_TRACE_BUCKET_DEG)
-  const iLng = Math.round(lng / REC_TRACE_BUCKET_DEG)
-  return `${(iLat * REC_TRACE_BUCKET_DEG).toFixed(4)},${(iLng * REC_TRACE_BUCKET_DEG).toFixed(4)}`
-}
-
-function recTraceNeighborAreaKeys(lat: number, lng: number): string[] {
-  const iLat = Math.round(lat / REC_TRACE_BUCKET_DEG)
-  const iLng = Math.round(lng / REC_TRACE_BUCKET_DEG)
-  const keys: string[] = []
-  for (let dLat = -1; dLat <= 1; dLat++) {
-    for (let dLng = -1; dLng <= 1; dLng++) {
-      keys.push(
-        `${((iLat + dLat) * REC_TRACE_BUCKET_DEG).toFixed(4)},${((iLng + dLng) * REC_TRACE_BUCKET_DEG).toFixed(4)}`
-      )
-    }
-  }
-  return keys
-}
-
-function classifyCafeQueryFailure(serverTrace: any, clientHasToken: boolean): string {
-  const cafe = serverTrace?.cafeFelix
-  const uid = serverTrace?.uid ?? null
-  const areaQueried = cafe?.areaQueried === true
-  const encounters = Array.isArray(cafe?.documentsEncountered) ? cafe.documentsEncountered : []
-  const rejectedAuth = encounters.some(
-    (row: any) => row?.rejectionReason === 'ai_no_uid' || row?.rejectionReason === 'ai_uid_mismatch'
-  )
-  const accepted = encounters.some((row: any) => row?.accepted === true)
-  const acceptedViaPersonalized = encounters.some(
-    (row: any) => row?.accepted === true && row?.source === 'collection-group'
-  )
-  const personalizedQuery = serverTrace?.personalizedQuery
-  const noAuth = !uid || !clientHasToken
-  if (acceptedViaPersonalized) return 'ACCEPTED_VIA_PERSONALIZED_QUERY'
-  if (accepted) return 'ACCEPTED'
-  if (personalizedQuery && personalizedQuery.ran && personalizedQuery.ok === false) {
-    return `OTHER: collection-group failed: ${String(personalizedQuery.errorMessage || personalizedQuery.errorCode || 'unknown')}`
-  }
-  if (!areaQueried && noAuth) return 'A+B'
-  if (!areaQueried) return 'B'
-  if (areaQueried && rejectedAuth && !accepted) return 'A'
-  if (areaQueried && encounters.length === 0) {
-    return 'OTHER: Café area queried, but a_* not in itemsSnap (limit/cell mismatch)'
-  }
-  return `OTHER: ${String(cafe?.classifiedFailure || cafe?.conclusion || 'unclassified')}`
-}
-
-function RecTracePanel() {
-  const [open, setOpen] = useState(false)
-  const [copyState, setCopyState] = useState('')
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const onChange = () => setTick((n) => n + 1)
-    recTraceListeners.add(onChange)
-    return () => {
-      recTraceListeners.delete(onChange)
-    }
-  }, [])
-  const text = recTraceBuffer.join('\n\n')
-  const count = recTraceBuffer.length
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        right: 8,
-        bottom: 8,
-        zIndex: 99999,
-        maxWidth: '92vw',
-        fontFamily: 'ui-monospace, monospace',
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          background: '#111827',
-          color: '#fde68a',
-          border: '1px solid #f59e0b',
-          borderRadius: 999,
-          padding: '8px 12px',
-          fontSize: 12,
-          fontWeight: 800,
-          cursor: 'pointer',
-        }}
-      >
-        REC TRACE ({count})
-      </button>
-      {open ? (
-        <div
-          style={{
-            marginTop: 8,
-            width: 'min(420px, 92vw)',
-            maxHeight: '55vh',
-            background: 'rgba(17,24,39,0.96)',
-            color: '#e5e7eb',
-            border: '1px solid #f59e0b',
-            borderRadius: 12,
-            padding: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 800, color: '#fde68a' }}>
-            Temporary query-gate diagnostics (Café Felix + Marras). Open Discover, then copy GATE_CLASSIFICATION. Does not change recommendations.
-          </div>
-          <textarea
-            readOnly
-            value={text || 'No [RECOMMENDATION-TRACE] lines yet. Open Discover, then tap Marras Wines or Café Felix.'}
-            style={{
-              width: '100%',
-              height: 220,
-              fontSize: 10,
-              background: '#030712',
-              color: '#fef3c7',
-              border: '1px solid #374151',
-              borderRadius: 8,
-              padding: 8,
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(text)
-                  setCopyState('copied')
-                } catch {
-                  setCopyState('select-all in the box and copy')
-                }
-              }}
-              style={{
-                flex: 1,
-                background: '#f59e0b',
-                color: '#111827',
-                border: 0,
-                borderRadius: 8,
-                padding: '8px 10px',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              Copy trace
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                recTraceBuffer.splice(0, recTraceBuffer.length)
-                try {
-                  sessionStorage.removeItem(REC_TRACE_STORAGE_KEY)
-                  sessionStorage.removeItem(REC_TRACE_STORAGE_KEY_LEGACY)
-                } catch {
-                  // ignore
-                }
-                setCopyState('')
-                recTraceListeners.forEach((fn) => fn())
-              }}
-              style={{
-                background: 'transparent',
-                color: '#fde68a',
-                border: '1px solid #f59e0b',
-                borderRadius: 8,
-                padding: '8px 10px',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              Clear
-            </button>
-          </div>
-          {copyState ? (
-            <div style={{ fontSize: 11, color: '#fde68a' }}>{copyState}</div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function buildDiscoverDetailShare(rec: Recommendation) {
   const title = rec.title || 'Check this place out'
   const placeId = googlePlaceIdFromRecommendationFields(rec)
@@ -856,7 +549,6 @@ export default function AIRecommendationsHub({
     () => resolveMarkerSelectionToCanonical(recommendations, markerSelectionItems),
     [recommendations, markerSelectionItems]
   )
-  const recTraceCanonicalSigRef = useRef('')
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
@@ -1312,31 +1004,6 @@ export default function AIRecommendationsHub({
     recommendationsRef.current = recommendations
   }, [recommendations])
 
-  useEffect(() => {
-    const rows = recommendations.filter(isTracedPlaceRec)
-    const sig = JSON.stringify(rows.map(recTraceSnapshot))
-    if (sig === recTraceCanonicalSigRef.current) return
-    recTraceCanonicalSigRef.current = sig
-    pushRecTrace('CANONICAL', { count: rows.length, records: rows.map(recTraceSnapshot) })
-  }, [recommendations])
-
-  useEffect(() => {
-    const selectorHits = markerSelectionItems.filter(isTracedPlaceRec)
-    const rows = filteredRecommendations.filter(isTracedPlaceRec)
-    if (selectorHits.length === 0 && rows.length === 0) return
-    pushRecTrace('FILTERED_RECOMMENDATIONS', {
-      selectorCount: selectorHits.length,
-      count: rows.length,
-      records: rows.map(recTraceSnapshot),
-    })
-  }, [filteredRecommendations, markerSelectionItems])
-
-  useEffect(() => {
-    if (!showReadOnlyRecommendation || !selectedRecommendation) return
-    if (!isTracedPlaceRec(selectedRecommendation)) return
-    pushRecTrace('DETAIL', recTraceSnapshot(selectedRecommendation))
-  }, [showReadOnlyRecommendation, selectedRecommendation])
-
   const fillStarterInFlightRef = useRef(false)
   const fillStarterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1545,7 +1212,7 @@ export default function AIRecommendationsHub({
     }, 50)
   }, [fillStarterRecommendationsIfNeeded])
 
-  const loadRecommendationsFromServer = useCallback(async (reason: string = 'GPS_INIT') => {
+  const loadRecommendationsFromServer = useCallback(async () => {
     const lat = location?.latitude || location?.lat
     const lng = location?.longitude || location?.lng
     console.log('[Discover Debug] server load started', {
@@ -1558,69 +1225,22 @@ export default function AIRecommendationsHub({
       return
     }
     try {
-      const currentUser: any = (auth as any)?.currentUser
       const token = await getIdToken()
-      const neighborAreaKeys = recTraceNeighborAreaKeys(Number(lat), Number(lng))
-      const cafeAreaKey = recTraceAreaKey(CAFE_FELIX_DIAG_LAT, CAFE_FELIX_DIAG_LNG)
-      pushRecTrace('QUERY_CLIENT_AUTH', {
-        timestamp: new Date().toISOString(),
-        gps: { lat, lng },
-        authCurrentUserExists: !!currentUser,
-        currentUserUid: currentUser?.uid ? String(currentUser.uid) : null,
-        idTokenObtained: !!token,
-        authorizationHeaderSent: !!token,
-        hydrationReason: reason,
-        cafeAreaKey,
-        neighborAreaKeys,
-        cafeAreaInNine: neighborAreaKeys.includes(cafeAreaKey),
-      })
       const resp = await fetch(`/api/recommendations/query?lat=${lat}&lng=${lng}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       if (!resp.ok) {
         console.log('[Discover Debug] server load failed', { status: resp.status })
-        pushRecTrace('QUERY_SERVER', {
-          httpStatus: resp.status,
-          conclusion: 'query HTTP failed; cannot classify A/B from server itemsSnap',
-        })
         scheduleFillStarterRecommendations()
         return
       }
       const data = await resp.json()
-      const serverTrace = data?._recommendationQueryTrace
-      if (serverTrace) {
-        pushRecTrace('QUERY_SERVER', serverTrace)
-        pushRecTrace('GATE_CLASSIFICATION', {
-          classifiedFailure: classifyCafeQueryFailure(serverTrace, !!token),
-          cafeAreaKey: serverTrace?.cafeFelix?.areaKey,
-          cafeAreaQueried: serverTrace?.cafeFelix?.areaQueried,
-          cafeConclusion: serverTrace?.cafeFelix?.conclusion,
-          cafeDocumentsEncountered: serverTrace?.cafeFelix?.documentsEncountered,
-          personalizedQuery: serverTrace?.personalizedQuery,
-          marrasAreaIncluded: serverTrace?.marras?.areaIncluded,
-          marrasRichDocumentAccepted: serverTrace?.marras?.richDocumentAccepted,
-          marrasDocumentsEncountered: serverTrace?.marras?.documentsEncountered,
-          bearerReceived: serverTrace?.bearerReceived,
-          tokenVerified: serverTrace?.tokenVerified,
-          requestUid: serverTrace?.uid ?? null,
-        })
-      }
       const serverRecs: Recommendation[] = Array.isArray(data?.recommendations)
         ? data.recommendations
         : []
       const visible = serverRecs.filter(
         (r) => !dismissedRecommendationIds.has(String(r.id))
       )
-      const tracedServer = serverRecs.filter(isTracedPlaceRec)
-      const tracedVisible = visible.filter(isTracedPlaceRec)
-      if (tracedServer.length > 0 || tracedVisible.length > 0) {
-        pushRecTrace('SERVER/HYDRATION', {
-          serverCount: tracedServer.length,
-          visibleCount: tracedVisible.length,
-          serverRecords: tracedServer.map(recTraceSnapshot),
-          visibleRecords: tracedVisible.map(recTraceSnapshot),
-        })
-      }
       setRecommendations((prev) => {
         const merged = mergeRecommendationsById(prev, visible)
         const communityCount = merged.filter((r) => !r.isAISuggestion).length
@@ -2824,16 +2444,6 @@ export default function AIRecommendationsHub({
       })
 
       el.addEventListener("click", () => {
-        const tracedSelectors = g.items.filter(isTracedPlaceRec)
-        if (tracedSelectors.length > 0) {
-          const canonicalNow = recommendationsRef.current
-          pushRecTrace('MARKER_CLICK', {
-            gItems: g.items.map(recTraceSnapshot),
-            selectors: tracedSelectors.map((selector) =>
-              recTraceExplainResolve(selector, canonicalNow)
-            ),
-          })
-        }
         // Keep selection identity only; List derives current objects from recommendations.
         setRecommendationFilter(g.isAISuggestion ? "ai" : "user")
         setMarkerSelectionItems(g.items)
@@ -3411,9 +3021,6 @@ export default function AIRecommendationsHub({
                     key={rec.id}
                     onClick={() => {
                       console.log('📍 Card clicked for:', rec.title)
-                      if (isTracedPlaceRec(rec)) {
-                        pushRecTrace('LIST_CARD_CLICK', recTraceSnapshot(rec))
-                      }
                       setSelectedRecommendation(rec)
                       // First show read-only view, then user can choose to save/share
                       setShowReadOnlyRecommendation(true)
@@ -3829,19 +3436,11 @@ export default function AIRecommendationsHub({
               <button
                 type="button"
                 onClick={() => {
-                  const placeId = googlePlaceIdFromRecommendationFields(selectedRecommendation)
-                  if (isTracedPlaceRec(selectedRecommendation)) {
-                    pushRecTrace('GO_THERE', {
-                      ...recTraceSnapshot(selectedRecommendation),
-                      googlePlaceIdResolved: placeId || null,
-                      navigationBranch: placeId ? 'PLACE ID' : 'COORDINATES',
-                    })
-                  }
                   openGoogleMapsNavigation({
                     latitude: Number(selectedRecommendation.location.lat),
                     longitude: Number(selectedRecommendation.location.lng),
                     placeName: selectedRecommendation.title,
-                    placeId,
+                    placeId: googlePlaceIdFromRecommendationFields(selectedRecommendation),
                   })
                 }}
                 onMouseEnter={(e) => {
@@ -4213,7 +3812,6 @@ export default function AIRecommendationsHub({
           }}
         />
       )}
-      <RecTracePanel />
     </div>
   )
 } 
