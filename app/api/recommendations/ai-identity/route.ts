@@ -19,7 +19,14 @@ export async function GET(req: Request) {
   }
 
   try {
-    const resolved = await resolveAiGoogleIdentity({ title, lat, lng })
+    const resolved = await resolveAiGoogleIdentity({
+      title,
+      lat,
+      lng,
+      placeId: String(url.searchParams.get("placeId") || "").trim() || undefined,
+      website: String(url.searchParams.get("website") || "").trim() || undefined,
+      currentDescription: url.searchParams.get("description") ?? undefined,
+    })
     if (!resolved.ok) {
       return NextResponse.json({
         ok: false,
@@ -33,6 +40,7 @@ export async function GET(req: Request) {
       placeId: resolved.placeId,
       photoUrl: resolved.photoUrl,
       website: resolved.website || null,
+      description: resolved.description || null,
       source: resolved.source,
     })
   } catch {

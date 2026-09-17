@@ -155,3 +155,56 @@ export function buildDescription(place: PlaceTextInput | null | undefined): stri
 
   return sanitizePlaceDescription(parts.join(' ').replace(/\s+/g, ' ').trim())
 }
+
+function normalizePlaceText(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * True when the string is empty or is formatted-address copy (Geoapify/Google),
+ * not meaningful place prose. Prefers equality with a known address when given.
+ */
+export function isAddressLikeDescription(
+  description: string | null | undefined,
+  knownAddress?: string | null
+): boolean {
+  const raw = collapseSpaces(description)
+  if (!raw) return true
+
+  const known = collapseSpaces(knownAddress)
+  if (known) {
+    const nDesc = normalizePlaceText(raw)
+    const nAddr = normalizePlaceText(known)
+    if (nDesc && nAddr && (nDesc === nAddr || nDesc.includes(nAddr) || nAddr.includes(nDesc))) {
+      return true
+    }
+  }
+
+  // Formatted addresses are comma lists without sentence punctuation.
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 3 || /[.!?]/.test(raw)) return false
+
+  const hasStreetOrAdmin =
+    /\b(street|st\.?|road|rd\.?|avenue|ave\.?|drive|dr\.?|lane|ln\.?|boulevard|blvd\.?|ward|municipality|province|district|county)\b/i.test(
+      raw
+    )
+  const last = parts[parts.length - 1] || ''
+  const hasCountryOrPostal =
+    /\b\d{4,5}\b/.test(raw) ||
+    /^(south africa|namibia|botswana|zimbabwe|mozambique|lesotho|eswatini|united states|united kingdom|australia|canada|france|germany|spain|italy|portugal|ireland|new zealand)$/i.test(
+      last
+    )
+  return hasStreetOrAdmin && hasCountryOrPostal
+}
+
+function collapseSpaces(s: string | null | undefined): string {
+  return String(s || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}

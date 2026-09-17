@@ -15,6 +15,7 @@ import {
   openGoogleMapsNavigation,
 } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
+import { isAddressLikeDescription } from '@/lib/places/formatPlaceText'
 import {
   genuineCommunityPhotoUrl,
   googlePlaceIdFromRecommendationFields,
@@ -220,6 +221,19 @@ function enrichRecommendationIdentity(
   if (incomingWebsite && !trimPlaceKey(existing.website)) {
     next.website = incomingWebsite
     changed = true
+  }
+
+  if (existing.isAISuggestion && incoming.isAISuggestion) {
+    const existingDesc = typeof existing.description === 'string' ? existing.description.trim() : ''
+    const incomingDesc = typeof incoming.description === 'string' ? incoming.description.trim() : ''
+    if (
+      incomingDesc &&
+      isAddressLikeDescription(existingDesc) &&
+      !isAddressLikeDescription(incomingDesc)
+    ) {
+      next.description = incomingDesc
+      changed = true
+    }
   }
 
   return changed ? next : existing
@@ -2025,7 +2039,6 @@ export default function AIRecommendationsHub({
 
     for (const rec of recommendations) {
       if (!rec.isAISuggestion) continue
-      if (googlePlaceIdFromRecommendationFields(rec)) continue
       const title = String(rec.title || '').trim()
       const lat = rec.location?.lat
       const lng = rec.location?.lng
@@ -2039,11 +2052,20 @@ export default function AIRecommendationsHub({
         continue
       }
       const key = aiIdentityKey(rec)
-      const prior = aiIdentityByKeyRef.current.get(key)
-      // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
-      if (prior && prior !== 'limited') continue
+      const hasPlaceId = !!googlePlaceIdFromRecommendationFields(rec)
+      const needsIdentity = !hasPlaceId
+      const needsDescription =
+        hasPlaceId &&
+        isAddressLikeDescription(rec.description) &&
+        !aiDescriptionUpgradeByKeyRef.current.has(key)
+      if (!needsIdentity && !needsDescription) continue
+      if (needsIdentity) {
+        const prior = aiIdentityByKeyRef.current.get(key)
+        // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
+        if (prior && prior !== 'limited') continue
+        if (aiIdentityTransientRef.current.has(key)) continue
+      }
       if (aiIdentityInFlightRef.current.has(key)) continue
-      if (aiIdentityTransientRef.current.has(key)) continue
       if (!pendingKeys.includes(key)) pendingKeys.push(key)
       if (!recByKey.has(key)) recByKey.set(key, rec)
     }
@@ -2055,6 +2077,7 @@ export default function AIRecommendationsHub({
         placeId: string
         photoUrl?: string | null
         website?: string | null
+        description?: string | null
       }
     ) => {
       const placeId = String(data.placeId || '').trim()
@@ -2064,6 +2087,8 @@ export default function AIRecommendationsHub({
         typeof data.website === 'string' && data.website.trim().startsWith('http')
           ? data.website.trim()
           : undefined
+      const incomingDesc =
+        typeof data.description === 'string' ? data.description.trim() : ''
       const stamp = (row: Recommendation): Recommendation => {
         if (aiIdentityKey(row) !== key && String(row.id) !== String(rec.id)) return row
         let next: Recommendation = {
@@ -2076,6 +2101,13 @@ export default function AIRecommendationsHub({
           next = { ...next, photoUrl, mediaUrl: photoUrl }
         }
         if (website && !next.website) next = { ...next, website }
+        if (
+          incomingDesc &&
+          isAddressLikeDescription(next.description) &&
+          !isAddressLikeDescription(incomingDesc)
+        ) {
+          next = { ...next, description: incomingDesc }
+        }
         return next
       }
       persistAIRecommendationsToServer([stamp(rec)])
@@ -2088,11 +2120,17 @@ export default function AIRecommendationsHub({
       const rec = recByKey.get(key)
       if (!rec) continue
       aiIdentityInFlightRef.current.add(key)
+      const knownPlaceId = googlePlaceIdFromRecommendationFields(rec)
       const params = new URLSearchParams({
         title: rec.title,
         lat: String(rec.location.lat),
         lng: String(rec.location.lng),
       })
+      if (rec.description) params.set('description', rec.description)
+      if (knownPlaceId) params.set('placeId', knownPlaceId)
+      if (typeof rec.website === 'string' && rec.website.trim().startsWith('http')) {
+        params.set('website', rec.website.trim())
+      }
       void fetch(`/api/recommendations/ai-identity?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
@@ -2117,7 +2155,13 @@ export default function AIRecommendationsHub({
               placeId,
               photoUrl: data.photoUrl,
               website: data.website,
+              description: data.description,
             })
+            const returnedDesc =
+              typeof data.description === 'string' ? data.description.trim() : ''
+            if (knownPlaceId || (returnedDesc && !isAddressLikeDescription(returnedDesc))) {
+              aiDescriptionUpgradeByKeyRef.current.add(key)
+            }
             return
           }
           const reason = typeof data?.reason === 'string' ? data.reason : ''
@@ -2283,6 +2327,7 @@ export default function AIRecommendationsHub({
   const aiIdentityTransientRef = useRef<Set<string>>(new Set())
   const aiIdentityNavTokenRef = useRef('')
   const aiIdentityMountedRef = useRef(true)
+  const aiDescriptionUpgradeByKeyRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     aiIdentityMountedRef.current = true
