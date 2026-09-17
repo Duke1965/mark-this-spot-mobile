@@ -299,6 +299,228 @@ function resolveMarkerSelectionToCanonical(
   return out
 }
 
+const CAFE_FELIX_TRACE_PREFIX = '[CAFE-FELIX-TRACE]'
+const CAFE_FELIX_TRACE_STORAGE_KEY = 'cafe-felix-trace-v1'
+const cafeFelixTraceBuffer: string[] = []
+const cafeFelixTraceListeners = new Set<() => void>()
+
+function isCafeFelixRec(rec: { title?: string } | null | undefined): boolean {
+  return normalizeAiPlaceName(rec?.title || '').includes('cafe felix')
+}
+
+function cafeFelixSnapshot(rec: Recommendation) {
+  return {
+    id: rec.id,
+    title: rec.title,
+    lat: rec.location?.lat ?? null,
+    lng: rec.location?.lng ?? null,
+    googlePlaceId: rec.googlePlaceId ?? null,
+    placeId: rec.placeId ?? null,
+    placeKey: rec.placeKey ?? null,
+    photoUrl: rec.photoUrl ?? null,
+    mediaUrl: rec.mediaUrl ?? null,
+    website: rec.website ?? null,
+    isAISuggestion: rec.isAISuggestion === true,
+  }
+}
+
+function pushCafeFelixTrace(stage: string, payload: unknown) {
+  const body =
+    typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
+  const line = `${CAFE_FELIX_TRACE_PREFIX} ${stage}\n${body}`
+  console.log(CAFE_FELIX_TRACE_PREFIX, stage, payload)
+  cafeFelixTraceBuffer.push(`${new Date().toISOString()} ${line}`)
+  if (cafeFelixTraceBuffer.length > 250) {
+    cafeFelixTraceBuffer.splice(0, cafeFelixTraceBuffer.length - 250)
+  }
+  if (typeof window !== 'undefined') {
+    ;(window as Window & { __CAFE_FELIX_TRACE__?: string[] }).__CAFE_FELIX_TRACE__ =
+      cafeFelixTraceBuffer
+    try {
+      sessionStorage.setItem(CAFE_FELIX_TRACE_STORAGE_KEY, cafeFelixTraceBuffer.join('\n\n'))
+    } catch {
+      // ignore quota
+    }
+  }
+  cafeFelixTraceListeners.forEach((fn) => fn())
+}
+
+function cafeFelixDistanceMeters(a: Recommendation, b: Recommendation): number | null {
+  const ac = recFiniteCoords(a)
+  const bc = recFiniteCoords(b)
+  if (!ac || !bc) return null
+  return Math.round(haversineDistanceMeters(ac, bc))
+}
+
+function cafeFelixRejectReason(selector: Recommendation, candidate: Recommendation): string {
+  if (!candidate.isAISuggestion) return 'rejected: not AI'
+  if (String(selector.id || '') && String(selector.id) === String(candidate.id)) return 'match: same id'
+  if (aiIdentityKey(selector) === aiIdentityKey(candidate)) return 'match: aiIdentityKey'
+  const aPlace = googlePlaceIdFromRecommendationFields(selector)
+  const bPlace = googlePlaceIdFromRecommendationFields(candidate)
+  if (aPlace && bPlace && aPlace === bPlace) return 'match: Place ID'
+  if (!aiPlaceNamesMatch(selector.title, candidate.title)) {
+    return `rejected: names do not match (${normalizeAiPlaceName(selector.title)} vs ${normalizeAiPlaceName(candidate.title)})`
+  }
+  const dist = cafeFelixDistanceMeters(selector, candidate)
+  if (dist == null) return 'rejected: missing coordinates'
+  if (dist > AI_SAME_PLACE_MAX_DISTANCE_M) {
+    return `rejected: distance ${dist}m > ${AI_SAME_PLACE_MAX_DISTANCE_M}m`
+  }
+  return `match: name+distance (${dist}m)`
+}
+
+function cafeFelixExplainResolve(selector: Recommendation, canonical: Recommendation[]) {
+  const candidates = canonical.filter(isCafeFelixRec)
+  const chosen = resolveCanonicalRecommendation(canonical, selector)
+  return {
+    selector: cafeFelixSnapshot(selector),
+    selectorNormalizedName: normalizeAiPlaceName(selector.title),
+    candidates: candidates.map((candidate) => ({
+      ...cafeFelixSnapshot(candidate),
+      normalizedName: normalizeAiPlaceName(candidate.title),
+      distanceMeters: cafeFelixDistanceMeters(selector, candidate),
+      richness: canonicalRecommendationRank(candidate),
+      why: cafeFelixRejectReason(selector, candidate),
+      wouldMatch: aiRecommendationsMatch(selector, candidate),
+      chosen: !!chosen && String(chosen.id) === String(candidate.id),
+    })),
+    chosen: chosen ? cafeFelixSnapshot(chosen) : null,
+    chosenId: chosen?.id ?? null,
+  }
+}
+
+function CafeFelixTracePanel() {
+  const [open, setOpen] = useState(false)
+  const [copyState, setCopyState] = useState('')
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const onChange = () => setTick((n) => n + 1)
+    cafeFelixTraceListeners.add(onChange)
+    return () => {
+      cafeFelixTraceListeners.delete(onChange)
+    }
+  }, [])
+  const text = cafeFelixTraceBuffer.join('\n\n')
+  const count = cafeFelixTraceBuffer.length
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        right: 8,
+        bottom: 8,
+        zIndex: 99999,
+        maxWidth: '92vw',
+        fontFamily: 'ui-monospace, monospace',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          background: '#111827',
+          color: '#fde68a',
+          border: '1px solid #f59e0b',
+          borderRadius: 999,
+          padding: '8px 12px',
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: 'pointer',
+        }}
+      >
+        CF TRACE ({count})
+      </button>
+      {open ? (
+        <div
+          style={{
+            marginTop: 8,
+            width: 'min(420px, 92vw)',
+            maxHeight: '55vh',
+            background: 'rgba(17,24,39,0.96)',
+            color: '#e5e7eb',
+            border: '1px solid #f59e0b',
+            borderRadius: 12,
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#fde68a' }}>
+            Temporary Café Felix diagnostics. Copy and send. Does not change recommendations.
+          </div>
+          <textarea
+            readOnly
+            value={text || 'No [CAFE-FELIX-TRACE] lines yet. Open Discover, then tap Café Felix.'}
+            style={{
+              width: '100%',
+              height: 220,
+              fontSize: 10,
+              background: '#030712',
+              color: '#fef3c7',
+              border: '1px solid #374151',
+              borderRadius: 8,
+              padding: 8,
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(text)
+                  setCopyState('copied')
+                } catch {
+                  setCopyState('select-all in the box and copy')
+                }
+              }}
+              style={{
+                flex: 1,
+                background: '#f59e0b',
+                color: '#111827',
+                border: 0,
+                borderRadius: 8,
+                padding: '8px 10px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Copy trace
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                cafeFelixTraceBuffer.splice(0, cafeFelixTraceBuffer.length)
+                try {
+                  sessionStorage.removeItem(CAFE_FELIX_TRACE_STORAGE_KEY)
+                } catch {
+                  // ignore
+                }
+                setCopyState('')
+                cafeFelixTraceListeners.forEach((fn) => fn())
+              }}
+              style={{
+                background: 'transparent',
+                color: '#fde68a',
+                border: '1px solid #f59e0b',
+                borderRadius: 8,
+                padding: '8px 10px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+          {copyState ? (
+            <div style={{ fontSize: 11, color: '#fde68a' }}>{copyState}</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function buildDiscoverDetailShare(rec: Recommendation) {
   const title = rec.title || 'Check this place out'
   const placeId = googlePlaceIdFromRecommendationFields(rec)
@@ -549,6 +771,7 @@ export default function AIRecommendationsHub({
     () => resolveMarkerSelectionToCanonical(recommendations, markerSelectionItems),
     [recommendations, markerSelectionItems]
   )
+  const cafeFelixCanonicalSigRef = useRef('')
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
@@ -1004,6 +1227,31 @@ export default function AIRecommendationsHub({
     recommendationsRef.current = recommendations
   }, [recommendations])
 
+  useEffect(() => {
+    const rows = recommendations.filter(isCafeFelixRec)
+    const sig = JSON.stringify(rows.map(cafeFelixSnapshot))
+    if (sig === cafeFelixCanonicalSigRef.current) return
+    cafeFelixCanonicalSigRef.current = sig
+    pushCafeFelixTrace('CANONICAL', { count: rows.length, records: rows.map(cafeFelixSnapshot) })
+  }, [recommendations])
+
+  useEffect(() => {
+    const selectorHits = markerSelectionItems.filter(isCafeFelixRec)
+    const rows = filteredRecommendations.filter(isCafeFelixRec)
+    if (selectorHits.length === 0 && rows.length === 0) return
+    pushCafeFelixTrace('FILTERED_RECOMMENDATIONS', {
+      selectorCount: selectorHits.length,
+      count: rows.length,
+      records: rows.map(cafeFelixSnapshot),
+    })
+  }, [filteredRecommendations, markerSelectionItems])
+
+  useEffect(() => {
+    if (!showReadOnlyRecommendation || !selectedRecommendation) return
+    if (!isCafeFelixRec(selectedRecommendation)) return
+    pushCafeFelixTrace('DETAIL', cafeFelixSnapshot(selectedRecommendation))
+  }, [showReadOnlyRecommendation, selectedRecommendation])
+
   const fillStarterInFlightRef = useRef(false)
   const fillStarterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1241,6 +1489,16 @@ export default function AIRecommendationsHub({
       const visible = serverRecs.filter(
         (r) => !dismissedRecommendationIds.has(String(r.id))
       )
+      const cafeFelixServer = serverRecs.filter(isCafeFelixRec)
+      const cafeFelixVisible = visible.filter(isCafeFelixRec)
+      if (cafeFelixServer.length > 0 || cafeFelixVisible.length > 0) {
+        pushCafeFelixTrace('SERVER/HYDRATION', {
+          serverCount: cafeFelixServer.length,
+          visibleCount: cafeFelixVisible.length,
+          serverRecords: cafeFelixServer.map(cafeFelixSnapshot),
+          visibleRecords: cafeFelixVisible.map(cafeFelixSnapshot),
+        })
+      }
       setRecommendations((prev) => {
         const merged = mergeRecommendationsById(prev, visible)
         const communityCount = merged.filter((r) => !r.isAISuggestion).length
@@ -2444,6 +2702,16 @@ export default function AIRecommendationsHub({
       })
 
       el.addEventListener("click", () => {
+        const cafeFelixSelectors = g.items.filter(isCafeFelixRec)
+        if (cafeFelixSelectors.length > 0) {
+          const canonicalNow = recommendationsRef.current
+          pushCafeFelixTrace(
+            'MARKER_CLICK',
+            cafeFelixSelectors.map((selector) =>
+              cafeFelixExplainResolve(selector, canonicalNow)
+            )
+          )
+        }
         // Keep selection identity only; List derives current objects from recommendations.
         setRecommendationFilter(g.isAISuggestion ? "ai" : "user")
         setMarkerSelectionItems(g.items)
@@ -3021,6 +3289,9 @@ export default function AIRecommendationsHub({
                     key={rec.id}
                     onClick={() => {
                       console.log('📍 Card clicked for:', rec.title)
+                      if (isCafeFelixRec(rec)) {
+                        pushCafeFelixTrace('LIST_CARD_CLICK', cafeFelixSnapshot(rec))
+                      }
                       setSelectedRecommendation(rec)
                       // First show read-only view, then user can choose to save/share
                       setShowReadOnlyRecommendation(true)
@@ -3436,11 +3707,23 @@ export default function AIRecommendationsHub({
               <button
                 type="button"
                 onClick={() => {
+                  const placeId = googlePlaceIdFromRecommendationFields(selectedRecommendation)
+                  if (isCafeFelixRec(selectedRecommendation)) {
+                    pushCafeFelixTrace('GO_THERE', {
+                      id: selectedRecommendation.id,
+                      title: selectedRecommendation.title,
+                      googlePlaceIdResolved: placeId || null,
+                      placeKey: selectedRecommendation.placeKey ?? null,
+                      lat: selectedRecommendation.location?.lat ?? null,
+                      lng: selectedRecommendation.location?.lng ?? null,
+                      navigationBranch: placeId ? 'PLACE ID' : 'COORDINATES',
+                    })
+                  }
                   openGoogleMapsNavigation({
                     latitude: Number(selectedRecommendation.location.lat),
                     longitude: Number(selectedRecommendation.location.lng),
                     placeName: selectedRecommendation.title,
-                    placeId: googlePlaceIdFromRecommendationFields(selectedRecommendation),
+                    placeId,
                   })
                 }}
                 onMouseEnter={(e) => {
@@ -3812,6 +4095,7 @@ export default function AIRecommendationsHub({
           }}
         />
       )}
+      <CafeFelixTracePanel />
     </div>
   )
 } 
