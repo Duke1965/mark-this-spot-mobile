@@ -142,6 +142,11 @@ function enrichRecommendationIdentity(
       next.placeId = googlePlaceId
       changed = true
     }
+    const placeIdKey = `place:${googlePlaceId}`
+    if (trimPlaceKey(existing.placeKey) !== placeIdKey) {
+      next.placeKey = placeIdKey
+      changed = true
+    }
   }
   if (!existingPhoto && photo) {
     next.photoUrl = photo
@@ -158,6 +163,27 @@ function enrichRecommendationIdentity(
   }
 
   return changed ? next : existing
+}
+
+/** Community matches by id (Marras). AI also matches by title+coords / Place ID so persist/query identity is not stranded on a different doc id. */
+function findExistingRecommendation(
+  prev: Recommendation[],
+  incoming: Recommendation
+): Recommendation | undefined {
+  const id = String(incoming?.id || '')
+  if (id) {
+    const byId = prev.find((r) => String(r.id) === id)
+    if (byId) return byId
+  }
+  if (!incoming.isAISuggestion) return undefined
+  const inKey = aiIdentityKey(incoming)
+  const inPlace = googlePlaceIdFromRecommendationFields(incoming)
+  return prev.find((existing) => {
+    if (!existing.isAISuggestion) return false
+    if (aiIdentityKey(existing) === inKey) return true
+    const exPlace = googlePlaceIdFromRecommendationFields(existing)
+    return !!(inPlace && exPlace && inPlace === exPlace)
+  })
 }
 
 function buildDiscoverDetailShare(rec: Recommendation) {
@@ -452,7 +478,7 @@ export default function AIRecommendationsHub({
     return Array.from(clustersByKey.values())
   }
 
-  /** Merge incoming recommendations into prev; dedupe by id; fill missing identity/photo only. */
+  /** Merge incoming into prev. Community: by id (Marras). AI: also by title+coords / Place ID. */
   function mergeRecommendationsById(
     prev: Recommendation[],
     incoming: Recommendation[]
@@ -462,11 +488,13 @@ export default function AIRecommendationsHub({
     for (const r of incoming) {
       const id = String(r?.id ?? '')
       if (!id) continue
-      const existing = byId.get(id)
+      const existing = findExistingRecommendation(Array.from(byId.values()), r)
       if (existing) {
-        byId.set(id, enrichRecommendationIdentity(existing, r))
+        const enriched = enrichRecommendationIdentity(existing, r)
+        byId.set(String(existing.id), enriched)
         continue
       }
+      byId.set(id, r)
       added.push(r)
     }
     return [...prev.map((r) => byId.get(String(r.id)) || r), ...added]
@@ -505,6 +533,7 @@ export default function AIRecommendationsHub({
                 reason: r.reason,
                 googlePlaceId: r.googlePlaceId,
                 placeId: r.placeId,
+                placeKey: r.placeKey,
                 mediaUrl: r.mediaUrl || r.photoUrl,
                 website: r.website,
                 closedPermanently: r.closedPermanently === true,
@@ -1708,13 +1737,15 @@ export default function AIRecommendationsHub({
             }
             
             // Add new recommendations to existing ones (don't replace)
-            setRecommendations(prev => {
-              // Remove duplicates by ID
-              const existingIds = new Set(prev.map(r => r.id))
-              const newRecs = aiRecs.filter(r => !existingIds.has(r.id))
-              const combined = [...prev, ...newRecs]
-              // Keep only the most recent 10 recommendations to prevent spam
-              return combined.slice(-10)
+            setRecommendations((prev) => {
+              const merged = mergeRecommendationsById(prev, aiRecs)
+              const unresolved = merged.filter(
+                (row) => row.isAISuggestion && !googlePlaceIdFromRecommendationFields(row)
+              )
+              const drop = new Set(
+                unresolved.slice(0, Math.max(0, unresolved.length - 10)).map((row) => String(row.id))
+              )
+              return merged.filter((row) => !drop.has(String(row.id)))
             })
 
             // Persist AI recommendations to Firestore for cross-device consistency.
@@ -1810,6 +1841,13 @@ export default function AIRecommendationsHub({
       communityPhotoByPlaceIdRef.current.set(placeId, photoUrl)
       if (!photoUrl) return
       setRecommendations((prev) =>
+        prev.map((rec) => {
+          if (googlePlaceIdFromRecommendationFields(rec) !== placeId) return rec
+          if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) return rec
+          return { ...rec, photoUrl, mediaUrl: photoUrl }
+        })
+      )
+      setFilteredRecommendations((prev) =>
         prev.map((rec) => {
           if (googlePlaceIdFromRecommendationFields(rec) !== placeId) return rec
           if (genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)) return rec
@@ -1925,6 +1963,7 @@ export default function AIRecommendationsHub({
       persistAIRecommendationsToServer([stamp(rec)])
       if (!aiIdentityMountedRef.current) return
       setRecommendations((prev) => prev.map(stamp))
+      setFilteredRecommendations((prev) => prev.map(stamp))
       setSelectedRecommendation((prev: Recommendation | null) => (prev ? stamp(prev) : prev))
     }
 

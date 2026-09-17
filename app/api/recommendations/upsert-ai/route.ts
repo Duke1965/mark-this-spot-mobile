@@ -20,6 +20,7 @@ type AIRecPayload = {
   reason?: string
   googlePlaceId?: string
   placeId?: string
+  placeKey?: string
   mediaUrl?: string | null
   photoUrl?: string | null
   website?: string | null
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
     const googlePlaceId = googlePlaceIdFromRecommendationFields({
       googlePlaceId: it.googlePlaceId,
       placeId: it.placeId,
+      placeKey: it.placeKey,
     })
     const mediaUrl =
       genuineCommunityPhotoUrl(it.mediaUrl) || genuineCommunityPhotoUrl(it.photoUrl)
@@ -101,7 +103,6 @@ export async function POST(req: Request) {
         ? it.website.trim().slice(0, 500)
         : undefined
     const closedPermanently = it.closedPermanently === true
-    const placeKey = googlePlaceId ? `place:${googlePlaceId}` : identityKey
 
     await db.collection('recommendation_areas').doc(key).set(
       { key, updatedAt: FieldValue.serverTimestamp() },
@@ -120,13 +121,13 @@ export async function POST(req: Request) {
       reason: (it.reason || 'AI suggestion').toString().slice(0, 140),
       createdByUid: uid,
       personalizedForUid: uid,
-      placeKey,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp()
     }
     if (googlePlaceId) {
       payload.googlePlaceId = googlePlaceId
       payload.placeId = googlePlaceId
+      payload.placeKey = `place:${googlePlaceId}`
     }
     if (mediaUrl) {
       payload.mediaUrl = mediaUrl
