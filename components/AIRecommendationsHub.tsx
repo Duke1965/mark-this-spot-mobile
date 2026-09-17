@@ -103,6 +103,66 @@ function aiIdentityKey(rec: Pick<Recommendation, 'title' | 'location'>): string 
   return `${title}|unknown`
 }
 
+const AI_SAME_PLACE_MAX_DISTANCE_M = 250
+
+/** Same rule as lib/google/googlePlaces.hintMatches (accent/punctuation-insensitive). */
+function normalizeAiPlaceName(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function aiPlaceNamesMatch(a: string | undefined, b: string | undefined): boolean {
+  const left = normalizeAiPlaceName(a || '')
+  const right = normalizeAiPlaceName(b || '')
+  if (!left || !right) return false
+  if (left === right) return true
+  return left.includes(right) || right.includes(left)
+}
+
+function haversineDistanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000
+  const toRad = (x: number) => (x * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+function recFiniteCoords(
+  rec: Pick<Recommendation, 'location'>
+): { lat: number; lng: number } | null {
+  const lat = rec.location?.lat
+  const lng = rec.location?.lng
+  if (
+    typeof lat !== 'number' ||
+    typeof lng !== 'number' ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  ) {
+    return null
+  }
+  return { lat, lng }
+}
+
+/** AI-only: same real-world place when names match and coordinates are within 250 m. */
+function aiSamePlaceByNameAndDistance(a: Recommendation, b: Recommendation): boolean {
+  if (!aiPlaceNamesMatch(a.title, b.title)) return false
+  const ac = recFiniteCoords(a)
+  const bc = recFiniteCoords(b)
+  if (!ac || !bc) return false
+  return haversineDistanceMeters(ac, bc) <= AI_SAME_PLACE_MAX_DISTANCE_M
+}
+
 function trimPlaceKey(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
@@ -165,7 +225,7 @@ function enrichRecommendationIdentity(
   return changed ? next : existing
 }
 
-/** Community matches by id (Marras). AI also matches by title+coords / Place ID so persist/query identity is not stranded on a different doc id. */
+/** Community matches by id (Marras). AI also matches by title+coords / Place ID / name+250m. */
 function findExistingRecommendation(
   prev: Recommendation[],
   incoming: Recommendation
@@ -182,7 +242,8 @@ function findExistingRecommendation(
     if (!existing.isAISuggestion) return false
     if (aiIdentityKey(existing) === inKey) return true
     const exPlace = googlePlaceIdFromRecommendationFields(existing)
-    return !!(inPlace && exPlace && inPlace === exPlace)
+    if (inPlace && exPlace && inPlace === exPlace) return true
+    return aiSamePlaceByNameAndDistance(existing, incoming)
   })
 }
 
