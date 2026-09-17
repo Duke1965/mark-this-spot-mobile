@@ -299,17 +299,26 @@ function resolveMarkerSelectionToCanonical(
   return out
 }
 
-const CAFE_FELIX_TRACE_PREFIX = '[CAFE-FELIX-TRACE]'
-const CAFE_FELIX_TRACE_STORAGE_KEY = 'cafe-felix-trace-v1'
-const cafeFelixTraceBuffer: string[] = []
-const cafeFelixTraceListeners = new Set<() => void>()
+const REC_TRACE_PREFIX = '[RECOMMENDATION-TRACE]'
+const REC_TRACE_STORAGE_KEY = 'recommendation-trace-v1'
+const REC_TRACE_STORAGE_KEY_LEGACY = 'cafe-felix-trace-v1'
+const recTraceBuffer: string[] = []
+const recTraceListeners = new Set<() => void>()
 
-function isCafeFelixRec(rec: { title?: string } | null | undefined): boolean {
-  return normalizeAiPlaceName(rec?.title || '').includes('cafe felix')
+function tracedPlaceKey(title: string | undefined): 'cafe-felix' | 'marras-wines' | null {
+  const n = normalizeAiPlaceName(title || '')
+  if (n.includes('cafe felix')) return 'cafe-felix'
+  if (n.includes('marras wines') || n === 'marras') return 'marras-wines'
+  return null
 }
 
-function cafeFelixSnapshot(rec: Recommendation) {
+function isTracedPlaceRec(rec: { title?: string } | null | undefined): boolean {
+  return tracedPlaceKey(rec?.title) != null
+}
+
+function recTraceSnapshot(rec: Recommendation) {
   return {
+    tracePlace: tracedPlaceKey(rec.title),
     id: rec.id,
     title: rec.title,
     lat: rec.location?.lat ?? null,
@@ -324,35 +333,48 @@ function cafeFelixSnapshot(rec: Recommendation) {
   }
 }
 
-function pushCafeFelixTrace(stage: string, payload: unknown) {
+function pushRecTrace(stage: string, payload: unknown) {
   const body =
     typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
-  const line = `${CAFE_FELIX_TRACE_PREFIX} ${stage}\n${body}`
-  console.log(CAFE_FELIX_TRACE_PREFIX, stage, payload)
-  cafeFelixTraceBuffer.push(`${new Date().toISOString()} ${line}`)
-  if (cafeFelixTraceBuffer.length > 250) {
-    cafeFelixTraceBuffer.splice(0, cafeFelixTraceBuffer.length - 250)
+  const line = `${REC_TRACE_PREFIX} ${stage}\n${body}`
+  console.log(REC_TRACE_PREFIX, stage, payload)
+  recTraceBuffer.push(`${new Date().toISOString()} ${line}`)
+  if (recTraceBuffer.length > 250) {
+    recTraceBuffer.splice(0, recTraceBuffer.length - 250)
   }
   if (typeof window !== 'undefined') {
-    ;(window as Window & { __CAFE_FELIX_TRACE__?: string[] }).__CAFE_FELIX_TRACE__ =
-      cafeFelixTraceBuffer
+    const w = window as Window & {
+      __RECOMMENDATION_TRACE__?: string[]
+      __CAFE_FELIX_TRACE__?: string[]
+    }
+    w.__RECOMMENDATION_TRACE__ = recTraceBuffer
+    w.__CAFE_FELIX_TRACE__ = recTraceBuffer
+    const joined = recTraceBuffer.join('\n\n')
     try {
-      sessionStorage.setItem(CAFE_FELIX_TRACE_STORAGE_KEY, cafeFelixTraceBuffer.join('\n\n'))
+      sessionStorage.setItem(REC_TRACE_STORAGE_KEY, joined)
+      sessionStorage.setItem(REC_TRACE_STORAGE_KEY_LEGACY, joined)
     } catch {
       // ignore quota
     }
   }
-  cafeFelixTraceListeners.forEach((fn) => fn())
+  recTraceListeners.forEach((fn) => fn())
 }
 
-function cafeFelixDistanceMeters(a: Recommendation, b: Recommendation): number | null {
+function recTraceDistanceMeters(a: Recommendation, b: Recommendation): number | null {
   const ac = recFiniteCoords(a)
   const bc = recFiniteCoords(b)
   if (!ac || !bc) return null
   return Math.round(haversineDistanceMeters(ac, bc))
 }
 
-function cafeFelixRejectReason(selector: Recommendation, candidate: Recommendation): string {
+function recTraceRejectReason(selector: Recommendation, candidate: Recommendation): string {
+  if (!selector.isAISuggestion) {
+    if (candidate.isAISuggestion) return 'rejected: community selector vs AI candidate'
+    if (String(selector.id || '') && String(selector.id) === String(candidate.id)) {
+      return 'match: community same id'
+    }
+    return `rejected: community id mismatch (${selector.id} vs ${candidate.id})`
+  }
   if (!candidate.isAISuggestion) return 'rejected: not AI'
   if (String(selector.id || '') && String(selector.id) === String(candidate.id)) return 'match: same id'
   if (aiIdentityKey(selector) === aiIdentityKey(candidate)) return 'match: aiIdentityKey'
@@ -362,7 +384,7 @@ function cafeFelixRejectReason(selector: Recommendation, candidate: Recommendati
   if (!aiPlaceNamesMatch(selector.title, candidate.title)) {
     return `rejected: names do not match (${normalizeAiPlaceName(selector.title)} vs ${normalizeAiPlaceName(candidate.title)})`
   }
-  const dist = cafeFelixDistanceMeters(selector, candidate)
+  const dist = recTraceDistanceMeters(selector, candidate)
   if (dist == null) return 'rejected: missing coordinates'
   if (dist > AI_SAME_PLACE_MAX_DISTANCE_M) {
     return `rejected: distance ${dist}m > ${AI_SAME_PLACE_MAX_DISTANCE_M}m`
@@ -370,39 +392,49 @@ function cafeFelixRejectReason(selector: Recommendation, candidate: Recommendati
   return `match: name+distance (${dist}m)`
 }
 
-function cafeFelixExplainResolve(selector: Recommendation, canonical: Recommendation[]) {
-  const candidates = canonical.filter(isCafeFelixRec)
+function recTraceWouldMatch(selector: Recommendation, candidate: Recommendation): boolean {
+  if (!selector.isAISuggestion) {
+    return !candidate.isAISuggestion && String(selector.id || '') === String(candidate.id || '')
+  }
+  return aiRecommendationsMatch(selector, candidate)
+}
+
+function recTraceExplainResolve(selector: Recommendation, canonical: Recommendation[]) {
+  const place = tracedPlaceKey(selector.title)
+  const candidates = canonical.filter((row) => tracedPlaceKey(row.title) === place)
   const chosen = resolveCanonicalRecommendation(canonical, selector)
   return {
-    selector: cafeFelixSnapshot(selector),
+    tracePlace: place,
+    selector: recTraceSnapshot(selector),
+    gItemId: selector.id,
     selectorNormalizedName: normalizeAiPlaceName(selector.title),
     candidates: candidates.map((candidate) => ({
-      ...cafeFelixSnapshot(candidate),
+      ...recTraceSnapshot(candidate),
       normalizedName: normalizeAiPlaceName(candidate.title),
-      distanceMeters: cafeFelixDistanceMeters(selector, candidate),
+      distanceMeters: recTraceDistanceMeters(selector, candidate),
       richness: canonicalRecommendationRank(candidate),
-      why: cafeFelixRejectReason(selector, candidate),
-      wouldMatch: aiRecommendationsMatch(selector, candidate),
+      why: recTraceRejectReason(selector, candidate),
+      wouldMatch: recTraceWouldMatch(selector, candidate),
       chosen: !!chosen && String(chosen.id) === String(candidate.id),
     })),
-    chosen: chosen ? cafeFelixSnapshot(chosen) : null,
+    chosen: chosen ? recTraceSnapshot(chosen) : null,
     chosenId: chosen?.id ?? null,
   }
 }
 
-function CafeFelixTracePanel() {
+function RecTracePanel() {
   const [open, setOpen] = useState(false)
   const [copyState, setCopyState] = useState('')
   const [, setTick] = useState(0)
   useEffect(() => {
     const onChange = () => setTick((n) => n + 1)
-    cafeFelixTraceListeners.add(onChange)
+    recTraceListeners.add(onChange)
     return () => {
-      cafeFelixTraceListeners.delete(onChange)
+      recTraceListeners.delete(onChange)
     }
   }, [])
-  const text = cafeFelixTraceBuffer.join('\n\n')
-  const count = cafeFelixTraceBuffer.length
+  const text = recTraceBuffer.join('\n\n')
+  const count = recTraceBuffer.length
   return (
     <div
       style={{
@@ -428,7 +460,7 @@ function CafeFelixTracePanel() {
           cursor: 'pointer',
         }}
       >
-        CF TRACE ({count})
+        REC TRACE ({count})
       </button>
       {open ? (
         <div
@@ -447,11 +479,11 @@ function CafeFelixTracePanel() {
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 800, color: '#fde68a' }}>
-            Temporary Café Felix diagnostics. Copy and send. Does not change recommendations.
+            Temporary Café Felix + Marras Wines diagnostics. Clear between tests. Does not change recommendations.
           </div>
           <textarea
             readOnly
-            value={text || 'No [CAFE-FELIX-TRACE] lines yet. Open Discover, then tap Café Felix.'}
+            value={text || 'No [RECOMMENDATION-TRACE] lines yet. Open Discover, then tap Marras Wines or Café Felix.'}
             style={{
               width: '100%',
               height: 220,
@@ -490,14 +522,15 @@ function CafeFelixTracePanel() {
             <button
               type="button"
               onClick={() => {
-                cafeFelixTraceBuffer.splice(0, cafeFelixTraceBuffer.length)
+                recTraceBuffer.splice(0, recTraceBuffer.length)
                 try {
-                  sessionStorage.removeItem(CAFE_FELIX_TRACE_STORAGE_KEY)
+                  sessionStorage.removeItem(REC_TRACE_STORAGE_KEY)
+                  sessionStorage.removeItem(REC_TRACE_STORAGE_KEY_LEGACY)
                 } catch {
                   // ignore
                 }
                 setCopyState('')
-                cafeFelixTraceListeners.forEach((fn) => fn())
+                recTraceListeners.forEach((fn) => fn())
               }}
               style={{
                 background: 'transparent',
@@ -771,7 +804,7 @@ export default function AIRecommendationsHub({
     () => resolveMarkerSelectionToCanonical(recommendations, markerSelectionItems),
     [recommendations, markerSelectionItems]
   )
-  const cafeFelixCanonicalSigRef = useRef('')
+  const recTraceCanonicalSigRef = useRef('')
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
   
@@ -1228,28 +1261,28 @@ export default function AIRecommendationsHub({
   }, [recommendations])
 
   useEffect(() => {
-    const rows = recommendations.filter(isCafeFelixRec)
-    const sig = JSON.stringify(rows.map(cafeFelixSnapshot))
-    if (sig === cafeFelixCanonicalSigRef.current) return
-    cafeFelixCanonicalSigRef.current = sig
-    pushCafeFelixTrace('CANONICAL', { count: rows.length, records: rows.map(cafeFelixSnapshot) })
+    const rows = recommendations.filter(isTracedPlaceRec)
+    const sig = JSON.stringify(rows.map(recTraceSnapshot))
+    if (sig === recTraceCanonicalSigRef.current) return
+    recTraceCanonicalSigRef.current = sig
+    pushRecTrace('CANONICAL', { count: rows.length, records: rows.map(recTraceSnapshot) })
   }, [recommendations])
 
   useEffect(() => {
-    const selectorHits = markerSelectionItems.filter(isCafeFelixRec)
-    const rows = filteredRecommendations.filter(isCafeFelixRec)
+    const selectorHits = markerSelectionItems.filter(isTracedPlaceRec)
+    const rows = filteredRecommendations.filter(isTracedPlaceRec)
     if (selectorHits.length === 0 && rows.length === 0) return
-    pushCafeFelixTrace('FILTERED_RECOMMENDATIONS', {
+    pushRecTrace('FILTERED_RECOMMENDATIONS', {
       selectorCount: selectorHits.length,
       count: rows.length,
-      records: rows.map(cafeFelixSnapshot),
+      records: rows.map(recTraceSnapshot),
     })
   }, [filteredRecommendations, markerSelectionItems])
 
   useEffect(() => {
     if (!showReadOnlyRecommendation || !selectedRecommendation) return
-    if (!isCafeFelixRec(selectedRecommendation)) return
-    pushCafeFelixTrace('DETAIL', cafeFelixSnapshot(selectedRecommendation))
+    if (!isTracedPlaceRec(selectedRecommendation)) return
+    pushRecTrace('DETAIL', recTraceSnapshot(selectedRecommendation))
   }, [showReadOnlyRecommendation, selectedRecommendation])
 
   const fillStarterInFlightRef = useRef(false)
@@ -1489,14 +1522,14 @@ export default function AIRecommendationsHub({
       const visible = serverRecs.filter(
         (r) => !dismissedRecommendationIds.has(String(r.id))
       )
-      const cafeFelixServer = serverRecs.filter(isCafeFelixRec)
-      const cafeFelixVisible = visible.filter(isCafeFelixRec)
-      if (cafeFelixServer.length > 0 || cafeFelixVisible.length > 0) {
-        pushCafeFelixTrace('SERVER/HYDRATION', {
-          serverCount: cafeFelixServer.length,
-          visibleCount: cafeFelixVisible.length,
-          serverRecords: cafeFelixServer.map(cafeFelixSnapshot),
-          visibleRecords: cafeFelixVisible.map(cafeFelixSnapshot),
+      const tracedServer = serverRecs.filter(isTracedPlaceRec)
+      const tracedVisible = visible.filter(isTracedPlaceRec)
+      if (tracedServer.length > 0 || tracedVisible.length > 0) {
+        pushRecTrace('SERVER/HYDRATION', {
+          serverCount: tracedServer.length,
+          visibleCount: tracedVisible.length,
+          serverRecords: tracedServer.map(recTraceSnapshot),
+          visibleRecords: tracedVisible.map(recTraceSnapshot),
         })
       }
       setRecommendations((prev) => {
@@ -2702,15 +2735,15 @@ export default function AIRecommendationsHub({
       })
 
       el.addEventListener("click", () => {
-        const cafeFelixSelectors = g.items.filter(isCafeFelixRec)
-        if (cafeFelixSelectors.length > 0) {
+        const tracedSelectors = g.items.filter(isTracedPlaceRec)
+        if (tracedSelectors.length > 0) {
           const canonicalNow = recommendationsRef.current
-          pushCafeFelixTrace(
-            'MARKER_CLICK',
-            cafeFelixSelectors.map((selector) =>
-              cafeFelixExplainResolve(selector, canonicalNow)
-            )
-          )
+          pushRecTrace('MARKER_CLICK', {
+            gItems: g.items.map(recTraceSnapshot),
+            selectors: tracedSelectors.map((selector) =>
+              recTraceExplainResolve(selector, canonicalNow)
+            ),
+          })
         }
         // Keep selection identity only; List derives current objects from recommendations.
         setRecommendationFilter(g.isAISuggestion ? "ai" : "user")
@@ -3289,8 +3322,8 @@ export default function AIRecommendationsHub({
                     key={rec.id}
                     onClick={() => {
                       console.log('📍 Card clicked for:', rec.title)
-                      if (isCafeFelixRec(rec)) {
-                        pushCafeFelixTrace('LIST_CARD_CLICK', cafeFelixSnapshot(rec))
+                      if (isTracedPlaceRec(rec)) {
+                        pushRecTrace('LIST_CARD_CLICK', recTraceSnapshot(rec))
                       }
                       setSelectedRecommendation(rec)
                       // First show read-only view, then user can choose to save/share
@@ -3708,14 +3741,10 @@ export default function AIRecommendationsHub({
                 type="button"
                 onClick={() => {
                   const placeId = googlePlaceIdFromRecommendationFields(selectedRecommendation)
-                  if (isCafeFelixRec(selectedRecommendation)) {
-                    pushCafeFelixTrace('GO_THERE', {
-                      id: selectedRecommendation.id,
-                      title: selectedRecommendation.title,
+                  if (isTracedPlaceRec(selectedRecommendation)) {
+                    pushRecTrace('GO_THERE', {
+                      ...recTraceSnapshot(selectedRecommendation),
                       googlePlaceIdResolved: placeId || null,
-                      placeKey: selectedRecommendation.placeKey ?? null,
-                      lat: selectedRecommendation.location?.lat ?? null,
-                      lng: selectedRecommendation.location?.lng ?? null,
                       navigationBranch: placeId ? 'PLACE ID' : 'COORDINATES',
                     })
                   }
@@ -4095,7 +4124,7 @@ export default function AIRecommendationsHub({
           }}
         />
       )}
-      <CafeFelixTracePanel />
+      <RecTracePanel />
     </div>
   )
 } 
