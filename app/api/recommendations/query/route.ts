@@ -104,6 +104,22 @@ function areaKey(lat: number, lng: number): string {
   return areaKeyFromIndices(iLat, iLng)
 }
 
+const PERSONALIZED_AI_MAX_DISTANCE_M = 5000
+
+function haversineDistanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000
+  const toRad = (x: number) => (x * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 function diagnosticGateDecision(
   data: StoredRecommendation | undefined,
   uid: string | null,
@@ -122,6 +138,75 @@ function diagnosticGateDecision(
   }
   if (alreadySeen) return { accepted: false, rejectionReason: 'duplicate_id' }
   return { accepted: true, rejectionReason: null }
+}
+
+function mapStoredRecommendation(docId: string, data: StoredRecommendation) {
+  const googlePlaceId = googlePlaceIdFromRecommendationFields({
+    googlePlaceId: data.googlePlaceId,
+    placeId: data.placeId,
+    placeKey: data.placeKey,
+  })
+  const mediaUrl =
+    genuineCommunityPhotoUrl(data.mediaUrl) || genuineCommunityPhotoUrl(data.photoUrl)
+  const extra: Record<string, unknown> = {}
+  const placeKey = typeof data.placeKey === 'string' ? data.placeKey.trim() : ''
+  if (placeKey) extra.placeKey = placeKey
+  if (googlePlaceId) {
+    extra.googlePlaceId = googlePlaceId
+    extra.placeId = googlePlaceId
+  }
+  if (mediaUrl) {
+    extra.mediaUrl = mediaUrl
+    extra.photoUrl = mediaUrl
+  }
+  const website =
+    typeof data.website === 'string' && data.website.trim().startsWith('http')
+      ? data.website.trim()
+      : ''
+  if (website) extra.website = website
+
+  return {
+    id: docId,
+    title: data.title,
+    description: data.description || '',
+    category: data.category || 'general',
+    location: { lat: data.lat, lng: data.lng },
+    rating: typeof data.rating === 'number' ? data.rating : 4.0,
+    isAISuggestion: data.kind === 'ai',
+    confidence:
+      typeof data.confidence === 'number' ? data.confidence : data.kind === 'ai' ? 20 : 0,
+    reason: data.reason || (data.kind === 'ai' ? 'AI suggestion' : 'Recommended by community'),
+    timestamp: new Date(),
+    ...((data.kind === 'user' || data.kind === 'ai') ? extra : {}),
+  }
+}
+
+function acceptStoredRecommendation(input: {
+  docId: string
+  data: StoredRecommendation
+  uid: string | null
+  seen: Set<string>
+  results: Array<any>
+}): boolean {
+  const { docId, data, uid, seen, results } = input
+  if (!data || !data.kind) return false
+  if (data.kind === 'ai') {
+    const p = data.personalizedForUid ?? null
+    if (p && (!uid || p !== uid)) return false
+    if (data.closedPermanently === true) return false
+  }
+  if (seen.has(docId)) return false
+  seen.add(docId)
+  results.push(mapStoredRecommendation(docId, data))
+  return true
+}
+
+function indexErrorHint(err: unknown): { errorCode: string | null; errorMessage: string; indexUrl: string | null } {
+  const anyErr = err as { code?: unknown; message?: unknown }
+  const errorCode = typeof anyErr?.code === 'string' ? anyErr.code : null
+  const errorMessage = String(anyErr?.message || err || 'unknown_error')
+  const urlMatch = errorMessage.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
+  return { errorCode, errorMessage, indexUrl: urlMatch ? urlMatch[0] : null }
 }
 
 export async function GET(req: Request) {
@@ -167,6 +252,7 @@ export async function GET(req: Request) {
         if (tracePlace) {
           const gate = diagnosticGateDecision(data, uid, seen.has(doc.id))
           const row = {
+            source: 'nine-cell',
             areaKey: key,
             documentId: doc.id,
             kind: data?.kind ?? null,
@@ -194,52 +280,106 @@ export async function GET(req: Request) {
         const outId = doc.id
         if (seen.has(outId)) continue
         seen.add(outId)
-
-        results.push({
-          id: outId,
-          title: data.title,
-          description: data.description || '',
-          category: data.category || 'general',
-          location: { lat: data.lat, lng: data.lng },
-          rating: typeof data.rating === 'number' ? data.rating : 4.0,
-          isAISuggestion: data.kind === 'ai',
-          confidence: typeof data.confidence === 'number' ? data.confidence : (data.kind === 'ai' ? 20 : 0),
-          reason: data.reason || (data.kind === 'ai' ? 'AI suggestion' : 'Recommended by community'),
-          timestamp: new Date(),
-          ...((data.kind === 'user' || data.kind === 'ai')
-            ? (() => {
-                const googlePlaceId = googlePlaceIdFromRecommendationFields({
-                  googlePlaceId: data.googlePlaceId,
-                  placeId: data.placeId,
-                  placeKey: data.placeKey,
-                })
-                const mediaUrl =
-                  genuineCommunityPhotoUrl(data.mediaUrl) ||
-                  genuineCommunityPhotoUrl(data.photoUrl)
-                const extra: Record<string, unknown> = {}
-                const placeKey =
-                  typeof data.placeKey === 'string' ? data.placeKey.trim() : ''
-                if (placeKey) extra.placeKey = placeKey
-                if (googlePlaceId) {
-                  extra.googlePlaceId = googlePlaceId
-                  extra.placeId = googlePlaceId
-                }
-                if (mediaUrl) {
-                  extra.mediaUrl = mediaUrl
-                  extra.photoUrl = mediaUrl
-                }
-                const website =
-                  typeof data.website === 'string' && data.website.trim().startsWith('http')
-                    ? data.website.trim()
-                    : ''
-                if (website) extra.website = website
-                return extra
-              })()
-            : {})
-        })
+        results.push(mapStoredRecommendation(outId, data))
       }
     } catch {
       // ignore a single bucket failure
+    }
+  }
+
+  const personalizedQuery: Record<string, unknown> = {
+    ran: false,
+    ok: false,
+    docsReturned: 0,
+    accepted: 0,
+    skippedDuplicate: 0,
+    skippedFar: 0,
+    errorCode: null,
+    errorMessage: null,
+    indexUrl: null,
+  }
+
+  if (uid) {
+    personalizedQuery.ran = true
+    try {
+      const personalizedSnap = await db
+        .collectionGroup('items')
+        .where('personalizedForUid', '==', uid)
+        .get()
+      personalizedQuery.ok = true
+      personalizedQuery.docsReturned = personalizedSnap.size
+
+      for (const doc of personalizedSnap.docs) {
+        const data = doc.data() as StoredRecommendation
+        const recLat = Number(data?.lat)
+        const recLng = Number(data?.lng)
+        const coordsOk = Number.isFinite(recLat) && Number.isFinite(recLng)
+        const distanceMeters = coordsOk
+          ? Math.round(haversineDistanceMeters({ lat, lng }, { lat: recLat, lng: recLng }))
+          : null
+
+        let rejectionReason: string | null = null
+        if (!coordsOk) rejectionReason = 'invalid_coords'
+        else if (distanceMeters != null && distanceMeters > PERSONALIZED_AI_MAX_DISTANCE_M) {
+          rejectionReason = 'beyond_5000m'
+          personalizedQuery.skippedFar = Number(personalizedQuery.skippedFar || 0) + 1
+        } else {
+          const gate = diagnosticGateDecision(data, uid, seen.has(doc.id))
+          if (!gate.accepted) {
+            rejectionReason = gate.rejectionReason
+            if (gate.rejectionReason === 'duplicate_id') {
+              personalizedQuery.skippedDuplicate =
+                Number(personalizedQuery.skippedDuplicate || 0) + 1
+            }
+          }
+        }
+
+        const accepted =
+          !rejectionReason &&
+          acceptStoredRecommendation({
+            docId: doc.id,
+            data,
+            uid,
+            seen,
+            results,
+          })
+        if (accepted) {
+          personalizedQuery.accepted = Number(personalizedQuery.accepted || 0) + 1
+        }
+
+        const tracePlace = tracePlaceFromTitle(data?.title)
+        if (tracePlace) {
+          const row = {
+            source: 'collection-group',
+            areaKey: coordsOk ? areaKey(recLat, recLng) : null,
+            documentId: doc.id,
+            kind: data?.kind ?? null,
+            personalizedForUid: data?.personalizedForUid ?? null,
+            requestUid: uid,
+            closedPermanently: data?.closedPermanently === true,
+            googlePlaceId: data?.googlePlaceId ?? null,
+            placeId: data?.placeId ?? null,
+            placeKey: data?.placeKey ?? null,
+            distanceMeters,
+            within5000m:
+              distanceMeters != null && distanceMeters <= PERSONALIZED_AI_MAX_DISTANCE_M,
+            accepted,
+            rejectionReason: accepted ? null : rejectionReason,
+          }
+          if (tracePlace === 'cafe-felix') cafeEncounters.push(row)
+          else marrasEncounters.push(row)
+        }
+      }
+    } catch (err) {
+      const hint = indexErrorHint(err)
+      personalizedQuery.ok = false
+      personalizedQuery.errorCode = hint.errorCode
+      personalizedQuery.errorMessage = hint.errorMessage
+      personalizedQuery.indexUrl = hint.indexUrl
+      console.error(
+        '[recommendations/query] collectionGroup(items).where(personalizedForUid) failed',
+        hint
+      )
     }
   }
 
@@ -276,19 +416,33 @@ export async function GET(req: Request) {
   }
 
   const cafeAccepted = cafeEncounters.some((row) => row.accepted === true)
+  const cafeAcceptedViaPersonalized = cafeEncounters.some(
+    (row) => row.accepted === true && row.source === 'collection-group'
+  )
   const cafeRejectedAuth = cafeEncounters.some(
     (row) =>
       row.rejectionReason === 'ai_no_uid' || row.rejectionReason === 'ai_uid_mismatch'
   )
   let cafeConclusion = 'OTHER'
-  if (!cafeAreaQueried && !uid) cafeConclusion = 'A+B'
+  if (cafeAcceptedViaPersonalized) cafeConclusion = 'ACCEPTED_VIA_PERSONALIZED_QUERY'
+  else if (cafeAccepted) cafeConclusion = 'ACCEPTED'
+  else if (personalizedQuery.ran && personalizedQuery.ok === false) {
+    cafeConclusion = 'OTHER_PERSONALIZED_QUERY_FAILED'
+  } else if (!cafeAreaQueried && !uid) cafeConclusion = 'A+B'
   else if (!cafeAreaQueried) cafeConclusion = 'B_AREA_NOT_QUERIED'
   else if (cafeEncounters.length === 0) {
     cafeConclusion =
       'OTHER_AREA_QUERIED_BUT_DOC_NOT_IN_SNAP (not in top 60 or stored under a different cell)'
   } else if (!cafeAccepted && cafeRejectedAuth) cafeConclusion = 'A_AUTH_REJECTED'
-  else if (cafeAccepted) cafeConclusion = 'ACCEPTED'
   else cafeConclusion = 'OTHER_ENCOUNTERED_BUT_REJECTED'
+
+  const cafeConclusionText = cafeAcceptedViaPersonalized
+    ? 'Café a_* accepted via personalized collection-group query (area nine-cell miss is not a failure)'
+    : cafeEncounters.length === 0 && !cafeAreaQueried
+      ? 'Café area key is NOT among the nine queried keys; a_* was never in the nine-cell itemsSnap'
+      : cafeEncounters.length === 0 && cafeAreaQueried
+        ? 'Café area WAS queried, but no Café Felix document appeared in itemsSnap'
+        : cafeConclusion
 
   const marrasAreaKeys = Array.from(
     new Set(marrasEncounters.map((row) => String(row.areaKey || '')))
@@ -311,16 +465,13 @@ export async function GET(req: Request) {
       userLat: lat,
       userLng: lng,
       neighborAreaKeys: keys,
+      personalizedQuery,
       cafeFelix: {
         diagnosticCoords: { lat: CAFE_FELIX_DIAG_LAT, lng: CAFE_FELIX_DIAG_LNG },
         areaKey: cafeAreaKey,
         areaQueried: cafeAreaQueried,
         documentsEncountered: cafeEncounters,
-        conclusion: cafeEncounters.length === 0 && !cafeAreaQueried
-          ? 'Café area key is NOT among the nine queried keys; a_* was never in itemsSnap'
-          : cafeEncounters.length === 0 && cafeAreaQueried
-            ? 'Café area WAS queried, but no Café Felix document appeared in itemsSnap'
-            : cafeConclusion,
+        conclusion: cafeConclusionText,
         classifiedFailure: cafeConclusion,
       },
       marras: {

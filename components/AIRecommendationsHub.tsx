@@ -455,11 +455,19 @@ function classifyCafeQueryFailure(serverTrace: any, clientHasToken: boolean): st
     (row: any) => row?.rejectionReason === 'ai_no_uid' || row?.rejectionReason === 'ai_uid_mismatch'
   )
   const accepted = encounters.some((row: any) => row?.accepted === true)
+  const acceptedViaPersonalized = encounters.some(
+    (row: any) => row?.accepted === true && row?.source === 'collection-group'
+  )
+  const personalizedQuery = serverTrace?.personalizedQuery
   const noAuth = !uid || !clientHasToken
+  if (acceptedViaPersonalized) return 'ACCEPTED_VIA_PERSONALIZED_QUERY'
+  if (accepted) return 'ACCEPTED'
+  if (personalizedQuery && personalizedQuery.ran && personalizedQuery.ok === false) {
+    return `OTHER: collection-group failed: ${String(personalizedQuery.errorMessage || personalizedQuery.errorCode || 'unknown')}`
+  }
   if (!areaQueried && noAuth) return 'A+B'
   if (!areaQueried) return 'B'
   if (areaQueried && rejectedAuth && !accepted) return 'A'
-  if (accepted) return 'OTHER: Café a_* was accepted by query'
   if (areaQueried && encounters.length === 0) {
     return 'OTHER: Café area queried, but a_* not in itemsSnap (limit/cell mismatch)'
   }
@@ -1588,6 +1596,7 @@ export default function AIRecommendationsHub({
           cafeAreaQueried: serverTrace?.cafeFelix?.areaQueried,
           cafeConclusion: serverTrace?.cafeFelix?.conclusion,
           cafeDocumentsEncountered: serverTrace?.cafeFelix?.documentsEncountered,
+          personalizedQuery: serverTrace?.personalizedQuery,
           marrasAreaIncluded: serverTrace?.marras?.areaIncluded,
           marrasRichDocumentAccepted: serverTrace?.marras?.richDocumentAccepted,
           marrasDocumentsEncountered: serverTrace?.marras?.documentsEncountered,
