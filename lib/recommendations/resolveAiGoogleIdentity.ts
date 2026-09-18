@@ -201,12 +201,6 @@ export async function resolveAiGoogleIdentity(input: {
       return { ok: false, reason: "error" }
     }
 
-    // Consume the daily slot only after a completed Text Search (match or confirmed miss).
-    await checkAndIncrementGoogleDailyLimit({
-      key: identityLimitKey(title, lat, lng),
-      maxPerDay: 1,
-    })
-
     const matched = search.candidates
       .filter(
         (c) =>
@@ -220,6 +214,13 @@ export async function resolveAiGoogleIdentity(input: {
     if (!matched?.placeId) {
       return { ok: false, reason: "no_match" }
     }
+
+    // Consume only after a usable Place ID is selected. HTTP 2xx with no_match must not spend the slot.
+    await checkAndIncrementGoogleDailyLimit({
+      key: identityLimitKey(title, lat, lng),
+      maxPerDay: 1,
+    })
+
     if (isClosedPermanently(matched.businessStatus)) {
       return {
         ok: false,
