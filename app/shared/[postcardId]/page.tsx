@@ -1,7 +1,63 @@
-import { getAdminFirestore } from "@/lib/firebaseAdmin"
+import type { Metadata } from "next"
 import SharedPostcardClient, { type SharedPostcardData } from "./shared-postcard-client"
+import { loadSharedPostcard } from "@/lib/postcard/loadSharedPostcard"
 
 export const dynamic = "force-dynamic"
+
+const FALLBACK_DESCRIPTION = "Postcards from anywhere."
+const BRAND_ICON = "/brand/mappo/mappo-app-icon-1024.png"
+const COMPOSED_OG_WIDTH = 840
+const COMPOSED_OG_HEIGHT = 560
+
+function metadataBaseUrl(): URL {
+  const prod = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || "").trim()
+  if (prod) return new URL(prod.startsWith("http") ? prod : `https://${prod}`)
+  const vercel = String(process.env.VERCEL_URL || "").trim()
+  if (vercel) return new URL(vercel.startsWith("http") ? vercel : `https://${vercel}`)
+  return new URL("http://localhost:3000")
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ postcardId: string }>
+}): Promise<Metadata> {
+  const { postcardId } = await params
+  const loaded = await loadSharedPostcard(postcardId)
+  if (loaded.status !== "ok") {
+    return {
+      metadataBase: metadataBaseUrl(),
+      title: "Mappo",
+      description: FALLBACK_DESCRIPTION,
+    }
+  }
+
+  const { record } = loaded
+  const title = `Mappo Postcard: ${record.title}`
+  const description = record.description.trim() ? record.description.trim() : FALLBACK_DESCRIPTION
+  const composed = record.composedImageUrl
+  const fallbackImage = record.imageUrl || BRAND_ICON
+  const imageUrl = composed || fallbackImage
+
+  return {
+    metadataBase: metadataBaseUrl(),
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: composed
+        ? [{ url: composed, width: COMPOSED_OG_WIDTH, height: COMPOSED_OG_HEIGHT, type: "image/jpeg" }]
+        : [{ url: fallbackImage }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
+  }
+}
 
 export default async function SharedPostcardPage({
   params,
@@ -9,9 +65,9 @@ export default async function SharedPostcardPage({
   params: Promise<{ postcardId: string }>
 }) {
   const { postcardId } = await params
-  const firestore = getAdminFirestore()
+  const loaded = await loadSharedPostcard(postcardId)
 
-  if (!firestore) {
+  if (loaded.status === "not-configured") {
     return (
       <div style={styles.screen}>
         <div style={styles.card}>
@@ -24,8 +80,7 @@ export default async function SharedPostcardPage({
     )
   }
 
-  const doc = await firestore.collection("postcards").doc(postcardId).get()
-  if (!doc.exists) {
+  if (loaded.status === "not-found") {
     return (
       <div style={styles.screen}>
         <div style={styles.card}>
@@ -36,33 +91,19 @@ export default async function SharedPostcardPage({
     )
   }
 
-  const data = doc.data() as any
-  const template = String(data?.template || "template-1")
-  const imageUrl: string | null = typeof data?.imageUrl === "string" && data.imageUrl.trim() ? String(data.imageUrl) : null
-  const message = String(data?.message || "")
-  const title = String(data?.title || "My Special Place")
-  const description = String(data?.description || "A memorable place worth sharing.")
-  const t = data?.transform || {}
-
-  const stickers = Array.isArray(data?.stickers) ? data.stickers : []
-
-  const lat = Number(data?.latitude)
-  const lng = Number(data?.longitude)
-  const locationName =
-    typeof data?.locationName === "string" && String(data.locationName).trim() ? String(data.locationName).trim() : null
-
+  const { record } = loaded
   const payload: SharedPostcardData = {
-    postcardId,
-    template,
-    imageUrl,
-    latitude: Number.isFinite(lat) ? lat : null,
-    longitude: Number.isFinite(lng) ? lng : null,
-    locationName,
-    message,
-    title,
-    description,
-    stickers,
-    transform: t || {},
+    postcardId: record.postcardId,
+    template: record.template,
+    imageUrl: record.imageUrl,
+    latitude: record.latitude,
+    longitude: record.longitude,
+    locationName: record.locationName,
+    message: record.message,
+    title: record.title,
+    description: record.description.trim() || "A memorable place worth sharing.",
+    stickers: record.stickers as SharedPostcardData["stickers"],
+    transform: record.transform,
   }
 
   return <SharedPostcardClient data={payload} />

@@ -25,11 +25,21 @@ type CreatePostcardPayload = {
   locationName?: string | null
   transform?: { tx?: number; ty?: number; scale?: number; rotation?: number }
   senderUid: string
+  composedImageUrl?: string | null
 }
 
 function asNumber(n: unknown, def: number) {
   const x = Number(n)
   return Number.isFinite(x) ? x : def
+}
+
+function asOptionalHttpsUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const s = raw.trim()
+  if (!s) return null
+  if (!/^https?:\/\//i.test(s)) return null
+  if (s.length > 4096) return null
+  return s
 }
 
 export async function POST(req: NextRequest) {
@@ -43,6 +53,7 @@ export async function POST(req: NextRequest) {
     const title = String(body.title || "My Special Place")
     const description = String(body.description || "A memorable place worth sharing.")
     const senderUid = String((body as any)?.senderUid || "")
+    const composedImageUrl = asOptionalHttpsUrl((body as any)?.composedImageUrl)
 
     const latRaw = Number((body as any)?.latitude ?? (body as any)?.lat)
     const lngRaw = Number((body as any)?.longitude ?? (body as any)?.lon ?? (body as any)?.lng)
@@ -97,6 +108,7 @@ export async function POST(req: NextRequest) {
       ...(locationName ? { locationName } : {}),
       transform: body.transform || null,
       senderUid,
+      composedImageUrl,
       createdAt: FieldValue.serverTimestamp(),
       createdAtIso: nowIso,
     })

@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { getTemplateConfig } from "../editor/template-config"
 import { Caveat } from "next/font/google"
 import { uploadImageToFirebase, generateImageFilename } from "@/lib/imageUpload"
+import { capturePostcardJpegDataUrl } from "@/lib/postcard/capturePostcardImage"
 import { auth } from "@/lib/firebase"
 import { usePostcardExit } from "../_components/usePostcardExit"
 import { mappoBackButtonStyle } from "@/lib/mappoHeaderStyles"
@@ -52,6 +53,7 @@ export default function PreviewClient() {
   const [draftLatitude, setDraftLatitude] = useState<number | null>(null)
   const [draftLongitude, setDraftLongitude] = useState<number | null>(null)
   const [draftLocationName, setDraftLocationName] = useState<string | null>(null)
+  const postcardNodeRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     try {
@@ -256,6 +258,16 @@ export default function PreviewClient() {
       const uid = (auth as any)?.currentUser?.uid as string | undefined
       if (!uid) throw new Error("Please sign in to send a postcard.")
 
+      // Optional social-preview flatten. Capture first while the Preview DOM
+      // still shows the draft photo; failure must not block create.
+      let composedDataUrl: string | null = null
+      try {
+        composedDataUrl = await capturePostcardJpegDataUrl(postcardNodeRef.current)
+      } catch (e) {
+        console.error("Postcard social preview capture failed", e)
+        composedDataUrl = null
+      }
+
       // Upload photo to Firebase Storage to ensure the shared link has a durable URL.
       // For "no photo" postcards, skip uploading and store null.
       let hostedImageUrl: string | null = null
@@ -263,6 +275,17 @@ export default function PreviewClient() {
         if (!imageUrl) throw new Error("Missing image")
         const filename = generateImageFilename(uid)
         hostedImageUrl = await uploadImageToFirebase(imageUrl, filename)
+      }
+
+      let composedImageUrl: string | null = null
+      if (composedDataUrl) {
+        try {
+          const composedFilename = `composed_${generateImageFilename(uid)}`
+          composedImageUrl = await uploadImageToFirebase(composedDataUrl, composedFilename)
+        } catch (e) {
+          console.error("Postcard social preview upload failed", e)
+          composedImageUrl = null
+        }
       }
 
       const res = await fetch("/api/postcards/create", {
@@ -282,6 +305,7 @@ export default function PreviewClient() {
           ...(draftLocationName ? { locationName: draftLocationName } : null),
           transform: photoTransform,
           senderUid: uid,
+          ...(composedImageUrl ? { composedImageUrl } : null),
         }),
       })
       if (!res.ok) {
@@ -399,6 +423,7 @@ export default function PreviewClient() {
             }}
           >
             <div
+              ref={postcardNodeRef}
               style={{
                 width: "100%",
                 maxWidth: 420,
