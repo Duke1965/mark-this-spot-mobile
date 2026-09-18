@@ -104,14 +104,6 @@ function aiIdentityKey(rec: Pick<Recommendation, 'title' | 'location'>): string 
   return `${title}|unknown`
 }
 
-/** TEMPORARY — on-screen AI identity diagnostic. Remove with console [AI IDENTITY DIAG]. */
-type AiIdentityDiag = {
-  identity?: 'pending' | 'skipped' | 'ok' | 'no_match' | 'limited' | 'error' | 'closed'
-  placeId: string | null
-  photo: 'not_requested' | 'requested' | 'returned' | 'none' | 'error'
-  source?: string | null
-}
-
 const AI_SAME_PLACE_MAX_DISTANCE_M = 250
 
 /** Same rule as lib/google/googlePlaces.hintMatches (accent/punctuation-insensitive). */
@@ -480,7 +472,6 @@ export default function AIRecommendationsHub({
   const [learningProgress, setLearningProgress] = useState<any>(null)
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
   const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
-  const [aiDiagByKey, setAiDiagByKey] = useState<Record<string, AiIdentityDiag>>({})
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
   const [isBootstrappingPostcard, setIsBootstrappingPostcard] = useState(false)
   const postcardBootstrapInFlightRef = useRef(false)
@@ -1985,43 +1976,16 @@ export default function AIRecommendationsHub({
         params.set('lat', String(coords.lat))
         params.set('lng', String(coords.lng))
       }
-      console.log('[AI IDENTITY DIAG]', 'photo_request', { placeId })
-      setAiDiagByKey((p) => ({
-        ...p,
-        [placeId]: { placeId, photo: 'requested' },
-      }))
       void fetch(`/api/recommendations/photo?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
           const photoUrl = genuineCommunityPhotoUrl(data?.photoUrl) || null
           communityPhotoByPlaceIdRef.current.set(placeId, photoUrl)
-          console.log('[AI IDENTITY DIAG]', 'photo_response', {
-            placeId,
-            source: data?.source,
-            hasPhoto: !!photoUrl,
-          })
-          setAiDiagByKey((p) => ({
-            ...p,
-            [placeId]: {
-              placeId,
-              photo: photoUrl ? 'returned' : 'none',
-              source: typeof data?.source === 'string' ? data.source : null,
-            },
-          }))
           if (cancelled) return
           applyResolvedPhoto(placeId, photoUrl)
         })
         .catch(() => {
           communityPhotoByPlaceIdRef.current.set(placeId, null)
-          console.log('[AI IDENTITY DIAG]', 'photo_response', {
-            placeId,
-            source: 'error',
-            hasPhoto: false,
-          })
-          setAiDiagByKey((p) => ({
-            ...p,
-            [placeId]: { placeId, photo: 'error', source: 'error' },
-          }))
           if (cancelled) return
           applyResolvedPhoto(placeId, null)
         })
@@ -2036,10 +2000,7 @@ export default function AIRecommendationsHub({
   }, [recommendations])
 
   useEffect(() => {
-    if (viewMode !== 'list' && !showReadOnlyRecommendation) {
-      console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'not_list_or_detail', title: '' })
-      return
-    }
+    if (viewMode !== 'list' && !showReadOnlyRecommendation) return
 
     const navToken = `${viewMode}|${showReadOnlyRecommendation ? 'detail' : 'list'}`
     if (aiIdentityNavTokenRef.current !== navToken) {
@@ -2062,9 +2023,6 @@ export default function AIRecommendationsHub({
         !Number.isFinite(lat) ||
         !Number.isFinite(lng)
       ) {
-        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'missing_title_or_coords', title })
-        const skipKey = aiIdentityKey(rec)
-        setAiDiagByKey((p) => (p[skipKey] ? p : { ...p, [skipKey]: { identity: 'skipped', placeId: null, photo: 'not_requested' } }))
         continue
       }
       const key = aiIdentityKey(rec)
@@ -2074,30 +2032,14 @@ export default function AIRecommendationsHub({
         hasPlaceId &&
         isAddressLikeDescription(rec.description) &&
         !aiDescriptionUpgradeByKeyRef.current.has(key)
-      if (!needsIdentity && !needsDescription) {
-        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'already_enriched', title })
-        setAiDiagByKey((p) => (p[key] ? p : { ...p, [key]: { identity: 'skipped', placeId: null, photo: 'not_requested' } }))
-        continue
-      }
+      if (!needsIdentity && !needsDescription) continue
       if (needsIdentity) {
         const prior = aiIdentityByKeyRef.current.get(key)
         // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
-        if (prior && prior !== 'limited') {
-          console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'prior_result', title })
-          setAiDiagByKey((p) => (p[key] ? p : { ...p, [key]: { identity: 'skipped', placeId: null, photo: 'not_requested' } }))
-          continue
-        }
-        if (aiIdentityTransientRef.current.has(key)) {
-          console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'transient_backoff', title })
-          setAiDiagByKey((p) => (p[key] ? p : { ...p, [key]: { identity: 'skipped', placeId: null, photo: 'not_requested' } }))
-          continue
-        }
+        if (prior && prior !== 'limited') continue
+        if (aiIdentityTransientRef.current.has(key)) continue
       }
-      if (aiIdentityInFlightRef.current.has(key)) {
-        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'in_flight', title })
-        setAiDiagByKey((p) => (p[key] ? p : { ...p, [key]: { identity: 'skipped', placeId: null, photo: 'not_requested' } }))
-        continue
-      }
+      if (aiIdentityInFlightRef.current.has(key)) continue
       if (!pendingKeys.includes(key)) pendingKeys.push(key)
       if (!recByKey.has(key)) recByKey.set(key, rec)
     }
@@ -2163,42 +2105,9 @@ export default function AIRecommendationsHub({
       if (typeof rec.website === 'string' && rec.website.trim().startsWith('http')) {
         params.set('website', rec.website.trim())
       }
-      console.log('[AI IDENTITY DIAG]', 'identity_request', {
-        title: rec.title,
-        lat: rec.location.lat,
-        lng: rec.location.lng,
-      })
-      setAiDiagByKey((p) => ({
-        ...p,
-        [key]: { identity: 'pending', placeId: null, photo: 'not_requested' },
-      }))
       void fetch(`/api/recommendations/ai-identity?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
-          console.log('[AI IDENTITY DIAG]', 'identity_response', {
-            title: rec.title,
-            ok: !!data?.ok,
-            reason: data?.closedPermanently ? 'closed' : data?.reason || null,
-            placeId: data?.placeId || null,
-          })
-          const respPlaceId =
-            typeof data?.placeId === 'string' && data.placeId.trim() ? data.placeId.trim() : null
-          const respReason = data?.closedPermanently ? 'closed' : data?.reason
-          const identity: AiIdentityDiag['identity'] =
-            respReason === 'closed' ? 'closed' :
-            data?.ok && respPlaceId ? 'ok' :
-            respReason === 'no_match' ? 'no_match' :
-            respReason === 'limited' ? 'limited' :
-            'error'
-          setAiDiagByKey((p) => ({
-            ...p,
-            [key]: {
-              identity,
-              placeId: respPlaceId,
-              photo: p[key]?.photo ?? 'not_requested',
-              source: typeof data?.source === 'string' ? data.source : null,
-            },
-          }))
           if (data?.closedPermanently) {
             aiIdentityByKeyRef.current.set(key, 'closed')
             persistAIRecommendationsToServer([{ ...rec, closedPermanently: true }])
@@ -2238,16 +2147,6 @@ export default function AIRecommendationsHub({
           aiIdentityTransientRef.current.add(key)
         })
         .catch(() => {
-          console.log('[AI IDENTITY DIAG]', 'identity_response', {
-            title: rec.title,
-            ok: false,
-            reason: 'error',
-            placeId: null,
-          })
-          setAiDiagByKey((p) => ({
-            ...p,
-            [key]: { identity: 'error', placeId: null, photo: 'not_requested' },
-          }))
           aiIdentityTransientRef.current.add(key)
         })
         .finally(() => {
@@ -2860,13 +2759,6 @@ export default function AIRecommendationsHub({
       </div>
     )
   }
-
-  const selectedAiDiag = selectedRecommendation?.isAISuggestion
-    ? aiDiagByKey[aiIdentityKey(selectedRecommendation)]
-    : undefined
-  const selectedAiPhotoDiag = selectedAiDiag?.placeId
-    ? aiDiagByKey[selectedAiDiag.placeId]
-    : undefined
 
   return (
     <div style={{
@@ -3579,28 +3471,6 @@ export default function AIRecommendationsHub({
                 }}
               >
                 {selectedRecommendation.category}
-              </div>
-            )}
-
-            {selectedRecommendation.isAISuggestion && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '10px 12px',
-                  background: '#fff3cd',
-                  border: '2px solid #d39e00',
-                  borderRadius: '8px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.8rem',
-                  color: '#3a2e1e',
-                  lineHeight: 1.5,
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: '4px' }}>AI DIAGNOSTIC</div>
-                <div>Identity: {selectedAiDiag?.identity ?? 'pending'}</div>
-                <div>Place ID: {selectedAiDiag?.placeId || 'none'}</div>
-                <div>Photo: {selectedAiPhotoDiag?.photo ?? selectedAiDiag?.photo ?? 'not_requested'}</div>
-                <div>Source: {selectedAiPhotoDiag?.source || selectedAiDiag?.source || 'none'}</div>
               </div>
             )}
           </div>
