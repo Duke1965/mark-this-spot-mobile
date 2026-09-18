@@ -11,7 +11,6 @@ import { loadGoogleMapsJs, type GoogleMapInstance, type GoogleMapsNs } from '@/l
 import { createGoogleHtmlMarker, type GoogleHtmlMarkerHandle } from '@/components/map/googleHtmlMarker'
 import { auth } from '@/lib/firebase'
 import {
-  buildGoogleMapsSearchUrl,
   openGoogleMapsNavigation,
 } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
@@ -314,33 +313,6 @@ function resolveMarkerSelectionToCanonical(
   return out
 }
 
-function buildDiscoverDetailShare(rec: Recommendation) {
-  const title = rec.title || 'Check this place out'
-  const placeId = googlePlaceIdFromRecommendationFields(rec)
-  const shareUrl = buildGoogleMapsSearchUrl({
-    latitude: rec.location?.lat,
-    longitude: rec.location?.lng,
-    placeName: title,
-    placeId,
-  })
-  const shareText = `${title}\nThought you might like this place!\n📍 Open in Google Maps:\n${shareUrl}\nShared from Mappo`
-  return { title, shareUrl, shareText }
-}
-
-const discoverDetailShareBtn: React.CSSProperties = {
-  background: 'rgba(79,59,43,0.08)',
-  border: '1px solid rgba(79,59,43,0.15)',
-  color: '#4f3b2b',
-  fontWeight: 900,
-  padding: '0.7rem 0.9rem',
-  borderRadius: 12,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
 interface ClusteredPin {
   id: string
   location: { lat: number; lng: number }
@@ -501,7 +473,6 @@ export default function AIRecommendationsHub({
   const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
   const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
-  const [showDetailShareOptions, setShowDetailShareOptions] = useState(false)
   const [isBootstrappingPostcard, setIsBootstrappingPostcard] = useState(false)
   const postcardBootstrapInFlightRef = useRef(false)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
@@ -2146,7 +2117,6 @@ export default function AIRecommendationsHub({
               if (!prev || aiIdentityKey(prev) !== key) return prev
               setShowReadOnlyRecommendation(false)
               setDetailImageUrl(null)
-              setShowDetailShareOptions(false)
               return null
             })
             return
@@ -2230,7 +2200,6 @@ export default function AIRecommendationsHub({
   const closeRecommendationDetail = useCallback(() => {
     setShowReadOnlyRecommendation(false)
     setDetailImageUrl(null)
-    setShowDetailShareOptions(false)
   }, [])
 
   useEffect(() => {
@@ -3606,7 +3575,6 @@ export default function AIRecommendationsHub({
                 }
                 setShowReadOnlyRecommendation(false)
                 setDetailImageUrl(null)
-                setShowDetailShareOptions(false)
                 setSelectedRecommendation(null)
                 alert('Saved to My Library → Recommended')
               }}
@@ -3643,8 +3611,10 @@ export default function AIRecommendationsHub({
             </button>
             <button
               type="button"
-              onClick={() => setShowDetailShareOptions((prev) => !prev)}
+              disabled={isBootstrappingPostcard}
+              onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
               onMouseEnter={(e) => {
+                if (isBootstrappingPostcard) return
                 e.currentTarget.style.background = 'rgba(255,255,255,0.92)'
                 e.currentTarget.style.transform = 'translateY(-2px)'
                 e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'
@@ -3664,7 +3634,8 @@ export default function AIRecommendationsHub({
                 color: '#4f3b2b',
                 fontSize: '1.1rem',
                 fontWeight: 'bold',
-                cursor: 'pointer',
+                cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
+                opacity: isBootstrappingPostcard ? 0.7 : 1,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -3676,100 +3647,11 @@ export default function AIRecommendationsHub({
               📤 Share
             </button>
           </div>
-
-          {showDetailShareOptions && (() => {
-            const { title: shareTitle, shareUrl } =
-              buildDiscoverDetailShare(selectedRecommendation)
-            return (
-              <div
-                style={{
-                  width: '100%',
-                  marginTop: 4,
-                  marginBottom: 8,
-                  background: 'rgba(255,255,255,0.72)',
-                  border: '1px solid rgba(79,59,43,0.1)',
-                  borderRadius: 16,
-                  padding: 14,
-                  backdropFilter: 'blur(12px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                }}
-              >
-                <div style={{ fontWeight: 950, fontSize: '1.05rem', color: '#3a2e1e' }}>
-                  Share this place
-                </div>
-                <div
-                  style={{
-                    opacity: 0.9,
-                    lineHeight: 1.35,
-                    color: '#3a2e1e',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  Send {shareTitle} to someone.
-                </div>
-                {isBootstrappingPostcard ? (
-                  <div style={{ fontSize: '0.9rem', color: '#3a2e1e', opacity: 0.85 }}>
-                    Preparing postcard…
-                  </div>
-                ) : null}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    style={{
-                      ...discoverDetailShareBtn,
-                      opacity: isBootstrappingPostcard ? 0.7 : 1,
-                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
-                    }}
-                    disabled={isBootstrappingPostcard}
-                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
-                  >
-                    WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      ...discoverDetailShareBtn,
-                      opacity: isBootstrappingPostcard ? 0.7 : 1,
-                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
-                    }}
-                    disabled={isBootstrappingPostcard}
-                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
-                  >
-                    Email
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      ...discoverDetailShareBtn,
-                      opacity: isBootstrappingPostcard ? 0.7 : 1,
-                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
-                    }}
-                    disabled={isBootstrappingPostcard}
-                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
-                  >
-                    SMS
-                  </button>
-                  <button
-                    type="button"
-                    style={discoverDetailShareBtn}
-                    disabled={isBootstrappingPostcard}
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(shareUrl)
-                        alert('Link copied')
-                      } catch {
-                        alert('Copy failed')
-                      }
-                    }}
-                  >
-                    Copy link
-                  </button>
-                </div>
-              </div>
-            )
-          })()}
+          {isBootstrappingPostcard ? (
+            <div style={{ fontSize: '0.9rem', color: '#3a2e1e', opacity: 0.85, marginBottom: 8 }}>
+              Preparing postcard…
+            </div>
+          ) : null}
         </div>
       )}
 
