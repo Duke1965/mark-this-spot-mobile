@@ -16,6 +16,7 @@ import {
 } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
 import { isAddressLikeDescription } from '@/lib/places/formatPlaceText'
+import { bootstrapPostcardDraftFromPhoto } from '@/lib/postcard/bootstrapPostcardDraft'
 import {
   genuineCommunityPhotoUrl,
   googlePlaceIdFromRecommendationFields,
@@ -501,6 +502,8 @@ export default function AIRecommendationsHub({
   const [showReadOnlyRecommendation, setShowReadOnlyRecommendation] = useState(false)
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
   const [showDetailShareOptions, setShowDetailShareOptions] = useState(false)
+  const [isBootstrappingPostcard, setIsBootstrappingPostcard] = useState(false)
+  const postcardBootstrapInFlightRef = useRef(false)
   const [showRecommendationForm, setShowRecommendationForm] = useState(false)
   const [recommendationFormData, setRecommendationFormData] = useState<{
     mediaUrl: string
@@ -2197,6 +2200,33 @@ export default function AIRecommendationsHub({
     setViewMode(newViewMode)
   }
 
+  const startPostcardFromRecommendation = useCallback(async (rec: Recommendation) => {
+    if (postcardBootstrapInFlightRef.current) return
+    const photo =
+      genuineCommunityPhotoUrl(rec.photoUrl) || genuineCommunityPhotoUrl(rec.mediaUrl)
+    if (!photo) {
+      alert(
+        "This recommendation doesn’t have a photo yet, so a postcard can’t be created. You can still copy the Google Maps link."
+      )
+      return
+    }
+    postcardBootstrapInFlightRef.current = true
+    setIsBootstrappingPostcard(true)
+    try {
+      const result = await bootstrapPostcardDraftFromPhoto({
+        photoUrl: photo,
+        title: rec.title || '',
+        description: rec.description || '',
+      })
+      if (!result.ok) alert(result.error)
+    } catch {
+      alert("We couldn’t use this photo as a postcard. You can still copy the Google Maps link.")
+    } finally {
+      postcardBootstrapInFlightRef.current = false
+      setIsBootstrappingPostcard(false)
+    }
+  }, [])
+
   const closeRecommendationDetail = useCallback(() => {
     setShowReadOnlyRecommendation(false)
     setDetailImageUrl(null)
@@ -3648,7 +3678,7 @@ export default function AIRecommendationsHub({
           </div>
 
           {showDetailShareOptions && (() => {
-            const { title: shareTitle, shareUrl, shareText } =
+            const { title: shareTitle, shareUrl } =
               buildDiscoverDetailShare(selectedRecommendation)
             return (
               <div
@@ -3679,30 +3709,52 @@ export default function AIRecommendationsHub({
                 >
                   Send {shareTitle} to someone.
                 </div>
+                {isBootstrappingPostcard ? (
+                  <div style={{ fontSize: '0.9rem', color: '#3a2e1e', opacity: 0.85 }}>
+                    Preparing postcard…
+                  </div>
+                ) : null}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-                    style={discoverDetailShareBtn}
-                    rel="noreferrer"
-                    target="_blank"
+                  <button
+                    type="button"
+                    style={{
+                      ...discoverDetailShareBtn,
+                      opacity: isBootstrappingPostcard ? 0.7 : 1,
+                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
+                    }}
+                    disabled={isBootstrappingPostcard}
+                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
                   >
                     WhatsApp
-                  </a>
-                  <a
-                    href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareText)}`}
-                    style={discoverDetailShareBtn}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...discoverDetailShareBtn,
+                      opacity: isBootstrappingPostcard ? 0.7 : 1,
+                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
+                    }}
+                    disabled={isBootstrappingPostcard}
+                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
                   >
                     Email
-                  </a>
-                  <a
-                    href={`sms:?&body=${encodeURIComponent(shareText)}`}
-                    style={discoverDetailShareBtn}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...discoverDetailShareBtn,
+                      opacity: isBootstrappingPostcard ? 0.7 : 1,
+                      cursor: isBootstrappingPostcard ? 'not-allowed' : 'pointer',
+                    }}
+                    disabled={isBootstrappingPostcard}
+                    onClick={() => startPostcardFromRecommendation(selectedRecommendation)}
                   >
                     SMS
-                  </a>
+                  </button>
                   <button
                     type="button"
                     style={discoverDetailShareBtn}
+                    disabled={isBootstrappingPostcard}
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(shareUrl)
