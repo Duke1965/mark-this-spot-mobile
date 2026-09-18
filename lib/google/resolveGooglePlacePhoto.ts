@@ -64,11 +64,13 @@ export async function resolveGooglePlacePhoto(input: {
     }
   }
 
-  const limit = await checkAndIncrementGoogleDailyLimit({
-    key: input.limiterKey || `rec-photo:${placeId}`,
+  const limiterKey = input.limiterKey || `rec-photo:${placeId}`
+  const peek = await checkAndIncrementGoogleDailyLimit({
+    key: limiterKey,
     maxPerDay: 1,
+    increment: false,
   })
-  if (!limit.allowed) {
+  if (!peek.allowed) {
     return {
       photoUrl: null,
       source: "none",
@@ -77,7 +79,17 @@ export async function resolveGooglePlacePhoto(input: {
     }
   }
 
-  const details = await placeDetails(placeId)
+  let details: Awaited<ReturnType<typeof placeDetails>>
+  try {
+    details = await placeDetails(placeId)
+  } catch {
+    return {
+      photoUrl: null,
+      source: "none",
+      businessStatus: cachedStatus || undefined,
+      website: cachedWebsite || undefined,
+    }
+  }
   if (!details?.placeId) {
     return {
       photoUrl: null,
@@ -100,7 +112,9 @@ export async function resolveGooglePlacePhoto(input: {
   const photos = Array.isArray(details.photos) ? details.photos : []
   const hostedPhotoUrls: string[] = []
   const first = photos[0]
-  if (first?.photoReference && details.businessStatus !== "CLOSED_PERMANENTLY") {
+  const closedPermanently = details.businessStatus === "CLOSED_PERMANENTLY"
+  const hasUsablePhotoRef = !!first?.photoReference && !closedPermanently
+  if (hasUsablePhotoRef) {
     try {
       const got = await fetchPhoto(first.photoReference, 1200)
       const ext = got.contentType.toLowerCase().includes("png")
@@ -115,6 +129,15 @@ export async function resolveGooglePlacePhoto(input: {
     } catch {
       // Keep going; identity can still be cached.
     }
+  }
+
+  const photoUrl = firstCachedPhotoUrl(hostedPhotoUrls) || null
+  const definitiveResult = !!photoUrl || !hasUsablePhotoRef
+  if (definitiveResult) {
+    await checkAndIncrementGoogleDailyLimit({
+      key: limiterKey,
+      maxPerDay: 1,
+    })
   }
 
   if (hasCoords) {
@@ -144,7 +167,6 @@ export async function resolveGooglePlacePhoto(input: {
     }
   }
 
-  const photoUrl = firstCachedPhotoUrl(hostedPhotoUrls) || null
   return {
     photoUrl,
     source: photoUrl ? "google" : "none",
