@@ -1976,16 +1976,27 @@ export default function AIRecommendationsHub({
         params.set('lat', String(coords.lat))
         params.set('lng', String(coords.lng))
       }
+      console.log('[AI IDENTITY DIAG]', 'photo_request', { placeId })
       void fetch(`/api/recommendations/photo?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
           const photoUrl = genuineCommunityPhotoUrl(data?.photoUrl) || null
           communityPhotoByPlaceIdRef.current.set(placeId, photoUrl)
+          console.log('[AI IDENTITY DIAG]', 'photo_response', {
+            placeId,
+            source: data?.source,
+            hasPhoto: !!photoUrl,
+          })
           if (cancelled) return
           applyResolvedPhoto(placeId, photoUrl)
         })
         .catch(() => {
           communityPhotoByPlaceIdRef.current.set(placeId, null)
+          console.log('[AI IDENTITY DIAG]', 'photo_response', {
+            placeId,
+            source: 'error',
+            hasPhoto: false,
+          })
           if (cancelled) return
           applyResolvedPhoto(placeId, null)
         })
@@ -2000,7 +2011,10 @@ export default function AIRecommendationsHub({
   }, [recommendations])
 
   useEffect(() => {
-    if (viewMode !== 'list' && !showReadOnlyRecommendation) return
+    if (viewMode !== 'list' && !showReadOnlyRecommendation) {
+      console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'not_list_or_detail', title: '' })
+      return
+    }
 
     const navToken = `${viewMode}|${showReadOnlyRecommendation ? 'detail' : 'list'}`
     if (aiIdentityNavTokenRef.current !== navToken) {
@@ -2023,6 +2037,7 @@ export default function AIRecommendationsHub({
         !Number.isFinite(lat) ||
         !Number.isFinite(lng)
       ) {
+        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'missing_title_or_coords', title })
         continue
       }
       const key = aiIdentityKey(rec)
@@ -2032,14 +2047,26 @@ export default function AIRecommendationsHub({
         hasPlaceId &&
         isAddressLikeDescription(rec.description) &&
         !aiDescriptionUpgradeByKeyRef.current.has(key)
-      if (!needsIdentity && !needsDescription) continue
+      if (!needsIdentity && !needsDescription) {
+        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'already_enriched', title })
+        continue
+      }
       if (needsIdentity) {
         const prior = aiIdentityByKeyRef.current.get(key)
         // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
-        if (prior && prior !== 'limited') continue
-        if (aiIdentityTransientRef.current.has(key)) continue
+        if (prior && prior !== 'limited') {
+          console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'prior_result', title })
+          continue
+        }
+        if (aiIdentityTransientRef.current.has(key)) {
+          console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'transient_backoff', title })
+          continue
+        }
       }
-      if (aiIdentityInFlightRef.current.has(key)) continue
+      if (aiIdentityInFlightRef.current.has(key)) {
+        console.log('[AI IDENTITY DIAG]', 'identity_skip', { reason: 'in_flight', title })
+        continue
+      }
       if (!pendingKeys.includes(key)) pendingKeys.push(key)
       if (!recByKey.has(key)) recByKey.set(key, rec)
     }
@@ -2105,9 +2132,20 @@ export default function AIRecommendationsHub({
       if (typeof rec.website === 'string' && rec.website.trim().startsWith('http')) {
         params.set('website', rec.website.trim())
       }
+      console.log('[AI IDENTITY DIAG]', 'identity_request', {
+        title: rec.title,
+        lat: rec.location.lat,
+        lng: rec.location.lng,
+      })
       void fetch(`/api/recommendations/ai-identity?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
+          console.log('[AI IDENTITY DIAG]', 'identity_response', {
+            title: rec.title,
+            ok: !!data?.ok,
+            reason: data?.closedPermanently ? 'closed' : data?.reason || null,
+            placeId: data?.placeId || null,
+          })
           if (data?.closedPermanently) {
             aiIdentityByKeyRef.current.set(key, 'closed')
             persistAIRecommendationsToServer([{ ...rec, closedPermanently: true }])
@@ -2147,6 +2185,12 @@ export default function AIRecommendationsHub({
           aiIdentityTransientRef.current.add(key)
         })
         .catch(() => {
+          console.log('[AI IDENTITY DIAG]', 'identity_response', {
+            title: rec.title,
+            ok: false,
+            reason: 'error',
+            placeId: null,
+          })
           aiIdentityTransientRef.current.add(key)
         })
         .finally(() => {
