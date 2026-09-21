@@ -10,6 +10,7 @@ import { buildTitle, buildDescription } from '@/lib/places/formatPlaceText'
 import { discoverOfficialWebsite, isLikelyOfficialWebsiteUrl } from '@/lib/places/websiteDiscovery'
 import { mergeTitleDescription } from '@/lib/pinEnrich/mergeTitleDescription'
 import { nearbySearch, placeDetails, fetchPhoto, hashPhotoRef } from '@/lib/google/googlePlaces'
+import { editorialCacheFields, ensureEditorialSummary } from '@/lib/google/editorialSummary'
 import {
   checkAndIncrementGoogleDailyLimit,
   getCachedGooglePlaceById,
@@ -333,7 +334,8 @@ async function resolveExplicitGooglePlaceId(input: {
           placeLon: det.location?.lon,
           lat,
           lon,
-          source: 'google'
+          source: 'google',
+          ...editorialCacheFields(det)
           // Intentionally omit photoStorageUrls when reusing cache photos —
           // setCachedGooglePlace never writes [] over a good list.
         }
@@ -399,7 +401,8 @@ async function resolveExplicitGooglePlaceId(input: {
             placeLon: det.location?.lon,
             lat,
             lon,
-            source: 'google'
+            source: 'google',
+            ...editorialCacheFields(det)
           }
         })
         googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
@@ -962,7 +965,8 @@ export async function GET(request: NextRequest) {
                         placeLon: detWebsite.location?.lon,
                         lat,
                         lon,
-                        source: 'google'
+                        source: 'google',
+                        ...editorialCacheFields(detWebsite)
                         // Omit photoStorageUrls — preserve existing cached photos.
                       }
                     })
@@ -1050,7 +1054,8 @@ export async function GET(request: NextRequest) {
                         placeLon: det.location?.lon,
                         lat,
                         lon,
-                        source: 'google'
+                        source: 'google',
+                        ...editorialCacheFields(det)
                       }
                     })
                     googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
@@ -1110,7 +1115,8 @@ export async function GET(request: NextRequest) {
                           placeLon: det.location?.lon,
                           lat,
                           lon,
-                          source: 'google'
+                          source: 'google',
+                          ...editorialCacheFields(det)
                         }
                       })
                       googleDiag.cache.write = wr?.ok ? 'ok' : 'error'
@@ -1324,15 +1330,39 @@ export async function GET(request: NextRequest) {
       website: place.website
     })
 
-    // 2b) Merge title/description with website metadata hints (no crawling)
+    let editorialSummary: string | undefined
+    if (String(place.source || '').toLowerCase() === 'google' && String(place.sourceId || '').trim()) {
+      try {
+        const ensured = await ensureEditorialSummary({
+          placeId: String(place.sourceId).trim(),
+          lat,
+          lon
+        })
+        editorialSummary = ensured.editorialSummary
+      } catch {
+        editorialSummary = undefined
+      }
+    }
+
+    // 2b) Merge: Google editorialSummary, then website metadata, then factual fallback
     const merged = mergeTitleDescription({
       baseTitle,
       baseDescription,
       place,
-      websiteMeta
+      websiteMeta,
+      editorialSummary
     })
     const title = merged.title
     const description = merged.description
+    try {
+      console.log('[TEMP Phase2A description]', {
+        placeName: place.name || null,
+        editorialSummaryPresent: !!editorialSummary,
+        sourceSelected: merged.descriptionSource
+      })
+    } catch {
+      // ignore
+    }
 
     // 3) Wikimedia fallback (only if we still have no images)
     if (images.length === 0 && shouldAttemptWikidata(place)) {

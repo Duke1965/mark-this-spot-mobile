@@ -11,6 +11,7 @@ import {
   textSearch,
 } from "@/lib/google/googlePlaces"
 import { resolveGooglePlacePhoto } from "@/lib/google/resolveGooglePlacePhoto"
+import { ensureEditorialSummary } from "@/lib/google/editorialSummary"
 import { genuineCommunityPhotoUrl } from "@/lib/recommendations/communityPhoto"
 import { getWebsiteMeta } from "@/lib/images/websiteMeta"
 import { mergeTitleDescription } from "@/lib/pinEnrich/mergeTitleDescription"
@@ -36,6 +37,7 @@ export type AiGoogleIdentityResult =
       website?: string
       businessStatus?: string
       description?: string
+      descriptionSource?: "google_editorial" | "website" | "generated"
       source: "cache" | "google" | "none"
       resolver: "place_id" | "place_cache" | "nearby" | "text"
       distanceMeters?: number
@@ -122,12 +124,11 @@ async function enrichAiPlaceDescription(input: {
   address?: string
   types?: string[]
   name?: string
-}): Promise<string | undefined> {
-  const current = String(input.currentDescription || "").trim()
-  if (current && !isAddressLikeDescription(current, input.address)) {
-    return current
-  }
-
+  editorialSummary?: string
+}): Promise<{
+  description?: string
+  descriptionSource: "google_editorial" | "website" | "generated"
+}> {
   const name = String(input.name || input.title || "").trim()
   const locality = localityFromFormattedAddress(input.address)
   const baseDescription = buildDescription({
@@ -158,14 +159,29 @@ async function enrichAiPlaceDescription(input: {
       source: "google",
     },
     websiteMeta,
+    editorialSummary: input.editorialSummary,
   })
 
-  const next = String(merged.description || baseDescription || "").trim()
-  if (next && !isAddressLikeDescription(next, input.address)) return next
-  if (baseDescription && !isAddressLikeDescription(baseDescription, input.address)) {
-    return baseDescription
+  if (merged.descriptionSource === "google_editorial") {
+    return { description: merged.description, descriptionSource: "google_editorial" }
   }
-  return undefined
+
+  const current = String(input.currentDescription || "").trim()
+  if (current && !isAddressLikeDescription(current, input.address)) {
+    return {
+      description: current,
+      descriptionSource: merged.descriptionSource,
+    }
+  }
+
+  const next = String(merged.description || baseDescription || "").trim()
+  if (next && !isAddressLikeDescription(next, input.address)) {
+    return { description: next, descriptionSource: merged.descriptionSource }
+  }
+  if (baseDescription && !isAddressLikeDescription(baseDescription, input.address)) {
+    return { description: baseDescription, descriptionSource: "generated" }
+  }
+  return { description: undefined, descriptionSource: "generated" }
 }
 
 async function finalizeResolvedPlace(input: {
@@ -206,6 +222,18 @@ async function finalizeResolvedPlace(input: {
   }
 
   cachedById = (await getCachedGooglePlaceById({ placeId })) || cachedById
+  let editorialSummary: string | undefined
+  try {
+    const ensured = await ensureEditorialSummary({
+      placeId,
+      lat: input.lat,
+      lon: input.lng,
+    })
+    editorialSummary = ensured.editorialSummary
+    cachedById = (await getCachedGooglePlaceById({ placeId })) || cachedById
+  } catch {
+    editorialSummary = undefined
+  }
   let name = String(cachedById?.place?.name || "").trim()
   let types = Array.isArray(cachedById?.place?.types) ? cachedById!.place.types : undefined
   let address =
@@ -249,13 +277,14 @@ async function finalizeResolvedPlace(input: {
   }
 
   const googleTitle = name || input.titleHint
-  const description = await enrichAiPlaceDescription({
+  const enriched = await enrichAiPlaceDescription({
     title: googleTitle,
     currentDescription: input.currentDescription,
     website: cachedWebsite,
     address,
     types,
     name: googleTitle,
+    editorialSummary,
   })
 
   phase1IdentityLog({
@@ -269,6 +298,15 @@ async function finalizeResolvedPlace(input: {
     finalTitle: googleTitle,
     resolver: input.resolver,
   })
+  try {
+    console.log("[TEMP Phase2A description]", {
+      placeName: googleTitle,
+      editorialSummaryPresent: !!editorialSummary,
+      sourceSelected: enriched.descriptionSource,
+    })
+  } catch {
+    // ignore
+  }
 
   return {
     ok: true,
@@ -281,7 +319,8 @@ async function finalizeResolvedPlace(input: {
     photoUrl: genuineCommunityPhotoUrl(photo.photoUrl) || null,
     website: cachedWebsite || undefined,
     businessStatus: status || cachedStatus || undefined,
-    description,
+    description: enriched.description,
+    descriptionSource: enriched.descriptionSource,
     source: photo.source,
     resolver: input.resolver,
     distanceMeters:

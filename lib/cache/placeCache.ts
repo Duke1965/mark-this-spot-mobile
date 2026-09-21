@@ -26,6 +26,10 @@ export type CachedGooglePlace = {
   updatedAt?: any
   source: 'google'
   businessStatus?: string
+  /** Google Places editorialSummary.text when present. */
+  editorialSummary?: string
+  /** True after Place Details requested editorialSummary (including when Google returned none). */
+  editorialSummaryChecked?: boolean
 }
 
 function envInt(name: string, def: number): number {
@@ -189,6 +193,8 @@ export async function setCachedGooglePlace(input: {
     placeLat?: number
     placeLon?: number
     businessStatus?: string
+    editorialSummary?: string
+    editorialSummaryChecked?: boolean
   } = {
     place_id: String(input.place.place_id),
     lat: input.lat,
@@ -205,6 +211,9 @@ export async function setCachedGooglePlace(input: {
   if (Number.isFinite(Number(input.place.placeLat))) payload.placeLat = Number(input.place.placeLat)
   if (Number.isFinite(Number(input.place.placeLon))) payload.placeLon = Number(input.place.placeLon)
   if (input.place.businessStatus) payload.businessStatus = String(input.place.businessStatus)
+  if (input.place.editorialSummaryChecked === true) payload.editorialSummaryChecked = true
+  const editorial = String(input.place.editorialSummary || '').trim()
+  if (editorial) payload.editorialSummary = editorial
 
   try {
     const writes: Promise<any>[] = [db.collection('place_cache').doc(docId).set(payload, { merge: true })]

@@ -233,7 +233,8 @@ export function mergeTitleDescription(input: {
   baseDescription: string
   place?: PlaceLike
   websiteMeta?: WebsiteMeta | null
-}): { title: string; description: string } {
+  editorialSummary?: string
+}): { title: string; description: string; descriptionSource: "google_editorial" | "website" | "generated" } {
   const baseTitle = norm(input.baseTitle) || 'Pinned location'
   const baseDescription = norm(input.baseDescription)
 
@@ -249,16 +250,30 @@ export function mergeTitleDescription(input: {
     }
   }
 
+  const editorial = usableEditorialFromInput(input.editorialSummary)
+  if (editorial) {
+    return { title, description: editorial, descriptionSource: "google_editorial" }
+  }
+
   // Description: prefer a usable official-site meta/OG description over the
   // named factual formatter fallback (name + category + locality [+ host]).
   let description = baseDescription
+  let descriptionSource: "website" | "generated" = "generated"
   for (const candidate of pickWebsiteDescription(meta)) {
     if (!isUsableWebsiteDescription(candidate, input.place)) continue
     description = clampDescription(candidate)
+    descriptionSource = "website"
     break
   }
   if (!description) description = baseDescription || 'Pinned location.'
 
-  return { title, description: sanitizePlaceDescription(description) }
+  return { title, description: sanitizePlaceDescription(description), descriptionSource }
+}
+
+function usableEditorialFromInput(text: string | undefined): string | undefined {
+  const t = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+  return t || undefined
 }
 

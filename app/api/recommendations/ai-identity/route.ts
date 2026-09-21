@@ -47,6 +47,7 @@ export async function GET(req: Request) {
       website: resolved.website || null,
       businessStatus: resolved.businessStatus || null,
       description: resolved.description || null,
+      descriptionSource: resolved.descriptionSource || null,
       source: resolved.source,
       resolver: resolved.resolver,
       distanceMeters:

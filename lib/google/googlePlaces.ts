@@ -36,6 +36,8 @@ export type GooglePlaceDetails = {
   location?: { lat: number; lon: number }
   photos?: Array<{ photoReference: string; width?: number; height?: number }>
   businessStatus?: string
+  /** Places API (New) editorialSummary.text. Absent when Google has no summary. */
+  editorialSummary?: string
 }
 
 const NEARBY_FIELD_MASK =
@@ -43,7 +45,7 @@ const NEARBY_FIELD_MASK =
 const TEXT_SEARCH_FIELD_MASK =
   'places.id,places.displayName,places.location,places.businessStatus'
 const DETAILS_FIELD_MASK =
-  'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos,businessStatus'
+  'id,displayName,formattedAddress,websiteUri,types,nationalPhoneNumber,location,photos,businessStatus,editorialSummary'
 
 function requireApiKey(): string {
   const key = process.env.GOOGLE_MAPS_API_KEY
@@ -585,6 +587,7 @@ export async function placeDetails(placeId: string): Promise<GooglePlaceDetails 
       typeof r?.businessStatus === 'string' && r.businessStatus.trim()
         ? String(r.businessStatus).trim()
         : undefined,
+    editorialSummary: displayNameText(r?.editorialSummary),
     photos: Array.isArray(r?.photos)
       ? r.photos
           .map((p: any) => ({

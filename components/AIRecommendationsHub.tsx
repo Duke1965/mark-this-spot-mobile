@@ -55,6 +55,30 @@ interface Recommendation {
   placeKey?: string
   website?: string
   closedPermanently?: boolean
+  /** AI identity only: Google editorial summary. Not used for Community/postcards. */
+  descriptionSource?: "google_editorial" | "website" | "generated"
+}
+
+/** Places attribution for Google editorial copy shown outside a Google Map. */
+function GoogleMapsDescriptionAttribution({
+  source,
+}: {
+  source?: Recommendation["descriptionSource"]
+}) {
+  if (source !== "google_editorial") return null
+  return (
+    <div
+      style={{
+        marginTop: "4px",
+        fontSize: "11px",
+        color: "rgba(79,59,43,0.55)",
+        fontWeight: 500,
+        letterSpacing: "0.01em",
+      }}
+    >
+      Google Maps
+    </div>
+  )
 }
 
 /** Stable place identity for map grouping (matches upsert-pin / upsert-ai placeKey intent). */
@@ -631,7 +655,10 @@ export default function AIRecommendationsHub({
               .map((r) => ({
                 id: r.id,
                 title: r.title,
-                description: sanitizePlaceDescription(r.description),
+                description:
+                  r.descriptionSource === 'google_editorial'
+                    ? String(r.description || '').replace(/\s+/g, ' ').trim()
+                    : sanitizePlaceDescription(r.description),
                 category: r.category,
                 location: r.location,
                 rating: r.rating,
@@ -2037,7 +2064,9 @@ export default function AIRecommendationsHub({
         hasPlaceId &&
         isAddressLikeDescription(rec.description) &&
         !aiDescriptionUpgradeByKeyRef.current.has(key)
-      if (!needsIdentity && !needsCanonicalRefresh && !needsDescription) continue
+      const needsEditorialCheck =
+        hasPlaceId && !aiEditorialCheckedByKeyRef.current.has(key)
+      if (!needsIdentity && !needsCanonicalRefresh && !needsDescription && !needsEditorialCheck) continue
       if (needsIdentity) {
         const prior = aiIdentityByKeyRef.current.get(key)
         // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
@@ -2061,6 +2090,7 @@ export default function AIRecommendationsHub({
         photoUrl?: string | null
         website?: string | null
         description?: string | null
+        descriptionSource?: string | null
       }
     ) => {
       const placeId = String(data.placeId || '').trim()
@@ -2076,6 +2106,12 @@ export default function AIRecommendationsHub({
           : undefined
       const incomingDesc =
         typeof data.description === 'string' ? data.description.trim() : ''
+      const descriptionSource =
+        data.descriptionSource === 'google_editorial' ||
+        data.descriptionSource === 'website' ||
+        data.descriptionSource === 'generated'
+          ? data.descriptionSource
+          : undefined
       const stamp = (row: Recommendation): Recommendation => {
         if (aiIdentityKey(row) !== key && String(row.id) !== String(rec.id)) return row
         let next: Recommendation = {
@@ -2094,7 +2130,10 @@ export default function AIRecommendationsHub({
           next = { ...next, photoUrl, mediaUrl: photoUrl }
         }
         if (website) next = { ...next, website }
-        if (
+        // Google editorial may replace address-like, buildDescription, or website copy on AI recs only.
+        if (incomingDesc && descriptionSource === 'google_editorial') {
+          next = { ...next, description: incomingDesc, descriptionSource: 'google_editorial' }
+        } else if (
           incomingDesc &&
           isAddressLikeDescription(next.description) &&
           !isAddressLikeDescription(incomingDesc)
@@ -2155,6 +2194,7 @@ export default function AIRecommendationsHub({
           if (data?.ok && placeId) {
             aiIdentityByKeyRef.current.set(key, placeId)
             aiCanonicalIdentityByKeyRef.current.add(key)
+            aiEditorialCheckedByKeyRef.current.add(key)
             applyIdentity(key, rec, {
               placeId,
               title: data.title,
@@ -2164,6 +2204,7 @@ export default function AIRecommendationsHub({
               photoUrl: data.photoUrl,
               website: data.website,
               description: data.description,
+              descriptionSource: data.descriptionSource,
             })
             const returnedDesc =
               typeof data.description === 'string' ? data.description.trim() : ''
@@ -2363,6 +2404,7 @@ export default function AIRecommendationsHub({
   const aiIdentityMountedRef = useRef(true)
   const aiDescriptionUpgradeByKeyRef = useRef<Set<string>>(new Set())
   const aiCanonicalIdentityByKeyRef = useRef<Set<string>>(new Set())
+  const aiEditorialCheckedByKeyRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     aiIdentityMountedRef.current = true
@@ -3164,9 +3206,12 @@ export default function AIRecommendationsHub({
                       </div>
                     </div>
                     
-                    <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-                      {rec.description}
-                    </p>
+                    <div style={{ margin: '0 0 12px 0' }}>
+                      <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+                        {rec.description}
+                      </p>
+                      <GoogleMapsDescriptionAttribution source={rec.descriptionSource} />
+                    </div>
                     
                     <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                       <button 
@@ -3471,9 +3516,12 @@ export default function AIRecommendationsHub({
             </h2>
 
             {selectedRecommendation.description && (
-              <p style={{ color: 'rgba(58,46,30,0.85)', lineHeight: '1.6', margin: '0 0 16px 0' }}>
-                {selectedRecommendation.description}
-              </p>
+              <div style={{ margin: '0 0 16px 0' }}>
+                <p style={{ color: 'rgba(58,46,30,0.85)', lineHeight: '1.6', margin: 0 }}>
+                  {selectedRecommendation.description}
+                </p>
+                <GoogleMapsDescriptionAttribution source={selectedRecommendation.descriptionSource} />
+              </div>
             )}
 
             {selectedRecommendation.reason && (

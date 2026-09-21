@@ -5,6 +5,7 @@ import {
   setCachedGooglePlace,
 } from "@/lib/cache/placeCache"
 import { fetchPhoto, hashPhotoRef, placeDetails } from "@/lib/google/googlePlaces"
+import { editorialCacheFields } from "@/lib/google/editorialSummary"
 import { genuineCommunityPhotoUrl } from "@/lib/recommendations/communityPhoto"
 
 function firstCachedPhotoUrl(urls: unknown): string | undefined {
@@ -160,6 +161,7 @@ export async function resolveGooglePlacePhoto(input: {
           lon: lng,
           source: "google",
           businessStatus: details.businessStatus,
+          ...editorialCacheFields(details),
         },
       })
     } catch {
