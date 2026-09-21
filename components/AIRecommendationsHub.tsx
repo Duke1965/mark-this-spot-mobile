@@ -130,6 +130,8 @@ function aiIdentityKey(rec: Pick<Recommendation, 'title' | 'location'>): string 
 }
 
 const AI_SAME_PLACE_MAX_DISTANCE_M = 250
+/** Weak Geoapify/building point vs Google place. Tighter than the 250 m same-name rule; matches Nearby radius. */
+const AI_WEAK_CANONICAL_ABSORB_MAX_M = 80
 
 /** Same rule as lib/google/googlePlaces.hintMatches (accent/punctuation-insensitive). */
 function normalizeAiPlaceName(s: string): string {
@@ -187,6 +189,94 @@ function aiSamePlaceByNameAndDistance(a: Recommendation, b: Recommendation): boo
   const bc = recFiniteCoords(b)
   if (!ac || !bc) return false
   return haversineDistanceMeters(ac, bc) <= AI_SAME_PLACE_MAX_DISTANCE_M
+}
+
+function isWeakUnresolvedAiIdentity(rec: Recommendation): boolean {
+  return isWeakUpstreamTitle(rec.title)
+}
+
+function recIdKind(id: string): string {
+  const value = String(id || '')
+  if (value.startsWith('starter-')) return 'starter'
+  if (value.startsWith('discovery-')) return 'discovery'
+  if (value.startsWith('new-user-')) return 'new-user'
+  if (value.startsWith('ai-')) return 'ai-generated'
+  if (value.startsWith('a_')) return 'stored-ai'
+  if (value.startsWith('u_')) return 'stored-user'
+  return 'other'
+}
+
+/**
+ * Display-only: hide a weak unresolved AI row sitting on top of a canonical Google AI rec.
+ * Does not delete Firestore. Does not merge two Place IDs or strong titles like Marras.
+ */
+function absorbWeakAiDuplicates(recs: Recommendation[]): Recommendation[] {
+  const canonical = recs.filter(
+    (r) => r.isAISuggestion && !!googlePlaceIdFromRecommendationFields(r)
+  )
+  if (canonical.length === 0) return recs
+
+  const absorbed = new Set<string>()
+  for (const weak of recs) {
+    if (!weak.isAISuggestion) continue
+    if (googlePlaceIdFromRecommendationFields(weak)) continue
+    if (!isWeakUnresolvedAiIdentity(weak)) continue
+    const wc = recFiniteCoords(weak)
+    if (!wc) continue
+
+    let best: Recommendation | null = null
+    let bestDistance = Infinity
+    for (const canon of canonical) {
+      const cc = recFiniteCoords(canon)
+      if (!cc) continue
+      const distance = haversineDistanceMeters(wc, cc)
+      if (distance <= AI_WEAK_CANONICAL_ABSORB_MAX_M && distance < bestDistance) {
+        best = canon
+        bestDistance = distance
+      }
+    }
+    if (!best) continue
+    absorbed.add(String(weak.id))
+    try {
+      console.log('[TEMP AI dedupe]', {
+        canonicalTitle: best.title,
+        canonicalPlaceId: googlePlaceIdFromRecommendationFields(best) || null,
+        canonicalIdKind: recIdKind(String(best.id || '')),
+        absorbedTitle: weak.title,
+        absorbedIdKind: recIdKind(String(weak.id || '')),
+        distanceMeters: Math.round(bestDistance),
+      })
+    } catch {
+      // ignore
+    }
+  }
+  if (absorbed.size === 0) return recs
+  return recs.filter((r) => !absorbed.has(String(r.id)))
+}
+
+function resolveAbsorbedSelection(
+  displayed: Recommendation[],
+  selected: Recommendation | null
+): Recommendation | null {
+  if (!selected) return null
+  if (displayed.some((r) => String(r.id) === String(selected.id))) return selected
+  if (!selected.isAISuggestion) return selected
+  const sc = recFiniteCoords(selected)
+  if (!sc) return null
+  let best: Recommendation | null = null
+  let bestDistance = Infinity
+  for (const rec of displayed) {
+    if (!rec.isAISuggestion) continue
+    if (!googlePlaceIdFromRecommendationFields(rec)) continue
+    const cc = recFiniteCoords(rec)
+    if (!cc) continue
+    const distance = haversineDistanceMeters(sc, cc)
+    if (distance <= AI_WEAK_CANONICAL_ABSORB_MAX_M && distance < bestDistance) {
+      best = rec
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 function trimPlaceKey(value: unknown): string | undefined {
@@ -544,12 +634,16 @@ export default function AIRecommendationsHub({
   
   // AI Recommendations
   const [recommendations, setRecommendations] = useState<Recommendation[]>(initialRecommendations || [])
+  const displayRecommendations = useMemo(
+    () => absorbWeakAiDuplicates(recommendations),
+    [recommendations]
+  )
   const recommendationMarkerSignature = useMemo(
     () =>
-      recommendations
+      displayRecommendations
         .map((r) => `${r.id}:${r.location?.lat}:${r.location?.lng}`)
         .join('|'),
-    [recommendations]
+    [displayRecommendations]
   )
   const [clusteredPins, setClusteredPins] = useState<ClusteredPin[]>([])
   const [dismissedRecommendationIds, setDismissedRecommendationIds] = useState<Set<string>>(() => new Set())
@@ -559,8 +653,8 @@ export default function AIRecommendationsHub({
   // Marker/cluster List is a view of canonical `recommendations`, keyed by selection identity.
   const [markerSelectionItems, setMarkerSelectionItems] = useState<Recommendation[]>([])
   const filteredRecommendations = useMemo(
-    () => resolveMarkerSelectionToCanonical(recommendations, markerSelectionItems),
-    [recommendations, markerSelectionItems]
+    () => resolveMarkerSelectionToCanonical(displayRecommendations, markerSelectionItems),
+    [displayRecommendations, markerSelectionItems]
   )
   const [isShowingCluster, setIsShowingCluster] = useState(false)
   const [currentCluster, setCurrentCluster] = useState<ClusteredPin | null>(null)
@@ -620,14 +714,43 @@ export default function AIRecommendationsHub({
       if (!id) continue
       const existing = findExistingRecommendation(Array.from(byId.values()), r)
       if (existing) {
-        const enriched = enrichRecommendationIdentity(existing, r)
-        byId.set(String(existing.id), enriched)
+        let enriched = enrichRecommendationIdentity(existing, r)
+        const existingId = String(existing.id)
+        const incomingId = String(r.id || '')
+        const preferStoredAiId =
+          existing.isAISuggestion &&
+          r.isAISuggestion &&
+          incomingId.startsWith('a_') &&
+          !existingId.startsWith('a_')
+        if (preferStoredAiId) {
+          enriched = { ...enriched, id: incomingId }
+          byId.set(existingId, enriched)
+          byId.set(incomingId, enriched)
+        } else {
+          byId.set(existingId, enriched)
+        }
         continue
       }
       byId.set(id, r)
       added.push(r)
     }
-    return [...prev.map((r) => byId.get(String(r.id)) || r), ...added]
+    const seen = new Set<string>()
+    const out: Recommendation[] = []
+    for (const r of prev) {
+      const mapped = byId.get(String(r.id))
+      if (!mapped) continue
+      const mappedId = String(mapped.id)
+      if (seen.has(mappedId)) continue
+      seen.add(mappedId)
+      out.push(mapped)
+    }
+    for (const r of added) {
+      const mappedId = String(r.id)
+      if (seen.has(mappedId)) continue
+      seen.add(mappedId)
+      out.push(r)
+    }
+    return out
   }
 
   const getIdToken = useCallback(async (): Promise<string | null> => {
@@ -640,20 +763,31 @@ export default function AIRecommendationsHub({
     }
   }, [])
 
+  const persistAiChainRef = useRef(Promise.resolve())
+  const aiStoredIdByClientIdRef = useRef<Map<string, string>>(new Map())
+
+  const resolveStoredAiClientId = useCallback((id: string): string => {
+    let current = String(id || '')
+    const seen = new Set<string>()
+    while (current && aiStoredIdByClientIdRef.current.has(current) && !seen.has(current)) {
+      seen.add(current)
+      current = aiStoredIdByClientIdRef.current.get(current) || current
+    }
+    return current
+  }, [])
+
   const persistAIRecommendationsToServer = useCallback(
     async (items: Recommendation[]) => {
       if (!items || items.length === 0) return
       const token = await getIdToken()
       if (!token) return
-      try {
-        await fetch('/api/recommendations/upsert-ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            items: items
+      persistAiChainRef.current = persistAiChainRef.current
+        .then(async () => {
+          try {
+            const payloadItems = items
               .filter((r) => r.isAISuggestion)
               .map((r) => ({
-                id: r.id,
+                id: resolveStoredAiClientId(String(r.id || '')),
                 title: r.title,
                 description:
                   r.descriptionSource === 'google_editorial'
@@ -671,13 +805,38 @@ export default function AIRecommendationsHub({
                 website: r.website,
                 closedPermanently: r.closedPermanently === true,
               }))
-          })
+            if (payloadItems.length === 0) return
+            const resp = await fetch('/api/recommendations/upsert-ai', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ items: payloadItems }),
+            })
+            if (!resp.ok) return
+            const data = await resp.json().catch(() => null)
+            const assigned = Array.isArray(data?.items) ? data.items : []
+            const remaps: Array<{ from: string; to: string }> = []
+            for (const row of assigned) {
+              const from = String(row?.clientId || '')
+              const to = String(row?.docId || '')
+              if (!from || !to || from === to) continue
+              aiStoredIdByClientIdRef.current.set(from, to)
+              remaps.push({ from, to })
+            }
+            if (remaps.length === 0) return
+            const applyId = (row: Recommendation): Recommendation => {
+              const hit = remaps.find((m) => m.from === String(row.id))
+              return hit ? { ...row, id: hit.to } : row
+            }
+            setRecommendations((prev) => prev.map(applyId))
+            setSelectedRecommendation((prev: Recommendation | null) => (prev ? applyId(prev) : prev))
+          } catch {
+            // ignore
+          }
         })
-      } catch {
-        // ignore
-      }
+        .catch(() => undefined)
+      await persistAiChainRef.current
     },
-    [getIdToken]
+    [getIdToken, resolveStoredAiClientId]
   )
   
   // NEW: Request management to prevent duplicate API calls
@@ -1386,7 +1545,7 @@ export default function AIRecommendationsHub({
 
   // NEW: Update clusters whenever recommendations change
   useEffect(() => {
-    if (recommendations.length > 0) {
+    if (displayRecommendations.length > 0) {
       // ENHANCED: Don't process recommendations if user is moving
       if (isUserMoving) {
         console.log('🧠 Skipping cluster update - user is moving, recommendations will be processed when stationary')
@@ -1395,14 +1554,14 @@ export default function AIRecommendationsHub({
         return
       }
       
-      const clusters = clusterPins(recommendations)
+      const clusters = clusterPins(displayRecommendations)
       setClusteredPins(clusters)
-      console.log('🧠 Updated clusters:', clusters.length, 'clusters from', recommendations.length, 'recommendations')
+      console.log('🧠 Updated clusters:', clusters.length, 'clusters from', displayRecommendations.length, 'recommendations')
     } else {
       console.log('🧠 No recommendations to cluster')
       setClusteredPins([])
     }
-  }, [recommendations, clusterPins, isUserMoving])
+  }, [displayRecommendations, clusterPins, isUserMoving])
 
   // Generate AI recommendations when location changes - with rate limiting
   useEffect(() => {
@@ -2234,11 +2393,13 @@ export default function AIRecommendationsHub({
   useEffect(() => {
     setSelectedRecommendation((prev: Recommendation | null) => {
       if (!prev) return prev
-      const current = recommendations.find((r) => String(r.id) === String(prev.id))
+      const resolved = resolveAbsorbedSelection(displayRecommendations, prev)
+      if (resolved && String(resolved.id) !== String(prev.id)) return resolved
+      const current = displayRecommendations.find((r) => String(r.id) === String(prev.id))
       if (!current) return prev
       return enrichRecommendationIdentity(prev, current)
     })
-  }, [recommendations])
+  }, [displayRecommendations])
 
   // Handle view mode changes
   const handleViewModeChange = (newViewMode: "map" | "list" | "insights") => {
@@ -2418,7 +2579,7 @@ export default function AIRecommendationsHub({
     const mapsNs = googleMapsNsRef.current
     if (!mapsNs) return
 
-    if (!recommendations || recommendations.length === 0) {
+    if (!displayRecommendations || displayRecommendations.length === 0) {
       recommendationMarkersRef.current.forEach((marker) => marker.remove())
       recommendationMarkersRef.current = []
       console.log('🗺️ No recommendations to display on map')
@@ -2430,8 +2591,8 @@ export default function AIRecommendationsHub({
     // Apply map filter to reduce clutter.
     const visibleRecommendations =
       recommendationFilter === "all"
-        ? recommendations
-        : recommendations.filter((r) =>
+        ? displayRecommendations
+        : displayRecommendations.filter((r) =>
             recommendationFilter === "ai" ? r.isAISuggestion === true : r.isAISuggestion !== true
           )
 
@@ -2579,7 +2740,7 @@ export default function AIRecommendationsHub({
 
     console.log(`✅ Added ${recommendationMarkersRef.current.length} recommendation markers to Discover map`)
     tryMarkDiscoverMapDisplayReady()
-  }, [recommendations, recommendationFilter, tryMarkDiscoverMapDisplayReady])
+  }, [displayRecommendations, recommendationFilter, tryMarkDiscoverMapDisplayReady])
 
   // Effect A: create map once per Map visit when coords are available (no cleanup on GPS updates)
   useEffect(() => {
@@ -2753,7 +2914,7 @@ export default function AIRecommendationsHub({
 
   // Update markers when recommendation content changes (ids + coordinates)
   useEffect(() => {
-    if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && recommendations.length > 0) {
+    if (viewMode === "map" && mapInstanceRef.current && isMapInitializedRef.current && displayRecommendations.length > 0) {
       updateRecommendationMarkers(mapInstanceRef.current)
     }
   }, [recommendationMarkerSignature, viewMode, updateRecommendationMarkers])
@@ -2773,7 +2934,7 @@ export default function AIRecommendationsHub({
         // ignore
       }
 
-      if (recommendations.length > 0) {
+      if (displayRecommendations.length > 0) {
         updateRecommendationMarkers(map)
       }
 
@@ -2785,7 +2946,7 @@ export default function AIRecommendationsHub({
     return () => cancelAnimationFrame(frameId)
   }, [
     viewMode,
-    recommendations.length,
+    displayRecommendations.length,
     updateRecommendationMarkers,
     tryMarkDiscoverMapDisplayReady,
   ])
@@ -3126,7 +3287,7 @@ export default function AIRecommendationsHub({
                 // Preserve ordering: first occurrence wins; later duplicates skipped.
                 const seen = new Set<string>()
                 displayRecs = []
-                for (const rec of recommendations) {
+                for (const rec of displayRecommendations) {
                   const typeKey = rec?.isAISuggestion ? 'ai' : 'user'
                   const identity = placeIdentityKey(rec)
                   const key = `${typeKey}|${identity}`

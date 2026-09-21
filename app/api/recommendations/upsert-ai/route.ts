@@ -40,6 +40,14 @@ function safeId(raw: string): string {
   return hash.slice(0, 28)
 }
 
+/** Stored AI docs are `a_{uid}_{hash}`. Community docs are `u_{uid}_{hash}`. */
+function isOwnedStoredAiDocId(id: string, uid: string): boolean {
+  const prefix = `a_${uid}_`
+  if (!id.startsWith(prefix)) return false
+  const suffix = id.slice(prefix.length)
+  return /^[A-Za-z0-9_-]{8,64}$/.test(suffix)
+}
+
 async function requireUid(req: Request): Promise<string | null> {
   const auth = getAdminAuth()
   if (!auth) return null
@@ -77,6 +85,7 @@ export async function POST(req: Request) {
   const slice = items.slice(0, 10)
 
   let written = 0
+  const assigned: Array<{ clientId: string | null; docId: string }> = []
   for (const it of slice) {
     const lat = it?.location?.lat
     const lng = it?.location?.lng
@@ -89,13 +98,20 @@ export async function POST(req: Request) {
 
     const desc = (it.description || '').toString().slice(0, 400)
     const category = (it.category || 'general').toString().slice(0, 64)
-    const identityKey = `coord:${lat.toFixed(6)},${lng.toFixed(6)}|t:${title.toLowerCase()}`
-    const docId = `a_${uid}_${safeId(identityKey)}`
     const googlePlaceId = googlePlaceIdFromRecommendationFields({
       googlePlaceId: it.googlePlaceId,
       placeId: it.placeId,
       placeKey: it.placeKey,
     })
+    const clientId = typeof it.id === 'string' ? it.id.trim() : ''
+    // Prefer the existing stored AI doc so canonicalisation cannot fork on title/coords.
+    // Fall back to Place ID identity, then coord+title for brand-new unresolved recs.
+    const identityKey = googlePlaceId
+      ? `place:${googlePlaceId}`
+      : `coord:${lat.toFixed(6)},${lng.toFixed(6)}|t:${title.toLowerCase()}`
+    const docId: string = isOwnedStoredAiDocId(clientId, uid)
+      ? clientId
+      : `a_${uid}_${safeId(identityKey)}`
     const mediaUrl =
       genuineCommunityPhotoUrl(it.mediaUrl) || genuineCommunityPhotoUrl(it.photoUrl)
     const website =
@@ -103,6 +119,19 @@ export async function POST(req: Request) {
         ? it.website.trim().slice(0, 500)
         : undefined
     const closedPermanently = it.closedPermanently === true
+
+    const itemRef = db
+      .collection('recommendation_areas')
+      .doc(key)
+      .collection('items')
+      .doc(docId)
+    const existingSnap = await itemRef.get()
+    if (existingSnap.exists) {
+      const existing = existingSnap.data() || {}
+      if (existing.kind !== 'ai') continue
+      if (existing.personalizedForUid && existing.personalizedForUid !== uid) continue
+      if (existing.createdByUid && existing.createdByUid !== uid) continue
+    }
 
     await db.collection('recommendation_areas').doc(key).set(
       { key, updatedAt: FieldValue.serverTimestamp() },
@@ -122,7 +151,9 @@ export async function POST(req: Request) {
       createdByUid: uid,
       personalizedForUid: uid,
       updatedAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp()
+    }
+    if (!existingSnap.exists) {
+      payload.createdAt = FieldValue.serverTimestamp()
     }
     if (googlePlaceId) {
       payload.googlePlaceId = googlePlaceId
@@ -136,16 +167,12 @@ export async function POST(req: Request) {
     if (website) payload.website = website
     if (closedPermanently) payload.closedPermanently = true
 
-    await db
-      .collection('recommendation_areas')
-      .doc(key)
-      .collection('items')
-      .doc(docId)
-      .set(payload, { merge: true })
+    await itemRef.set(payload, { merge: true })
 
     written++
+    assigned.push({ clientId: clientId || null, docId })
   }
 
-  return NextResponse.json({ ok: true, written })
+  return NextResponse.json({ ok: true, written, items: assigned })
 }
 
