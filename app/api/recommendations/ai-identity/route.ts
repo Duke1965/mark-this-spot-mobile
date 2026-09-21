@@ -38,10 +38,19 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       placeId: resolved.placeId,
+      title: resolved.title || null,
+      category: resolved.category || null,
+      lat: Number.isFinite(resolved.lat) ? resolved.lat : null,
+      lng: Number.isFinite(resolved.lng) ? resolved.lng : null,
+      address: resolved.address || null,
       photoUrl: resolved.photoUrl,
       website: resolved.website || null,
+      businessStatus: resolved.businessStatus || null,
       description: resolved.description || null,
       source: resolved.source,
+      resolver: resolved.resolver,
+      distanceMeters:
+        typeof resolved.distanceMeters === "number" ? resolved.distanceMeters : null,
     })
   } catch {
     return NextResponse.json({

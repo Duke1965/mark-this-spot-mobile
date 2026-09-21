@@ -203,6 +203,35 @@ export function isAddressLikeDescription(
   return hasStreetOrAdmin && hasCountryOrPostal
 }
 
+/**
+ * Upstream Mapbox/Geoapify titles that must not be treated as Google identity.
+ * "Main Street" / "building" stay secondary clues; they are not search authority.
+ */
+export function isWeakUpstreamTitle(title: string | undefined): boolean {
+  const n = (title || '').trim()
+  if (!n) return true
+  const lower = n.toLowerCase()
+  if (lower.length <= 2) return true
+  if (
+    lower === 'building' ||
+    lower === 'house' ||
+    lower === 'home' ||
+    lower === 'location' ||
+    lower === 'place' ||
+    lower === 'address' ||
+    lower === 'poi' ||
+    lower === 'spot' ||
+    lower === 'area' ||
+    lower === 'unknown place' ||
+    lower === 'pinned location'
+  ) {
+    return true
+  }
+  // Short thoroughfare names ("Main Street") are weak; longer business names may still include "Street".
+  if (isStreetyName(n) && n.split(/\s+/).filter(Boolean).length <= 3) return true
+  return false
+}
+
 function collapseSpaces(s: string | null | undefined): string {
   return String(s || '')
     .replace(/\s+/g, ' ')

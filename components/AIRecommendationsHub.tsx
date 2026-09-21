@@ -14,7 +14,7 @@ import {
   openGoogleMapsNavigation,
 } from '@/lib/openGoogleMapsNavigation'
 import { sanitizePlaceDescription } from '@/lib/sanitizePlaceDescription'
-import { isAddressLikeDescription } from '@/lib/places/formatPlaceText'
+import { isAddressLikeDescription, isWeakUpstreamTitle } from '@/lib/places/formatPlaceText'
 import { bootstrapPostcardDraftFromPhoto } from '@/lib/postcard/bootstrapPostcardDraft'
 import {
   genuineCommunityPhotoUrl,
@@ -99,9 +99,10 @@ function aiIdentityKey(rec: Pick<Recommendation, 'title' | 'location'>): string 
     Number.isFinite(lat) &&
     Number.isFinite(lng)
   ) {
-    return `${title}|${lat.toFixed(6)}|${lng.toFixed(6)}`
+    // v3: Nearby-first identity. Do not reuse pre-v3 sticky misses for "Main Street".
+    return `v3|${title}|${lat.toFixed(6)}|${lng.toFixed(6)}`
   }
-  return `${title}|unknown`
+  return `v3|${title}|unknown`
 }
 
 const AI_SAME_PLACE_MAX_DISTANCE_M = 250
@@ -2028,11 +2029,15 @@ export default function AIRecommendationsHub({
       const key = aiIdentityKey(rec)
       const hasPlaceId = !!googlePlaceIdFromRecommendationFields(rec)
       const needsIdentity = !hasPlaceId
+      const needsCanonicalRefresh =
+        hasPlaceId &&
+        isWeakUpstreamTitle(rec.title) &&
+        !aiCanonicalIdentityByKeyRef.current.has(key)
       const needsDescription =
         hasPlaceId &&
         isAddressLikeDescription(rec.description) &&
         !aiDescriptionUpgradeByKeyRef.current.has(key)
-      if (!needsIdentity && !needsDescription) continue
+      if (!needsIdentity && !needsCanonicalRefresh && !needsDescription) continue
       if (needsIdentity) {
         const prior = aiIdentityByKeyRef.current.get(key)
         // `limited` is not a confirmed miss — stale quota from the old Nearby path must not stick.
@@ -2049,6 +2054,10 @@ export default function AIRecommendationsHub({
       rec: Recommendation,
       data: {
         placeId: string
+        title?: string | null
+        category?: string | null
+        lat?: number | null
+        lng?: number | null
         photoUrl?: string | null
         website?: string | null
         description?: string | null
@@ -2056,6 +2065,10 @@ export default function AIRecommendationsHub({
     ) => {
       const placeId = String(data.placeId || '').trim()
       if (!placeId) return
+      const googleTitle = typeof data.title === 'string' ? data.title.trim() : ''
+      const googleCategory = typeof data.category === 'string' ? data.category.trim() : ''
+      const googleLat = Number(data.lat)
+      const googleLng = Number(data.lng)
       const photoUrl = genuineCommunityPhotoUrl(data.photoUrl)
       const website =
         typeof data.website === 'string' && data.website.trim().startsWith('http')
@@ -2067,14 +2080,20 @@ export default function AIRecommendationsHub({
         if (aiIdentityKey(row) !== key && String(row.id) !== String(rec.id)) return row
         let next: Recommendation = {
           ...row,
-          googlePlaceId: row.googlePlaceId || placeId,
-          placeId: row.placeId || placeId,
-          placeKey: row.placeKey?.startsWith('place:') ? row.placeKey : `place:${placeId}`,
+          googlePlaceId: placeId,
+          placeId,
+          placeKey: `place:${placeId}`,
         }
-        if (photoUrl && !genuineCommunityPhotoUrl(next.photoUrl) && !genuineCommunityPhotoUrl(next.mediaUrl)) {
+        if (googleTitle) next = { ...next, title: googleTitle }
+        if (googleCategory) next = { ...next, category: googleCategory }
+        if (Number.isFinite(googleLat) && Number.isFinite(googleLng)) {
+          next = { ...next, location: { lat: googleLat, lng: googleLng } }
+        }
+        // Google Place photo wins over Wikimedia/Unsplash leftovers from generation.
+        if (photoUrl) {
           next = { ...next, photoUrl, mediaUrl: photoUrl }
         }
-        if (website && !next.website) next = { ...next, website }
+        if (website) next = { ...next, website }
         if (
           incomingDesc &&
           isAddressLikeDescription(next.description) &&
@@ -2084,7 +2103,18 @@ export default function AIRecommendationsHub({
         }
         return next
       }
-      persistAIRecommendationsToServer([stamp(rec)])
+      const stamped = stamp(rec)
+      try {
+        console.log('[TEMP Phase1 AI identity] applied', {
+          originalTitle: rec.title,
+          finalTitle: stamped.title,
+          googlePlaceId: placeId,
+          category: stamped.category,
+        })
+      } catch {
+        // ignore
+      }
+      persistAIRecommendationsToServer([stamped])
       if (!aiIdentityMountedRef.current) return
       setRecommendations((prev) => prev.map(stamp))
       setSelectedRecommendation((prev: Recommendation | null) => (prev ? stamp(prev) : prev))
@@ -2124,8 +2154,13 @@ export default function AIRecommendationsHub({
           const placeId = typeof data?.placeId === 'string' ? data.placeId.trim() : ''
           if (data?.ok && placeId) {
             aiIdentityByKeyRef.current.set(key, placeId)
+            aiCanonicalIdentityByKeyRef.current.add(key)
             applyIdentity(key, rec, {
               placeId,
+              title: data.title,
+              category: data.category,
+              lat: data.lat,
+              lng: data.lng,
               photoUrl: data.photoUrl,
               website: data.website,
               description: data.description,
@@ -2327,6 +2362,7 @@ export default function AIRecommendationsHub({
   const aiIdentityNavTokenRef = useRef('')
   const aiIdentityMountedRef = useRef(true)
   const aiDescriptionUpgradeByKeyRef = useRef<Set<string>>(new Set())
+  const aiCanonicalIdentityByKeyRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     aiIdentityMountedRef.current = true

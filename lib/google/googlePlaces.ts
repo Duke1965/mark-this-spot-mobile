@@ -161,7 +161,7 @@ function sanitizePhotoResourceName(name: string): string | null {
   return n
 }
 
-function looksLikeAddressOnly(types: string[] | undefined): boolean {
+export function looksLikeAddressOnly(types: string[] | undefined): boolean {
   const t = (types || []).map((s) => String(s || '').toLowerCase())
   if (t.includes('route') || t.includes('street_address') || t.includes('intersection')) return true
   return false
@@ -223,7 +223,7 @@ export function hintMatches(hint: string | undefined, candidateName: string | un
   return false
 }
 
-function preferenceScore(types: string[] | undefined): number {
+export function preferenceScore(types: string[] | undefined): number {
   const t = (types || []).map((s) => String(s || '').toLowerCase())
   let score = 0
 
@@ -248,6 +248,14 @@ function preferenceScore(types: string[] | undefined): number {
   // Mild reward for "point_of_interest"
   if (t.includes('point_of_interest')) score += 1
   return score
+}
+
+/** AI identity: destination POI, not a route/address/generic building. Quick Pin ranking is unchanged. */
+export function isMeaningfulDestinationPlace(types: string[] | undefined): boolean {
+  if (looksLikeAddressOnly(types)) return false
+  if (preferenceScore(types) >= 2) return true
+  const t = (types || []).map((s) => String(s || '').toLowerCase())
+  return t.includes('church') || t.includes('place_of_worship')
 }
 
 function diagnosticCandidates(
@@ -276,9 +284,15 @@ export async function nearbySearch(input: {
   maxDistanceMetersChain?: number
   /** Adjust Pin: rank Google by distance and pick the closest candidate. Quick Pin omits this. */
   rankByDistance?: boolean
+  /**
+   * AI identity: among non-address POIs with a preferred destination type,
+   * pick the closest. Does not change Quick Pin / Adjust Pin ranking.
+   */
+  preferClosestMeaningful?: boolean
 }): Promise<GoogleNearbySelection> {
   const key = requireApiKey()
   const rankByDistance = !!input.rankByDistance
+  const preferClosestMeaningful = !!input.preferClosestMeaningful
   // Places API (New) circle radius must be > 0 and <= 50000 m.
   const radius = Math.max(
     1,
@@ -354,9 +368,11 @@ export async function nearbySearch(input: {
   // Prefer hint matches when present. Nearby Search (New) has no keyword param;
   // matching stays client-side so pin-intel ranking behaviour is unchanged.
   // Adjust Pin must not lock onto a Mapbox-derived name; marker position wins.
-  const hint = rankByDistance ? '' : String(input.term || '').trim()
+  // AI identity: title is a soft clue only — never an exclusive filter.
+  const exclusiveHint = rankByDistance || preferClosestMeaningful ? '' : String(input.term || '').trim()
+  const softHint = preferClosestMeaningful ? String(input.term || '').trim() : ''
   const within = usable.filter((c) => c.distanceMeters <= (c.isChain ? threshChain : thresh))
-  const hintMatchesWithin = hint ? within.filter((c) => hintMatches(hint, c.name)) : []
+  const hintMatchesWithin = exclusiveHint ? within.filter((c) => hintMatches(exclusiveHint, c.name)) : []
   const pool = hintMatchesWithin.length ? hintMatchesWithin : within
 
   if (pool.length === 0) {
@@ -368,11 +384,45 @@ export async function nearbySearch(input: {
     }
   }
 
+  const meaningfulPool = preferClosestMeaningful
+    ? pool.filter((c) => isMeaningfulDestinationPlace(c.types))
+    : pool
+
+  if (preferClosestMeaningful && meaningfulPool.length === 0) {
+    return {
+      selected: null,
+      candidates: diagnosticCandidates(usable),
+      thresholdUsed: thresh,
+      reasonIfNotUsed: 'google_no_meaningful_candidate'
+    }
+  }
+
+  // AI identity: a strong title may prefer a hintMatches candidate, but only inside
+  // the existing pin-intel radius (default 80 m). That reuses GOOGLE_PIN_INTEL_RADIUS_METERS
+  // so a name match at 220 m cannot beat a cafe at 10 m. Weak titles pass no softHint.
+  // Quick Pin never sets preferClosestMeaningful — ranking below is unchanged.
+  const namePreferMaxM = Math.max(
+    10,
+    Math.min(thresh, envInt('GOOGLE_PIN_INTEL_RADIUS_METERS', 80))
+  )
+  const closeNameMatches =
+    preferClosestMeaningful && softHint
+      ? meaningfulPool.filter(
+          (c) => hintMatches(softHint, c.name) && c.distanceMeters <= namePreferMaxM
+        )
+      : []
+  const rankPool = closeNameMatches.length
+    ? closeNameMatches
+    : preferClosestMeaningful
+      ? meaningfulPool
+      : pool
+
   // Quick Pin: preferred type then distance. Adjust Pin: closest first, type as tie-break.
-  const selected = pool
+  // AI identity: strong-name match inside radius, else closest meaningful.
+  const selected = rankPool
     .slice()
     .sort((a, b) => {
-      if (rankByDistance) {
+      if (preferClosestMeaningful || rankByDistance) {
         const dd = a.distanceMeters - b.distanceMeters
         if (dd !== 0) return dd
         return preferenceScore(b.types) - preferenceScore(a.types)
@@ -388,7 +438,7 @@ export async function nearbySearch(input: {
     console.log('📍 Google Nearby candidates:', {
       pin: { lat: input.lat, lon: input.lon },
       thresholdUsed,
-      hint: hint || undefined,
+      hint: exclusiveHint || softHint || undefined,
       candidates: top.map((c) => ({
         name: c.name,
         placeId: c.placeId,
@@ -416,7 +466,7 @@ export type GoogleTextSearchCandidate = {
 
 /**
  * Places API (New) Text Search. Sends textQuery to Google with a location bias.
- * Used by AI identity resolution only — Nearby Search for Quick Pin is unchanged.
+ * AI identity uses this only as a fallback for a strong specific title after Nearby.
  */
 export async function textSearch(input: {
   textQuery: string
