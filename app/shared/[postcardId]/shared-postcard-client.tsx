@@ -40,15 +40,20 @@ export type SharedPostcardData = {
 const BASE_POSTCARD_W = 420
 const BASE_POSTCARD_H = 280
 const MAX_MESSAGE_LEN = 60
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.apptitudelabs.pinit"
+const PLAY_BADGE_SRC = "/brand/google-play/en_badge_web_generic.png"
 
 export default function SharedPostcardClient({ data }: { data: SharedPostcardData }) {
   const templateConfig = useMemo(() => getTemplateConfig(data.template), [data.template])
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [compositionScale, setCompositionScale] = useState(1)
   const [insideMappo, setInsideMappo] = useState(false)
+  // Starts false so server HTML and the first client render match. Android is applied after mount.
+  const [isAndroidBrowser, setIsAndroidBrowser] = useState(false)
 
   useEffect(() => {
     setInsideMappo(isInsideMappo())
+    setIsAndroidBrowser(/Android/i.test(navigator.userAgent || ""))
   }, [])
 
   useEffect(() => {
@@ -197,9 +202,15 @@ export default function SharedPostcardClient({ data }: { data: SharedPostcardDat
         ) : null}
 
         {!insideMappo ? (
-          <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
-            Get Mappo to reply
-          </Link>
+          isAndroidBrowser ? (
+            <a href={PLAY_STORE_URL} style={styles.playBadgeLink}>
+              <img src={PLAY_BADGE_SRC} alt="Get it on Google Play" style={styles.playBadge} />
+            </a>
+          ) : (
+            <Link href="/" style={{ ...styles.cta, marginTop: 10 }}>
+              Get Mappo to reply
+            </Link>
+          )
         ) : null}
       </div>
     </div>
@@ -345,6 +356,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     padding: "0.95rem 1rem",
     borderRadius: 14,
+  },
+  playBadgeLink: {
+    display: "block",
+    marginTop: 10,
+    lineHeight: 0,
+  },
+  playBadge: {
+    width: "min(240px, 72vw)",
+    height: "auto",
+    display: "block",
   },
   goThere: {
     width: "100%",
