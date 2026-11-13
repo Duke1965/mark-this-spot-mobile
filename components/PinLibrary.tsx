@@ -6,6 +6,7 @@ import type { PinData } from "@/lib/types"
 import { MyPostcardsPanel } from "@/app/postcard/library/my-postcards-panel"
 import { resolvePinContext, resolveTitleFallback } from "@/lib/pinText"
 import { openGoogleMapsNavigation } from "@/lib/openGoogleMapsNavigation"
+import { requestPostcardTemplateStepBack } from "@/lib/libraryNav"
 import {
   mappoBackButtonAbsoluteStyle,
   mappoHeaderBarStyle,
@@ -16,7 +17,7 @@ const POSTCARD_DRAFT_KEY = "pinit-postcard-draft-v1"
 const ALLOWED_DRAFT_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 
 type LocalPostcardDraft = {
-  template: string
+  template?: string
   imageUrl?: string
   noPhoto?: boolean
   message?: string
@@ -68,12 +69,14 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
       if (!raw) return null
       const parsed = JSON.parse(raw) as any
       const template = typeof parsed?.template === "string" ? parsed.template.trim() : ""
-      if (!ALLOWED_DRAFT_TEMPLATES.has(template)) return null
+      const hasTemplate = ALLOWED_DRAFT_TEMPLATES.has(template)
       const hasImage = typeof parsed?.imageUrl === "string" && parsed.imageUrl.length > 20
       const hasNoPhoto = typeof parsed?.noPhoto === "boolean" && parsed.noPhoto === true
       if (!hasImage && !hasNoPhoto) return null
+      // A chosen template resumes in the editor. A photo with no template resumes at style selection.
+      if (!hasTemplate && !hasImage) return null
       const draft: LocalPostcardDraft = {
-        template,
+        ...(hasTemplate ? { template } : {}),
         ...(hasImage ? { imageUrl: String(parsed.imageUrl) } : null),
         ...(typeof parsed?.noPhoto === "boolean" ? { noPhoto: parsed.noPhoto } : null),
         ...(typeof parsed?.message === "string" ? { message: String(parsed.message) } : null),
@@ -101,10 +104,17 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
   }, [localDraft?.imageUrl])
 
   const resumeDraft = () => {
-    const t = localDraft?.template
-    if (!t) return
+    if (!localDraft) return
     try {
-      window.location.href = `/postcard/editor?template=${encodeURIComponent(t)}`
+      const t = localDraft.template
+      if (t && ALLOWED_DRAFT_TEMPLATES.has(t)) {
+        window.location.href = `/postcard/editor?template=${encodeURIComponent(t)}`
+        return
+      }
+      if (typeof localDraft.imageUrl === "string" && localDraft.imageUrl.length > 20) {
+        requestPostcardTemplateStepBack()
+        window.location.href = "/postcard/templates"
+      }
     } catch {
       // ignore
     }
@@ -751,12 +761,14 @@ export function PinLibrary({ pins, onBack, onPinSelect, onPinUpdate, onPinDelete
                         draggable={false}
                       />
                     ) : null}
-                    <img
-                      src={`/postcards/${localDraft.template}.png`}
-                      alt=""
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.95 }}
-                      draggable={false}
-                    />
+                    {localDraft.template ? (
+                      <img
+                        src={`/postcards/${localDraft.template}.png`}
+                        alt=""
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.95 }}
+                        draggable={false}
+                      />
+                    ) : null}
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>

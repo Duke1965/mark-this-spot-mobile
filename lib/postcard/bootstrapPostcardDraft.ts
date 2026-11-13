@@ -1,6 +1,7 @@
+import { requestPostcardTemplateStepBack } from "@/lib/libraryNav"
+
 const DRAFT_KEY = "pinit-postcard-draft-v1"
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
-const DEFAULT_TEMPLATE = "template-1"
 
 async function normalizeImageToJpegDataUrlFromBlob(blob: Blob) {
   const MAX_DIM = 1600
@@ -50,6 +51,11 @@ async function normalizeImageToJpegDataUrlFromBlob(blob: Blob) {
 
 function goToPostcardEditor(template: string) {
   window.location.assign(`/postcard/editor?template=${encodeURIComponent(template)}`)
+}
+
+function goToTemplateSelection() {
+  requestPostcardTemplateStepBack()
+  window.location.assign("/postcard/templates")
 }
 
 /**
@@ -102,12 +108,13 @@ export async function bootstrapPostcardDraftFromPhoto(input: {
       const existingTemplate =
         typeof existing?.template === "string" ? existing.template.trim() : ""
       const hasTemplate = ALLOWED_TEMPLATES.has(existingTemplate)
-      if ((hasImage || hasNoPhoto) && hasTemplate) {
+      if ((hasImage || hasNoPhoto) && (hasTemplate || hasImage)) {
         const replace = window.confirm(
           "You already have an in-progress postcard draft. Replace it with this postcard?"
         )
         if (!replace) {
-          goToPostcardEditor(existingTemplate)
+          if (hasTemplate) goToPostcardEditor(existingTemplate)
+          else goToTemplateSelection()
           return { ok: true }
         }
       }
@@ -124,7 +131,6 @@ export async function bootstrapPostcardDraftFromPhoto(input: {
     sessionStorage.setItem(
       DRAFT_KEY,
       JSON.stringify({
-        template: DEFAULT_TEMPLATE,
         imageUrl: normalized,
         title,
         description,
@@ -138,6 +144,6 @@ export async function bootstrapPostcardDraftFromPhoto(input: {
     }
   }
 
-  goToPostcardEditor(DEFAULT_TEMPLATE)
+  goToTemplateSelection()
   return { ok: true }
 }

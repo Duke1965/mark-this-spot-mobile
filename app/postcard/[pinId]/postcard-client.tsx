@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { usePinStorage } from "@/hooks/usePinStorage"
 import type { PinData } from "@/lib/types"
+import { requestPostcardTemplateStepBack } from "@/lib/libraryNav"
 
 const ALLOWED_TEMPLATES = new Set(["template-1", "template-2", "template-3", "template-4"])
 const DRAFT_KEY = "pinit-postcard-draft-v1"
@@ -54,7 +55,6 @@ async function normalizeImageToJpegDataUrlFromBlob(blob: Blob) {
 
 export default function PostcardClient({
   pinId,
-  template,
   imageUrl,
   title,
   description,
@@ -70,8 +70,6 @@ export default function PostcardClient({
   const router = useRouter()
   const { pins } = usePinStorage()
   const [fatalError, setFatalError] = useState<string | null>(null)
-
-  const resolvedTemplate = ALLOWED_TEMPLATES.has(String(template)) ? String(template) : "template-1"
 
   const pin: PinData | null = useMemo(() => {
     if (!pinId) return null
@@ -113,13 +111,20 @@ export default function PostcardClient({
             const existing = JSON.parse(existingRaw) as any
             const hasImage = typeof existing?.imageUrl === "string" && existing.imageUrl.length > 20
             const hasNoPhoto = !!existing?.noPhoto
-            const hasTemplate = typeof existing?.template === "string" && ALLOWED_TEMPLATES.has(existing.template.trim())
-            if ((hasImage || hasNoPhoto) && hasTemplate) {
+            const existingTemplate =
+              typeof existing?.template === "string" ? existing.template.trim() : ""
+            const hasTemplate = ALLOWED_TEMPLATES.has(existingTemplate)
+            if ((hasImage || hasNoPhoto) && (hasTemplate || hasImage)) {
               const ok = window.confirm(
                 "You already have an in-progress postcard draft. Replace it with this pin’s postcard?"
               )
               if (!ok) {
-                router.replace(`/postcard/editor?template=${encodeURIComponent(existing.template.trim())}`)
+                if (hasTemplate) {
+                  router.replace(`/postcard/editor?template=${encodeURIComponent(existingTemplate)}`)
+                } else {
+                  requestPostcardTemplateStepBack()
+                  router.replace("/postcard/templates")
+                }
                 return
               }
             }
@@ -131,7 +136,6 @@ export default function PostcardClient({
         sessionStorage.setItem(
           DRAFT_KEY,
           JSON.stringify({
-            template: resolvedTemplate,
             imageUrl: normalized,
             title: resolvedTitle,
             description: resolvedDescription,
@@ -139,7 +143,8 @@ export default function PostcardClient({
             fromPinId: pinId,
           })
         )
-        router.replace(`/postcard/editor?template=${encodeURIComponent(resolvedTemplate)}`)
+        requestPostcardTemplateStepBack()
+        router.replace("/postcard/templates")
       } catch {
         if (!cancelled) setFatalError("We couldn’t use this pin photo as a postcard. Please try a different photo.")
       }
@@ -147,7 +152,7 @@ export default function PostcardClient({
     return () => {
       cancelled = true
     }
-  }, [pinId, pin, resolvedImageUrl, resolvedTemplate, resolvedTitle, resolvedDescription, router])
+  }, [pinId, pin, resolvedImageUrl, resolvedTitle, resolvedDescription, router])
 
   if (fatalError) {
     return (
