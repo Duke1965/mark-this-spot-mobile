@@ -71,12 +71,13 @@ export function useAuth() {
         )
       }
 
-      const isNativeAndroid =
+      const platform = Capacitor.getPlatform()
+      const isNativeGoogle =
         typeof window !== "undefined" &&
         Capacitor.isNativePlatform() &&
-        Capacitor.getPlatform() === "android"
+        (platform === "android" || platform === "ios")
 
-      if (!isNativeAndroid) {
+      if (!isNativeGoogle) {
         console.log("🌐 Google sign-in: web popup path")
         const result = await signInWithPopup(auth, googleProvider!)
         console.log("✅ Google sign in successful:", result.user.displayName)
