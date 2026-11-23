@@ -3798,6 +3798,7 @@ export default function PINITApp() {
         <div
           style={{
             padding: "1rem",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             background: "var(--pinit-panel)",
             display: "flex",
             alignItems: "center",
