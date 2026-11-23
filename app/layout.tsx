@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 import RegisterSW from "@/components/RegisterSW"
 
+export { viewport } from "./viewport"
+
 export const metadata: Metadata = {
   title: "Mappo",
   description: "Postcards from anywhere.",
