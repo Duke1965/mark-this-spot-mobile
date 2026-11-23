@@ -3,6 +3,6 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  // viewportFit: 'cover', // Removed to eliminate splash screen
+  viewportFit: 'cover',
   // themeColor: '#1e3a8a', // Removed to eliminate splash screen
 };
