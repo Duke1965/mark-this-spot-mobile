@@ -4619,7 +4619,7 @@ export default function PINITApp() {
       <div
         style={{
           position: "absolute",
-          top: "1rem",
+          top: "calc(env(safe-area-inset-top, 0px) + 1rem)",
           right: "1rem",
           zIndex: 10,
           display: "flex",
