@@ -4643,6 +4643,10 @@ export default function PINITApp() {
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.2s ease",
+            fontSize: "1.3rem",
+            minWidth: 44,
+            minHeight: 44,
+            boxSizing: "border-box",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--pinit-btn)"
